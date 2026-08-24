@@ -50,6 +50,41 @@ export default defineConfig({
         },
       },
       {
+        /**
+         * Every bare specifier the browser suite can reach, pre-bundled before the
+         * first test runs.
+         *
+         * Vite's scanner crawls from the entry HTML, misses whatever only a test file
+         * imports, and then discovers it *during* the run — at which point it
+         * re-optimizes and reloads the page underneath whichever suite is executing.
+         * Vitest reports that as `Vite unexpectedly reloaded a test`, and the suite
+         * that was mid-import dies with `Failed to fetch dynamically imported module`
+         * or `failed to find the current suite`.
+         *
+         * `router.test.ts` is the reason this is fatal rather than flaky. It drives
+         * real navigations through the page it runs in and keeps the document alive
+         * with an intercepting listener; a reload from under it takes the file's
+         * whole context with it and collects zero tests.
+         *
+         * Invisible locally, because `node_modules/.vite` is warm after the first
+         * run — and reliably broken in CI, where the cache is always cold. Reproduce
+         * with `rm -rf node_modules/.vite && npm run test:components`.
+         */
+        optimizeDeps: {
+          include: [
+            'lit',
+            'lit/decorators.js',
+            'lit/directives/class-map.js',
+            'lit/directives/if-defined.js',
+            'lit/directives/keyed.js',
+            'lit/directives/live.js',
+            'lit/directives/repeat.js',
+            'lit/directives/style-map.js',
+            'dexie',
+            'd3-shape',
+          ],
+        },
+
         test: {
           name: 'components',
           env: { TZ: 'Europe/Paris' },
