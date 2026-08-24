@@ -1,0 +1,133 @@
+@layer views.events {
+  .events-view {
+    display: grid;
+    gap: var(--spacing-24);
+  }
+
+  .events-view__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-12);
+  }
+
+  /* `.container` gives the white card; the calendar wants more room inside it
+     than the shared 12px. `views` sits after `components`, so this wins. */
+  .events-view__calendar {
+    padding: var(--spacing-16);
+  }
+
+  .events-view__search {
+    --app-input-background: var(--color-brown-light-bg);
+  }
+
+  .events-view__search::part(control) {
+    border-radius: var(--radius-16);
+  }
+
+  /* Bleeds past the page padding so the row scrolls edge to edge and the last
+     chip is visibly cut off, which is what says "there are more". */
+  .events-view__filters {
+    display: flex;
+    gap: var(--spacing-8);
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--spacing-20));
+    padding-inline: var(--spacing-20);
+  }
+
+  .events-view__filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  .events-view__day,
+  .events-view__group {
+    display: grid;
+    gap: var(--spacing-12);
+    margin-top: var(--spacing-8);
+  }
+
+  .events-view__group-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-brown-dark);
+  }
+
+  .events-view__list {
+    display: grid;
+    gap: var(--spacing-12);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /*
+   * This list is every event the horse has ever had.
+   *
+   * `EventsView` deliberately loads them all and filters in memory — a query
+   * narrowed by the search box or the chips would go stale, since neither is a
+   * Dexie write. That is correct, but it means the row count only ever grows,
+   * and each row is an event-card: its own shadow root, its own container
+   * query, and an app-icon and app-tag inside it.
+   *
+   * `content-visibility: auto` skips style, layout and paint for the rows that
+   * are off screen, which is the platform's answer to virtualising a list —
+   * and unlike a virtualiser it keeps every row findable by in-page search,
+   * reachable by Tab and present for a screen reader.
+   *
+   * `contain-intrinsic-size: auto <h>` is what keeps the scrollbar honest: the
+   * `auto` keyword makes the browser remember each row's real height once it
+   * has been rendered, falling back to the estimate below only for rows it has
+   * never seen.
+   *
+   * 5.25rem is measured, not derived: 84px is what a card with a single-line
+   * title actually renders at, and it is the overwhelmingly common case (21 of
+   * 26 rows in a representative list; 100px when the title wraps to two lines,
+   * 129px with notes). Guessing it from the icon and padding gave 76px, and an
+   * under-estimate is the one that hurts — every unseen row is shorter than it
+   * will turn out to be, so the page grows under the user as they scroll.
+   *
+   * NOTE: this makes each row a stacking context, which is why `.navigation`
+   * carries a z-index — see views/main.css.
+   */
+  .events-view__list > li {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 5.25rem;
+    /* Opacity only. A row that also travelled would be movement on a frequent
+       control, and on a list this long it would be movement the compositor has
+       to pay for on every chip tap. */
+    transition: opacity var(--duration-fast) var(--easing-out);
+  }
+
+  /* Only genuinely new rows fade; the survivors of a filter change hold at
+     full opacity.
+
+     Not because `repeat()` moves their DOM node — a move is an `insertBefore`,
+     which detaches and re-inserts, and a re-inserted element DOES get a fresh
+     starting style and re-fades from zero. It holds because this list never
+     reorders: `listByHorse` returns newest first, and the search box and the
+     type chips only ever take a subset of that, so `repeat()` has nothing to
+     move and does pure inserts and removes.
+
+     That invariant is the whole load-bearing part. Give this list a sort
+     control, or change the order `listByHorse` returns, and every visible row
+     re-fades on every keystroke — pinned by the reorder case in
+     `EventsView.test.ts`. */
+  @starting-style {
+    .events-view__list > li {
+      opacity: 0;
+    }
+  }
+
+  .events-view__empty {
+    font-size: 0.875rem;
+    color: var(--color-brown-light);
+    transition: opacity var(--duration-fast) var(--easing-out);
+  }
+
+  @starting-style {
+    .events-view__empty {
+      opacity: 0;
+    }
+  }
+}

@@ -1,0 +1,219 @@
+@layer views.horse {
+  .horse-view {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .horse-view__meta {
+    display: grid;
+    gap: .5rem;
+  }
+
+  /* Full-bleed past the page padding. dvw, not vw: vw includes the
+     scrollbar, so on desktop the card overflows and the page scrolls
+     sideways. */
+  .horse-view__card {
+    display: block;
+    width: 100dvw;
+    margin-inline: calc(50% - 50dvw);
+  }
+
+  .horse-view__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .horse-view__edit-button {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: none;
+    padding: var(--spacing-4);
+    border-radius: var(--radius-8);
+    color: var(--color-brown-dark);
+    cursor: pointer;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .horse-view__edit-button:hover:not(:disabled) {
+      background: var(--color-brown-light-bg);
+    }
+  }
+
+  .horse-view__edit-button:disabled {
+    color: var(--color-brown-disabled);
+    cursor: not-allowed;
+  }
+
+  /* Sized on the glyph, not on `app-icon`'s host — the host carries its own
+     padding, so constraining it instead squeezes the SVG to a sliver. */
+  .horse-view__edit-button app-icon {
+    --icon-size: 1.5rem;
+  }
+
+  .horse-view__section {
+    display: grid;
+    gap: var(--spacing-12);
+  }
+
+  .ration-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-12);
+    list-style: none;
+    margin: 0;
+    padding: var(--spacing-16);
+  }
+
+  .ration-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+  }
+
+  .ration-item:not(:last-child) {
+    border-bottom: 1px solid var(--color-divider);
+    padding-bottom: var(--spacing-12);
+  }
+
+  .ration-item__marker {
+    flex-shrink: 0;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-brown-light);
+  }
+
+  .ration-item__text {
+    display: grid;
+    gap: var(--spacing-2);
+    min-width: 0;
+  }
+
+  .ration-item__label {
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.25rem;
+    color: var(--font-color);
+  }
+
+  .ration-item__season {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-brown-light);
+  }
+
+  .ration-item__quantity {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-4);
+    margin-inline-start: auto;
+    white-space: nowrap;
+  }
+
+  .ration-item__amount {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--font-color);
+  }
+
+  .ration-item__unit {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-brown-light);
+  }
+
+  /* Out of season. Struck through rather than hidden: the line is still part of
+     the plan, it is just not being fed today. `line-through` sits on the text
+     spans, not the row, so it doesn't drag a rule across the whole card. */
+  .ration-item--suspended {
+    opacity: 0.45;
+  }
+
+  .ration-item--suspended .ration-item__label,
+  .ration-item--suspended .ration-item__season,
+  .ration-item--suspended .ration-item__quantity {
+    text-decoration: line-through;
+  }
+
+  .ration-note {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-8);
+    margin: 0;
+    padding: var(--spacing-12);
+    border-radius: var(--radius-12);
+    background: var(--color-brown-light-bg);
+    font-size: 0.8125rem;
+    color: var(--color-brown-middle);
+  }
+
+  .ration-note__icon {
+    flex-shrink: 0;
+    padding: 0;
+    color: var(--color-brown-middle);
+    --icon-size: 1.125rem;
+  }
+
+  .ration-empty {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-brown-middle);
+  }
+
+  .ration-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-16);
+  }
+
+  /* One card per product: name and the seasonal toggle share the top row, the
+     quantity input spans underneath. The input's own label is hidden — the
+     group is already named by `.ration-field__name`. */
+  .ration-field {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--spacing-12);
+    padding: var(--spacing-16);
+    border-radius: var(--radius-16);
+    background: var(--color-white);
+  }
+
+  .ration-field__name {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--font-color);
+  }
+
+  .ration-field__seasonal {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .ration-field__quantity {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    --app-input-background: var(--color-input-drawer);
+  }
+
+  .horse-view__submit {
+    appearance: none;
+    width: 100%;
+    background: var(--color-brown-dark);
+    color: var(--color-white);
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12) var(--spacing-16);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+

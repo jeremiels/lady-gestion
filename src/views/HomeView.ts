@@ -1,0 +1,88 @@
+import { html } from 'lit';
+import { customElement } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
+import { LightElement } from '../commons/base-element.ts';
+import {
+  activeHorseQuery,
+  LiveQuery,
+  endOfMonth,
+  eventsRepo,
+  horsesRepo,
+  startOfMonth,
+  todayISO,
+} from '../data/index.ts';
+import type { HorseEvent } from '../data/types.ts';
+import '../components/horse-card/horse-card.ts';
+import '../components/expenses-card/expenses-card.ts';
+import '../components/event-card/event-card.ts';
+
+/** The dashboard shows the next few appointments, not the whole agenda. */
+const UPCOMING_LIMIT = 3;
+
+@customElement('home-view')
+export class HomeView extends LightElement {
+  #horse = new LiveQuery(this, () => horsesRepo.getActive());
+
+  // Already filtered to still-to-happen `planned` events, soonest first.
+  #upcoming = activeHorseQuery<HorseEvent[]>(
+    this,
+    (horseId) => eventsRepo.listUpcoming(horseId, UPCOMING_LIMIT),
+    [],
+  );
+
+  /**
+   * This calendar month's spend, in cents.
+   *
+   * The month is resolved inside the query rather than held as state: this
+   * re-runs whenever `events` is written to, so a row added after midnight on
+   * the 1st lands in the new month without the view tracking the date itself.
+   */
+  #monthSpend = activeHorseQuery<number>(
+    this,
+    (horseId) => {
+      const today = todayISO();
+      return eventsRepo.totalSpent(horseId, startOfMonth(today), endOfMonth(today));
+    },
+    0,
+  );
+
+
+  render() {
+    const upcoming = this.#upcoming.value ?? [];
+
+    return html`
+      <section class="home-view">
+        <hgroup class="section-group">
+          <h1 class="section-title" tabindex="-1">Tableau de bord</h1>
+          <p class="section-subtitle">Suivi de Ladympala</p>
+        </hgroup>
+
+        <section class="section-appointments">
+          <h2 class="section-title">Rendez-vous à venir</h2>
+          ${upcoming.length === 0
+            ? html`<p class="appointment-empty">Aucun rendez-vous à venir.</p>`
+            : html`
+                <!-- Keyed: this is a top-3 window onto a moving list, so a new
+                     appointment sooner than the current first pushes every row
+                     down by one — the exact case positional binding rewrites
+                     wholesale. -->
+                <ul class="appointment-list">
+                  ${repeat(
+                    upcoming,
+                    (event) => event.id,
+                    (event) => html`
+                      <li>
+                        <event-card layout="dashboard" .event=${event}></event-card>
+                      </li>
+                    `,
+                  )}
+                </ul>
+              `}
+        </section>
+
+        <horse-card .horse=${this.#horse.value ?? null}></horse-card>
+        <expenses-card .totalCents=${this.#monthSpend.value ?? 0}></expenses-card>
+      </section>
+    `;
+  }
+}

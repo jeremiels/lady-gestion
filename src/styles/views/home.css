@@ -1,0 +1,38 @@
+@layer views.home {
+  .home-view {
+    display: grid;
+    gap: var(--spacing-24);
+  }
+
+  .section-appointments {
+    display: grid;
+    gap: var(--spacing-16);
+  }
+
+  .appointment-list {
+    display: grid;
+    gap: var(--spacing-16);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Capped at 2 steps because UPCOMING_LIMIT is 3 (`HomeView.ts:20`); the
+     `min()` keeps that honest if the constant ever rises. See
+     `views/documents.css` for the full note on `sibling-index()` here. */
+  .appointment-list > li {
+    animation: list-item-enter var(--duration-medium) var(--easing-out) both;
+    animation-delay: calc(min(sibling-index() - 1, 2) * var(--stagger-step));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .appointment-list > li {
+      animation: none;
+    }
+  }
+
+  .appointment-empty {
+    font-size: 0.875rem;
+    color: var(--color-brown-light);
+  }
+}

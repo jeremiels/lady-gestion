@@ -1,0 +1,145 @@
+@layer views.profile {
+  .profile-view {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .profile-view__section {
+    display: grid;
+    gap: .5rem;
+  }
+
+  .profile-view__identity {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-16);
+  }
+
+  .profile-view__avatar {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-brown-light-bg);
+    color: var(--color-brown-middle);
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .profile-view__name {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+  }
+
+  .profile-view__email {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-brown-middle);
+  }
+
+  /* Fills its `.meta-item` row so the label sits left and the icon right,
+     with the hairline between rows coming from the shared list. */
+  .profile-view__action {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-12);
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: start;
+    color: var(--font-color);
+    cursor: pointer;
+  }
+
+  .profile-view__action app-icon {
+    /* app-icon pads its own host, which the row already spaces for. */
+    padding: 0;
+    color: var(--color-brown-middle);
+  }
+
+  .profile-view__backup {
+    display: grid;
+    gap: var(--spacing-12);
+  }
+
+  .profile-view__hint {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .profile-view__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-8);
+  }
+
+  .profile-view__button {
+    appearance: none;
+    flex: 1 1 10rem;
+    background: var(--color-brown-dark);
+    color: var(--color-white);
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12) var(--spacing-16);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .profile-view__button--ghost {
+    background: transparent;
+    color: var(--color-brown-dark);
+    border: 1px solid var(--color-divider);
+  }
+
+  .profile-view__note {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    color: var(--color-brown-middle);
+  }
+
+  .profile-view__status,
+  .profile-view__error {
+    margin: 0;
+    font-size: 0.813rem;
+    font-weight: 600;
+    /* This is the payoff of the one irreversible action in the app — a backup
+       taken or restored — and it is seen a handful of times ever. That is the
+       frequency tier where an entrance is worth its cost. `--easing-out`
+       because this is content arriving, not content moving. */
+    transition:
+      opacity var(--duration-medium) var(--easing-out),
+      translate var(--duration-medium) var(--easing-out);
+  }
+
+  @starting-style {
+    .profile-view__status,
+    .profile-view__error {
+      opacity: 0;
+      translate: 0 0.25rem;
+    }
+  }
+
+  /* The lift is movement; the fade is not. Same split `layers/reset.css`
+     argues for and `app-calendar`'s selection pill already applies. */
+  @media (prefers-reduced-motion: reduce) {
+    .profile-view__status,
+    .profile-view__error {
+      translate: none;
+      transition: opacity var(--duration-medium) var(--easing-out);
+    }
+  }
+
+  .profile-view__error {
+    color: var(--color-theme-pink);
+  }
+}

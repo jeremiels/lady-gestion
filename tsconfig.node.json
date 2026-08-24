@@ -1,0 +1,28 @@
+{
+  /**
+   * Build tooling only — `vite.config.ts` and `scripts/`. Split from the app
+   * config so Node's global types stay out of `src/`, where they would mask
+   * browser/Node confusion (`setTimeout` resolving to `NodeJS.Timeout` rather
+   * than `number`, `Buffer` appearing available in the bundle, ...).
+   */
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "esnext",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "vite"]
+}

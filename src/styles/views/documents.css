@@ -1,0 +1,40 @@
+@layer views.documents {
+  .documents-view {
+    display: grid;
+    gap: var(--spacing-24);
+  }
+
+  /* Two folders across on a phone, more on a wider screen, with no breakpoint:
+     `auto-fill` fits as many 9rem tracks as fit. `min(...)` stops the track
+     from overflowing a container narrower than that minimum. */
+  .documents-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr));
+    gap: var(--spacing-16);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  /* `both` fill so the tile is already at `opacity: 0` through its delay
+     rather than flashing at full opacity first. The tiles stay clickable the
+     whole time — a stagger is decoration and must never gate interaction.
+
+     `min(…, 4)` is the cap, written as arithmetic on `sibling-index()` rather
+     than as an `:nth-child(n + 5)` catch-all: a seventh category added later
+     must not push the last tile past the route transition it is supposed to
+     arrive with, and this way that guarantee does not depend on anyone
+     re-deriving the 5. An engine without `sibling-index()` drops the
+     declaration and every tile enters together on the shorthand's 0s — the
+     stagger is decoration, so losing the sequence is the right fallback. */
+  .documents-list > li {
+    animation: list-item-enter var(--duration-medium) var(--easing-out) both;
+    animation-delay: calc(min(sibling-index() - 1, 4) * var(--stagger-step));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .documents-list > li {
+      animation: none;
+    }
+  }
+}

@@ -1,0 +1,16 @@
+# Single-page app: every path is served by the same shell, which then routes
+# client-side. Without this a cold deep link — a manifest shortcut to /events, a
+# shared /horse/<id> link, or a refresh on any route — 404s before the service
+# worker has ever been installed to answer it from cache.
+#
+# Netlify and Cloudflare Pages read this file. On Vercel use vercel.json
+# rewrites, on nginx `try_files $uri /index.html`, on Apache a mod_rewrite
+# fallback. GitHub Pages — where this app deploys today — reads none of them and
+# has no rewrite rules at all; there the fallback is `dist/404.html`, a copy of
+# the shell written by the `githubPages` plugin in vite.config.ts, which Pages
+# returns for any unmatched path. Whatever the host, the rule is the same.
+#
+# Note this file is written for a host serving the app from the origin root.
+# Vite's `base` is `/lady-gestion/`, so a host that reads it would also need the
+# prefix here — see the `base` comment in vite.config.ts.
+/*  /index.html  200

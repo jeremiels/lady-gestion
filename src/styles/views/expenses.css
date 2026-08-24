@@ -1,0 +1,165 @@
+@layer views.expenses {
+  .expenses-view {
+    display: grid;
+    gap: var(--spacing-24);
+  }
+
+  .expenses-view__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+  }
+
+  /* The square tinted button the design puts the chevron in — the same one the
+     event detail page uses. */
+  .expenses-view__back {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-12);
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+    cursor: pointer;
+  }
+
+  .expenses-view__back:focus-visible {
+    outline: 2px solid var(--color-brown-dark);
+    outline-offset: 2px;
+  }
+
+  /* Size the glyph, not the host: app-icon carries its own padding, and a width
+     on the host leaves a content box too small to draw into. */
+  .expenses-view__back app-icon {
+    --icon-size: 1.25rem;
+
+    padding: 0;
+  }
+
+  .expenses-view__title {
+    font-size: 1.125rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+  }
+
+  /* `.container` gives the white card; the chart wants more room inside it than
+     the shared 12px. `views` sits after `components`, so this wins. */
+  .expenses-view__summary {
+    display: grid;
+    gap: var(--spacing-16);
+    padding: var(--spacing-16);
+  }
+
+  .expenses-view__controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-12);
+  }
+
+  /* Intrinsically responsive rather than pinned at two: `auto-fill` fits as
+     many 10rem tracks as there is room for, so this stays two columns on a
+     phone and becomes three or four on anything wider without a breakpoint to
+     maintain. `min(...)` keeps the track from overflowing a container narrower
+     than the minimum. */
+  .expenses-view__legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(8rem, 100%), 1fr));
+    gap: var(--spacing-12) var(--spacing-16);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* The dot spans both rows so the label and its amount stack beside it. */
+  .expenses-view__legend-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--spacing-8);
+  }
+
+  .expenses-view__legend-dot {
+    grid-row: span 2;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: var(--radius-pill);
+  }
+
+  .expenses-view__legend-label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-dark);
+    /* A long category name wraps rather than pushing the column apart. */
+    overflow-wrap: anywhere;
+  }
+
+  .expenses-view__legend-value {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-brown-light);
+  }
+
+  .expenses-view__ledger {
+    display: grid;
+    gap: var(--spacing-12);
+  }
+
+  .expenses-view__group-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-brown-middle);
+  }
+
+  .expenses-view__list {
+    display: grid;
+    gap: var(--spacing-12);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Same reasoning, and the same measured 84px, as `.events-view__list > li`
+     in views/events.css — read the note there. This ledger is every expense in
+     the period and grows without bound, and the `expenses` layout is the same
+     two rows as a default card with no notes. */
+  .expenses-view__list > li {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 5.25rem;
+    /* Opacity only, for the reason spelled out on the events list: a row that
+       also travelled would be movement the compositor pays for on every period
+       change, down a list with no upper bound. */
+    transition: opacity var(--duration-fast) var(--easing-out);
+  }
+
+  /* Only genuinely new rows fade, and — as on the events list — that holds
+     because of an invariant rather than because `repeat()` is careful. A moved
+     node is an `insertBefore`, which detaches and re-inserts, and a re-inserted
+     element DOES re-fade from zero.
+
+     What holds it here: `render()` sorts every period with the same
+     `byDateDescending`, so a month is a *contiguous block* of the year that
+     contains it. Widening Mois→Année inserts rows before and after that block
+     and narrowing Année→Mois removes them, so the survivors never have to move.
+     Picking a different month replaces the whole set, which is a full fade and
+     is meant to be.
+
+     Give this view a sort control, or a filter that interleaves rows, and every
+     visible row will strobe on every change — pinned by the test in
+     `ExpensesView.test.ts`. */
+  @starting-style {
+    .expenses-view__list > li {
+      opacity: 0;
+    }
+  }
+
+  .expenses-view__empty {
+    font-size: 0.875rem;
+    color: var(--color-brown-light);
+  }
+}

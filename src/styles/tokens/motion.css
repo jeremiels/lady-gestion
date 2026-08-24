@@ -1,0 +1,59 @@
+@layer tokens.motion {
+  :root {
+    /* Exactly the three durations already in use, given names — no value
+       changed. Components used to hardcode each one independently, so the
+       calendar, the chips and the switch could drift apart with nothing
+       flagging it. */
+    --duration-fast: 0.15s; /* hover/selection feedback */
+    --duration-medium: 0.2s; /* switch thumb, chip fill */
+    --duration-slow: 0.32s; /* bottom sheet enter/exit */
+
+    /* Press feedback only. Deliberately its own duration rather than reusing
+       `--duration-fast`: this one is tied to a finger being on the glass, not
+       to a hover or a selection repaint, and the two should be free to move
+       independently. */
+    --duration-press: 0.16s;
+
+    /* How far a pressed surface gives. Two values because the scale is
+       proportional and the surfaces are not: 0.97 on a full-width card moves
+       each edge about 5px and reads clearly, while the same 0.97 on a 36px
+       icon button moves it half a pixel and reads as nothing. */
+    --press-scale: 0.97;
+    --press-scale-small: 0.95;
+
+    /* Gap between siblings in a staggered group entrance.
+       Deliberately half of `--horse-view-meta-stagger` in `main.css`, which
+       separates two full-width page blocks: these are five small tiles, and at
+       that step the last one would still be arriving long after the route
+       transition had finished. */
+    --stagger-step: 0.04s;
+
+    /* For content moving/morphing on screen — the route slide trades one full
+       page for another rather than appearing from nothing, so easing in and
+       out symmetrically is what reads as continuous motion.
+
+       The strong curve rather than the built-in `ease-in-out`: at 0.32s across
+       a full viewport width, the browser default is gentle enough that the
+       slide reads as a drift. This one holds the same symmetry with far more
+       contrast between the middle of the travel and its two ends. */
+    --easing-standard: cubic-bezier(0.77, 0, 0.175, 1);
+    /* For content entering or exiting — a modal opening, a toast landing, the
+       horse-view meta blocks fading up. Starts fast so the animation is
+       already moving at the moment the user's eye lands on it, unlike the
+       plain `ease-in-out` above, which spends its first beat easing in. */
+    --easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+    /* The sheet's decelerate curve — native-feeling for a surface sliding in. */
+    --easing-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* One switch for every press rule in the app, here rather than repeated in
+     each component: a press scale is movement, and movement is what "reduce"
+     asks to lose. The transition stays declared — with nothing left to move it
+     simply never runs — so nothing has to know this block exists. */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --press-scale: 1;
+      --press-scale-small: 1;
+    }
+  }
+}

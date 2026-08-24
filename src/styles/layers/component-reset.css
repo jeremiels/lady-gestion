@@ -1,0 +1,135 @@
+/* =========================================================
+   Component reset — the half of `reset.css` that can apply
+   inside a shadow root.
+
+   `reset.styles.ts` pulls this into every component. The document reset's
+   `:root`, `html` and `body` rules are deliberately absent: those selectors
+   never match inside a shadow root, so shipping them here was dead weight in
+   every component's stylesheet and made it unclear which rules a component
+   actually inherits.
+
+   Keep the two files in step: a rule that has to apply in both goes in both.
+   ========================================================= */
+
+@layer reset {
+  /* Box sizing — universal and predictable */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Remove default margins for key flow elements */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  figure,
+  blockquote,
+  dl,
+  dd {
+    margin: 0;
+  }
+
+  /* Remove list styles only for explicitly semantic lists */
+  ul[role="list"],
+  ol[role="list"] {
+    list-style: none;
+    padding: 0;
+  }
+
+  /* Media elements */
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Form elements inherit fonts */
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Text adjustments */
+  a:not([class]) {
+    text-decoration-skip-ink: auto;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    text-wrap: balance;
+  }
+
+  /* Animation goes; transitions are handled per component. See the matching
+     note in `layers/reset.css` — the `transition-duration` kill that used to
+     live here removed colour and opacity feedback along with movement, so each
+     component that moves now drops its own movement instead. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* =========================================================
+     WEB COMPONENT BASELINE
+     ========================================================= */
+
+  :host {
+    box-sizing: border-box;
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+  }
+
+  :host([hidden]) {
+    display: none !important;
+  }
+
+  /* `hidden` has to actually hide, whatever a component does afterwards.
+
+     `!important` inside a layer beats an unlayered declaration — the mechanism
+     the reduced-motion block above relies on, and the reason `:host([hidden])`
+     is written the same way. Without it any `display` a component sets on the
+     same element wins, and a node kept permanently in the tree so it is there
+     before it has something to say (see `commons/field-parts.ts`) would leave a
+     blank gap under every pristine field. */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Respect focus outlines */
+  :host(:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

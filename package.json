@@ -1,0 +1,38 @@
+{
+  "name": "lady-gestion",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && npm run lint && vite build",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:data": "vitest run --project data",
+    "test:components": "vitest run --project components",
+    "preview": "vite preview",
+    "icons": "node scripts/generate-icons.mjs",
+    "lint": "oxlint"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "dependencies": {
+    "d3-shape": "^3.2.0",
+    "dexie": "^4.4.4",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@types/d3-shape": "^3.1.8",
+    "@types/node": "^26.2.0",
+    "@vitest/browser": "^4.1.10",
+    "@vitest/browser-playwright": "^4.1.10",
+    "fake-indexeddb": "^6.2.5",
+    "oxlint": "^1.78.0",
+    "playwright": "^1.62.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  }
+}

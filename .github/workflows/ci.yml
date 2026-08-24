@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only by default; `deploy` widens this for itself alone. Job-level
+# `permissions` replaces this block rather than merging with it, which is why
+# `contents: read` is repeated there.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # The service worker plugin uses readdir({ recursive: true }) and
+          # dirent.parentPath, both Node >= 20.12. On anything older the
+          # precache list is silently written with `undefined/` paths.
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The `components` suite runs in a real Chromium: the components are built
+      # on ElementInternals, CustomStateSet, <dialog>.showModal(), the top layer
+      # and delegatesFocus, none of which a DOM shim implements. `--with-deps`
+      # pulls the shared libraries the headless browser needs on a bare runner.
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Hands `dist/` to the deploy job below. Only a push to main is a
+      # deploy candidate — a pull request stops at `verify`.
+      - name: Upload Pages artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    # Publishes the artifact `verify` produced, so the bytes that go live are
+    # the ones that were linted, type checked and tested — not a second,
+    # independently built copy of the tree.
+    needs: verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # `deploy-pages` mints an OIDC token to prove to Pages which workflow run
+      # is publishing; without `id-token` it fails before uploading anything.
+      pages: write
+      id-token: write
+
+    # One live site, so a second push while a deploy is in flight queues behind
+    # it. Not cancelled: an interrupted deploy leaves the site half-swapped,
+    # and this app ships a service worker whose precache manifest has to match
+    # the files actually being served.
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

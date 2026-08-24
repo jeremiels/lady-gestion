@@ -1,0 +1,153 @@
+/* ================================================
+   Modern CSS Reset — for Design Systems / Web Components
+   Author: Jérémie Le Scoëzec, 2025 Edition
+   Based on Andy Bell, Josh Comeau, Piccalilli & Adhocracy patterns
+   ================================================= */
+
+@layer reset {
+  /* Enable interpolate-size for smoother animations where supported */
+  :root {
+    @supports (interpolate-size: allow-keywords) {
+      @media (prefers-reduced-motion: no-preference) {
+        interpolate-size: allow-keywords;
+      }
+    }
+  }
+
+  /* Box sizing — universal and predictable */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Remove default margins for key flow elements */
+  body,
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  figure,
+  blockquote,
+  dl,
+  dd {
+    margin: 0;
+  }
+
+  /* Remove list styles only for explicitly semantic lists */
+  ul[role="list"],
+  ol[role="list"] {
+    list-style: none;
+    padding: 0;
+  }
+
+  /* Core body defaults */
+  html {
+    -webkit-text-size-adjust: 100%; /* prevent iOS font inflation */
+  }
+
+  html:focus-within {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100dvh;
+    line-height: var(--line-height-base);
+    text-rendering: optimizeSpeed;
+    font-family: system-ui, sans-serif;
+    background-color: Canvas;
+    color: CanvasText;
+  }
+
+  /* Media elements */
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Form elements inherit fonts */
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Text adjustments */
+  a:not([class]) {
+    text-decoration-skip-ink: auto;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    text-wrap: balance;
+  }
+
+  /* Animation goes; transitions are handled per component.
+     `transition-duration: 0.01ms !important` used to live here too, and it took
+     colour and opacity with it — a switch whose knob teleports and a chip whose
+     selection snaps are harder to follow, not easier. "Reduce" asks for less
+     movement, so the components that actually move say so themselves. */
+  @media (prefers-reduced-motion: reduce) {
+    html:focus-within {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* =========================================================
+     WEB COMPONENT BASELINE — for use inside shadow roots
+     ========================================================= */
+
+  :host {
+    box-sizing: border-box;
+    font: inherit;
+    color: inherit;
+    line-height: inherit;
+  }
+
+  :host([hidden]) {
+    display: none !important;
+  }
+
+  /* The twin of the rule in `component-reset.css`. `hidden` has to actually
+     hide, whatever an author rule does afterwards — see the note there. */
+  [hidden] {
+    display: none !important;
+  }
+
+  /* Respect focus outlines */
+  :host(:focus-visible) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

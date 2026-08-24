@@ -1,0 +1,131 @@
+@layer  views.main {
+    .navigation {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      /*
+       * The only z-index in document CSS, and it is not the kind the popover rule
+       * in AGENTS.md forbids — this does not try to beat a dialog, and it
+       * cannot: showModal() puts both dialog primitives in the top layer, which
+       * wins over every z-index there is. This only lifts the bar above the
+       * page content scrolling underneath it.
+       *
+       * Load-bearing, not tidiness. The bar is fixed but sits *before* <main>
+       * in app-root's template, so with everything at z-index auto the paint
+       * order is tree order — and any view content that forms a stacking
+       * context therefore paints on top of it. `content-visibility: auto` on
+       * the event and expense rows does exactly that (it implies paint
+       * containment), and without this the nav bar disappeared completely
+       * behind a scrolled list. A `transform`, a `filter` or an `opacity`
+       * animation anywhere in a view would have done the same thing.
+       */
+      z-index: 1;
+    }
+
+    .nav-button {
+      appearance: none;
+      display: grid;
+      place-items: center;
+      background: var(--color-brown-dark);
+      color: var(--color-white);
+      text-decoration: none;
+      padding: var(--spacing-8);
+      border-radius: var(--radius-8);
+      border: none;
+      aspect-ratio: 1;
+      width: 2.25rem;
+      height: 2.25rem;
+      cursor: pointer;
+    }
+
+    /* Size the glyph, never the host — see the note in nav-item.ts. The button
+       already provides the padded brown tile, so the icon needs none of its own. */
+    .nav-button__icon {
+      --icon-size: 1.25rem;
+      padding: 0;
+    }
+
+    /* Lives in the shell layer rather than getting its own view stylesheet:
+       it is what the shell shows when no view matched. */
+    .not-found {
+      display: grid;
+      gap: var(--spacing-16);
+      justify-items: start;
+    }
+
+    .not-found__link {
+      padding: var(--spacing-12) var(--spacing-16);
+      border-radius: var(--radius-8);
+      background: var(--color-brown-dark);
+      color: var(--color-white);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    /* Shown instead of any view when initData() rejects — see app-root. */
+    .data-error {
+      display: grid;
+      gap: var(--spacing-16);
+      justify-items: start;
+    }
+
+    .data-error__body {
+      display: grid;
+      gap: var(--spacing-12);
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .data-error__hint {
+      color: var(--color-brown-middle);
+    }
+
+    .data-error__detail {
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: var(--color-brown-light);
+      overflow-wrap: anywhere;
+    }
+
+    .data-error__button {
+      appearance: none;
+      border: none;
+      padding: var(--spacing-12) var(--spacing-16);
+      border-radius: var(--radius-8);
+      background: var(--color-brown-dark);
+      color: var(--color-white);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .main-content {
+      /*
+       * The app is phone-first, and until now that meant "no measure at all":
+       * on anything wider than a phone every list and paragraph stretched the
+       * full window. Centred rather than left-aligned, so the content sits
+       * under the nav bar's items, which are centred the same way.
+       *
+       * Deliberately *not* `container-type: inline-size` as well. That would be
+       * the natural next step for making views adapt to this column rather than
+       * to the viewport, but it implies `contain: layout`, and `HorseView`
+       * renders an `app-bottom-sheet` — and `EventDetailView` an `app-modal`
+       * and a `document-viewer` — inside `<main>`. Their `<dialog>`s are
+       * `position: fixed` and reach the top layer through `showModal()`, which
+       * is specified to escape ancestor containment but has a history of not
+       * doing so. Add the container when there is an `@container main (...)`
+       * rule that needs it, and pin the sheet's geometry with a test at the
+       * same time. `event-card` queries itself and is unaffected either way.
+       */
+      max-width: var(--content-max-width);
+      margin-inline: auto;
+      padding: 4rem var(--spacing-20) var(--spacing-20) var(--spacing-20);
+      /* The nav bar is fixed, so it sits on top of the end of a scrolling
+         page. Reserve its height plus the home-indicator inset the bar itself
+         absorbs, or the last row of any long list is unreachable. */
+      padding-bottom: calc(
+        var(--nav-bar-height) + var(--spacing-20) + env(safe-area-inset-bottom, 0px)
+      );
+    }
+}

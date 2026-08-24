@@ -1,0 +1,8 @@
+/* Declared before the imports — see the note in views.css. */
+@layer tokens.color, tokens.spacing, tokens.radius, tokens.typography, tokens.motion;
+
+@import "../tokens/color.css";
+@import "../tokens/spacing.css";
+@import "../tokens/radius.css";
+@import "../tokens/typography.css";
+@import "../tokens/motion.css";

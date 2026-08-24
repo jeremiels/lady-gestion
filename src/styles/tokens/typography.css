@@ -1,0 +1,38 @@
+/**
+ * Inter is self-hosted rather than pulled from Google Fonts.
+ *
+ * The service worker only precaches files under `dist/`, so a remote font was
+ * never available offline — the app silently fell back to `sans-serif` and
+ * every metric shifted. It was also loaded through an `@import` nested inside
+ * an `@layer` block, which is invalid CSS: `@import` may only be preceded by
+ * `@charset` and `@layer` *statements*, so it worked purely because
+ * lightningcss hoisted it out during the build.
+ *
+ * Only the `latin` subset ships. It covers the entire French repertoire except
+ * `Ÿ`, which falls back to the system font — not worth the 85 KB that
+ * `latin-ext` would add to every install. Variable weight 400–700 covers the
+ * 500/600/700 the components actually use.
+ *
+ * Inter is licensed under the SIL Open Font License; see public/fonts/LICENSE.txt.
+ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@layer tokens.typography {
+  :root {
+    --font-family-base: "Inter", sans-serif;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-sm: 0.875rem;
+    --line-height-base: 1.5;
+    --font-color: var(--color-dark);
+  }
+}

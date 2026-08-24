@@ -1,0 +1,61 @@
+/* =========================================================
+   Utility classes — the single source for both the document and every
+   shadow root.
+
+   `main.css` imports this file straight into the `utilities` layer, where it
+   wins on ordinary cascade order (`utilities` is declared last, no
+   `!important` needed). `base-element.ts` imports the same bytes via
+   `?inline` and adopts them into `static styles` *after* a component's own
+   `componentStyles`: a document `@layer` cannot cross a shadow boundary, so
+   inside a shadow root there is no layer trick to play, and a component's own
+   styles are unlayered — the strongest tier there is. Coming last in
+   `static styles` is the equivalent at equal specificity: same "last one
+   wins" the document cascade gives, played with source order instead of
+   layers. One file, two ways of winning.
+   ========================================================= */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Press feedback: the surface gives under the finger and springs back.
+ *
+ * Here rather than restated per component because it was restated per
+ * component — fifteen identical pairs across ten files, each having to agree
+ * by hand about the property, the duration and the curve. The tokens in
+ * `tokens/motion.css` shared the two *values*; nothing shared the rule.
+ *
+ * This file is the one place that can carry it, and that is the whole reason
+ * it exists: the document gets it through the `utilities` layer and every
+ * shadow root gets the same bytes through `BaseElement`. See the header above.
+ *
+ * Reduced motion needs nothing here — `tokens/motion.css` flattens both scales
+ * to `1` under the media query, so the transition still runs and simply has
+ * nothing left to move.
+ */
+.pressable {
+  transition: transform var(--duration-press) var(--easing-out);
+}
+
+.pressable:active {
+  transform: scale(var(--press-scale));
+}
+
+/*
+ * For surfaces too small for the proportional scale to read — an icon button,
+ * a nav item. Used *alongside* `.pressable`, like every other modifier in this
+ * codebase; it comes second here so it wins on source order at equal
+ * specificity. The reasoning behind the two values is on the tokens.
+ */
+.pressable--small:active {
+  transform: scale(var(--press-scale-small));
+}

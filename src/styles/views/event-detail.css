@@ -1,0 +1,246 @@
+@layer views.event-detail {
+  .event-detail {
+    display: grid;
+    gap: var(--spacing-24);
+  }
+
+  .event-detail__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+  }
+
+  /* The square tinted button the design puts the chevron in. */
+  .event-detail__back {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-12);
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+    cursor: pointer;
+  }
+
+  .event-detail__back:focus-visible {
+    outline: 2px solid var(--color-brown-dark);
+    outline-offset: 2px;
+  }
+
+  /* Size the glyph, not the host: app-icon carries its own padding, and a
+     width on the host leaves a content box too small to draw into. */
+  .event-detail__back app-icon {
+    --icon-size: 1.25rem;
+    padding: 0;
+  }
+
+  .event-detail__title {
+    font-size: 1.125rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    /* A long event title must wrap rather than push the back button off. */
+    min-width: 0;
+  }
+
+  .event-detail__section {
+    display: grid;
+    gap: var(--spacing-8);
+  }
+
+  /* The Informations rows use the shared .meta-list; only the value column
+     needs adjusting here, because a note is a paragraph, not a short value. */
+  .event-detail .meta-value {
+    text-align: right;
+    font-weight: 700;
+    line-height: 1.3;
+    /* Long notes wrap onto their own lines instead of squeezing the label. */
+    max-width: 65%;
+  }
+
+  .event-detail__files {
+    display: grid;
+    gap: var(--spacing-12);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .event-detail__file {
+    appearance: none;
+    width: 100%;
+    border: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      "icon name tag"
+      "icon meta tag";
+    align-items: center;
+    column-gap: var(--spacing-12);
+    row-gap: var(--spacing-2);
+  }
+
+  .event-detail__file:focus-visible {
+    outline: 2px solid var(--color-brown-dark);
+    outline-offset: 2px;
+  }
+
+  .event-detail__file-icon {
+    grid-area: icon;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--radius-12);
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+  }
+
+  .event-detail__file-name {
+    grid-area: name;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-dark);
+    /* File names have no spaces to break on. */
+    overflow-wrap: anywhere;
+  }
+
+  .event-detail__file-meta {
+    grid-area: meta;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-brown-light);
+  }
+
+  .event-detail__file-tag {
+    grid-area: tag;
+    justify-self: end;
+  }
+
+  .event-detail__actions {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .event-detail__actions li:not(:last-child) {
+    border-bottom: 1px solid var(--color-divider);
+  }
+
+  .event-detail__action {
+    appearance: none;
+    width: 100%;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+    padding: var(--spacing-12) 0;
+    color: var(--color-dark);
+  }
+
+  .event-detail__action:disabled {
+    color: var(--color-brown-light);
+    cursor: not-allowed;
+  }
+
+  .event-detail__action:focus-visible {
+    outline: 2px solid var(--color-brown-dark);
+    outline-offset: -2px;
+  }
+
+  .event-detail__action--danger {
+    color: var(--color-danger);
+  }
+
+  .event-detail__action-icon {
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius-8);
+    background-color: var(--color-brown-light-bg);
+    color: currentcolor;
+  }
+
+  .event-detail__action-label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  /* Pushed to the right so the row still reads label-first. */
+  .event-detail__action-hint {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-brown-light);
+  }
+
+  .event-detail__confirm {
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--color-brown-middle);
+  }
+
+  .event-detail__confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-12);
+  }
+
+  .event-detail__button {
+    appearance: none;
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+  }
+
+  .event-detail__button--danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+  }
+
+  .event-detail__back-link {
+    appearance: none;
+    justify-self: start;
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12) var(--spacing-20);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: var(--color-brown-dark);
+    color: var(--color-white);
+  }
+
+  .event-detail__empty {
+    font-size: 0.875rem;
+    color: var(--color-brown-light);
+  }
+
+  /* The live region itself, always in the DOM and never hidden — see the note
+     in EventDetailView's template. It generates no box of its own, so a section
+     with no error to report lays out exactly as it did before. */
+  .event-detail__error-region {
+    display: contents;
+  }
+
+  .event-detail__error {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-danger);
+  }
+}

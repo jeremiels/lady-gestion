@@ -1,0 +1,28 @@
+@layer base {
+  /* Inherit font size for better scaling */
+  html {
+    font-size: inherit;
+    /* Reserve the scrollbar's width at all times so that locking the page
+       behind a dialog — which takes the scrollbar away — cannot shift the
+       layout sideways underneath it. No-op on the touch devices this app is
+       built for, where the scrollbar is an overlay and takes no width. */
+    scrollbar-gutter: stable;
+  }
+
+  /* Held by `commons/scroll-lock.ts` while any modal dialog is showing.
+     `showModal()` makes the rest of the document inert but leaves it
+     scrollable, so this is the half the platform does not do for us. The
+     scroll offset survives `overflow: hidden`, so the page is exactly where
+     the user left it once the dialog closes. */
+  html.scroll-locked {
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--color-page);
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--font-color);
+  }
+}

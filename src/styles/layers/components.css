@@ -1,0 +1,6 @@
+/* Declared before the imports — see the note in views.css. */
+@layer components.section, components.container, components.meta-list;
+
+@import "../components/section.css";
+@import "../components/container.css";
+@import "../components/meta-list.css";

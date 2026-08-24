@@ -1,0 +1,39 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Written by the browser test project when an assertion fails: a screenshot of
+# the page at the point of failure, plus its attachment metadata. Useful while
+# debugging a run, never worth committing.
+.vitest-attachments
+**/__screenshots__
+
+# Environment files. The app has no backend and no secrets today; this is here
+# so that stops being true safely.
+.env
+.env.*
+!.env.example
+
+# Per-machine Claude Code settings.
+.claude/settings.local.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
