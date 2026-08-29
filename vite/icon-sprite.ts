@@ -81,13 +81,22 @@ export function iconSprite(options: { names: readonly string[] }): Plugin {
   // both reach `buildStart` in serve mode, where calling it warns that the
   // plugin is not Vite-compatible — they take the middleware above instead.
   let building = false;
+  let base = '/';
 
   // Dev and preview serve it from memory; the build writes it into `dist/`,
   // where the service worker plugin's directory walk picks it up like any other
   // emitted asset. Rebuilt per request rather than cached, so adding an icon in
   // dev is a reload rather than a restart.
-  const serve = (middlewares: ViteDevServer['middlewares']) => {
-    middlewares.use(SPRITE_PATH, (_request, response, next) => {
+  //
+  // Mounted under `base`, not at the bare `SPRITE_PATH`: this repo serves dev
+  // and preview under `/lady-gestion/` (see `vite.config.ts`), so the browser
+  // — via `appHref(SPRITE_PATH)` in `app-icon.ts` — actually requests
+  // `/lady-gestion/icons.svg`. A middleware mounted at `/icons.svg` never sees
+  // that request; it falls through to Vite's SPA history fallback, which
+  // serves `index.html` instead — 200 OK, wrong content, so every icon's
+  // `<use>` silently resolves against HTML and draws nothing.
+  const serve = (middlewares: ViteDevServer['middlewares'], servedBase: string) => {
+    middlewares.use(`${servedBase.slice(0, -1)}${SPRITE_PATH}`, (_request, response, next) => {
       sprite()
         .then((body) => {
           response.setHeader('Content-Type', 'image/svg+xml');
@@ -102,14 +111,45 @@ export function iconSprite(options: { names: readonly string[] }): Plugin {
 
     configResolved(config) {
       building = config.command === 'build';
+      base = config.base;
     },
 
     configureServer(server) {
-      serve(server.middlewares);
+      serve(server.middlewares, server.config.base);
     },
 
     configurePreviewServer(server) {
-      serve(server.middlewares);
+      serve(server.middlewares, server.config.base);
+    },
+
+    /**
+     * Injects the sprite's `<link rel="preload">` with `base` already applied,
+     * instead of writing it in `index.html` as `href="%BASE_URL%icons.svg"`.
+     *
+     * That token form built correctly — Vite's own root-absolute rewriting
+     * only touches an href it can resolve inside `public/`, and the sprite is
+     * emitted by this plugin instead, so a bare `/icons.svg` was shipping
+     * unprefixed and 404ing on a hosted subpath (github.io/lady-gestion/...).
+     * But in dev and preview, that *same* rewriting pass prefixes root-absolute
+     * hrefs unconditionally — including one `%BASE_URL%` had already prefixed —
+     * so the tag doubled up to `/lady-gestion/lady-gestion/icons.svg` and
+     * silently 404'd behind Vite's SPA fallback. Injecting the finished,
+     * already-prefixed href here instead sidesteps that second rewrite pass
+     * entirely, in both dev and build.
+     */
+    transformIndexHtml() {
+      return [
+        {
+          tag: 'link',
+          injectTo: 'head',
+          attrs: {
+            rel: 'preload',
+            href: `${base.slice(0, -1)}${SPRITE_PATH}`,
+            as: 'image',
+            type: 'image/svg+xml',
+          },
+        },
+      ];
     },
 
     async buildStart() {

@@ -21,19 +21,8 @@
          fallback font on the first paint. -->
     <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
 
-    <!-- Every screen draws icons from this sprite, and it is precached — so
-         fetching it in parallel with the module graph keeps the first paint
-         from landing before the glyphs do.
-
-         `%BASE_URL%` and not a bare `/icons.svg`: Vite prefixes `base` onto
-         root-absolute URLs here only when it can resolve them inside `public/`,
-         and the sprite is emitted by `vite/icon-sprite.ts` instead — so that
-         one URL, alone among the tags in this file, was shipping unprefixed and
-         404ing on a hosted subpath. A *relative* `./icons.svg` would be worse
-         still: this shell is also served as `404.html` from arbitrary deep
-         paths, where every relative URL in it resolves against the wrong
-         directory. -->
-    <link rel="preload" href="%BASE_URL%icons.svg" as="image" type="image/svg+xml" />
+    <!-- The icons.svg preload tag is injected by vite/icon-sprite.ts, not
+         written here — see the comment on its transformIndexHtml hook. -->
 
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
