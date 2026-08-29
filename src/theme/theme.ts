@@ -33,6 +33,10 @@ export const THEME_META: Record<ThemeKey, ThemeMeta> = {
     color: 'var(--color-theme-turquoise)',
     backgroundColor: 'var(--color-theme-turquoise-background)',
   },
+  fuchsia: {
+    color: 'var(--color-theme-fuchsia)',
+    backgroundColor: 'var(--color-theme-fuchsia-background)',
+  },
 };
 
 export type { ThemeKey, ThemeMeta };

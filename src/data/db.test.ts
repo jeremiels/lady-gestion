@@ -17,7 +17,7 @@ const DB_NAME = 'lady-gestion';
 
 /**
  * The stores as every version so far has declared them — no index has changed
- * across v1..v3, only row shapes. **Do not** update this to track `STORES`, or
+ * across v1..v4, only row shapes. **Do not** update this to track `STORES`, or
  * the upgrades end up tested against themselves.
  */
 const LEGACY_STORES = {
@@ -64,6 +64,13 @@ const preV3Event = (id: string) => ({
   location: null,
   notes: null,
   recurrenceId: null,
+});
+
+/** An event row as v3 wrote it: the two v3 columns, but no `activity`. */
+const preV4Event = (id: string) => ({
+  ...preV3Event(id),
+  vendor: null,
+  followUpInterval: null,
 });
 
 /** Writes a database at `version`, then closes it so `db` can upgrade it. */
@@ -171,8 +178,42 @@ describe('v2 -> v3: events gain vendor and followUpInterval', () => {
   });
 });
 
+describe('v3 -> v4: events gain activity', () => {
+  it('fills the column with null rather than leaving it absent', async () => {
+    await writeLegacyDatabase(3, { events: [preV4Event('event-1')] });
+
+    await db.open();
+
+    expect(await db.events.get('event-1')).toHaveProperty('activity', null);
+  });
+
+  it('migrates every event', async () => {
+    await writeLegacyDatabase(3, {
+      events: [preV4Event('a'), preV4Event('b'), preV4Event('c')],
+    });
+
+    await db.open();
+
+    const events = await db.events.orderBy('id').toArray();
+    expect(events.every((event) => event.activity === null)).toBe(true);
+  });
+
+  it('leaves the rest of the row untouched', async () => {
+    await writeLegacyDatabase(3, { events: [preV4Event('event-1')] });
+
+    await db.open();
+
+    expect(await db.events.get('event-1')).toMatchObject({
+      title: 'event-1',
+      date: '2026-06-15',
+      currency: 'EUR',
+      status: 'planned',
+    });
+  });
+});
+
 describe('a v1 database upgrading all the way', () => {
-  it('runs both upgrades in sequence', async () => {
+  it('runs every upgrade in sequence', async () => {
     await writeLegacyDatabase(1, {
       rationItems: [v1Ration('ration-1', true)],
       events: [preV3Event('event-1')],
@@ -182,6 +223,7 @@ describe('a v1 database upgrading all the way', () => {
 
     expect((await db.rationItems.get('ration-1'))?.season).toEqual(DEFAULT_SEASON);
     expect(await db.events.get('event-1')).toHaveProperty('vendor', null);
+    expect(await db.events.get('event-1')).toHaveProperty('activity', null);
   });
 
   it('opens at the version the backup envelope advertises', async () => {

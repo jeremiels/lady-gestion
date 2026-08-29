@@ -152,6 +152,7 @@ const sampleEvents = (horseId: string) => {
       notes: null,
       recurrenceId: null,
       followUpInterval: null,
+      activity: null,
     },
     {
       horseId,
@@ -168,6 +169,7 @@ const sampleEvents = (horseId: string) => {
       notes: null,
       recurrenceId: null,
       followUpInterval: null,
+      activity: null,
     },
     {
       horseId,
@@ -184,6 +186,7 @@ const sampleEvents = (horseId: string) => {
       notes: null,
       recurrenceId: null,
       followUpInterval: null,
+      activity: null,
     },
     {
       horseId,
@@ -200,6 +203,7 @@ const sampleEvents = (horseId: string) => {
       notes: null,
       recurrenceId: null,
       followUpInterval: null,
+      activity: null,
     },
     {
       horseId,
@@ -216,6 +220,7 @@ const sampleEvents = (horseId: string) => {
       notes: null,
       recurrenceId: null,
       followUpInterval: null,
+      activity: null,
     },
     // The one fully populated row: every optional column is set, so the detail
     // page renders each of its Informations rows at least once without anything
@@ -235,6 +240,7 @@ const sampleEvents = (horseId: string) => {
       notes: 'Bilan annuel ophtalmologique. Pas d’anomalie détectée.',
       recurrenceId: null,
       followUpInterval: { amount: 6, unit: 'week' as const },
+      activity: null,
     },
   ];
 };

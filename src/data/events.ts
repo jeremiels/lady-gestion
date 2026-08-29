@@ -63,6 +63,34 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
   { amount: 12, unit: 'month' },
 ];
 
+/**
+ * What was done in a schooling session — the "Activité" field on a `travail`
+ * event.
+ *
+ * Short, stable keys in storage and French labels on screen, the same split
+ * `EventTypeKey` makes: the wording is presentation and may be reworded, the key
+ * is what a stored row means. A closed list rather than free text because it is
+ * the field that says what the session *was*, and two spellings of "longe"
+ * would make that unanswerable.
+ */
+export type WorkActivity = 'balade' | 'longe' | 'tap' | 'liberte' | 'plat' | 'trotting';
+
+/** In the order the select offers them. */
+const WORK_ACTIVITY_LABELS: Record<WorkActivity, string> = {
+  balade: 'Balade à pied',
+  longe: 'Longe',
+  tap: 'TAP',
+  liberte: 'Liberté',
+  plat: 'Plat',
+  trotting: 'Trotting',
+};
+
+/** Derived from the table above, so the list and the labels cannot drift. */
+export const WORK_ACTIVITIES = Object.keys(WORK_ACTIVITY_LABELS) as WorkActivity[];
+
+export const formatWorkActivity = (activity: WorkActivity): string =>
+  WORK_ACTIVITY_LABELS[activity];
+
 export const isFollowUpInterval = (value: unknown): value is FollowUpInterval => {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<FollowUpInterval>;

@@ -5,12 +5,16 @@ import {
   DEFAULT_CURRENCY,
   DEFAULT_FOLLOW_UP,
   FOLLOW_UP_INTERVALS,
+  type FieldParser,
   LiveQuery,
+  WORK_ACTIVITIES,
+  type WorkActivity,
   bool,
   cents,
   eventsRepo,
   followUpValue,
   formatFollowUpInterval,
+  formatWorkActivity,
   fromCents,
   horsesRepo,
   isoDate,
@@ -48,6 +52,23 @@ const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map((interval) 
   label: formatFollowUpInterval(interval),
 }));
 
+const ACTIVITY_OPTIONS: AppSelectOption[] = WORK_ACTIVITIES.map((activity) => ({
+  value: activity,
+  label: formatWorkActivity(activity),
+}));
+
+/**
+ * The Activité parser, required only on the layout that draws the field.
+ *
+ * A function rather than two schema entries, or a check after `readForm`: the
+ * "Ce champ est requis." wording belongs to `forms.ts` and copying it here is
+ * exactly the drift a schema exists to stop. The declared return type is the
+ * looser of the two overloads so the schema's shape — and with it
+ * `EventFieldName` — stays the same whichever layout is showing.
+ */
+const activityParser = (required: boolean): FieldParser<WorkActivity | null> =>
+  required ? oneOf(WORK_ACTIVITIES, { required: true }) : oneOf(WORK_ACTIVITIES);
+
 /**
  * Every field the form can submit, and how each is parsed.
  *
@@ -57,11 +78,15 @@ const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map((interval) 
  * `this.errors.titel` is a compile error rather than a message that silently
  * never appears.
  *
- * One schema for all three layouts, deliberately. The variant decides which
+ * One schema for all four layouts, deliberately. The variant decides which
  * fields are *rendered* and which column each value is *written* to (see
  * `#onSubmit`); it does not change how a submitted field is read, and a field
  * the current layout does not show simply arrives absent — which every parser
  * here already treats as blank.
+ *
+ * `activity` is the one exception, and a narrow one: it is required on the
+ * layout that draws it and absent everywhere else, so `#onSubmit` swaps in the
+ * required parser for that layout alone. The *shape* is unchanged either way.
  */
 const EVENT_SCHEMA = {
   type: oneOf(EVENT_TYPES, { required: true }),
@@ -70,6 +95,7 @@ const EVENT_SCHEMA = {
   amountCents: cents(),
   notes: text({ maxLength: 500 }),
   counterparty: text({ maxLength: 120 }),
+  activity: activityParser(false),
   planFollowUp: bool(),
   followUpInterval: text(),
 };
@@ -79,11 +105,12 @@ type EventFieldName = keyof typeof EVENT_SCHEMA;
 /**
  * Creating and editing an event.
  *
- * One sheet, three field layouts chosen by the type select at the top: a care
+ * One sheet, four field layouts chosen by the type select at the top: a care
  * appointment (vet, farrier, dentist, osteopath) has a practitioner and can
- * record a repeat interval; a purchase has a merchant; lessons and boarding
- * need neither. The variant mapping lives in `event.types.ts` so the taxonomy
- * and its form stay together.
+ * record a repeat interval; a purchase has a merchant; a schooling session has
+ * the kind of work that was done; lessons and boarding need none of it. The
+ * variant mapping lives in `event.types.ts` so the taxonomy and its form stay
+ * together.
  *
  * Setting `event` switches it to edit: same layouts, same reader, prefilled
  * from the record and saved with `update` instead of `create`. A second form
@@ -292,7 +319,10 @@ export class EventSheet extends BaseElement {
     }
 
     const spec = this.#spec;
-    const result = readForm(submitEvent.target as HTMLFormElement, EVENT_SCHEMA);
+    const result = readForm(submitEvent.target as HTMLFormElement, {
+      ...EVENT_SCHEMA,
+      activity: activityParser(spec?.activity ?? false),
+    });
 
     if (!result.ok) {
       this.errors = result.errors;
@@ -318,6 +348,11 @@ export class EventSheet extends BaseElement {
     };
     if (spec?.counterparty) columns[spec.counterparty.column] = counterparty;
 
+    // Same rule as the columns above, and the same reason: a layout that does
+    // not ask what was done must not carry an answer left in the DOM from the
+    // type the user picked before.
+    const activity = spec?.activity ? result.value.activity : null;
+
     const existing = this.event;
     const fields = {
       type,
@@ -338,6 +373,7 @@ export class EventSheet extends BaseElement {
       notes,
       recurrenceId: existing?.recurrenceId ?? null,
       followUpInterval: followUp,
+      activity,
     };
 
     try {
@@ -407,7 +443,7 @@ export class EventSheet extends BaseElement {
         heading=${event ? 'Modifier l’évènement' : 'Nouvel évènement'}
         description=${event
           ? 'Mettre à jour les informations'
-          : 'Ajouter un soin, un cours ou un achat'}
+          : 'Ajouter un soin, une séance ou un achat'}
         .open=${this.open}
         @sheet-close=${this.#close}
       >
@@ -422,6 +458,8 @@ export class EventSheet extends BaseElement {
             required
             @select-change=${this.#onTypeChange}
           ></app-select>
+
+          ${this.#spec?.activity ? this.#renderActivity() : nothing}
 
           <app-input
             flat
@@ -504,6 +542,25 @@ export class EventSheet extends BaseElement {
         .value=${this.#counterparty}
         .error=${this.errors.counterparty ?? ''}
       ></app-input>
+    `;
+  }
+
+  /**
+   * What was done in the session. Its own control rather than a relabelled
+   * shared one — unlike the practitioner/merchant field, no other layout has
+   * anything to relabel it to.
+   */
+  #renderActivity() {
+    return html`
+      <app-select
+        label="Activité"
+        name="activity"
+        placeholder="Choisir une activité"
+        .options=${ACTIVITY_OPTIONS}
+        .value=${this.event?.activity ?? ''}
+        .error=${this.errors.activity ?? ''}
+        required
+      ></app-select>
     `;
   }
 

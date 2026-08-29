@@ -53,6 +53,35 @@ const submit = async (el: EventSheet) => {
 const fieldNamed = <T extends Element>(form: HTMLFormElement, name: string) =>
   form.querySelector<T>(`[name="${name}"]`)!;
 
+/** Picks a value the way a user does, so the sheet's own state follows. */
+const pick = async (el: EventSheet, name: string, value: string) => {
+  const field = fieldNamed<AppSelect>(el.renderRoot.querySelector('form')!, name);
+  const select = field.renderRoot.querySelector('select')!;
+  select.value = value;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+  await settled(el);
+};
+
+const fill = async (el: EventSheet, name: string, value: string) => {
+  const field = fieldNamed<AppInput>(el.renderRoot.querySelector('form')!, name);
+  const input = field.renderRoot.querySelector('input')!;
+  input.value = value;
+  input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+  await settled(field);
+};
+
+/**
+ * The saved row, once the repository write has landed — `fixture`'s `waitFor`
+ * takes a synchronous predicate and this condition has to await the database.
+ */
+const savedEvent = async () => {
+  for (let i = 0; i < 20 && (await db.events.count()) === 0; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  const [stored] = await db.events.toArray();
+  return stored;
+};
+
 /** What the user can actually read under a field, or `''` if nothing is shown. */
 const errorTextOf = (field: AppInput | AppSelect) => {
   const node = field.renderRoot.querySelector('[part="error"]');
@@ -165,5 +194,65 @@ describe('event-sheet submit', () => {
     expect(region.getAttribute('role')).toBe('alert');
     expect(region.hasAttribute('hidden')).toBe(false);
     expect(region.textContent?.trim()).toBe('');
+  });
+});
+
+/**
+ * The `work` layout — the one whose extra field is required rather than
+ * optional, and whose value has to be dropped again on the way out when the
+ * user changes their mind about the type.
+ */
+describe('event-sheet — the travail layout', () => {
+  it('shows the activity select for Travail and nothing else’s extra fields', async () => {
+    const el = await openSheet();
+    await pick(el, 'type', 'travail');
+
+    const form = el.renderRoot.querySelector('form')!;
+    expect(form.querySelector('[name="activity"]')).not.toBeNull();
+    expect(form.querySelector('[name="counterparty"]')).toBeNull();
+    expect(form.querySelector('[name="planFollowUp"]')).toBeNull();
+
+    // And it leaves with the layout: a care event has no activity to record.
+    await pick(el, 'type', 'veto');
+    expect(el.renderRoot.querySelector('form')!.querySelector('[name="activity"]')).toBeNull();
+  });
+
+  it('refuses to save a Travail with no activity picked', async () => {
+    const el = await openSheet();
+    await pick(el, 'type', 'travail');
+    await fill(el, 'title', 'Séance du matin');
+
+    const form = await submit(el);
+
+    // The message comes from `forms.ts`, not from a copy in the sheet — the
+    // parser is simply the required overload on this layout.
+    expect(errorTextOf(fieldNamed<AppSelect>(form, 'activity'))).not.toBe('');
+    expect(await db.events.count()).toBe(0);
+  });
+
+  it('stores the activity key, not its label', async () => {
+    const el = await openSheet();
+    await pick(el, 'type', 'travail');
+    await fill(el, 'title', 'Séance du matin');
+    await pick(el, 'activity', 'longe');
+
+    await submit(el);
+
+    expect(await savedEvent()).toMatchObject({ type: 'travail', activity: 'longe' });
+  });
+
+  it('drops the activity when the type is changed away from Travail', async () => {
+    const el = await openSheet();
+    await pick(el, 'type', 'travail');
+    await fill(el, 'title', 'Séance du matin');
+    await pick(el, 'activity', 'longe');
+
+    // Changing the type takes the field off screen, but a value the layout no
+    // longer shows must not reach the record either.
+    await pick(el, 'type', 'cours');
+
+    await submit(el);
+
+    expect(await savedEvent()).toMatchObject({ type: 'cours', activity: null });
   });
 });

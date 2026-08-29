@@ -156,6 +156,15 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     };
   }
 
+  // v3 -> v4: events gain `activity`, for the same reason and with the same
+  // consequence as the columns above.
+  if (backup.schemaVersion < 4) {
+    tables = {
+      ...tables,
+      events: tables.events.map((row) => ({ ...row, activity: row.activity ?? null })),
+    };
+  }
+
   return { ...backup, schemaVersion: SCHEMA_VERSION, tables };
 };
 

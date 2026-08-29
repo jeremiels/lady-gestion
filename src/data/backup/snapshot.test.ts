@@ -62,6 +62,7 @@ const event = (over: Partial<HorseEvent> = {}): HorseEvent => ({
   notes: null,
   recurrenceId: null,
   followUpInterval: null,
+  activity: null,
   ...over,
 });
 
@@ -280,10 +281,24 @@ describe('importBackup — rejects bad input', () => {
     expect(stored).toHaveProperty('followUpInterval', null);
   });
 
+  it('fills a pre-v4 event’s activity with null', async () => {
+    // A v3 export has the two v3 columns but no `activity` at all.
+    const { activity: _activity, ...legacy } = event();
+
+    await importBackup({
+      ...snapshot(),
+      schemaVersion: 3,
+      tables: { ...snapshot().tables, events: [legacy] },
+    });
+
+    expect(await db.events.get('event-1')).toHaveProperty('activity', null);
+  });
+
   it('keeps the values a current-version snapshot carries', async () => {
     const current = event({
       vendor: "google",
       followUpInterval: { amount: 6, unit: "week" },
+      activity: 'longe',
     });
 
     await importBackup({
@@ -294,6 +309,7 @@ describe('importBackup — rejects bad input', () => {
     const stored = await db.events.get('event-1');
     expect(stored?.vendor).toBe('google');
     expect(stored?.followUpInterval).toEqual({ amount: 6, unit: 'week' });
+    expect(stored?.activity).toBe('longe');
   });
 
   it('leaves a current-version snapshot untouched', async () => {

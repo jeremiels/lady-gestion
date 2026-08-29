@@ -1,7 +1,7 @@
 import type { EventTypeKey } from '../types/event.types.ts';
 import type { DocumentCategory } from '../types/document.types.ts';
 import type { RationSeason } from './seasons.ts';
-import type { FollowUpInterval } from './events.ts';
+import type { FollowUpInterval, WorkActivity } from './events.ts';
 
 /**
  * Fields shared by every persisted entity.
@@ -112,6 +112,17 @@ export type HorseEvent = BaseRecord & {
    * date from this yet. See `events.ts`. Added in schema v3.
    */
   followUpInterval: FollowUpInterval | null;
+  /**
+   * What was done in a schooling session — the "Activité" field on a `travail`
+   * event.
+   *
+   * Its own column rather than folded into `title` or `notes`: it is a closed
+   * list (see `WorkActivity` in `events.ts`), which is what lets it be filtered
+   * and counted later, and a free-text field that happens to hold "Longe" is
+   * neither. `null` on every other event type — the entry form writes it from
+   * the layout, never from whatever the DOM still holds. Added in schema v4.
+   */
+  activity: WorkActivity | null;
 };
 
 export type StoredDocument = BaseRecord & {

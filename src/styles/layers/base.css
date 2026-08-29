@@ -1,4 +1,8 @@
 @layer base {
+  /* Remove the blue highlight on tap for mobile */
+  * {
+  -webkit-tap-highlight-color: transparent;
+  }
   /* Inherit font size for better scaling */
   html {
     font-size: inherit;

@@ -106,7 +106,7 @@ Two consequences worth stating out loud:
   (which is a button, not a link — it opens a sheet, it does not navigate), and
   **edited** through the same sheet: setting its `event` property prefills the
   fields and switches the submit to `update`. One sheet, deliberately — a second
-  form would be a second place for the three variant rules to drift.
+  form would be a second place for the variant rules to drift.
   Deleting is `EventDetailView` → `app-modal` → the soft delete.
 - **Documents still have no upload path.** `seed.ts` writes exactly one — a PDF
   it generates itself, attached to the seeded "Contrôle œil" event — so the
@@ -154,19 +154,25 @@ Two consequences worth stating out loud:
 - Every parser is **overloaded on `required`**: `text({ required: true })`
   returns `FieldParser<string>`, not `FieldParser<string | null>`, so a caller
   that marked a field required doesn't then have to null-check it.
-- **`event-sheet` shows one of three field layouts**, chosen from the type
+- **`event-sheet` shows one of four field layouts**, chosen from the type
   select at the top via `eventFormSpec(type)` (`event.types.ts`): `care`
   (véto/maréchal/dentiste/ostéo) adds Practicien and the follow-up interval;
-  `purchase` (alimentation/achat) adds Site; `activity` (cours/pension) adds
-  neither. **Everything that varies with the layout lives in `EVENT_FORM_SPEC`,
-  one table** — the counterparty's label, the record column it is stored in,
-  where the form draws it, and whether a follow-up is offered. Read it; never
+  `purchase` (alimentation/achat) adds Site; `work` (travail) adds the Activité
+  select; `plain` (cours/pension) adds none of it. **Everything that varies with
+  the layout lives in `EVENT_FORM_SPEC`, one table** — the counterparty's label,
+  the record column it is stored in, where the form draws it, whether a
+  follow-up is offered and whether an activity is asked for. Read it; never
   re-test the layout with `=== 'care'` at a call site. The column matters as
   much as the label: a field the current layout doesn't show must never reach
-  the record, so `providerName` and `vendor` are written from the spec rather
-  than from whatever the DOM still holds. `EventDetailView` reads the same
-  table to label its Practicien/Site row, which is what keeps what is captured
-  and what is displayed from drifting.
+  the record, so `providerName`, `vendor` and `activity` are written from the
+  spec rather than from whatever the DOM still holds. `EventDetailView` reads
+  the same table to label its Practicien/Site row, which is what keeps what is
+  captured and what is displayed from drifting.
+
+  `activity` is also the one field whose *parser* varies: it is required on
+  `work` and absent everywhere else, so `event-sheet` swaps in the required
+  overload of `oneOf` for that layout rather than copying "Ce champ est requis."
+  out of `forms.ts`. The schema's shape is the same either way.
 - **`HorseEvent.status` is derived, never asked for**: `statusForDate()` in
   `events.ts` — a future date is `planned`, today or past is `done`. None of the
   entry forms has a status control because the date already says which is meant.
@@ -223,7 +229,7 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 ```
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
-  db.ts                # Dexie subclass + SCHEMA_VERSION (3) and its upgrades
+  db.ts                # Dexie subclass + SCHEMA_VERSION (4) and its upgrades
   types.ts             # BaseRecord, Horse, HorseEvent, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
@@ -353,6 +359,9 @@ src/data/
   is `{ amount, unit }` — how long until a care event repeats. **Ticking
   "Planifier un rendez-vous" records the interval and creates no second event**;
   nothing derives a date from it yet, which is what reminders will add.
+  `activity` is a `WorkActivity` key (`events.ts`) — what was done in a
+  `travail` session, from a closed list with French labels, `null` on every
+  other type.
 - **Bumping `SCHEMA_VERSION` means writing two migrations that agree**: a
   `this.version(n).upgrade()` in `db.ts` for databases already on a device, and
   a step in `migrateSnapshot()` (`backup/snapshot.ts`) for backup files written

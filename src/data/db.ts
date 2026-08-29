@@ -1,6 +1,6 @@
 import Dexie, { liveQuery, type Table } from 'dexie';
 import { seasonFromLegacyFlag, type RationSeason } from './seasons.ts';
-import type { FollowUpInterval } from './events.ts';
+import type { FollowUpInterval, WorkActivity } from './events.ts';
 import type {
   DocumentBlob,
   Horse,
@@ -30,8 +30,9 @@ import type {
  * - v1 — initial schema.
  * - v2 — `RationItem.seasonal: boolean` → `RationItem.season: RationSeason | null`.
  * - v3 — `HorseEvent` gains `vendor` and `followUpInterval`, both nullable.
+ * - v4 — `HorseEvent` gains `activity`, nullable.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -63,6 +64,11 @@ type LegacyRationItem = {
 type LegacyHorseEvent = {
   vendor?: string | null;
   followUpInterval?: FollowUpInterval | null;
+};
+
+/** A pre-v4 event row: no `activity`. */
+type LegacyWorkEvent = {
+  activity?: WorkActivity | null;
 };
 
 export class LadyGestionDb extends Dexie {
@@ -107,6 +113,21 @@ export class LadyGestionDb extends Dexie {
           .modify((event) => {
             event.vendor ??= null;
             event.followUpInterval ??= null;
+          }),
+      );
+
+    // Same shape as v3, and for the same reason: an absent key reads back as
+    // `undefined`, which contradicts the declared type and is dropped by
+    // `JSON.stringify` on export. Unindexed — it is nullable, and IndexedDB
+    // drops a record whose indexed value is null out of the index entirely.
+    this.version(4)
+      .stores(STORES)
+      .upgrade((transaction) =>
+        transaction
+          .table<LegacyWorkEvent>('events')
+          .toCollection()
+          .modify((event) => {
+            event.activity ??= null;
           }),
       );
   }

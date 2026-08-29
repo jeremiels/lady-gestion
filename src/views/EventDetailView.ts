@@ -14,6 +14,7 @@ import {
   formatFileSize,
   formatFollowUpInterval,
   formatTime,
+  formatWorkActivity,
 } from '../data/index.ts';
 import type { HorseEvent, StoredDocument } from '../data/types.ts';
 import { eventFormSpec, eventType } from '../types/event.types.ts';
@@ -164,6 +165,13 @@ export class EventDetailView extends LightElement {
           : formatDateMedium(event.date),
       },
     ];
+
+    // Guarded by the value alone, like the rows below it: the column has one
+    // meaning whatever the type, and the entry form nulls it on any layout that
+    // does not ask for it — so there is nothing here for the spec to settle.
+    if (event.activity) {
+      rows.push({ label: 'Activité', value: formatWorkActivity(event.activity) });
+    }
 
     const counterpartyValue = counterparty && event[counterparty.column];
     if (counterparty && counterpartyValue) {

@@ -15,7 +15,8 @@ export type EventTypeKey =
   | 'cours'
   | 'alimentation'
   | 'achat'
-  | 'pension';
+  | 'pension'
+  | 'travail';
 
 export const EVENT_TYPE_META: Record<EventTypeKey, TaxonomyMeta> = {
   veto: {
@@ -58,6 +59,15 @@ export const EVENT_TYPE_META: Record<EventTypeKey, TaxonomyMeta> = {
     icon: 'farm',
     theme: 'turquoise',
   },
+  // Appended rather than slotted in beside `cours`: `sumByType` walks
+  // `EVENT_TYPES` in table order to keep the donut's wedges — and therefore
+  // their colours and neighbours — in the same place from one month to the
+  // next, so inserting in the middle would reshuffle every existing category.
+  travail: {
+    label: 'Travail',
+    icon: 'cactus',
+    theme: 'fuchsia',
+  },
 };
 
 /** `keys`, `label`, `icon` and `theme` for the table above — see `taxonomy.ts`. */
@@ -73,11 +83,12 @@ export const EVENT_TYPES_BY_LABEL = [...EVENT_TYPES].sort((a, b) =>
 /**
  * Which set of fields the entry form shows for a given type.
  *
- * The three layouts differ by what the event *is*, not by category: a care
- * appointment has a practitioner and may repeat, a purchase has a merchant, and
- * lessons and boarding need neither.
+ * The four layouts differ by what the event *is*, not by category: a care
+ * appointment has a practitioner and may repeat, a purchase has a merchant, a
+ * schooling session has the kind of work that was done, and lessons and boarding
+ * need none of it.
  */
-export type EventFormVariant = 'care' | 'activity' | 'purchase';
+export type EventFormVariant = 'care' | 'plain' | 'purchase' | 'work';
 
 /**
  * The practitioner/merchant field: what to call it, which column of the record
@@ -98,6 +109,15 @@ export type EventFormSpec = {
   counterparty: CounterpartyField | null;
   /** Whether this layout offers the repeat-appointment checkbox. */
   followUp: boolean;
+  /**
+   * Whether this layout asks which kind of work was done — the "Activité"
+   * select, stored in `HorseEvent.activity`.
+   *
+   * A flag rather than a descriptor like `counterparty`: the label and the
+   * column never vary, so there is nothing for a table to say that the column's
+   * own name doesn't.
+   */
+  activity: boolean;
 };
 
 /**
@@ -106,21 +126,29 @@ export type EventFormSpec = {
  * Two files read it — `event-sheet.ts` to decide what to render and which column
  * to write, `EventDetailView.ts` to decide which row to show and what to call
  * it — so the label and the column are stated once and cannot disagree between
- * the form that captures a value and the card that displays it. Adding a fourth
+ * the form that captures a value and the card that displays it. Adding another
  * layout is a row here rather than a hunt through both.
  */
 export const EVENT_FORM_SPEC: Record<EventFormVariant, EventFormSpec> = {
   care: {
     counterparty: { label: 'Practicien', column: 'providerName', position: 'before-amount' },
     followUp: true,
+    activity: false,
   },
-  activity: {
+  plain: {
     counterparty: null,
     followUp: false,
+    activity: false,
   },
   purchase: {
     counterparty: { label: 'Site', column: 'vendor', position: 'after-amount' },
     followUp: false,
+    activity: false,
+  },
+  work: {
+    counterparty: null,
+    followUp: false,
+    activity: true,
   },
 };
 
@@ -130,10 +158,11 @@ const EVENT_FORM_VARIANT: Record<EventTypeKey, EventFormVariant> = {
   marechal: 'care',
   dentiste: 'care',
   osteo: 'care',
-  cours: 'activity',
-  pension: 'activity',
+  cours: 'plain',
+  pension: 'plain',
   alimentation: 'purchase',
   achat: 'purchase',
+  travail: 'work',
 };
 
 /**

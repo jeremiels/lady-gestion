@@ -96,7 +96,7 @@ describe('sumByType', () => {
   });
 
   it('orders by EVENT_TYPES, not by amount, so the ring never reshuffles', () => {
-    // `pension` is last in EVENT_TYPES and biggest here; `veto` is first and smallest.
+    // `pension` comes after `veto` in EVENT_TYPES and is the bigger of the two here.
     const slices = sumByType([
       budget('2026-01-05', 'pension', 35_000),
       budget('2026-01-06', 'veto', 100),

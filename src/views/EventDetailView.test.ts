@@ -75,6 +75,23 @@ describe('event-detail-view', () => {
     expect(purchase.textContent).not.toContain('Practicien');
   });
 
+  it('shows a travail event’s activity by its label, not its stored key', async () => {
+    await db.events.bulkAdd([
+      makeEvent({ id: 'work-1', type: 'travail', activity: 'longe' }),
+      makeEvent({ id: 'care-2', type: 'veto', providerName: 'Dr. Dupont' }),
+    ]);
+
+    const work = await mount('work-1');
+    await waitFor(work, () => work.textContent!.includes('Activité'));
+    expect(work.textContent).toContain('Longe');
+    expect(work.textContent).not.toContain('longe');
+
+    // The row is driven by the value, so an event that has none never shows it.
+    const care = await mount('care-2');
+    await waitFor(care, () => care.textContent!.includes('Practicien'));
+    expect(care.textContent).not.toContain('Activité');
+  });
+
   it('confirming delete soft-deletes the record and leaves the page', async () => {
     await db.events.add(makeEvent({ id: 'to-delete', title: 'Visite à supprimer' }));
     const el = await mount('to-delete');

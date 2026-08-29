@@ -24,6 +24,8 @@
     --color-taupe-2: #F6ECEA;
     --color-turquoise-1: #9BC9C2;
     --color-turquoise-2: #DEF1EF;
+    --color-fuchsia-1: #F29ADB;
+    --color-fuchsia-2: #FDD2F1;
     --color-white: #FFFFFF;
     --color-black: #000000;
     --color-dark: #2D2520;
@@ -44,6 +46,7 @@
     --color-theme-yellow: var(--color-yellow-1);
     --color-theme-taupe: var(--color-taupe-1);
     --color-theme-turquoise: var(--color-turquoise-1);
+    --color-theme-fuchsia: var(--color-fuchsia-1);
     --color-theme-brown-background: var(--color-brown-6);
     --color-theme-pink-background: var(--color-pink-2);
     --color-theme-purple-background: var(--color-purple-2);
@@ -52,6 +55,7 @@
     --color-theme-yellow-background: var(--color-yellow-2);
     --color-theme-taupe-background: var(--color-taupe-2);
     --color-theme-turquoise-background: var(--color-turquoise-2);
+    --color-theme-fuchsia-background: var(--color-fuchsia-2);
     --color-input-drawer: var(--color-brown-9);
     /* Muted text sitting on a dark/tinted card, e.g. the budget subtitle.
        Named for where it goes: it was --color-brown-semi-middle, which

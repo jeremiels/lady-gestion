@@ -29,6 +29,7 @@ const horseEvent = (fields: Partial<HorseEvent> = {}): HorseEvent => ({
   notes: null,
   recurrenceId: null,
   followUpInterval: null,
+  activity: null,
   ...fields,
 });
 

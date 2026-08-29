@@ -226,6 +226,7 @@ describe('write path', () => {
       notes: null,
       recurrenceId: null,
       followUpInterval: null,
+      activity: null,
     });
 
     expect(created.id).toMatch(/^[0-9a-f-]{36}$/);

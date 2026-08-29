@@ -58,6 +58,7 @@ export const makeEvent = (over: Partial<HorseEvent> = {}): HorseEvent => ({
   notes: null,
   recurrenceId: null,
   followUpInterval: null,
+  activity: null,
   ...over,
 });
 
