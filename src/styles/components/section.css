@@ -20,9 +20,8 @@
 
   .section-title-small {
     font-size: 0.75rem;
-    line-height: 1rem;
+    line-height: 0.875rem;
     font-weight: bold;
-    text-transform: uppercase;
     letter-spacing: 0%;
     color: var(--color-brown-middle); 
   }
