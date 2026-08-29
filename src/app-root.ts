@@ -81,9 +81,9 @@ const SECTIONS: Section[] = [
     href: appHref('/'),
     label: 'Accueil',
     icon: 'home',
-    // `/expenses` and the horse's page are drill-downs from the dashboard, not
+    // `/budget` and the horse's page are drill-downs from the dashboard, not
     // sections of their own — an unlit bar there would say otherwise.
-    matches: (path) => path === '/' || path === '/expenses' || isHorsePath(path),
+    matches: (path) => path === '/' || path === '/budget' || isHorsePath(path),
   },
   {
     id: 'events',
@@ -93,19 +93,19 @@ const SECTIONS: Section[] = [
     // A prefix match: an event's own page is still the Calendrier section.
     matches: (path) => path.startsWith('/events'),
   },
+    {
+    id: 'budget',
+    href: appHref('/budget'),
+    label: 'Budget',
+    icon: 'currencyEur',
+    matches: (path) => path === '/budget',
+  },
   {
     id: 'documents',
     href: appHref('/documents'),
     label: 'Documents',
     icon: 'folder',
     matches: (path) => path === '/documents',
-  },
-  {
-    id: 'profile',
-    href: appHref('/profile'),
-    label: 'Profil',
-    icon: 'user',
-    matches: (path) => path === '/profile',
   },
 ];
 
@@ -117,7 +117,7 @@ const SECTIONS: Section[] = [
  * destination: it opens the event sheet, so it has no route and nothing for the
  * Navigation API to intercept.
  */
-const ADD_BUTTON_BEFORE = 'documents';
+const ADD_BUTTON_BEFORE = 'budget';
 
 /** The section a path belongs to, or `undefined` for a path in none (the 404). */
 const sectionOf = (path: string): Section | undefined =>
@@ -179,14 +179,14 @@ const ROUTES: Route[] = [
     `,
   },
   {
-    // A drill-down from the dashboard's expenses card, not a section of its
+    // A drill-down from the dashboard's budget card, not a section of its
     // own — hence no nav item, and Accueil stays lit while it is open.
-    match: (path) => path === '/expenses',
+    match: (path) => path === '/budget',
     title: 'Dépenses',
     // The only route pulling `d3-shape` and `app-donut-chart`, and a drill-down
     // most sessions never open — the single most worthwhile split here.
-    load: () => import('./views/ExpensesView.ts'),
-    render: () => html`<expenses-view></expenses-view>`,
+    load: () => import('./views/BudgetView.ts'),
+    render: () => html`<budget-view></budget-view>`,
   },
   {
     match: (path) => path === '/documents',
@@ -293,7 +293,7 @@ export class AppRoot extends LightElement {
     initPwa();
 
     // The route the app was *opened* on never goes through the Navigation API,
-    // so nothing else would load its chunk — a cold deep link to /expenses
+    // so nothing else would load its chunk — a cold deep link to /budget
     // would render an undefined element and show an empty page. Static imports
     // used to cover this for free; the split makes it explicit.
     void this.#prepareRoute(this.#router.path).then(() => this.requestUpdate());

@@ -53,7 +53,7 @@
     --color-theme-taupe-background: var(--color-taupe-2);
     --color-theme-turquoise-background: var(--color-turquoise-2);
     --color-input-drawer: var(--color-brown-9);
-    /* Muted text sitting on a dark/tinted card, e.g. the expenses subtitle.
+    /* Muted text sitting on a dark/tinted card, e.g. the budget subtitle.
        Named for where it goes: it was --color-brown-semi-middle, which
        resolves to brown-7 and is nearly white. */
     --color-text-muted-on-dark: var(--color-brown-7);
@@ -63,8 +63,8 @@
     --color-folder: var(--color-brown-1);
     /* One-off card tint from the design, not on the brown scale — it sits
        between --color-brown-3 and -4. Kept as its own token so the value has a
-       name rather than sitting inline in expenses-card. */
-    --color-card-expenses: #B9A790;
+       name rather than sitting inline in budget-card. */
+    --color-card-budget: #B9A790;
     /*
      * Roles, not palette positions.
      *

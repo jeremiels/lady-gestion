@@ -65,7 +65,7 @@ export type EventStatus = 'planned' | 'done' | 'cancelled';
 /**
  * The core record: one dated thing that happened (or will happen) to a horse.
  *
- * Deliberately unified rather than split into events and expenses. A farrier
+ * Deliberately unified rather than split into events and budget. A farrier
  * visit is a single row that has both a date and a price — "rendez-vous à
  * venir" is a future `date`, "dépenses" is `amountCents != null`. Splitting
  * would mean entering the same visit twice and joining it back together in

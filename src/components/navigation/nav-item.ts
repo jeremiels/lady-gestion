@@ -12,7 +12,7 @@ import '../app-icon/app-icon.ts';
  * An anchor, not a button — the Navigation API in `app-root` intercepts it for
  * free, and where that API is missing it still works as a real page load. Which
  * item is active is `app-root`'s answer from `SECTIONS`, not this component's:
- * a drill-down like `/expenses` has no nav item of its own and must not unlight
+ * a drill-down like `/budget` has no nav item of its own and must not unlight
  * the one it was opened from.
  */
 @customElement('nav-item')

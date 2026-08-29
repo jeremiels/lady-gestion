@@ -52,6 +52,8 @@ export const ICON_NAMES = [
   'download',
   'share',
   'file',
+  'currencyEur',
+  'currencyEurFilled'
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];

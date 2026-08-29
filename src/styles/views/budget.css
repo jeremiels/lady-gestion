@@ -1,10 +1,10 @@
-@layer views.expenses {
-  .expenses-view {
+@layer views.budget {
+  .budget-view {
     display: grid;
     gap: var(--spacing-24);
   }
 
-  .expenses-view__header {
+  .budget-view__header {
     display: flex;
     align-items: center;
     gap: var(--spacing-12);
@@ -12,7 +12,7 @@
 
   /* The square tinted button the design puts the chevron in — the same one the
      event detail page uses. */
-  .expenses-view__back {
+  .budget-view__back {
     appearance: none;
     display: inline-flex;
     align-items: center;
@@ -28,20 +28,20 @@
     cursor: pointer;
   }
 
-  .expenses-view__back:focus-visible {
+  .budget-view__back:focus-visible {
     outline: 2px solid var(--color-brown-dark);
     outline-offset: 2px;
   }
 
   /* Size the glyph, not the host: app-icon carries its own padding, and a width
      on the host leaves a content box too small to draw into. */
-  .expenses-view__back app-icon {
+  .budget-view__back app-icon {
     --icon-size: 1.25rem;
 
     padding: 0;
   }
 
-  .expenses-view__title {
+  .budget-view__title {
     font-size: 1.125rem;
     line-height: 1.25rem;
     font-weight: 700;
@@ -49,13 +49,13 @@
 
   /* `.container` gives the white card; the chart wants more room inside it than
      the shared 12px. `views` sits after `components`, so this wins. */
-  .expenses-view__summary {
+  .budget-view__summary {
     display: grid;
     gap: var(--spacing-16);
     padding: var(--spacing-16);
   }
 
-  .expenses-view__controls {
+  .budget-view__controls {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -67,7 +67,7 @@
      phone and becomes three or four on anything wider without a breakpoint to
      maintain. `min(...)` keeps the track from overflowing a container narrower
      than the minimum. */
-  .expenses-view__legend {
+  .budget-view__legend {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(8rem, 100%), 1fr));
     gap: var(--spacing-12) var(--spacing-16);
@@ -77,21 +77,21 @@
   }
 
   /* The dot spans both rows so the label and its amount stack beside it. */
-  .expenses-view__legend-item {
+  .budget-view__legend-item {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     column-gap: var(--spacing-8);
   }
 
-  .expenses-view__legend-dot {
+  .budget-view__legend-dot {
     grid-row: span 2;
     width: 0.75rem;
     height: 0.75rem;
     border-radius: var(--radius-pill);
   }
 
-  .expenses-view__legend-label {
+  .budget-view__legend-label {
     font-size: 0.9375rem;
     font-weight: 600;
     color: var(--color-dark);
@@ -99,24 +99,24 @@
     overflow-wrap: anywhere;
   }
 
-  .expenses-view__legend-value {
+  .budget-view__legend-value {
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--color-brown-light);
   }
 
-  .expenses-view__ledger {
+  .budget-view__ledger {
     display: grid;
     gap: var(--spacing-12);
   }
 
-  .expenses-view__group-title {
+  .budget-view__group-title {
     font-size: 1rem;
     font-weight: 600;
     color: var(--color-brown-middle);
   }
 
-  .expenses-view__list {
+  .budget-view__list {
     display: grid;
     gap: var(--spacing-12);
     margin: 0;
@@ -125,10 +125,10 @@
   }
 
   /* Same reasoning, and the same measured 84px, as `.events-view__list > li`
-     in views/events.css — read the note there. This ledger is every expense in
-     the period and grows without bound, and the `expenses` layout is the same
+     in views/events.css — read the note there. This ledger is every budget in
+     the period and grows without bound, and the `budget` layout is the same
      two rows as a default card with no notes. */
-  .expenses-view__list > li {
+  .budget-view__list > li {
     content-visibility: auto;
     contain-intrinsic-size: auto 5.25rem;
     /* Opacity only, for the reason spelled out on the events list: a row that
@@ -151,14 +151,14 @@
 
      Give this view a sort control, or a filter that interleaves rows, and every
      visible row will strobe on every change — pinned by the test in
-     `ExpensesView.test.ts`. */
+     `BudgetView.test.ts`. */
   @starting-style {
-    .expenses-view__list > li {
+    .budget-view__list > li {
       opacity: 0;
     }
   }
 
-  .expenses-view__empty {
+  .budget-view__empty {
     font-size: 0.875rem;
     color: var(--color-brown-light);
   }

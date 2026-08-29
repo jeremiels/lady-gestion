@@ -55,7 +55,7 @@ const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) *
  * fixed calls. Nothing about it depends on an instance.
  *
  * `.sort(null)` is load-bearing: d3 sorts by value by default, so a category
- * would move — and take its neighbours with it — the moment one expense was
+ * would move — and take its neighbours with it — the moment one budget was
  * added.
  */
 const layout = pie<DonutSlice>()
@@ -65,7 +65,7 @@ const layout = pie<DonutSlice>()
 /**
  * Compares slices by what is drawn rather than by array identity.
  *
- * The owning view maps its `ExpenseSlice[]` into `DonutSlice[]` inside
+ * The owning view maps its `BudgetSlice[]` into `DonutSlice[]` inside
  * `render()`, so the property receives a freshly built array every time the
  * view updates for any reason at all. Under Lit's default `!==` check that
  * counted as a data change and replayed the whole one-second sweep — on

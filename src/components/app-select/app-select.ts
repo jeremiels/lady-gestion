@@ -24,7 +24,7 @@ export class AppSelect extends FormFieldElement {
   @property({ type: Array }) options: AppSelectOption[] = [];
   @property({ type: String }) placeholder = '';
   /**
-   * Compact pill with its label hidden — the period picker on the expenses
+   * Compact pill with its label hidden — the period picker on the budget
    * view, where the value alone is the affordance and the surrounding heading
    * already says what it picks.
    *

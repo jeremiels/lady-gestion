@@ -93,7 +93,7 @@ export const formatMonthLong = (month: MonthNumber): string =>
  *
  * French elides `de` before a vowel, which among month names hits avril, août
  * and octobre. Exported because more than one sentence in the app needs it —
- * the suspension footnote and the expenses card's "Budget d’août".
+ * the suspension footnote and the budget card's "Budget d’août".
  */
 export const formatMonthDe = (month: MonthNumber): string => {
   const name = formatMonthLong(month);

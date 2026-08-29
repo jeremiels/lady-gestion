@@ -1,7 +1,7 @@
 /**
  * Money is stored as an integer number of cents, never a float.
  *
- * `0.1 + 0.2 !== 0.3`, and a sum of a year's expenses in floats drifts. Cents
+ * `0.1 + 0.2 !== 0.3`, and a sum of a year's budget in floats drifts. Cents
  * also map straight onto a Postgres `bigint` / `numeric` column later.
  */
 

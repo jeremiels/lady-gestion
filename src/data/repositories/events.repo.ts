@@ -1,6 +1,6 @@
 import { db } from '../db.ts';
 import { todayISO, type IsoDate } from '../dates.ts';
-import { sumByType } from '../expenses.ts';
+import { sumByType } from '../budget.ts';
 import { sumCents } from '../money.ts';
 import { createRecord, crud, liveOnly } from '../record.ts';
 import type { EventTypeKey } from '../../types/event.types.ts';
@@ -10,7 +10,7 @@ import type { HorseEvent, NewRecord } from '../types.ts';
  * Queries over the unified events table.
  *
  * "Rendez-vous à venir" and "Dépenses" are two views of the same rows, not
- * two tables: an appointment is a future `date`, an expense is a non-null
+ * two tables: an appointment is a future `date`, an budget is a non-null
  * `amountCents`. Both lean on the `[horseId+date]` compound index.
  */
 
@@ -46,8 +46,8 @@ export const listUpcoming = async (horseId: string, limit?: number): Promise<Hor
   return limit === undefined ? upcoming : upcoming.slice(0, limit);
 };
 
-/** Events that cost something — i.e. the expense ledger. */
-export const listExpenses = async (
+/** Events that cost something — i.e. the budget ledger. */
+export const listBudget = async (
   horseId: string,
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
@@ -62,14 +62,14 @@ export const totalSpent = async (
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
 ): Promise<number> => {
-  const expenses = await listExpenses(horseId, from, to);
-  return sumCents(expenses.map((event) => event.amountCents));
+  const budget = await listBudget(horseId, from, to);
+  return sumCents(budget.map((event) => event.amountCents));
 };
 
 /**
  * Spend broken down by category.
  *
- * The reduce itself lives in `expenses.ts` so the expenses view — which
+ * The reduce itself lives in `budget.ts` so the budget view — which
  * aggregates in memory, because a `liveQuery` narrowed by a user-selected period
  * would go stale — and this query cannot disagree about what a breakdown is.
  * Returned as a record because that is the shape callers of this repository
@@ -80,7 +80,7 @@ export const totalSpentByType = async (
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
 ): Promise<Partial<Record<EventTypeKey, number>>> => {
-  const slices = sumByType(await listExpenses(horseId, from, to));
+  const slices = sumByType(await listBudget(horseId, from, to));
   return Object.fromEntries(slices.map((slice) => [slice.type, slice.cents]));
 };
 

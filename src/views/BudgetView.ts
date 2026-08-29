@@ -18,9 +18,9 @@ import {
   periodOptions,
   sumByType,
   todayISO,
-  type ExpenseGranularity,
-  type ExpensePeriod,
-  type ExpenseSlice,
+  type BudgetGranularity,
+  type BudgetPeriod,
+  type BudgetSlice,
 } from '../data/index.ts';
 import type { HorseEvent } from '../data/types.ts';
 import { eventType } from '../types/event.types.ts';
@@ -52,22 +52,22 @@ const GRANULARITIES: SegmentedOption[] = [
  * Converting a single key loses the day-level choice on the way out and has to
  * guess it on the way back.
  */
-type ExpensesUiState = {
-  granularity: ExpenseGranularity;
+type BudgetUiState = {
+  granularity: BudgetGranularity;
   monthKey: string;
   yearKey: string;
 };
 
-@customElement('expenses-view')
-export class ExpensesView extends LightElement {
-  #ui = new ViewState<ExpensesUiState>(this, 'expenses', () => ({
+@customElement('budget-view')
+export class BudgetView extends LightElement {
+  #ui = new ViewState<BudgetUiState>(this, 'budget', () => ({
     granularity: 'month',
     monthKey: periodOf(todayISO(), 'month').key,
     yearKey: periodOf(todayISO(), 'year').key,
   }));
 
   /**
-   * Every expense for the horse, not just the selected period.
+   * Every budget for the horse, not just the selected period.
    *
    * This is forced, not lazy. `LiveQuery` subscribes once in `hostConnected`
    * and Dexie re-runs it only when a table it read is *written* to — picking
@@ -76,9 +76,9 @@ export class ExpensesView extends LightElement {
    * memory is correct and cheap at this size; `EventsView` does the same for
    * the same reason.
    *
-   * `listExpenses` already drops rows with no amount and cancelled ones.
+   * `listBudget` already drops rows with no amount and cancelled ones.
    */
-  #expenses = activeHorseQuery<HorseEvent[]>(this, (horseId) => eventsRepo.listExpenses(horseId), []);
+  #budget = activeHorseQuery<HorseEvent[]>(this, (horseId) => eventsRepo.listBudget(horseId), []);
 
 
   /**
@@ -90,7 +90,7 @@ export class ExpensesView extends LightElement {
    * an older build's history entry falls back to the month view rather than to
    * a year nothing asked for.
    */
-  get #period(): ExpensePeriod {
+  get #period(): BudgetPeriod {
     const { granularity, monthKey, yearKey } = this.#ui.value;
 
     return granularity === 'year'
@@ -99,7 +99,7 @@ export class ExpensesView extends LightElement {
   }
 
   #onGranularityChange = (event: CustomEvent<{ value: string }>) => {
-    this.#ui.patch({ granularity: event.detail.value as ExpenseGranularity });
+    this.#ui.patch({ granularity: event.detail.value as BudgetGranularity });
   };
 
   #onPeriodChange = (event: CustomEvent<{ value: string }>) => {
@@ -108,28 +108,28 @@ export class ExpensesView extends LightElement {
   };
 
   render() {
-    const all = this.#expenses.value ?? [];
+    const all = this.#budget.value ?? [];
     const period = this.#period;
     const { granularity } = period;
     const events = inPeriod(all, period).sort(byDateDescending);
     const slices = sumByType(events);
 
     return html`
-      <section class="expenses-view">
-        <header class="expenses-view__header">
+      <section class="budget-view">
+        <header class="budget-view__header">
           <button
-            class="expenses-view__back pressable pressable--small"
+            class="budget-view__back pressable pressable--small"
             type="button"
             aria-label="Retour"
             @click=${() => goBack(HOME)}
           >
             <app-icon icon="chevronLeft"></app-icon>
           </button>
-          <h1 class="expenses-view__title" tabindex="-1">Dépenses</h1>
+          <h1 class="budget-view__title" tabindex="-1">Dépenses</h1>
         </header>
 
-        <div class="container expenses-view__summary">
-          <div class="expenses-view__controls">
+        <div class="container budget-view__summary">
+          <div class="budget-view__controls">
             <app-segmented
               label="Période"
               .options=${GRANULARITIES}
@@ -156,7 +156,7 @@ export class ExpensesView extends LightElement {
           ></app-donut-chart>
 
           ${slices.length === 0
-            ? html`<p class="expenses-view__empty">Aucune dépense sur cette période.</p>`
+            ? html`<p class="budget-view__empty">Aucune dépense sur cette période.</p>`
             : this.#renderLegend(slices)}
         </div>
 
@@ -168,20 +168,20 @@ export class ExpensesView extends LightElement {
     `;
   }
 
-  #renderLedger(events: HorseEvent[], granularity: ExpenseGranularity) {
+  #renderLedger(events: HorseEvent[], granularity: BudgetGranularity) {
     return html`
-      <section class="expenses-view__ledger">
-        <h2 class="expenses-view__group-title">${formatPeriodHeading(granularity)}</h2>
+      <section class="budget-view__ledger">
+        <h2 class="budget-view__group-title">${formatPeriodHeading(granularity)}</h2>
         <!-- Keyed: changing the period replaces the whole ledger, and the
              month/year segmented control is component state rather than a
              write, so this re-renders far more often than the data changes. -->
-        <ul class="expenses-view__list">
+        <ul class="budget-view__list">
           ${repeat(
             events,
             (event) => event.id,
             (event) => html`
               <li>
-                <event-card layout="expenses" .event=${event}></event-card>
+                <event-card layout="budget" .event=${event}></event-card>
               </li>
             `,
           )}
@@ -198,7 +198,7 @@ export class ExpensesView extends LightElement {
    * legend beside it carries the meaning, so nothing rests on telling two
    * similar pastels apart.
    */
-  #donutSlices(slices: ExpenseSlice[]): DonutSlice[] {
+  #donutSlices(slices: BudgetSlice[]): DonutSlice[] {
     return slices.map((slice) => ({
       id: slice.type,
       label: eventType.label(slice.type),
@@ -218,26 +218,26 @@ export class ExpensesView extends LightElement {
   #formatTotal = (value: number): string => formatCents(Math.round(value));
 
   /**
-   * The same `ExpenseSlice[]` the chart was handed, so the ring and the list
+   * The same `BudgetSlice[]` the chart was handed, so the ring and the list
    * beside it cannot disagree about what is in the period.
    */
-  #renderLegend(slices: ExpenseSlice[]) {
+  #renderLegend(slices: BudgetSlice[]) {
     return html`
-      <ul class="expenses-view__legend">
+      <ul class="budget-view__legend">
         ${repeat(
           slices,
           (slice) => slice.type,
           (slice) => html`
-            <li class="expenses-view__legend-item">
+            <li class="budget-view__legend-item">
               <span
-                class="expenses-view__legend-dot"
+                class="budget-view__legend-dot"
                 style=${styleMap({
                   backgroundColor: eventType.theme(slice.type).backgroundColor,
                 })}
                 aria-hidden="true"
               ></span>
-              <span class="expenses-view__legend-label">${eventType.label(slice.type)}</span>
-              <span class="expenses-view__legend-value">${formatCents(slice.cents)}</span>
+              <span class="budget-view__legend-label">${eventType.label(slice.type)}</span>
+              <span class="budget-view__legend-value">${formatCents(slice.cents)}</span>
             </li>
           `,
         )}

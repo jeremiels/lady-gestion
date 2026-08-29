@@ -5,24 +5,24 @@ import { addMonths, todayISO } from '../data/index.ts';
 import { makeEvent, makeHorse, resetDb } from '../data/__tests__/factories.ts';
 import { fixture, settled, waitFor } from '../components/__tests__/fixture.ts';
 import { eventType } from '../types/event.types.ts';
-import './ExpensesView.ts';
-import type { ExpensesView } from './ExpensesView.ts';
+import './BudgetView.ts';
+import type { BudgetView } from './BudgetView.ts';
 
-const mount = () => fixture<ExpensesView>(html`<expenses-view></expenses-view>`);
+const mount = () => fixture<BudgetView>(html`<budget-view></budget-view>`);
 
-const ledgerIds = (el: ExpensesView) =>
+const ledgerIds = (el: BudgetView) =>
   [...el.querySelectorAll('event-card')].map((card) => card.event?.id).sort();
 
-const setGranularity = async (el: ExpensesView, value: 'month' | 'year') => {
+const setGranularity = async (el: BudgetView, value: 'month' | 'year') => {
   el.querySelector('app-segmented')!.dispatchEvent(
     new CustomEvent('segment-change', { detail: { value }, bubbles: true, composed: true }),
   );
   await settled(el);
 };
 
-const switchToYear = (el: ExpensesView) => setGranularity(el, 'year');
+const switchToYear = (el: BudgetView) => setGranularity(el, 'year');
 
-const pickPeriod = async (el: ExpensesView, key: string) => {
+const pickPeriod = async (el: BudgetView, key: string) => {
   el.querySelector('app-select')!.dispatchEvent(
     new CustomEvent('select-change', { detail: { value: key }, bubbles: true, composed: true }),
   );
@@ -34,7 +34,7 @@ beforeEach(async () => {
   await db.horses.add(makeHorse());
 });
 
-describe('expenses-view', () => {
+describe('budget-view', () => {
   it('defaults to this month, split by type, and drops a cancelled entry', async () => {
     await db.events.bulkAdd([
       makeEvent({ id: 'this-month-veto', type: 'veto', date: todayISO(), amountCents: 4000 }),
@@ -48,7 +48,7 @@ describe('expenses-view', () => {
 
     expect(ledgerIds(el)).toEqual(['this-month-marechal', 'this-month-veto']);
 
-    const legendLabels = [...el.querySelectorAll('.expenses-view__legend-label')].map((node) =>
+    const legendLabels = [...el.querySelectorAll('.budget-view__legend-label')].map((node) =>
       node.textContent?.trim(),
     );
     expect(legendLabels).toEqual(
@@ -78,7 +78,7 @@ describe('expenses-view', () => {
    * The round trip the `ViewState` controller exists for.
    *
    * Two mounts stand in for what `app-root` really does — its route template
-   * changes on the way to an expense's page, so lit-html discards this element
+   * changes on the way to an budget's page, so lit-html discards this element
    * and builds a fresh one on the way back.
    */
   it('reopens on the period the visit was left on, month and year still held apart', async () => {
@@ -106,7 +106,7 @@ describe('expenses-view', () => {
   });
 
   /**
-   * The invariant `views/expenses.css` leans on for its `@starting-style`
+   * The invariant `views/budget.css` leans on for its `@starting-style`
    * fade: `render()` sorts every period with the same `byDateDescending`, so
    * this month's rows are a contiguous block of the year's rows. Widening
    * Mois→Année only inserts rows before and after that block, so the
@@ -128,7 +128,7 @@ describe('expenses-view', () => {
     await waitFor(el, () => el.querySelectorAll('event-card').length > 0);
 
     const rowFor = (id: string) =>
-      [...el.querySelectorAll('.expenses-view__list > li')].find(
+      [...el.querySelectorAll('.budget-view__list > li')].find(
         (li) => li.querySelector('event-card')?.event?.id === id,
       );
     const before = rowFor('this-month');
@@ -136,7 +136,7 @@ describe('expenses-view', () => {
 
     await switchToYear(el);
 
-    const after = [...el.querySelectorAll('.expenses-view__list > li')];
+    const after = [...el.querySelectorAll('.budget-view__list > li')];
     expect(after.map((li) => li.querySelector('event-card')?.event?.id)).toEqual(['this-month', 'last-month']);
     expect(after[0]).toBe(before);
   });

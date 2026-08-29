@@ -193,7 +193,7 @@ function githubPages(): Plugin {
  * and `@lit/reactive-element`, which pulls in `@lit-labs/ssr-dom-shim`); they
  * version together, so they belong together. `d3-shape` brings `d3-path`, and
  * only `app-donut-chart` imports either, so that chunk stays behind the
- * `/expenses` dynamic import.
+ * `/budget` dynamic import.
  */
 const vendorChunks = [
   { name: 'lit', test: /[\\/]node_modules[\\/](lit|lit-html|lit-element|@lit(-labs)?)[\\/]/ },

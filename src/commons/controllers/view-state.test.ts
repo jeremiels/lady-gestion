@@ -125,13 +125,13 @@ describe('ViewState', () => {
     const el = await mount();
     el.ui.patch({ mode: 'list' });
 
-    const other = new ViewState<{ granularity: string }>(new StubHost(), 'expenses', () => ({
+    const other = new ViewState<{ granularity: string }>(new StubHost(), 'budget', () => ({
       granularity: 'month',
     }));
     other.patch({ granularity: 'year' });
 
     expect(stored()).toEqual({
-      views: { events: { mode: 'list', day: 'today' }, expenses: { granularity: 'year' } },
+      views: { events: { mode: 'list', day: 'today' }, budget: { granularity: 'year' } },
     });
     expect(el.ui.value.mode).toBe('list');
   });

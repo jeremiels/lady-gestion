@@ -3,7 +3,7 @@ Be concise
 # lady-gestion
 
 A mobile-first web app for managing a horse (care, events, documents,
-expenses). French UI copy throughout (e.g. "Ration quotidienne",
+budget). French UI copy throughout (e.g. "Ration quotidienne",
 "Identité", "Accueil").
 
 ## Browser floor
@@ -73,22 +73,22 @@ Two consequences worth stating out loud:
   reads 2 on a genuinely cold start, so a bare `history.back()` walks off the
   app. Measured, not theoretical: the service worker answers any path with the
   cached shell, so a shared link to one event opens with no app history behind
-  it, and `/expenses` loaded cold reports `index: 0, history.length: 2`. That
+  it, and `/budget` loaded cold reports `index: 0, history.length: 2`. That
   module also owns `navigateTo(path)`, which falls back to `location.href`
   where the Navigation API is missing.
 - **A view's UI state lives on the history entry, via `ViewState`
   (`commons/controllers/view-state.ts`).** `app-root` renders a different
   template per route, so lit-html discards a view's element on the way out and
   builds a fresh one on the way back — which is why the calendar/list mode, the
-  type chip, the selected day and the expenses period used to reset on Retour,
+  type chip, the selected day and the budget period used to reset on Retour,
   and why `goBack`'s promise ("returning from the list lands on the list") was
   only half true. `navigation.updateCurrentEntry({ state })` is per-entry, so a
   nav-bar tap pushes a new entry and correctly opens at the defaults, and it
   survives a reload for free. **Never persist it with `history.replaceState()`**:
   where the Navigation API exists that fires a `navigate` event, which `Router`
   intercepts — a chip tap would run a whole view transition.
-- **`/expenses` is a drill-down, not a section**: it has no nav item, is reached
-  by tapping the dashboard's `expenses-card`, and Accueil stays lit while it is
+- **`/budget` is a drill-down, not a section**: it has no nav item, is reached
+  by tapping the dashboard's `budget-card`, and Accueil stays lit while it is
   open (the `SECTIONS` table's `matches` predicates in `app-root`, which
   `isHorsePath` feeds), the same way Calendrier stays lit on an
   event's own page.
@@ -228,7 +228,7 @@ src/data/
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
   files.ts             # file size/kind formatting, PDF & image mime predicates
-  expenses.ts          # period/breakdown arithmetic for ExpensesView — see below
+  budget.ts          # period/breakdown arithmetic for BudgetView — see below
   forms.ts             # readForm() + field parsers — the write path's front door
   events.ts            # event rules that are neither persistence nor iCalendar
   seasons.ts           # RationSeason: recurring annual windows — see below
@@ -309,9 +309,9 @@ src/data/
 - **Money is integer cents** (`amountCents`), never a float. Format with
   `formatCents()` from `money.ts`.
 - `events` is one unified table: an appointment is a future `date`, an
-  expense is a non-null `amountCents`. Don't add a separate expenses table.
+  budget is a non-null `amountCents`. Don't add a separate budget table.
   `events.type` is the existing `EventTypeKey`.
-- **`expenses.ts` holds the expenses view's arithmetic as pure functions over
+- **`budget.ts` holds the budget view's arithmetic as pure functions over
   records the caller already fetched** — it is money maths, which is what the
   data-layer test rule exists for. A period there is a **date prefix**
   (`2026-01`, `2026`), not a start/end pair: stored dates are the same
@@ -321,7 +321,7 @@ src/data/
   returns slices in fixed `EVENT_TYPES` order and drops zero-spend categories —
   the fixed order is what keeps a category, and therefore its colour and its
   neighbours, in the same place in the donut from one month to the next.
-- **`ExpensesView` reads every expense and filters in memory**, and that is
+- **`BudgetView` reads every budget and filters in memory**, and that is
   forced, not lazy: `LiveQuery` subscribes once and Dexie re-runs it only on a
   *write*, so a query narrowed by the user-selected period would go stale the
   moment the picker was touched. `EventsView` does the same for the same reason.
@@ -440,7 +440,7 @@ its `<svg>` is safe.
 - Naming: generic reusable components are prefixed `app-` (`app-input`,
   `app-select`, `app-checkbox`, `app-icon`, `app-tag`,
   `app-bottom-sheet`, `app-folder`). Domain-specific components use a
-  plain descriptive name (`horse-card`, `expenses-card`, `nav-bar`).
+  plain descriptive name (`horse-card`, `budget-card`, `nav-bar`).
 - **Form fields extend `FormFieldElement` (`commons/form-field-element.ts`)**,
   which is the whole of a form-associated custom element except the value.
   `static formAssociated`, `delegatesFocus`, the six shared properties, the
@@ -562,10 +562,10 @@ its `<svg>` is safe.
   its progress to 1 and never scheduling a frame — the global reduced-motion
   block in the reset only reaches CSS transitions, not JS animation.
 - **`event-card` has three layouts** (`layout="default" | "dashboard" |
-  "expenses"`), reflected so its styles can key off the attribute. `default` is
+  "budget"`), reflected so its styles can key off the attribute. `default` is
   everything; `dashboard` (HomeView) drops the notes, because a glance-list of
-  three appointments should not carry a vet's paragraph; `expenses`
-  (ExpensesView) moves the price out of the meta line into its own right-aligned
+  three appointments should not carry a vet's paragraph; `budget`
+  (BudgetView) moves the price out of the meta line into its own right-aligned
   cell prefixed with U+2212 and drops the notes too. Add a layout here rather
   than forking a second card.
 - **`app-segmented`'s `icon` is optional** — a segment with no icon renders its
@@ -607,7 +607,7 @@ its `<svg>` is safe.
   the page content scrolling under it, which tree order alone does not
   guarantee: the bar is rendered *before* `<main>` in `app-root`, so at
   `z-index: auto` anything in a view that forms a stacking context paints on top
-  of it. `content-visibility: auto` on the event and expense rows does (it
+  of it. `content-visibility: auto` on the event and budget rows does (it
   implies paint containment) and hid the bar completely; a `transform` or
   `opacity` animation would too. Reach for the top layer to float above the app;
   leave this one z-index alone.

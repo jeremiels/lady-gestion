@@ -132,7 +132,7 @@ describe('listUpcoming', () => {
   });
 });
 
-describe('listExpenses', () => {
+describe('listBudget', () => {
   it('keeps only rows that cost something', async () => {
     await seedEvents([
       { id: 'free', date: '2026-05-01', amountCents: null },
@@ -140,11 +140,11 @@ describe('listExpenses', () => {
       { id: 'zero', date: '2026-05-03', amountCents: 0 },
     ]);
 
-    const expenses = await eventsRepo.listExpenses(HORSE_ID);
+    const budget = await eventsRepo.listBudget(HORSE_ID);
 
-    // A zero-cost row is still an expense: it was recorded deliberately, and
+    // A zero-cost row is still an budget: it was recorded deliberately, and
     // `null` is the value that means "costs nothing".
-    expect(expenses.map((event) => event.id).sort()).toEqual(['paid', 'zero']);
+    expect(budget.map((event) => event.id).sort()).toEqual(['paid', 'zero']);
   });
 
   it('drops cancelled rows — a cancelled visit was never paid for', async () => {
@@ -153,9 +153,9 @@ describe('listExpenses', () => {
       { id: 'cancelled', date: '2026-05-02', amountCents: 5000, status: 'cancelled' },
     ]);
 
-    const expenses = await eventsRepo.listExpenses(HORSE_ID);
+    const budget = await eventsRepo.listBudget(HORSE_ID);
 
-    expect(expenses.map((event) => event.id)).toEqual(['kept']);
+    expect(budget.map((event) => event.id)).toEqual(['kept']);
   });
 });
 

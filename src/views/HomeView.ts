@@ -13,7 +13,7 @@ import {
 } from '../data/index.ts';
 import type { HorseEvent } from '../data/types.ts';
 import '../components/horse-card/horse-card.ts';
-import '../components/expenses-card/expenses-card.ts';
+import '../components/budget-card/budget-card.ts';
 import '../components/event-card/event-card.ts';
 
 /** The dashboard shows the next few appointments, not the whole agenda. */
@@ -81,7 +81,7 @@ export class HomeView extends LightElement {
         </section>
 
         <horse-card .horse=${this.#horse.value ?? null}></horse-card>
-        <expenses-card .totalCents=${this.#monthSpend.value ?? 0}></expenses-card>
+        <budget-card .totalCents=${this.#monthSpend.value ?? 0}></budget-card>
       </section>
     `;
   }

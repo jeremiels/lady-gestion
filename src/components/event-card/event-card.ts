@@ -18,10 +18,10 @@ import { tagStyle } from '../app-tag/app-tag.ts';
  * - `default` — everything: date, time and price on one meta line, notes under.
  * - `dashboard` — no notes. The dashboard is a three-row glance at what is
  *   coming up, and one vet's paragraph turns that into a wall of text.
- * - `expenses` — the price leaves the meta line for its own right-aligned cell,
+ * - `budget` — the price leaves the meta line for its own right-aligned cell,
  *   and the notes go, because a ledger is read down the amounts column.
  */
-export type EventCardLayout = 'default' | 'dashboard' | 'expenses';
+export type EventCardLayout = 'default' | 'dashboard' | 'budget';
 
 /**
  * One event in a list: category icon, title, date and price, its type as a tag
@@ -143,7 +143,7 @@ export class EventCard extends BaseElement {
 
     /* The amount moves out of the meta line and under the tag, which is what
        makes a column of them scannable down the right edge. */
-    :host([layout="expenses"]) .event-card {
+    :host([layout="budget"]) .event-card {
       grid-template-areas:
         "icon title  tag"
         "icon meta   amount";
@@ -194,7 +194,7 @@ export class EventCard extends BaseElement {
         justify-self: start;
       }
 
-      :host([layout="expenses"]) .event-card {
+      :host([layout="budget"]) .event-card {
         grid-template-areas:
           "icon title"
           "icon tag"
@@ -202,7 +202,7 @@ export class EventCard extends BaseElement {
           "icon amount";
       }
 
-      :host([layout="expenses"]) .event-card__amount {
+      :host([layout="budget"]) .event-card__amount {
         justify-self: start;
       }
     }
@@ -217,7 +217,7 @@ export class EventCard extends BaseElement {
     // the wording and the colours.
     const theme = eventType.theme(event.type);
     const price = event.amountCents === null ? null : formatCents(event.amountCents, event.currency);
-    const trailingAmount = this.layout === 'expenses';
+    const trailingAmount = this.layout === 'budget';
     const showNotes = this.layout === 'default' && event.notes;
 
     // An anchor rather than a click handler: the Navigation API intercepts it

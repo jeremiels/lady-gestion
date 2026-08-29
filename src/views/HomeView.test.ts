@@ -49,8 +49,8 @@ describe('home-view', () => {
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelector('expenses-card')?.totalCents !== 0);
+    await waitFor(el, () => el.querySelector('budget-card')?.totalCents !== 0);
 
-    expect(el.querySelector('expenses-card')?.totalCents).toBe(1500);
+    expect(el.querySelector('budget-card')?.totalCents).toBe(1500);
   });
 });

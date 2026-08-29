@@ -51,7 +51,7 @@ export * from './icalendar.ts';
 export * from './seasons.ts';
 export * from './events.ts';
 export * from './files.ts';
-export * from './expenses.ts';
+export * from './budget.ts';
 export * from './forms.ts';
 
 let ready: Promise<void> | undefined;
