@@ -49,6 +49,7 @@ export class DayCard extends BaseElement {
       background: var(--color-white);
       text-align: center;
       height: 5.75rem;
+      border: 1px solid #F0ECE8;
     }
 
     .day__date {
@@ -93,7 +94,7 @@ export class DayCard extends BaseElement {
     /* Today, inverted — same hierarchy, not a different one: the weekday stays
        the quiet half and the number the loud one. */
     :host([today]) .day {
-      background: var(--color-brown-dark);
+      background: var(--color-dark);
     }
 
     :host([today]) .day__weekday {
