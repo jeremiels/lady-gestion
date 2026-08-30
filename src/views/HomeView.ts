@@ -2,6 +2,7 @@ import { html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { LightElement } from '../commons/base-element.ts';
+import { appHref } from '../commons/base-path.ts';
 import {
   activeHorseQuery,
   LiveQuery,
@@ -14,10 +15,12 @@ import {
   workActivityByDate,
 } from '../data/index.ts';
 import type { HorseEvent } from '../data/types.ts';
+import { ACCOUNT } from '../data/account.ts';
 import '../components/horse-card/horse-card.ts';
 import '../components/budget-card/budget-card.ts';
 import '../components/day-card/day-card.ts';
 import '../components/event-card/event-card.ts';
+import '../components/app-avatar/app-avatar.ts';
 
 /** The dashboard shows the next few appointments, not the whole agenda. */
 const UPCOMING_LIMIT = 3;
@@ -77,10 +80,15 @@ export class HomeView extends LightElement {
 
     return html`
       <section class="home-view">
-        <hgroup class="section-group">
-          <h1 class="section-title" tabindex="-1">Tableau de bord</h1>
-          <p class="section-subtitle">Suivi de Ladympala</p>
-        </hgroup>
+        <div class="home-view__header">
+          <hgroup class="section-group">
+            <h1 class="section-title" tabindex="-1">Tableau de bord</h1>
+            <p class="section-subtitle">Suivi de Ladympala</p>
+          </hgroup>
+          <a class="home-view__profile-link pressable" href=${appHref('/profile')} aria-label="Profil">
+            <app-avatar aria-hidden="true" initial=${ACCOUNT.firstName.charAt(0)} size="2.5rem"></app-avatar>
+          </a>
+        </div>
 
         <section class="section-appointments">
           <h2 class="section-title">Rendez-vous à venir</h2>

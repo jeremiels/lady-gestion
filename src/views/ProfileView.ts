@@ -2,20 +2,11 @@ import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { LightElement } from '../commons/base-element.ts';
 import { LiveQuery, downloadBackup, metaRepo, readBackupFile } from '../data/index.ts';
+import { ACCOUNT } from '../data/account.ts';
 
 import '../components/app-icon/app-icon.ts';
 import '../components/app-switch/app-switch.ts';
-
-/**
- * There is no account model: no server, no sign-in, and nothing writes these.
- * They sit here as the one place to swap for real values the day Google
- * sign-in lands, rather than being spread through the template.
- */
-const ACCOUNT = {
-  firstName: 'Léa',
-  lastName: 'Garnier',
-  email: 'lea.garnier44@gmail.com',
-} as const;
+import '../components/app-avatar/app-avatar.ts';
 
 /** Display only — no password is stored anywhere in this app. */
 const PASSWORD_MASK = '*'.repeat(9);
@@ -91,7 +82,7 @@ export class ProfileView extends LightElement {
     return html`
       <div class="profile-view__identity">
         <!-- Decorative: the name it initialises is spelled out right next to it. -->
-        <span class="profile-view__avatar" aria-hidden="true">${ACCOUNT.firstName.charAt(0)}</span>
+        <app-avatar aria-hidden="true" initial=${ACCOUNT.firstName.charAt(0)}></app-avatar>
         <div>
           <p class="profile-view__name">${ACCOUNT.firstName}</p>
           <p class="profile-view__email">${ACCOUNT.email}</p>

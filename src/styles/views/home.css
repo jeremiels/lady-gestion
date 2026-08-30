@@ -4,6 +4,20 @@
     gap: var(--spacing-24);
   }
 
+  .home-view__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-16);
+  }
+
+  .home-view__profile-link {
+    flex-shrink: 0;
+    display: inline-flex;
+    text-decoration: none;
+    border-radius: var(--radius-pill);
+  }
+
   .section-appointments {
     display: grid;
     gap: var(--spacing-16);
