@@ -80,6 +80,28 @@ export const toCalendarEvent = (event: HorseEvent): CalendarEvent => ({
 });
 
 /**
+ * One week, as seven days.
+ *
+ * A tuple rather than `IsoDate[]` because the length is the whole promise:
+ * under `noUncheckedIndexedAccess` a caller reading the first and last day of
+ * the week — which is what a range query needs — would otherwise have to assert
+ * away two `undefined`s the function can never return.
+ */
+export type WeekDates = [IsoDate, IsoDate, IsoDate, IsoDate, IsoDate, IsoDate, IsoDate];
+
+const daysFrom = (start: IsoDate): WeekDates =>
+  Array.from({ length: 7 }, (_, index) => addDays(start, index)) as WeekDates;
+
+/**
+ * The seven days of the week containing `date`, from its `weekStart` onwards.
+ *
+ * The dashboard's week strip reads this; `monthGrid` below builds its rows from
+ * the same helper, so "a week is seven days from the Monday" is stated once.
+ */
+export const weekGrid = (date: IsoDate, weekStart: WeekDay = DEFAULT_WEEK_START): WeekDates =>
+  daysFrom(startOfWeek(date, weekDayIndex(weekStart)));
+
+/**
  * The weeks a month view has to draw: whole weeks, from the one containing the
  * 1st to the one containing the last day.
  *
@@ -95,7 +117,9 @@ export const monthGrid = (month: IsoDate, weekStart: WeekDay = DEFAULT_WEEK_STAR
   const weeks: IsoDate[][] = [];
   let cursor = first;
   while (cursor <= last) {
-    weeks.push(Array.from({ length: 7 }, (_, index) => addDays(cursor, index)));
+    // `cursor` is already a week start, so this is the same seven days
+    // `weekGrid` would hand back — without re-deriving the Monday it sits on.
+    weeks.push(daysFrom(cursor));
     cursor = addDays(cursor, 7);
   }
   return weeks;

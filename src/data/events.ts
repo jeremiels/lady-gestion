@@ -1,5 +1,5 @@
 import { todayISO, type IsoDate } from './dates.ts';
-import type { EventStatus } from './types.ts';
+import type { EventStatus, HorseEvent } from './types.ts';
 
 /**
  * Event rules that are neither persistence nor iCalendar.
@@ -90,6 +90,49 @@ export const WORK_ACTIVITIES = Object.keys(WORK_ACTIVITY_LABELS) as WorkActivity
 
 export const formatWorkActivity = (activity: WorkActivity): string =>
   WORK_ACTIVITY_LABELS[activity];
+
+/**
+ * All-day sessions before timed ones, then by start time.
+ *
+ * The same rule `compareOccurrences` applies in `icalendar.ts`, and stated again
+ * rather than shared because that one sorts `CalendarEvent`s, which carry no
+ * activity. It is needed at all because the repository returns rows in
+ * `[horseId+date]` index order — by day, then by whatever IndexedDB kept — so
+ * without it "the first session of the day" is not a stable answer.
+ */
+const compareSessions = (a: HorseEvent, b: HorseEvent): number => {
+  if (a.time === null || b.time === null) {
+    if (a.time !== b.time) return a.time === null ? -1 : 1;
+    return 0;
+  }
+  return a.time.localeCompare(b.time);
+};
+
+/**
+ * The activity to show against each day — the dashboard's week strip.
+ *
+ * One entry per day, the day's first session, so a cell keeps a fixed height
+ * whatever the horse did. Cancelled events are skipped, as they are in
+ * `occurrencesByDate`: a cancelled session did not happen and must not be the
+ * one thing the week shows.
+ *
+ * Pure, over rows the caller already fetched — the shape `budget.ts` uses, and
+ * what puts this under the data-layer test rule rather than a component suite.
+ */
+export const workActivityByDate = (events: HorseEvent[]): Map<IsoDate, WorkActivity> => {
+  const sessions = events
+    .filter(
+      (event): event is HorseEvent & { activity: WorkActivity } =>
+        event.type === 'travail' && event.status !== 'cancelled' && event.activity !== null,
+    )
+    .sort(compareSessions);
+
+  const byDate = new Map<IsoDate, WorkActivity>();
+  for (const session of sessions) {
+    if (!byDate.has(session.date)) byDate.set(session.date, session.activity);
+  }
+  return byDate;
+};
 
 export const isFollowUpInterval = (value: unknown): value is FollowUpInterval => {
   if (typeof value !== 'object' || value === null) return false;

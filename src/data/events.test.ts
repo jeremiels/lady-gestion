@@ -6,7 +6,9 @@ import {
   isFollowUpInterval,
   parseFollowUpValue,
   statusForDate,
+  workActivityByDate,
 } from './events.ts';
+import { makeEvent } from './__tests__/factories.ts';
 
 describe('statusForDate', () => {
   const TODAY = '2026-08-12';
@@ -92,5 +94,52 @@ describe('formatFollowUpInterval', () => {
 
   it('says a year rather than twelve months', () => {
     expect(formatFollowUpInterval({ amount: 12, unit: 'month' })).toBe('1 an');
+  });
+});
+
+
+describe('workActivityByDate', () => {
+  it('answers with the activity of a day that has a session', () => {
+    const byDate = workActivityByDate([
+      makeEvent({ id: 'a', type: 'travail', date: '2026-08-10', activity: 'longe' }),
+    ]);
+
+    expect(byDate.get('2026-08-10')).toBe('longe');
+  });
+
+  it('ignores everything that is not a live work session', () => {
+    const byDate = workActivityByDate([
+      makeEvent({ id: 'care', type: 'veto', date: '2026-08-10' }),
+      // A `travail` row with no activity cannot exist through the form, but a
+      // restored backup predating schema v4 carries exactly that.
+      makeEvent({ id: 'blank', type: 'travail', date: '2026-08-11', activity: null }),
+      makeEvent({
+        id: 'cancelled',
+        type: 'travail',
+        date: '2026-08-12',
+        activity: 'plat',
+        status: 'cancelled',
+      }),
+    ]);
+
+    expect(byDate.size).toBe(0);
+  });
+
+  it('keeps the first session of a day: all-day before timed', () => {
+    const byDate = workActivityByDate([
+      makeEvent({ id: 'timed', type: 'travail', date: '2026-08-10', time: '09:00', activity: 'plat' }),
+      makeEvent({ id: 'all-day', type: 'travail', date: '2026-08-10', time: null, activity: 'longe' }),
+    ]);
+
+    expect(byDate.get('2026-08-10')).toBe('longe');
+  });
+
+  it('then keeps the earlier of two timed sessions, whatever order they arrive in', () => {
+    const byDate = workActivityByDate([
+      makeEvent({ id: 'late', type: 'travail', date: '2026-08-10', time: '17:30', activity: 'plat' }),
+      makeEvent({ id: 'early', type: 'travail', date: '2026-08-10', time: '08:15', activity: 'tap' }),
+    ]);
+
+    expect(byDate.get('2026-08-10')).toBe('tap');
   });
 });

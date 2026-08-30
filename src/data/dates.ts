@@ -168,6 +168,18 @@ const DAY_LONG_FORMAT = new Intl.DateTimeFormat('fr-FR', {
 /** `2026-01-22` -> `22 janvier 2026`. */
 export const formatDayLong = (value: IsoDate): string => DAY_LONG_FORMAT.format(fromIsoDate(value));
 
+const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
+
+/**
+ * `2026-08-10` -> `LUN`.
+ *
+ * For one date, unlike `weekdayLabels` below, which builds a rotated header row
+ * of column names. `Intl` renders `lun.`; the trailing period and the casing are
+ * a display convention it doesn't cover, the same way `formatTime` owns the `h`.
+ */
+export const formatWeekdayShort = (value: IsoDate): string =>
+  WEEKDAY_SHORT_FORMAT.format(fromIsoDate(value)).replace('.', '').toUpperCase();
+
 const WEEKDAY_NARROW_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'narrow' });
 const WEEKDAY_LONG_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' });
 

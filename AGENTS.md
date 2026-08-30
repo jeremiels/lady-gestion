@@ -336,6 +336,13 @@ src/data/
   that was selected — both of them, and `EventsView`'s four, now live in a
   `ViewState` bag rather than in `@state()` fields, so they survive a drill-down
   too.
+- **The dashboard's week strip is two pure functions plus a card**: `weekGrid`
+  (`icalendar.ts`) returns the seven days of a week as a *tuple*, so a caller
+  reading the first and last day for a range query needs no `!` under
+  `noUncheckedIndexedAccess` — `monthGrid` builds its rows from the same helper.
+  `workActivityByDate` (`events.ts`) buckets `travail` rows into one activity per
+  day, skipping cancelled ones and keeping the day's first session (all-day
+  before timed), so a cell's height never depends on how much the horse did.
 - **`icalendar.ts` is the one place that speaks RFC 5545**, the format
   Google/Apple/Outlook calendars exchange. It maps a `HorseEvent` onto a
   `VEVENT`-shaped `CalendarEvent` (`DTSTART` as a `DATE` when `time` is
@@ -583,6 +590,11 @@ its `<svg>` is safe.
   variant that hides the label visually and shrinks the control to the period
   picker's pill; it stays a real `<select>`, so the iPhone gives it the native
   wheel picker for free.
+- **`day-card` has two styles and takes `today` as a property**, like
+  `app-calendar` does — a card that read the clock itself could not be tested
+  against a fixed week, and two of them could disagree across midnight. It is
+  deliberately neither a link nor a button: the week strip is a glance, not a
+  way through. `HomeView` holds the query and passes each day its activity.
 - **A component that adapts to its width queries itself**, rather than being
   told. `event-card` sets `container-type: inline-size` on its own `:host` and
   reflows below `20rem` from an `@container` rule in its own stylesheet — no

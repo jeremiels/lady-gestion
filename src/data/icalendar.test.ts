@@ -5,6 +5,7 @@ import {
   occurrencesByDate,
   toCalendarEvent,
   weekDayIndex,
+  weekGrid,
   type CalendarEvent,
 } from './icalendar.ts';
 import type { HorseEvent } from './types.ts';
@@ -79,6 +80,44 @@ describe('toCalendarEvent', () => {
     ['cancelled', 'CANCELLED'],
   ] as const)('status %s -> %s', (status, expected) => {
     expect(toCalendarEvent(horseEvent({ status })).status).toBe(expected);
+  });
+});
+
+describe('weekGrid', () => {
+  it('runs Monday to Sunday for a day mid-week', () => {
+    // 2026-08-12 is a Wednesday.
+    expect(weekGrid('2026-08-12')).toEqual([
+      '2026-08-10',
+      '2026-08-11',
+      '2026-08-12',
+      '2026-08-13',
+      '2026-08-14',
+      '2026-08-15',
+      '2026-08-16',
+    ]);
+  });
+
+  it('puts a Sunday in the week that opened the Monday before, not the one after', () => {
+    // The off-by-one a `getDay()`-based week start invites: Sunday is 0, so a
+    // naive offset walks forward six days instead of back.
+    expect(weekGrid('2026-08-16')[0]).toBe('2026-08-10');
+    expect(weekGrid('2026-08-10')[0]).toBe('2026-08-10');
+  });
+
+  it('crosses a month and a year boundary without a gap', () => {
+    expect(weekGrid('2026-01-01')).toEqual([
+      '2025-12-29',
+      '2025-12-30',
+      '2025-12-31',
+      '2026-01-01',
+      '2026-01-02',
+      '2026-01-03',
+      '2026-01-04',
+    ]);
+  });
+
+  it('honours a different week start', () => {
+    expect(weekGrid('2026-08-12', 'SU')[0]).toBe('2026-08-09');
   });
 });
 
