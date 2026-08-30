@@ -270,7 +270,7 @@ export class HorseView extends LightElement {
             ?disabled=${rations.length === 0}
             @click=${this.#openRationSheet}
           >
-            <app-icon icon="edit"></app-icon>
+            <app-icon icon="edit" size="1.25rem"></app-icon>
           </button>
         </div>
         ${rations.length === 0
