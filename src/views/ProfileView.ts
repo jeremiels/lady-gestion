@@ -142,13 +142,13 @@ export class ProfileView extends LightElement {
           <ul class="meta-list">
             <li class="meta-item">
               <button class="profile-view__action pressable" type="button">
-                <span>Se déconnecter</span>
+                <span class="meta-label">Se déconnecter</span>
                 <app-icon icon="signOut"></app-icon>
               </button>
             </li>
             <li class="meta-item">
               <button class="profile-view__action pressable" type="button">
-                <span>Supprimer mon compte</span>
+                <span class="meta-label">Supprimer mon compte</span>
                 <app-icon icon="trash"></app-icon>
               </button>
             </li>

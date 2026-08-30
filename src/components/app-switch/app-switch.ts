@@ -115,8 +115,10 @@ export class AppSwitch extends BaseElement {
     }
 
     .switch__label {
-      font-size: var(--font-size-base);
-      color: var(--font-color);
+      font-weight: bold;
+      font-size: 0.75rem;
+      line-height: 1rem;
+      color: var(--color-brown-middle);
     }
 
     :host([disabled]) .switch__label {

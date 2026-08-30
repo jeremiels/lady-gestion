@@ -120,7 +120,7 @@
        */
       max-width: var(--content-max-width);
       margin-inline: auto;
-      padding: 4rem var(--spacing-20) var(--spacing-20) var(--spacing-20);
+      padding: calc(env(safe-area-inset-top) + var(--spacing-20)) var(--spacing-20) var(--spacing-20) var(--spacing-20);
       /* The nav bar is fixed, so it sits on top of the end of a scrolling
          page. Reserve its height plus the home-indicator inset the bar itself
          absorbs, or the last row of any long list is unreachable. */
