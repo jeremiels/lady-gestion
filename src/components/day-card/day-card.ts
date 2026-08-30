@@ -50,6 +50,8 @@ export class DayCard extends BaseElement {
       text-align: center;
       height: 5.75rem;
       border: 1px solid #F0ECE8;
+      font-family: var(--font-family-body);
+      font-weight: 400;
     }
 
     .day__date {
@@ -69,7 +71,7 @@ export class DayCard extends BaseElement {
     .day__number {
       font-size: 0.750rem;
       line-height: 0.938rem;
-      font-weight: 700;
+      font-weight: 500;
       color: var(--color-dark);
     }
 

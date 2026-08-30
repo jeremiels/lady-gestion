@@ -9,13 +9,52 @@
     gap: .5rem;
   }
 
-  /* Full-bleed past the page padding. dvw, not vw: vw includes the
-     scrollbar, so on desktop the card overflows and the page scrolls
-     sideways. */
-  .horse-view__card {
-    display: block;
+  /* Full-bleed past the page padding, and the positioning context for the
+     back button below — it has to share this box's edges, not the page's
+     padded ones, or it lands well short of the image's actual corner. dvw,
+     not vw: vw includes the scrollbar, so on desktop the card overflows and
+     the page scrolls sideways. */
+  .horse-view__cover {
+    position: relative;
     width: 100dvw;
     margin-inline: calc(50% - 50dvw);
+  }
+
+  .horse-view__card {
+    display: block;
+    width: 100%;
+  }
+
+  /* Transparent so the photo shows through; sized to the icon's own default
+     footprint (1.25rem glyph + the button's padding) rather than app-icon's
+     built-in padding, which stays zeroed here so this button — not app-icon —
+     owns the hit target's size. */
+  .horse-view__back {
+    position: absolute;
+    top: var(--spacing-12);
+    left: var(--spacing-12);
+    appearance: none;
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-8);
+    background: transparent;
+    color: var(--color-white);
+    cursor: pointer;
+  }
+
+  .horse-view__back:focus-visible {
+    outline: 2px solid var(--color-white);
+    outline-offset: 2px;
+  }
+
+  .horse-view__back app-icon {
+    --icon-size: 1.25rem;
+
+    padding: 0;
   }
 
   .horse-view__section-header {

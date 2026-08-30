@@ -2,6 +2,7 @@ import { html, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { LightElement } from '../commons/base-element.ts';
+import { goBack } from '../commons/navigation.ts';
 import {
   DEFAULT_SEASON,
   LiveQuery,
@@ -32,6 +33,9 @@ import '../components/app-bottom-sheet/app-bottom-sheet.ts';
 import '../components/app-input/app-input.ts';
 import '../components/app-checkbox/app-checkbox.ts';
 
+/** Only ever opened from the dashboard, so that's the only fallback back needs. */
+const HOME = '/';
+
 @customElement('horse-view')
 export class HorseView extends LightElement {
   @state() private rationSheetOpen = false;
@@ -48,6 +52,8 @@ export class HorseView extends LightElement {
   #closeRationSheet = () => {
     this.rationSheetOpen = false;
   };
+
+  #goBack = () => goBack(HOME);
 
   /**
    * Reads the sheet back against the same list that rendered it.
@@ -121,7 +127,17 @@ export class HorseView extends LightElement {
           route change in app-root.
         -->
         <h1 class="visually-hidden" tabindex="-1">${horse?.name ?? 'Fiche du cheval'}</h1>
-        <horse-card context-type="horse-view" class="horse-view__card" .horse=${horse ?? null}></horse-card>
+        <div class="horse-view__cover">
+          <horse-card context-type="horse-view" class="horse-view__card" .horse=${horse ?? null}></horse-card>
+          <button
+            class="horse-view__back pressable pressable--small"
+            type="button"
+            aria-label="Retour"
+            @click=${this.#goBack}
+          >
+            <app-icon icon="chevronLeft"></app-icon>
+          </button>
+        </div>
         ${showMeta ? this.#renderIdentity(horse) : nothing}
         ${showMeta ? this.#renderOrigin(horse) : nothing}
         ${this.#renderRations()}

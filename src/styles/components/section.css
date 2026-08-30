@@ -6,6 +6,7 @@
   }
 
   .section-title {
+    font-family: var(--font-family-heading);
     font-size: 1.125rem;
     line-height: 1.25rem;
     font-weight: 700;
