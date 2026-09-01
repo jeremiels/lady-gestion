@@ -12,20 +12,27 @@ budget). French UI copy throughout (e.g. "Ration quotidienne",
 
 Write this down before reaching for a new platform feature: it is the only
 thing that makes "can we use X?" a lookup rather than an argument. The floor is
-not arbitrary — it is the oldest browser that supports what already ships
-unguarded: `ElementInternals` and `:state()`, form-associated custom elements,
-`@starting-style`, `transition-behavior: allow-discrete`, the `overlay`
-transition, `subgrid`, `content-visibility`, the Popover API and `@container`.
+not arbitrary — it covers everything that already ships unguarded:
+`ElementInternals` and `:state()`, form-associated custom elements,
+`@starting-style`, `transition-behavior: allow-discrete`, `subgrid`,
+`content-visibility`, the Popover API and `@container`. The binding one is
+`content-visibility`, at Safari 18.0; 18.2 is a deliberate margin over that,
+not a computed minimum.
 
-Two consequences worth stating out loud:
+Three consequences worth stating out loud:
 
-- **Feature-detect only what sits *below* the floor**, and say why in a comment.
-  Three things do today, and all three are older than the floor rather than
-  newer: the Navigation API (Safari 18.2 is exactly the floor, so `'navigation'
-  in window` is the seam that lets an older Safari fall back to real page
-  loads), `document.startViewTransition`, and view-transition **types**, which
-  shipped after the callback form. Guarding anything the floor already
-  guarantees is dead code.
+- **Feature-detect whatever the floor does not guarantee**, and say why in a
+  comment. Three things are guarded today, and they are not all the same case.
+  `document.startViewTransition` and view-transition **types** sit at or below
+  the floor, and are guarded only because the two halves shipped separately.
+  The Navigation API sits **above** it, on two engines out of three: Safari did
+  not ship it until **26.2**, Firefox until **147**. (18.2 is
+  `:active-view-transition-type()` — a different feature, and the source of a
+  long-standing mix-up here.) Only Chrome has it at the floor, so
+  `'navigation' in window` is a live seam rather than a legacy one: every iPhone
+  below iOS 26.2 takes the fallback today, which means real page loads, no route
+  view transitions at all, and no persisted view state. Guarding what the floor
+  already guarantees is still dead code.
 - **Some tempting APIs are still above the floor.** Checked, and deliberately
   not used: `<dialog closedby>` (no Safari support at all — it would drop
   light-dismiss on the primary platform, and `ModalDialog` handles backdrop and
@@ -34,6 +41,12 @@ Two consequences worth stating out loud:
   needs Safari 26 — adopting it in the route table would turn today's graceful
   degradation into a white screen on exactly the browsers `goBack` still
   supports).
+- **`overlay` is used unguarded and no Safari supports it.** The
+  `transition: overlay … allow-discrete` in `app-modal` and `app-bottom-sheet`
+  is Chromium-only, still absent in Safari 26.x. Entry animations are fine —
+  they ride `@starting-style` — but the *exit* never plays on iOS, because the
+  dialog leaves the top layer the instant `close()` runs. Accepted for now;
+  fixing it means holding `open` until `transitionend` and closing from there.
 
 ## Stack
 

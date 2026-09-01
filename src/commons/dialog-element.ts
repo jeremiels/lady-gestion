@@ -167,6 +167,14 @@ export abstract class DialogElement extends BaseElement {
       }
     }
 
+    /* The exit half, for platforms with no overlay support — see the closing
+       note on ModalDialog. The dialog is still [open] while this plays, which is
+       what keeps it in the top layer, so this has to out-specify the open-state
+       rule above rather than simply follow it. */
+    dialog[open][data-closing]::backdrop {
+      background-color: rgb(0 0 0 / 0%);
+    }
+
     .dialog__heading {
       display: flex;
       flex-direction: column;

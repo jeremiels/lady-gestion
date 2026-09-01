@@ -67,6 +67,13 @@ export class AppModal extends DialogElement {
       }
     }
 
+    /* And the exit half, where overlay cannot hold the dialog in the top layer
+       long enough for the closed-state rule above to be seen. */
+    dialog[open][data-closing] {
+      opacity: 0;
+      scale: 0.94;
+    }
+
 
     /* Media wants the whole screen and no chrome around it. The header still
        renders — it carries the only close affordance. */

@@ -1,5 +1,12 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { appHref, toAppPath } from '../base-path.ts';
+import {
+  APP_NAVIGATE,
+  type AppNavigateDetail,
+  historyIndex,
+  pushHistoryEntry,
+  stampHistoryIndex,
+} from '../history-fallback.ts';
 
 /** Hooks the host supplies. Both are awaited, so both may be async. */
 export interface RouterOptions {
@@ -30,6 +37,15 @@ export interface RouterOptions {
    * no types at all, same as before this existed.
    */
   extraTransitionTypes?: (from: string, to: string) => string[];
+  /**
+   * Take the history fallback even where the Navigation API exists.
+   *
+   * For the suite, and load-bearing there. The fallback is the path every
+   * iPhone below iOS 26.2 takes, and the browser suite runs on Chromium, which
+   * has the Navigation API — so without a way to force it, the code those users
+   * actually run would ship with no coverage at all. Production never sets it.
+   */
+  forceHistoryFallback?: boolean;
 }
 
 /** Which way through the history stack a navigation is going. */
@@ -51,6 +67,10 @@ const SUPPORTS_TRANSITION_TYPES =
   typeof CSS !== 'undefined' &&
   CSS.supports('selector(:active-view-transition-type(forward))');
 
+/** Narrows a `composedPath()` entry to the link that was clicked. */
+const isAnchor = (target: EventTarget): target is HTMLAnchorElement =>
+  target instanceof HTMLAnchorElement;
+
 /**
  * Client-side routing on the Navigation API.
  *
@@ -66,11 +86,14 @@ const SUPPORTS_TRANSITION_TYPES =
  * outliving its host, and it made the route table untestable without mounting
  * the whole shell.
  *
- * **Where the Navigation API is missing** (Safari before 18.2, older Firefox)
- * this subscribes to nothing and every `<a href>` does a real page load
- * instead. The service worker answers any path with the cached shell, so deep
- * links still resolve. Nothing to polyfill — but don't touch the global
- * unguarded, which would throw and take the shell down before anything renders.
+ * **Where the Navigation API is missing** — Safari before 26.2 and Firefox
+ * before 147, so two of the three engines at the project's stated floor — this
+ * subscribes to nothing and every `<a href>` does a real page load instead.
+ * That is the ordinary case on iOS today rather than an edge case, and it costs
+ * every route animation: `startViewTransition` below is never reached at all.
+ * The service worker answers any path with the cached shell, so deep links
+ * still resolve. Nothing to polyfill — but don't touch the global unguarded,
+ * which would throw and take the shell down before anything renders.
  */
 export class Router implements ReactiveController {
   /** The current pathname, decoded. Read this from the host's `render()`. */
@@ -80,6 +103,8 @@ export class Router implements ReactiveController {
   #options: RouterOptions;
   // Not `#abort?:` — `exactOptionalPropertyTypes` then refuses the reset below.
   #abort: AbortController | undefined;
+  /** The history fallback's own `currentEntry.index`. Unused otherwise. */
+  #index = 0;
 
   constructor(host: ReactiveControllerHost, options: RouterOptions = {}) {
     this.#host = host;
@@ -93,12 +118,17 @@ export class Router implements ReactiveController {
     // have moved between construction and connection.
     this.path = toAppPath(decodeURI(location.pathname));
 
-    if (!('navigation' in window)) return;
-
     // One signal tears every listener down, with no `removeEventListener`
     // bookkeeping and no handler reference to keep in sync.
     this.#abort = new AbortController();
-    navigation.addEventListener('navigate', this.#onNavigate, { signal: this.#abort.signal });
+    const { signal } = this.#abort;
+
+    if ('navigation' in window && !this.#options.forceHistoryFallback) {
+      navigation.addEventListener('navigate', this.#onNavigate, { signal });
+      return;
+    }
+
+    this.#connectHistoryFallback(signal);
   }
 
   hostDisconnected() {
@@ -142,6 +172,114 @@ export class Router implements ReactiveController {
     if (from === undefined || from < 0 || to < 0) return undefined;
 
     return to < from ? 'back' : 'forward';
+  }
+
+  // --- The history fallback ---
+  //
+  // Everything below runs only where there is no Navigation API. It rebuilds
+  // the four things `#onNavigate` gets for free — link clicks, traversals, a
+  // navigation type and an entry index — on top of `history` and a delegated
+  // click listener, then hands the result to the same `#commit`. So the view
+  // transitions, the types and both hooks are identical on either path; only
+  // the plumbing that decides *when* to run them differs.
+  //
+  // Worth being clear about why this exists at all: on those browsers
+  // `startViewTransition` was never reached, so the app had no route animation
+  // whatsoever. Nothing here is a polyfill of the Navigation API — it is the
+  // narrow slice of it this router actually uses.
+
+  #connectHistoryFallback(signal: AbortSignal) {
+    // Seed the entry the app booted on, so the first traversal has something
+    // to compare against. `replaceState` is safe here in a way AGENTS.md warns
+    // it is not elsewhere, and for the same reason: the warning is about it
+    // firing a `navigate` event that this router would intercept, and there is
+    // no Navigation API here to fire one.
+    this.#index = historyIndex() ?? 0;
+    stampHistoryIndex(this.#index);
+
+    document.addEventListener('click', this.#onClick, { signal });
+    window.addEventListener('popstate', this.#onPopState, { signal });
+    window.addEventListener(APP_NAVIGATE, this.#onAppNavigate, { signal });
+  }
+
+  /**
+   * A left-click on an in-app link, which the Navigation API would have
+   * delivered as a `push`.
+   *
+   * The modifier and `target` checks are what keep "open in a new tab" working:
+   * every one of them is a case where the user asked for something other than
+   * an in-page navigation, and swallowing it would be a regression the
+   * Navigation API path does not have.
+   */
+  #onClick = (event: MouseEvent) => {
+    // `button !== 0` covers middle-click (open in a new tab) as well as right.
+    if (event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    // `composedPath()`, not `event.target`: every link in this app is rendered
+    // inside a component's shadow root, and `target` retargets to the host
+    // element — a `closest('a')` from there finds nothing at all.
+    const anchor = event.composedPath().find(isAnchor);
+    if (!anchor) return;
+    if (anchor.target && anchor.target !== '_self') return;
+    if (anchor.hasAttribute('download') || anchor.relList.contains('external')) return;
+
+    const url = new URL(anchor.href);
+    // Cross-origin, and also `mailto:`/`tel:`, whose origin is never ours.
+    if (url.origin !== location.origin) return;
+    // A pure fragment change belongs to the browser: it scrolls, and there is
+    // no route to swap.
+    if (url.pathname === location.pathname && url.hash) return;
+
+    event.preventDefault();
+    void this.#pushAndCommit(toAppPath(decodeURI(url.pathname)), url.href);
+  };
+
+  /** The back/forward gesture, which the Navigation API calls a `traverse`. */
+  #onPopState = (event: PopStateEvent) => {
+    // The URL has already moved by the time this fires, so `location` is the
+    // destination rather than the origin.
+    const path = toAppPath(decodeURI(location.pathname));
+
+    // A fragment navigation is a same-document navigation, and the browser
+    // reports it here as well — with the route unchanged. Committing it would
+    // run a whole route transition over a page that never moved. Measured, not
+    // theoretical: the suite caught this the first time it clicked an `#anchor`.
+    //
+    // Returning before `#index` is touched, not after: the entry a fragment
+    // link pushes carries no stamp of ours, so reading one out of it would
+    // overwrite a good position with a zero and leave the *next* real traversal
+    // animating the wrong way.
+    if (path === this.path) return;
+
+    const to = historyIndex(event.state) ?? 0;
+    const from = this.#index;
+    this.#index = to;
+
+    void this.#commit(path, to < from ? 'back' : 'forward');
+  };
+
+  /** A programmatic `navigateTo`, which is a push like any other. */
+  #onAppNavigate = (event: Event) => {
+    const { path } = (event as CustomEvent<AppNavigateDetail>).detail;
+    // Claims it, so `navigateTo` does not also assign `location.href`.
+    event.preventDefault();
+    void this.#pushAndCommit(path, appHref(path));
+  };
+
+  /**
+   * Commits the URL, then the render.
+   *
+   * This order is the Navigation API's: it has moved the address bar by the
+   * time an intercept handler runs. It also leaves `#commit`'s own
+   * `location.href` bail-out pointing at the right place, since the URL it
+   * would reload is already the one on screen.
+   */
+  async #pushAndCommit(path: string, href: string) {
+    this.#index += 1;
+    pushHistoryEntry(this.#index, href);
+    // A click is always a new entry, and `#directionOf` calls a push forward.
+    await this.#commit(path, 'forward');
   }
 
   async #commit(path: string, direction?: NavigationDirection) {

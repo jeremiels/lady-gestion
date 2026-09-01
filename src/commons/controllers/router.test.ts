@@ -2,6 +2,7 @@ import { html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fixture } from '../../components/__tests__/fixture.ts';
+import { historyIndex, requestNavigate } from '../history-fallback.ts';
 import { Router, type RouterOptions } from './router.ts';
 
 /**
@@ -255,5 +256,158 @@ describe('Router', () => {
     // be a real page load rather than a failed expectation.
     expect(beforeRender).not.toHaveBeenCalled();
     expect(el.router.path).not.toBe('/events');
+  });
+});
+
+/*
+ * The history fallback.
+ *
+ * This is the path with no Navigation API — Safari before 26.2, Firefox before
+ * 147 — where `Router` rebuilds link clicks and traversals on `history` and a
+ * delegated listener. It is not a legacy path: it is what every iPhone below
+ * iOS 26.2 runs today, and before it existed those browsers reached
+ * `startViewTransition` never, so the app had no route animation at all.
+ *
+ * The runner is Chromium and *has* the Navigation API, so these force the
+ * fallback through `forceHistoryFallback`. Without that the branch below could
+ * not be exercised anywhere in this suite — which is precisely how it came to
+ * be missing in the first place.
+ */
+@customElement('router-fallback-host')
+class RouterFallbackHost extends LitElement {
+  onAfterRender?: (path: string) => void;
+
+  @state() accessor _unused = 0;
+
+  readonly router = new Router(this, {
+    forceHistoryFallback: true,
+    afterRender: (path) => this.onAfterRender?.(path),
+  });
+
+  render() {
+    // Inside a shadow root on purpose: `event.target` retargets to the host
+    // here, so a handler that reached for `closest('a')` instead of
+    // `composedPath()` would find nothing and silently never intercept.
+    return html`
+      <a id="events" href="/events">Évènements</a>
+      <a id="fragment" href="#section">Section</a>
+      <span>${this.router.path}</span>
+    `;
+  }
+}
+
+const mountFallback = () =>
+  fixture<RouterFallbackHost>(html`<router-fallback-host></router-fallback-host>`);
+
+const link = (el: RouterFallbackHost, id: string) =>
+  el.renderRoot.querySelector<HTMLAnchorElement>(`#${id}`)!;
+
+/** Resolves when the router has finished committing a navigation. */
+const committed = (el: RouterFallbackHost) =>
+  new Promise<string>((resolve) => (el.onAfterRender = resolve));
+
+describe('Router — history fallback', () => {
+  it('intercepts an in-app link click and swaps the path without a page load', async () => {
+    const el = await mountFallback();
+
+    const done = committed(el);
+    link(el, 'events').click();
+    await done;
+
+    expect(el.router.path).toBe('/events');
+    expect(location.pathname).toBe('/events');
+    expect(el.renderRoot.textContent).toContain('/events');
+  });
+
+  it.skipIf(!supportsTypes)('tags a click forward and a traversal back', async () => {
+    const el = await mountFallback();
+    const spy = vi.spyOn(document, 'startViewTransition');
+
+    try {
+      const forward = committed(el);
+      link(el, 'events').click();
+      await forward;
+
+      expect(spy.mock.calls[0]?.[0]).toMatchObject({ types: ['forward'] });
+
+      // The back gesture. Same-document, because the entry above came from
+      // `pushState` — so this is a traversal, not a reload.
+      const backward = committed(el);
+      history.back();
+      await backward;
+
+      // The whole point of stamping an index on each entry: without one there
+      // is nothing to compare, and every traversal would animate as a push.
+      expect(spy.mock.calls[1]?.[0]).toMatchObject({ types: ['back'] });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('stamps an index on the entry, which is what goBack reads', async () => {
+    const el = await mountFallback();
+
+    // Seeded at connect, so `goBack` can tell "nothing behind us" from "one
+    // entry behind us" without falling back to `history.length`.
+    expect(historyIndex()).toBe(0);
+
+    const done = committed(el);
+    link(el, 'events').click();
+    await done;
+
+    expect(historyIndex()).toBe(1);
+  });
+
+  it('leaves a click something else already handled alone', async () => {
+    const el = await mountFallback();
+    const spy = vi.spyOn(document, 'startViewTransition');
+    const path = el.router.path;
+
+    try {
+      const anchor = link(el, 'events');
+      // A component that handles its own click and cancels the navigation —
+      // re-claiming it here would resurrect a navigation that was called off.
+      anchor.addEventListener('click', (event) => event.preventDefault(), { once: true });
+      anchor.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(el.router.path).toBe(path);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('claims a programmatic navigateTo instead of letting it reload the app', async () => {
+    const el = await mountFallback();
+
+    const done = committed(el);
+    // What `navigateTo` dispatches. Unclaimed it falls through to
+    // `location.href`, which reboots the shell — correct, but it is a whole
+    // page load where a view transition would do, and `EventDetailView` takes
+    // this path every time a record is deleted.
+    const claimed = requestNavigate('/documents');
+    await done;
+
+    expect(claimed).toBe(true);
+    expect(el.router.path).toBe('/documents');
+    expect(location.pathname).toBe('/documents');
+  });
+
+  it('leaves a fragment link to the browser', async () => {
+    const el = await mountFallback();
+    const spy = vi.spyOn(document, 'startViewTransition');
+
+    try {
+      link(el, 'fragment').click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // There is no route to swap and the browser has scrolling to do — running
+      // a full route transition here would animate a page that never changed.
+      expect(spy).not.toHaveBeenCalled();
+      expect(location.hash).toBe('#section');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

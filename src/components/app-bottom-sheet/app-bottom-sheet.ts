@@ -201,6 +201,15 @@ export class AppBottomSheet extends DialogElement {
       }
     }
 
+    /* And the exit half, where overlay cannot hold the sheet in the top layer
+       long enough for the closed-state rule above to be seen. This is also what
+       a drag-dismiss lands in: endDrag() clears the inline transform first, so
+       the sheet carries on down from wherever the finger left it. */
+    dialog[open][data-closing] {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+
 
     .sheet__handle {
       display: flex;
@@ -249,7 +258,8 @@ export class AppBottomSheet extends DialogElement {
 
     @media (prefers-reduced-motion: reduce) {
       dialog,
-      dialog[open] {
+      dialog[open],
+      dialog[open][data-closing] {
         transform: none;
       }
 

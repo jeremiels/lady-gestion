@@ -1,8 +1,8 @@
 import { userEvent } from '@vitest/browser/context';
 import { html, type TemplateResult } from 'lit';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fixture, settled } from '../../components/__tests__/fixture.ts';
-import type { DialogHost } from './modal-dialog.ts';
+import { ModalDialog, type DialogHost } from './modal-dialog.ts';
 
 import '../../components/app-modal/app-modal.ts';
 import '../../components/app-bottom-sheet/app-bottom-sheet.ts';
@@ -354,5 +354,150 @@ describe('ModalDialog scroll lock', () => {
     other.remove();
     await settled(other);
     expect(isLocked()).toBe(false);
+  });
+});
+
+/*
+ * The self-driven exit.
+ *
+ * `overlay` is Chromium-only — no Safari has it at any version — so the
+ * declarative exit both components describe in CSS never plays on iOS: a
+ * closing dialog leaves the top layer the instant `close()` runs, and a sheet
+ * that slides up snaps shut. Where the property is missing the controller holds
+ * the dialog open under `data-closing` and closes it once the transitions have
+ * finished.
+ *
+ * The runner is Chromium, which *does* support `overlay`, so these flip the
+ * static the controller reads. Without that the branch every iPhone runs would
+ * have no coverage at all.
+ */
+describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
+  afterEach(() => {
+    ModalDialog.supportsOverlay = true;
+  });
+
+  /**
+   * Duration for the exit, long enough to assert against.
+   *
+   * This project's suite loads no document stylesheet, so every motion token the
+   * two components transition on is undefined here. The *easings* matter as much
+   * as the durations: one unresolved `var()` anywhere in a `transition`
+   * shorthand throws the whole declaration out, so leaving them off means no
+   * transition runs at all, the controller has nothing to wait for, and the exit
+   * is over within a frame — which is exactly the behaviour these tests exist to
+   * tell apart from a real one. Set on the host, so they inherit through
+   * `:host` into both shadow roots.
+   */
+  const EXIT_MS = 400;
+
+  const mountOpen = async () => {
+    const el = await fixture<DialogHost>(dialogCase.template(false, true));
+    const dialog = el.renderRoot.querySelector('dialog')!;
+
+    el.style.setProperty('--duration-medium', `${EXIT_MS}ms`);
+    el.style.setProperty('--duration-slow', `${EXIT_MS}ms`);
+    el.style.setProperty('--easing-out', 'ease');
+    el.style.setProperty('--easing-sheet', 'ease');
+
+    const opened = nextEvent(el, `${dialogCase.name}-open`);
+    el.open = true;
+    await settled(el);
+    await opened;
+
+    // Flipped after opening, so the entry half is untouched — it rides
+    // @starting-style, which Safari has had since 17.5.
+    ModalDialog.supportsOverlay = false;
+    return { el, dialog };
+  };
+
+  it('keeps the dialog in the top layer while the exit plays', async () => {
+    const { el, dialog } = await mountOpen();
+
+    const closed = nextEvent(el, `${dialogCase.name}-close`);
+    el.open = false;
+    await settled(el);
+
+    // The whole point: still open, so still in the top layer and still
+    // painting, with the exit state applied. Calling close() here — which is
+    // what the platform does for us on Chromium — is what made the animation
+    // invisible on Safari.
+    expect(dialog.open).toBe(true);
+    expect(dialog.matches(':modal')).toBe(true);
+    expect(dialog.hasAttribute('data-closing')).toBe(true);
+
+    await closed;
+
+    expect(dialog.open).toBe(false);
+    // Cleared before the close, so re-opening does not land in the exit state.
+    expect(dialog.hasAttribute('data-closing')).toBe(false);
+  });
+
+  it('still announces the close, once there is nothing left to look at', async () => {
+    const { el } = await mountOpen();
+
+    const closed = nextEvent(el, `${dialogCase.name}-close`);
+    el.open = false;
+
+    await expect(closed).resolves.toBeInstanceOf(CustomEvent);
+    // The host property follows the real dialog, as it does on either path.
+    expect(el.open).toBe(false);
+  });
+
+  it('takes Esc through the same exit', async () => {
+    const { el, dialog } = await mountOpen();
+
+    // Recorded as it happens rather than sampled afterwards. Every other test
+    // here reaches its assertion in microtasks, but `userEvent` presses a real
+    // key and takes an unpredictable slice of the exit with it — reading the
+    // state after that await passes alone and fails under a loaded full run.
+    // What actually has to hold is that the dialog was held open in the exit
+    // state at all, which is a thing to observe, not a moment to catch.
+    let heldOpenWhileClosing = false;
+    const observer = new MutationObserver(() => {
+      if (dialog.open && dialog.hasAttribute('data-closing')) heldOpenWhileClosing = true;
+    });
+    observer.observe(dialog, { attributes: true, attributeFilter: ['data-closing'] });
+
+    const closed = nextEvent(el, `${dialogCase.name}-close`);
+    await userEvent.keyboard('{Escape}');
+    await closed;
+    observer.disconnect();
+
+    // Esc is the one close the platform performs itself, so without taking the
+    // cancel event over it would be the single way out that still snapped shut.
+    expect(heldOpenWhileClosing).toBe(true);
+    expect(dialog.open).toBe(false);
+  });
+
+  it('calls the exit off if the dialog is re-opened while it plays', async () => {
+    const { el, dialog } = await mountOpen();
+
+    el.open = false;
+    await settled(el);
+    expect(dialog.hasAttribute('data-closing')).toBe(true);
+
+    el.open = true;
+    await settled(el);
+
+    expect(dialog.open).toBe(true);
+    expect(dialog.hasAttribute('data-closing')).toBe(false);
+
+    // And it stays: the exit that was already in flight must not close the
+    // dialog out from under the re-open when its wait finally resolves.
+    await new Promise((resolve) => setTimeout(resolve, EXIT_MS * 2));
+    expect(dialog.open).toBe(true);
+  });
+
+  it('closes immediately where the platform can animate it itself', async () => {
+    const { el, dialog } = await mountOpen();
+    // Back to the Chromium path, which must stay exactly what it was: the
+    // native `overlay` transition is the better mechanism where it exists.
+    ModalDialog.supportsOverlay = true;
+
+    el.open = false;
+    await settled(el);
+
+    expect(dialog.open).toBe(false);
+    expect(dialog.hasAttribute('data-closing')).toBe(false);
   });
 });
