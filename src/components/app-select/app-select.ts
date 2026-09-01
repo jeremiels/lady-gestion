@@ -167,6 +167,13 @@ export class AppSelect extends FormFieldElement {
       display: inline-block;
     }
 
+    /* No font-size here, deliberately: the pill inherits the 1rem the base
+       .field__select sets, and must not go below it. Safari on iOS zooms the
+       whole page in when a control smaller than 16px takes focus, and a
+       standalone PWA has no address bar to reset the zoom from — so opening
+       this picker at 15px left the app stuck zoomed in until the user pinched
+       back out by hand. The pill reads as compact through its height, padding
+       and weight instead. */
     :host([pill]) .field__select {
       width: auto;
       min-height: 2.25rem;
@@ -174,7 +181,6 @@ export class AppSelect extends FormFieldElement {
       border-radius: var(--radius-pill);
       background-color: var(--app-select-background, var(--color-brown-light-bg));
       padding: var(--spacing-8) var(--spacing-32) var(--spacing-8) var(--spacing-16);
-      font-size: 0.9375rem;
       font-weight: 600;
       color: var(--color-brown-dark);
     }

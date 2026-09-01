@@ -79,6 +79,24 @@
     color: inherit;
   }
 
+  /* Safari on iOS reads a quick second tap on anything tappable as a request to
+     zoom, and a standalone PWA has no address bar to reset the zoom from — so
+     two fast taps on a nav item or a calendar day leave the app stuck zoomed in
+     with no obvious way back. `manipulation` drops the double-tap gesture (and
+     the 300ms tap delay Safari holds waiting for it) on the elements people
+     actually tap. Scrolling and deliberate pinch-to-zoom are untouched, which is
+     why this is not the `user-scalable=no` viewport hack: zooming stays
+     available to anyone who wants it, it just stops happening by accident. */
+  a,
+  button,
+  input,
+  label,
+  select,
+  summary,
+  textarea {
+    touch-action: manipulation;
+  }
+
   /* Text adjustments */
   a:not([class]) {
     text-decoration-skip-ink: auto;
