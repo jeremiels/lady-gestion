@@ -57,14 +57,14 @@ const pointer = (type: string, clientY: number, pointerId = 1) =>
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Settles the component and drains the task queue.
+ * Settles the component and drains the task queue, to show that nothing landed.
  *
- * `dialog.close()` shuts the dialog synchronously but the native `close` event
- * is queued as a task, and `sheet-close` is dispatched from its handler — so a
- * bare `await settled()` reads the dismissal log one tick before the dismissal
- * lands, and every assertion here passes for the wrong reason. Several ticks
- * rather than one because the exact number is not ours to know: a single
- * `setTimeout(0)` held in isolation and dropped events under a full suite.
+ * Only for the assertions that a sheet did **not** dismiss: there is no event to
+ * wait for when the whole claim is that none is coming, so draining a few turns
+ * and looking is the only shape available.
+ *
+ * It is deliberately *not* how the positive cases wait any more — see
+ * `dismissal` below for why that could never be made reliable.
  */
 const flush = async (el: AppBottomSheet) => {
   for (let i = 0; i < 5; i++) {
@@ -72,6 +72,38 @@ const flush = async (el: AppBottomSheet) => {
     await wait(0);
   }
 };
+
+/**
+ * Resolves when a dismissal actually lands.
+ *
+ * The three tests below that assert a sheet *did* dismiss used to wait on
+ * `flush`, and that is precisely where this suite broke in CI and nowhere else.
+ * `dialog.close()` shuts the dialog synchronously, but the native `close` event
+ * is queued as a task and `sheet-close` is dispatched from its handler — so the
+ * number of turns to drain before the count is readable is not a property of the
+ * component, it is a property of how busy the machine is. Five was enough on a
+ * quiet laptop and not enough on a loaded runner, and no larger number would
+ * have been a fix so much as a longer bet.
+ *
+ * Waiting for the event has no such number in it. Bounded all the same, so a
+ * real regression reports this message instead of hanging until the suite's own
+ * timeout and blaming whatever ran next.
+ */
+const dismissal = (el: AppBottomSheet) =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('sheet-close never fired — the sheet did not dismiss')),
+      2000,
+    );
+    el.addEventListener(
+      'sheet-close',
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 
 /**
  * Counts dismissals for one element with a counter of its own.
@@ -97,12 +129,13 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
   it('dismisses on a drag past the distance threshold', async () => {
     const el = await mount();
     const closes = watchCloses(el);
+    const dismissed = dismissal(el);
     const handle = handleOf(el);
 
     handle.dispatchEvent(pointer('pointerdown', 0));
     handle.dispatchEvent(pointer('pointermove', 200));
     handle.dispatchEvent(pointer('pointerup', 200));
-    await flush(el);
+    await dismissed;
 
     expect(closes.count).toBe(1);
   });
@@ -163,6 +196,7 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
   it('still dismisses on a genuine flick that never crosses the distance threshold', async () => {
     const el = await mount();
     const closes = watchCloses(el);
+    const dismissed = dismissal(el);
     const handle = handleOf(el);
 
     handle.dispatchEvent(pointer('pointerdown', 0));
@@ -171,7 +205,7 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
     // ~60px in the few ms after the sample aged — a flick, well under 120px.
     handle.dispatchEvent(pointer('pointermove', 20));
     handle.dispatchEvent(pointer('pointerup', 80));
-    await flush(el);
+    await dismissed;
 
     expect(closes.count).toBe(1);
   });
@@ -183,6 +217,7 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
   it('ignores a second pointer that lands mid-drag', async () => {
     const el = await mount();
     const closes = watchCloses(el);
+    const dismissed = dismissal(el);
     const handle = handleOf(el);
     const dialog = el.renderRoot.querySelector<HTMLElement>('dialog')!;
 
@@ -196,7 +231,7 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
 
     // The owning pointer still decides, and still sees its full 200px.
     handle.dispatchEvent(pointer('pointerup', 200, 1));
-    await flush(el);
+    await dismissed;
 
     expect(closes.count).toBe(1);
   });
