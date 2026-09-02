@@ -4,18 +4,15 @@ import { repeat } from 'lit/directives/repeat.js';
 import { LightElement } from '../commons/base-element.ts';
 import { goBack } from '../commons/navigation.ts';
 import {
-  DEFAULT_SEASON,
   LiveQuery,
   activeHorseQuery,
   ageInYears,
-  bool,
-  decimal,
   formatAge,
   formatSeasonRange,
   horsesRepo,
   isInSeason,
   rationsRepo,
-  readForm,
+  rationsService,
   summariseSuspension,
   todayISO,
   type IsoDate,
@@ -56,54 +53,27 @@ export class HorseView extends LightElement {
   #goBack = () => goBack(HOME);
 
   /**
-   * Reads the sheet back against the same list that rendered it.
+   * Hands the sheet to `rationsService.saveRationSheet`, against the same list
+   * that rendered it.
    *
-   * The schema is built from `rations`, the field names are built from
-   * `rations`, and the results are looked up by the same ids — so the form and
-   * its reader cannot drift apart. The version before this hardcoded five
-   * product names in the markup and read four different keys, and saving wrote
-   * one unlabeled row and dropped the rest.
+   * Passing `#rations.value` rather than letting the service read the plan back
+   * is the point: the schema, the lookup and the diff all have to run against
+   * the lines the user was actually looking at.
+   *
+   * A failed parse leaves the sheet open with nothing said, as it always has.
+   * Every normal path is already blocked by the inputs' own `required` and
+   * `pattern`, so reaching here means the platform was bypassed — there is no
+   * field to point at and no wording that would help.
    */
   #onRationSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
 
-    const rations = this.#rations.value ?? [];
-    const schema = Object.fromEntries(
-      rations.flatMap((ration) => [
-        [`quantity-${ration.id}`, decimal({ required: true, min: 0 })],
-        [`seasonal-${ration.id}`, bool()],
-      ]),
+    const result = await rationsService.saveRationSheet(
+      this.#rations.value ?? [],
+      event.target as HTMLFormElement,
     );
 
-    // Native constraint validation already blocked every normal path; this
-    // catches the ones that skip it, where a NaN would be permanent.
-    const result = readForm(event.target as HTMLFormElement, schema);
-    if (!result.ok) return;
-
-    const patches = rations.flatMap((ration) => {
-      const quantity = result.value[`quantity-${ration.id}`] as number | null;
-      if (quantity === null) return [];
-
-      // Re-ticking "Saisonnier" restores the line's own window when it still has
-      // one, so a stored Nov→Mar isn't quietly flattened to the default.
-      const season = result.value[`seasonal-${ration.id}`]
-        ? (ration.season ?? DEFAULT_SEASON)
-        : null;
-
-      // Untouched lines are skipped, not re-saved. `touch()` restamps
-      // `updatedAt`, and `clearUntouchedSeedData` tells demo rows from real ones
-      // by `createdAt === updatedAt` — writing all five here would make the
-      // whole seed look hand-entered and survive the next restore.
-      const unchanged =
-        quantity === ration.quantity &&
-        season?.from === ration.season?.from &&
-        season?.to === ration.season?.to;
-
-      return unchanged ? [] : [{ id: ration.id, patch: { quantity, season } }];
-    });
-
-    if (patches.length > 0) await rationsRepo.updateMany(patches);
-    this.rationSheetOpen = false;
+    if (result.ok) this.rationSheetOpen = false;
   };
 
   render() {
@@ -176,6 +146,9 @@ export class HorseView extends LightElement {
     // the same thing for a screen reader, and a <legend> is not laid out as a
     // normal child in every engine, so it can't be placed in the grid below.
     const nameId = `ration-name-${ration.id}`;
+    // Not spelled inline: the schema that reads these back is built from the
+    // same helper, so the two halves of the round trip cannot drift.
+    const names = rationsService.rationFieldNames(ration.id);
 
     return html`
       <div class="ration-field" role="group" aria-labelledby=${nameId}>
@@ -183,7 +156,7 @@ export class HorseView extends LightElement {
         <app-checkbox
           class="ration-field__seasonal"
           label="Saisonnier"
-          name="seasonal-${ration.id}"
+          name=${names.seasonal}
           ?checked=${ration.season !== null}
         ></app-checkbox>
         <!--
@@ -196,7 +169,7 @@ export class HorseView extends LightElement {
           class="ration-field__quantity"
           label="Quantité de ${ration.label}"
           hide-label
-          name="quantity-${ration.id}"
+          name=${names.quantity}
           type="text"
           inputmode="decimal"
           pattern="[0-9]+([.,][0-9]+)?"

@@ -142,9 +142,11 @@ Three consequences worth stating out loud:
 - **Build the schema and the field names from the same array.** For a form over
   a list of records, name fields from record ids (`quantity-<id>`) and generate
   the schema from that same list; then the markup and its reader cannot drift.
-  `HorseView.#onRationSubmit` is the reference — the version before it
-  hardcoded five product names and read four different keys, and saving wrote
-  one unlabeled row and dropped the rest.
+  `rationsService` is the reference: `rationFieldNames(id)` is called by the
+  markup that renders each control *and* by the schema that parses it back, so
+  neither half spells a name. The version before any of it hardcoded five
+  product names and read four different keys, and saving wrote one unlabeled row
+  and dropped the rest.
 - **Skip unchanged rows rather than re-saving them.** `touch()` restamps
   `updatedAt`, and `clearUntouchedSeedData` tells demo rows from real ones by
   `createdAt === updatedAt` — a blanket save makes the whole seed look
@@ -256,6 +258,7 @@ src/data/
   active-horse.ts      # activeHorseQuery() — the standard view-level query
   ready.ts             # gate opened when initData() settles — see below
   repositories/        # horses|events|documents|rations|meta.repo.ts
+  services/            # write-side commands — events|rations.service.ts
   backup/snapshot.ts   # versioned export/import envelope
   seed.ts              # first-run data, only when no horse exists
 ```
@@ -278,6 +281,25 @@ src/data/
   boundary is what makes swapping IndexedDB for a hosted database later a
   change to five repository files instead of a rewrite. Don't call
   `db.*` outside `src/data/`.
+- **`services/` holds writes, never reads.** A repository reads and writes one
+  table; a service owns a write that spans more than one decision or more than
+  one table, as plain functions over plain objects with no state of its own.
+  Two today. `eventsService.saveEvent()` decides which column a counterparty
+  lands in, whether a follow-up or an activity may be written at all, and what
+  an edit carries over from the record it replaces.
+  `rationsService.saveRationSheet()` reads the whole feed plan back and writes
+  only the lines that moved, and owns the generated field names both halves of
+  that round trip depend on. Both lived in a submit handler — one in
+  `event-sheet.ts`, one in `HorseView` — which put the definition of a record
+  inside a dialog and left every one of those rules reachable only from the
+  browser suite; they are record arithmetic and belong under the data-layer test
+  rule. Reads do **not** get a service — a `LiveQuery` over a repository is
+  already the right shape, and a layer in between is only something for Dexie's
+  reactivity to see through. Two rules follow from the no-state one: never hold
+  a cached copy of anything (Dexie is the store, per `live.ts`), and never call
+  a service from inside a `LiveQuery` callback — a command that runs in a live
+  query re-triggers the query that ran it. `backup/snapshot.ts` is the same kind
+  of module and predates the folder.
 - Call `initData()` once (already done in `app-root.ts`) before anything
   writes — it opens the DB, resolves `ownerId` and seeds first-run data.
   `createRecord` throws if it hasn't run.

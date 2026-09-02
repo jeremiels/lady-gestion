@@ -23,6 +23,11 @@ import { seedIfEmpty } from './seed.ts';
  * `record.ts` / `ids.ts` / `owner.ts` / `seed.ts` — record plumbing that
  * repositories call and nothing above them should.
  *
+ * `services/*` sits alongside the repositories rather than under them: a
+ * repository reads and writes one table, a service owns a *write* that spans
+ * more than one decision or more than one table. Reads never go through one —
+ * a `LiveQuery` over a repository is already the right shape.
+ *
  * **A presentational component wanting only a formatter imports the module
  * directly, not this file.** `event-card` takes `formatDate` from `dates.ts`
  * and `formatCents` from `money.ts`; `app-calendar` takes `monthGrid` from
@@ -39,6 +44,9 @@ export * as eventsRepo from './repositories/events.repo.ts';
 export * as documentsRepo from './repositories/documents.repo.ts';
 export * as rationsRepo from './repositories/rations.repo.ts';
 export * as metaRepo from './repositories/meta.repo.ts';
+
+export * as eventsService from './services/events.service.ts';
+export * as rationsService from './services/rations.service.ts';
 
 export * from './live.ts';
 export * from './active-horse.ts';

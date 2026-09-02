@@ -2,7 +2,6 @@ import { css, html, nothing, type PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { BaseElement } from '../../commons/base-element.ts';
 import {
-  DEFAULT_CURRENCY,
   DEFAULT_FOLLOW_UP,
   FOLLOW_UP_INTERVALS,
   type FieldParser,
@@ -11,7 +10,7 @@ import {
   type WorkActivity,
   bool,
   cents,
-  eventsRepo,
+  eventsService,
   followUpValue,
   formatFollowUpInterval,
   formatWorkActivity,
@@ -19,9 +18,7 @@ import {
   horsesRepo,
   isoDate,
   oneOf,
-  parseFollowUpValue,
   readForm,
-  statusForDate,
   text,
   todayISO,
 } from '../../data/index.ts';
@@ -300,14 +297,20 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-   * Reads the form, then lets the variant decide which columns get written.
+   * Reads the form and hands the answers to `eventsService.saveEvent`.
    *
    * The reading is variant-independent — `EVENT_SCHEMA` covers every field any
    * layout can render, and one the current layout omits arrives absent, which
-   * each parser already reads as blank. The variant matters on the way *out*:
-   * `providerName` and `vendor` below are set from it rather than from whatever
-   * the DOM still holds, so a field this layout does not show can never reach
-   * the record.
+   * each parser already reads as blank. `spec` is consulted for one thing here,
+   * and only because it cannot be deferred: Activité is required on the layout
+   * that draws it, so the parser has to be chosen before the type is read back.
+   *
+   * Everything the variant decides on the way *out* — which column a
+   * counterparty lands in, whether a follow-up or an activity may be written at
+   * all, what an edit carries over — is the service's, and it re-derives the
+   * layout from the type actually being saved. This component composed the
+   * record itself until then, which put ~50 lines of what an event *is* inside
+   * a dialog and left them reachable only from a browser suite.
    */
   #onSubmit = async (submitEvent: SubmitEvent) => {
     submitEvent.preventDefault();
@@ -330,55 +333,12 @@ export class EventSheet extends BaseElement {
       return;
     }
 
-    const { type, title, date, amountCents, notes, counterparty } = result.value;
-    // Re-checked at submit rather than trusting the handler above: the form can
-    // also be prefilled with an existing event whose type was never changed
-    // here, so the flag alone is not proof the current layout offers one.
-    const followUp =
-      spec?.followUp && result.value.planFollowUp
-        ? parseFollowUpValue(result.value.followUpInterval)
-        : null;
-
-    // Written from the layout rather than from whatever the DOM still holds, so
-    // a column this layout does not show can never reach the record — and only
-    // ever one of the two, because a layout has at most one counterparty.
-    const columns: Record<CounterpartyField['column'], string | null> = {
-      providerName: null,
-      vendor: null,
-    };
-    if (spec?.counterparty) columns[spec.counterparty.column] = counterparty;
-
-    // Same rule as the columns above, and the same reason: a layout that does
-    // not ask what was done must not carry an answer left in the DOM from the
-    // type the user picked before.
-    const activity = spec?.activity ? result.value.activity : null;
-
-    const existing = this.event;
-    const fields = {
-      type,
-      title,
-      date,
-      // No time control in any of the three layouts, so a new event is all-day.
-      // An edit keeps whatever time the record already had rather than
-      // discarding it through a form that cannot show it.
-      time: existing?.time ?? null,
-      // Derived rather than asked for: the date already says which is meant.
-      // A cancelled event is the exception — re-deriving would quietly bring it
-      // back to life on any edit that touches nothing else.
-      status: existing?.status === 'cancelled' ? existing.status : statusForDate(date),
-      amountCents,
-      currency: existing?.currency ?? DEFAULT_CURRENCY,
-      ...columns,
-      location: existing?.location ?? null,
-      notes,
-      recurrenceId: existing?.recurrenceId ?? null,
-      followUpInterval: followUp,
-      activity,
-    };
-
     try {
-      if (existing) await eventsRepo.update(existing.id, fields);
-      else await eventsRepo.create({ horseId: horse.id, ...fields });
+      await eventsService.saveEvent({
+        horseId: horse.id,
+        existing: this.event,
+        input: result.value,
+      });
     } catch (error: unknown) {
       this.saveError = error instanceof Error ? error.message : 'Enregistrement impossible.';
       return;

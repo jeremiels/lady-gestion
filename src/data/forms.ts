@@ -184,7 +184,8 @@ export type FormResult<S extends FormSchema> =
  * `source` accepts a `FormData` directly — for a form whose field *names* are
  * generated (`quantity-<id>`), build the schema and the `FormData` from the
  * same list and there is no way for the two to disagree. See
- * `HorseView.#onRationSubmit`.
+ * `services/rations.service.ts`, which takes either and generates both names
+ * from one helper.
  */
 export const readForm = <S extends FormSchema>(
   source: HTMLFormElement | FormData,
