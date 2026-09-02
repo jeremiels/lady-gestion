@@ -493,9 +493,15 @@ export class AppCalendar extends BaseElement {
     const isToday = date === this.today;
     const outside = !isSameMonth(date, this.visibleMonth);
 
+    // Days spilling in from the neighbouring months carry no dot: the grid
+    // shows them for shape, not for content, and their own month says it
+    // properly. One flag drives both the dot and its spoken equivalent, so a
+    // screen reader is never told about a marker that isn't there.
+    const marked = count > 0 && !outside;
+
     // The dot is decorative, so the count has to reach a screen reader through
     // the label instead.
-    const events = count === 0 ? '' : `, ${count} ${count === 1 ? 'évènement' : 'évènements'}`;
+    const events = marked ? `, ${count} ${count === 1 ? 'évènement' : 'évènements'}` : '';
 
     return html`
       <div class="calendar__cell" role="gridcell" aria-selected=${selected ? 'true' : 'false'}>
@@ -514,7 +520,7 @@ export class AppCalendar extends BaseElement {
         >
           ${dayOfMonth(date)}
         </button>
-        ${count > 0 ? html`<span class="calendar__dot"></span>` : nothing}
+        ${marked ? html`<span class="calendar__dot"></span>` : nothing}
       </div>
     `;
   }

@@ -245,5 +245,22 @@ describe('app-calendar', () => {
 
       expect(day20?.getAttribute('aria-label')).toContain('2 évènements');
     });
+
+    it('stays silent about events on days spilling in from another month', async () => {
+      const el = await fixture<AppCalendar>(html`
+        <app-calendar
+          .value=${ANCHOR}
+          .today=${ANCHOR}
+          week-start="MO"
+          .events=${[calendarEvent('a', '2026-04-02')]}
+        ></app-calendar>
+      `);
+
+      const outside = el.renderRoot.querySelector('.calendar__day--outside[aria-label*="2 avril"]');
+
+      expect(outside).not.toBeNull();
+      expect(outside?.getAttribute('aria-label')).not.toContain('évènement');
+      expect(outside?.parentElement?.querySelector('.calendar__dot')).toBeNull();
+    });
   });
 });
