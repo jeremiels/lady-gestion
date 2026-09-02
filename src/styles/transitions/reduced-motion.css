@@ -1,0 +1,29 @@
+@layer transitions.reduced-motion {
+  /*
+   * View transitions need their own reduced-motion guard.
+   *
+   * The blanket `*, *::before, *::after` rule in `layers/reset.css` does not
+   * reach these: the ::view-transition pseudo-elements form a separate tree
+   * rooted on the document element, and `*` matches nothing in it. Without this
+   * block every route change still cross-fades for a user who asked for less
+   * motion — the CSS twin of the `matchMedia` check `app-donut-chart` makes for
+   * its JS animation.
+   *
+   * `animation: none` rather than a near-zero duration: the transition is a
+   * decoration with no state to carry, so skipping it outright is what "reduce"
+   * asks for. The DOM swap in `app-root` still happens either way.
+   *
+   * Last sub-layer, and `!important` as well. Either alone would do the job
+   * today; both, because this is the rule that must never lose — the
+   * `!important` also covers the shorthand animations above being unlayered in
+   * some future refactor, and the layer order covers a future rule here that
+   * cannot use `!important`.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
+}

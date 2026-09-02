@@ -45,6 +45,26 @@
   /* Core body defaults */
   html {
     -webkit-text-size-adjust: 100%; /* prevent iOS font inflation */
+
+    /* Safari on iOS reads a quick second tap as a request to zoom, and a
+       standalone PWA has no address bar to reset the zoom from — so a stray
+       double tap leaves the app stuck zoomed in with no way back out.
+
+       On the root, and not just on the interactive elements below: effective
+       touch behaviour is the intersection of an element's own `touch-action`
+       with every ancestor's, so declaring it here covers each target in the
+       document rather than only the ones that happen to be a control. That gap
+       was the whole bug — buttons were already covered, but a card, a heading,
+       or the gutter between two calendar cells was not, and those are most of
+       the screen.
+
+       `manipulation` drops only the double-tap gesture and the tap delay Safari
+       holds waiting for it. Panning and pinch-to-zoom survive, which is why
+       this is not the `user-scalable=no` viewport hack — deliberate zoom stays
+       available, it just stops happening by accident. A descendant asking for
+       less still wins, so `app-bottom-sheet`'s `touch-action: none` drag handle
+       is unaffected. */
+    touch-action: manipulation;
   }
 
   html:focus-within {
@@ -79,14 +99,11 @@
     color: inherit;
   }
 
-  /* Safari on iOS reads a quick second tap on anything tappable as a request to
-     zoom, and a standalone PWA has no address bar to reset the zoom from — so
-     two fast taps on a nav item or a calendar day leave the app stuck zoomed in
-     with no obvious way back. `manipulation` drops the double-tap gesture (and
-     the 300ms tap delay Safari holds waiting for it) on the elements people
-     actually tap. Scrolling and deliberate pinch-to-zoom are untouched, which is
-     why this is not the `user-scalable=no` viewport hack: zooming stays
-     available to anyone who wants it, it just stops happening by accident. */
+  /* Belt and braces for the `html` rule above, which should already reach these
+     through the flat tree. Kept because a control is where a stray double tap
+     costs the most — it zooms *and* opens a keyboard or a picker — and because
+     this is the half that `component-reset.css` can mirror: no `html` selector
+     ever matches inside a shadow root. */
   a,
   button,
   input,

@@ -1,0 +1,118 @@
+@layer transitions.route {
+  /* The bottom nav is static chrome, not routed content: give it its own
+     capture so it isn't baked into the `root` snapshot the rules below slide,
+     and pin its group to no animation so it never moves or cross-fades. */
+  .navigation {
+    view-transition-name: --nav-bar;
+  }
+
+  ::view-transition-group(--nav-bar) {
+    animation: none;
+  }
+
+  /* The cross-fade a `replace` falls through to. The token, not 0.3s: the
+     directional rules below use `--duration-slow`, and two route changes 20ms
+     apart in tempo read as a glitch rather than as a distinction. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--duration-slow);
+  }
+
+  /*
+   * Directional route changes.
+   *
+   * `Router` tags each navigation with a `forward` or `back` transition type — a
+   * push is always forward, a traversal compares history indices — and these two
+   * blocks are the whole of what that buys. A `replace` carries no type and falls
+   * through to the plain cross-fade above, which is right: nothing moved through
+   * the stack, so nothing should slide.
+   *
+   * The old view leaves the way the new one enters, so going back is visibly the
+   * undo of going forward rather than a second forward.
+   *
+   * `:root:active-view-transition-type(...)` and not a bare
+   * `:active-view-transition-type(...)`: the pseudo-elements hang off the
+   * document element, so the type has to be matched there.
+   */
+  @keyframes route-enter-from-right {
+    from { translate: 100% 0; opacity: 0; }
+  }
+
+  @keyframes route-leave-to-left {
+    to { translate: -25% 0; opacity: 0; }
+  }
+
+  @keyframes route-enter-from-left {
+    from { translate: -25% 0; opacity: 0; }
+  }
+
+  @keyframes route-leave-to-right {
+    to { translate: 100% 0; opacity: 0; }
+  }
+
+  :root:active-view-transition-type(forward) {
+    &::view-transition-old(root) {
+      animation: route-leave-to-left var(--duration-slow) var(--easing-standard) both;
+    }
+
+    &::view-transition-new(root) {
+      animation: route-enter-from-right var(--duration-slow) var(--easing-standard) both;
+    }
+  }
+
+  :root:active-view-transition-type(back) {
+    &::view-transition-old(root) {
+      animation: route-leave-to-right var(--duration-slow) var(--easing-standard) both;
+    }
+
+    &::view-transition-new(root) {
+      animation: route-enter-from-left var(--duration-slow) var(--easing-standard) both;
+    }
+  }
+
+  /*
+   * Sideways moves between the four nav-bar sections.
+   *
+   * A fade *through*, not a cross-fade: the outgoing page is gone before the
+   * incoming one starts, so two different layouts are never on screen at once.
+   * The 30/70 split is written as a fraction of `--duration-slow` rather than as
+   * two more tokens, so the ratio stays visible and the pair can only ever be
+   * retimed together.
+   *
+   * `--duration-slow` and not `--duration-medium`, which this used to run at: at
+   * 0.2s the outgoing half was a 60ms blink, close enough to a hard cut that the
+   * fade read as a flicker rather than as a transition. The slow token puts it at
+   * 96ms out / 224ms in, which is both the tempo every other route change in this
+   * file already runs at — see the cross-fade note above on why they must not
+   * differ — and, near enough, Material's own 90/210 fade-through.
+   *
+   * Why this and not the slide above: the tabs are siblings. A push says "deeper"
+   * and a pop says "back out", and between two sections neither happened — the
+   * only thing that changed is which nav item is lit. iOS cuts here and Material
+   * fades here; nothing slides.
+   *
+   * The router always tags a navigation `forward` or `back` and a type cannot be
+   * removed once added, so `lateral` overrides rather than replaces. Equal
+   * specificity to the two blocks above, so this wins on source order alone and
+   * must stay below them — which is also why all three live in this one file
+   * rather than in a sub-layer each.
+   */
+  @keyframes route-fade-out {
+    to { opacity: 0; }
+  }
+
+  @keyframes route-fade-in {
+    from { opacity: 0; }
+  }
+
+  :root:active-view-transition-type(lateral) {
+    &::view-transition-old(root) {
+      animation: route-fade-out calc(var(--duration-slow) * 0.3) var(--easing-out) both;
+    }
+
+    &::view-transition-new(root) {
+      animation: route-fade-in calc(var(--duration-slow) * 0.7) var(--easing-out)
+        calc(var(--duration-slow) * 0.3) both;
+    }
+  }
+}

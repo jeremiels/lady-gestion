@@ -9,8 +9,8 @@ import { LightElement } from './commons/base-element.ts';
 import { Router } from './commons/controllers/router.ts';
 import { initData } from './data/index.ts';
 import { initPwa } from './pwa/index.ts';
-import type { IconName } from './components/app-icon/icons.ts';
 import { appHref } from './commons/base-path.ts';
+import { isHorsePath, isLateral, SECTIONS } from './commons/sections.ts';
 import './components/navigation/nav-bar.ts';
 import './components/navigation/nav-item.ts';
 import './components/app-icon/app-icon.ts';
@@ -45,102 +45,14 @@ type Route = {
 const EVENT_DETAIL_PREFIX = '/events/';
 
 /**
- * `/horse` and `/horse/<id>`. Pulled out of the route's own `match` so the
- * `horse` view-transition type below can reuse the exact same check rather
- * than drifting out of sync with it.
- */
-const isHorsePath = (path: string): boolean => path === '/horse' || path.startsWith('/horse/');
-
-/** One of the four destinations the bottom nav offers. */
-type Section = {
-  id: string;
-  /** The nav item's link, and the section's root path. */
-  href: string;
-  label: string;
-  icon: IconName;
-  /**
-   * Every path that belongs to this section — including its drill-downs, which
-   * have no nav item of their own and must not unlight the one they came from.
-   */
-  matches: (path: string) => boolean;
-};
-
-/**
- * The bottom nav, and the app's only definition of what a section contains.
- *
- * The `matches` predicates answer one question — "which section is the user
- * in?" — that two callers need: the nav bar, to decide which item is lit, and
- * the route transition below, to tell a sideways move from a drill-down. Those
- * two used to answer it separately, and a comment on the second claimed the two
- * agreed. They did not: `/horse` counted as `home` for the transition while the
- * Accueil item stayed dark. One table, one answer, no way to drift.
- */
-const SECTIONS: Section[] = [
-  {
-    id: 'home',
-    href: appHref('/'),
-    label: 'Accueil',
-    icon: 'home',
-    // `/budget` and the horse's page are drill-downs from the dashboard, not
-    // sections of their own — an unlit bar there would say otherwise.
-    matches: (path) => path === '/' || path === '/budget' || isHorsePath(path),
-  },
-  {
-    id: 'events',
-    href: appHref('/events'),
-    label: 'Calendrier',
-    icon: 'date',
-    // A prefix match: an event's own page is still the Calendrier section.
-    matches: (path) => path.startsWith('/events'),
-  },
-    {
-    id: 'budget',
-    href: appHref('/budget'),
-    label: 'Budget',
-    icon: 'currencyEur',
-    matches: (path) => path === '/budget',
-  },
-  {
-    id: 'documents',
-    href: appHref('/documents'),
-    label: 'Documents',
-    icon: 'folder',
-    matches: (path) => path === '/documents',
-  },
-];
-
-/**
  * Where the `+` sits in the bar — between Calendrier and Documents.
  *
- * Named rather than an index into the list above, because it is a composition
+ * Named rather than an index into `SECTIONS`, because it is a composition
  * decision about the bar and not a property of any section. It is not a
  * destination: it opens the event sheet, so it has no route and nothing for the
  * Navigation API to intercept.
  */
 const ADD_BUTTON_BEFORE = 'budget';
-
-/** The section a path belongs to, or `undefined` for a path in none (the 404). */
-const sectionOf = (path: string): Section | undefined =>
-  SECTIONS.find((section) => section.matches(path));
-
-/**
- * A sideways move: out of one section and onto the root of another.
- *
- * The "onto a root" half matters as much as the section comparison. Leaving
- * `/profile` for `/events/<id>` via a deep link changes section but still lands
- * a level down, and should still push.
- */
-const isLateral = (from: string, to: string): boolean => {
-  const fromSection = sectionOf(from);
-  const toSection = sectionOf(to);
-
-  return (
-    SECTIONS.some((section) => section.href === to) &&
-    fromSection !== undefined &&
-    toSection !== undefined &&
-    fromSection !== toSection
-  );
-};
 
 /**
  * The route table.
@@ -261,9 +173,9 @@ export class AppRoot extends LightElement {
   readonly #router = new Router(this, {
     beforeRender: (path) => this.#prepareRoute(path),
     afterRender: () => this.#focusHeading(),
-    // Tags home↔horse-view navigations so `main.css` can give `--horse-card`
-    // its shared-element morph only there, and let it ride the plain route
-    // slide like the rest of the page for every other destination.
+    // Tags home↔horse-view navigations so `transitions/horse.css` can give
+    // `--horse-card` its shared-element morph only there, and let it ride the
+    // plain route slide like the rest of the page for every other destination.
     extraTransitionTypes: (from, to) => [
       ...(isHorsePath(from) || isHorsePath(to) ? ['horse'] : []),
       ...(isLateral(from, to) ? ['lateral'] : []),
@@ -320,7 +232,7 @@ export class AppRoot extends LightElement {
           (section) => html`
             ${section.id === ADD_BUTTON_BEFORE ? this.renderAddButton() : nothing}
             <nav-item
-              href=${section.href}
+              href=${appHref(section.root)}
               label=${section.label}
               icon=${section.icon}
               ?active=${section.matches(this.#router.path)}

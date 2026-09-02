@@ -22,10 +22,10 @@
     --press-scale-small: 0.95;
 
     /* Gap between siblings in a staggered group entrance.
-       Deliberately half of `--horse-view-meta-stagger` in `main.css`, which
-       separates two full-width page blocks: these are five small tiles, and at
-       that step the last one would still be arriving long after the route
-       transition had finished. */
+       Deliberately half of `--horse-view-meta-stagger` in
+       `transitions/horse.css`, which separates two full-width page blocks:
+       these are five small tiles, and at that step the last one would still be
+       arriving long after the route transition had finished. */
     --stagger-step: 0.04s;
 
     /* For content moving/morphing on screen — the route slide trades one full

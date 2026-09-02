@@ -215,9 +215,10 @@ describe('Router', () => {
 
       try {
         await go('/events');
-        // The object form, because there is a direction to carry. `main.css`
-        // reads it through `:root:active-view-transition-type(...)`; without it
-        // both directions would slide the same way.
+        // The object form, because there is a direction to carry.
+        // `styles/transitions/route.css` reads it through
+        // `:root:active-view-transition-type(...)`; without it both directions
+        // would slide the same way.
         expect(spy.mock.calls[0]?.[0]).toMatchObject({ types: ['forward'] });
 
         await back();

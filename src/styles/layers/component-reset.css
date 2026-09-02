@@ -58,14 +58,12 @@
     color: inherit;
   }
 
-  /* Safari on iOS reads a quick second tap on anything tappable as a request to
-     zoom, and a standalone PWA has no address bar to reset the zoom from — so
-     two fast taps on a nav item or a calendar day leave the app stuck zoomed in
-     with no obvious way back. `manipulation` drops the double-tap gesture (and
-     the 300ms tap delay Safari holds waiting for it) on the elements people
-     actually tap. Scrolling and deliberate pinch-to-zoom are untouched, which is
-     why this is not the `user-scalable=no` viewport hack: zooming stays
-     available to anyone who wants it, it just stops happening by accident. */
+  /* The shadow-root half of the double-tap-to-zoom fix in `layers/reset.css`.
+     That file's real rule sits on `html`, which no selector here can reach, so
+     the blanket lands on `:host` below instead; this list stays because a
+     control is where a stray double tap costs the most — it zooms *and* opens a
+     keyboard or a picker. See the root rule there for why `manipulation` and
+     not the `user-scalable=no` viewport hack. */
   a,
   button,
   input,
@@ -127,6 +125,13 @@
     font: inherit;
     color: inherit;
     line-height: inherit;
+    /* Mirrors the `html` rule in `layers/reset.css`. Effective touch behaviour
+       is the intersection of an element's value with its ancestors', so one
+       declaration on the host covers everything the component renders — not
+       just the controls listed above. A descendant asking for less still wins,
+       which is what keeps `app-bottom-sheet`'s `touch-action: none` handle
+       draggable. */
+    touch-action: manipulation;
   }
 
   :host([hidden]) {

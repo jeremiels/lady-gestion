@@ -308,11 +308,11 @@ export class Router implements ReactiveController {
         return this.#host.updateComplete;
       };
 
-      // The types are what let `main.css` slide forward and back differently
-      // from one cross-fade rule, and what a route pair like home↔horse-view
-      // can key its own animation off. Without them — or on a browser that
-      // only has the callback form — this stays exactly the transition it was
-      // before.
+      // The types are what let `styles/transitions/route.css` slide forward and
+      // back differently from one cross-fade rule, and what a route pair like
+      // home↔horse-view can key its own animation off. Without them — or on a
+      // browser that only has the callback form — this stays exactly the
+      // transition it was before.
       const types = direction
         ? [direction, ...(this.#options.extraTransitionTypes?.(previousPath, path) ?? [])]
         : undefined;
