@@ -1,4 +1,5 @@
 import { todayISO, type IsoDate } from './dates.ts';
+import type { EventTypeKey } from '../types/event.types.ts';
 import type { EventStatus, HorseEvent } from './types.ts';
 
 /**
@@ -19,6 +20,24 @@ import type { EventStatus, HorseEvent } from './types.ts';
  */
 export const statusForDate = (date: IsoDate, on: IsoDate = todayISO()): EventStatus =>
   date > on ? 'planned' : 'done';
+
+/**
+ * The types the dashboard's "Rendez-vous à venir" list is about.
+ *
+ * A rendez-vous is booked with someone — the vet, the farrier, the dentist, the
+ * osteopath. The other five types are either logged after the fact (a purchase,
+ * a feed order, the boarding bill) or happen without one being taken (a lesson,
+ * a schooling session), and a future row of any of them used to push a real
+ * visit out of the dashboard's top three.
+ *
+ * Listed rather than derived from `eventFormSpec(type).followUp`, which picks
+ * out the same four today: that flag says which layout draws the follow-up
+ * checkbox, and what counts as a rendez-vous should not change because a form
+ * grew or lost a field.
+ */
+const APPOINTMENT_TYPES = new Set<EventTypeKey>(['veto', 'marechal', 'dentiste', 'osteo']);
+
+export const isAppointmentType = (type: EventTypeKey): boolean => APPOINTMENT_TYPES.has(type);
 
 /**
  * How long until a care event should be repeated — a six-week farrier cycle, a

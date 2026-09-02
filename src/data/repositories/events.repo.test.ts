@@ -116,14 +116,37 @@ describe('listUpcoming', () => {
     expect(events.map((event) => event.id)).toEqual(['planned']);
   });
 
+  it('keeps only types you take an appointment for', async () => {
+    // The dashboard's list is "Rendez-vous à venir", not "everything ahead":
+    // a planned purchase or lesson is logged, not booked.
+    const today = todayISO();
+    await seedEvents([
+      { id: 'veto', date: addDays(today, 1), type: 'veto' },
+      { id: 'achat', date: addDays(today, 2), type: 'achat' },
+      { id: 'cours', date: addDays(today, 3), type: 'cours' },
+      { id: 'travail', date: addDays(today, 4), type: 'travail' },
+      { id: 'alimentation', date: addDays(today, 5), type: 'alimentation' },
+      { id: 'pension', date: addDays(today, 6), type: 'pension' },
+      { id: 'marechal', date: addDays(today, 7), type: 'marechal' },
+      { id: 'dentiste', date: addDays(today, 8), type: 'dentiste' },
+      { id: 'osteo', date: addDays(today, 9), type: 'osteo' },
+    ]);
+
+    const events = await eventsRepo.listUpcoming(HORSE_ID);
+
+    expect(events.map((event) => event.id)).toEqual(['veto', 'marechal', 'dentiste', 'osteo']);
+  });
+
   it('applies the limit after filtering, not before', async () => {
-    // A `done` event sitting first must not consume one of the limit's slots —
-    // the dashboard would then show fewer appointments than it asked for.
+    // A `done` event or a non-appointment type sitting first must not consume
+    // one of the limit's slots — the dashboard would then show fewer
+    // appointments than it asked for.
     const today = todayISO();
     await seedEvents([
       { id: 'done', date: addDays(today, 1), status: 'done' },
-      { id: 'a', date: addDays(today, 2) },
-      { id: 'b', date: addDays(today, 3) },
+      { id: 'achat', date: addDays(today, 2), type: 'achat' },
+      { id: 'a', date: addDays(today, 3) },
+      { id: 'b', date: addDays(today, 4) },
     ]);
 
     const events = await eventsRepo.listUpcoming(HORSE_ID, 2);

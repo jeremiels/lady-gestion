@@ -1,6 +1,7 @@
 import { db } from '../db.ts';
 import { todayISO, type IsoDate } from '../dates.ts';
 import { sumByType } from '../budget.ts';
+import { isAppointmentType } from '../events.ts';
 import { sumCents } from '../money.ts';
 import { createRecord, crud, liveOnly } from '../record.ts';
 import type { EventTypeKey } from '../../types/event.types.ts';
@@ -39,10 +40,19 @@ export const listInRange = async (
   to: IsoDate,
 ): Promise<HorseEvent[]> => liveOnly(await byHorseAndDateRange(horseId, from, to));
 
-/** Still-to-happen appointments, soonest first. */
+/**
+ * Still-to-happen appointments, soonest first.
+ *
+ * Narrowed to the types that are actually *taken* rather than logged — see
+ * `isAppointmentType`. A planned purchase or lesson is a future event, not a
+ * rendez-vous, and filtering it here rather than in the view is what keeps the
+ * limit honest: the caller asks for three and gets three appointments.
+ */
 export const listUpcoming = async (horseId: string, limit?: number): Promise<HorseEvent[]> => {
   const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
-  const upcoming = liveOnly(events).filter((event) => event.status === 'planned');
+  const upcoming = liveOnly(events).filter(
+    (event) => event.status === 'planned' && isAppointmentType(event.type),
+  );
   return limit === undefined ? upcoming : upcoming.slice(0, limit);
 };
 
