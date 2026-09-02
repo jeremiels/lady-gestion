@@ -194,11 +194,11 @@ describe('importBackup — owner adoption', () => {
 });
 
 describe('importBackup — rejects bad input', () => {
-  it('rejects a file that is not a Lady Gestion backup', async () => {
+  it('rejects a file that is not a Ladympala.cc backup', async () => {
     await expect(importBackup({ app: 'autre-chose' })).rejects.toThrow(
-      "Ce fichier n'est pas une sauvegarde Lady Gestion.",
+      "Ce fichier n'est pas une sauvegarde Ladympala.cc.",
     );
-    await expect(importBackup(null)).rejects.toThrow(/sauvegarde Lady Gestion/);
+    await expect(importBackup(null)).rejects.toThrow(/sauvegarde Ladympala.cc/);
   });
 
   it('rejects a file with no header', async () => {

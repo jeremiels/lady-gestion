@@ -19,7 +19,7 @@ import './components/app-update-toast/app-update-toast.ts';
 type Route = {
   /** Matches a full pathname. */
   match: (path: string) => boolean;
-  /** Appended before " · Lady Gestion" in `document.title`. */
+  /** Appended before " · Ladympala.cc" in `document.title`. */
   title: string;
   /**
    * Pulls in the view's module before it is rendered. Omitted where the view is
@@ -307,7 +307,7 @@ export class AppRoot extends LightElement {
   async #prepareRoute(path: string) {
     const route = matchRoute(path) ?? NOT_FOUND;
     await route.load?.();
-    document.title = `${route.title} · Lady Gestion`;
+    document.title = `${route.title} · Ladympala.cc`;
   }
 
 

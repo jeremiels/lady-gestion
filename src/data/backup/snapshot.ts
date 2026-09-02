@@ -214,7 +214,7 @@ const assertSnapshot = (value: unknown): BackupSnapshot => {
   const snapshot = value as Partial<BackupSnapshot> | null;
 
   if (!snapshot || snapshot.app !== 'lady-gestion') {
-    throw new Error("Ce fichier n'est pas une sauvegarde Lady Gestion.");
+    throw new Error("Ce fichier n'est pas une sauvegarde Ladympala.cc.");
   }
 
   if (typeof snapshot.schemaVersion !== 'number' || !snapshot.tables) {
