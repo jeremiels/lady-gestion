@@ -107,11 +107,11 @@
 
   :root:active-view-transition-type(lateral) {
     &::view-transition-old(root) {
-      animation: route-fade-out calc(var(--duration-slow) * 0.3) var(--easing-out) both;
+      animation: route-fade-out calc(var(--duration-slow) * 0.7) var(--easing-out) both;
     }
 
     &::view-transition-new(root) {
-      animation: route-fade-in calc(var(--duration-slow) * 0.7) var(--easing-out)
+      animation: route-fade-in calc(var(--duration-slow) * 1) var(--easing-out)
         calc(var(--duration-slow) * 0.3) both;
     }
   }
