@@ -1,12 +1,16 @@
 import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { LightElement } from '../commons/base-element.ts';
+import { goBack } from '../commons/navigation.ts';
 import { LiveQuery, downloadBackup, metaRepo, readBackupFile } from '../data/index.ts';
 import { ACCOUNT } from '../data/account.ts';
 
 import '../components/app-icon/app-icon.ts';
 import '../components/app-switch/app-switch.ts';
 import '../components/app-avatar/app-avatar.ts';
+
+/** Only ever opened from the dashboard's avatar, so that's the only fallback back needs. */
+const HOME = '/';
 
 /** Display only — no password is stored anywhere in this app. */
 const PASSWORD_MASK = '*'.repeat(9);
@@ -25,6 +29,8 @@ export class ProfileView extends LightElement {
 
   #daysSinceBackup = new LiveQuery(this, () => metaRepo.daysSinceBackup());
   #notifications = new LiveQuery(this, () => metaRepo.getNotificationsEnabled());
+
+  #goBack = () => goBack(HOME);
 
 
   // Written straight to `meta` rather than held in component state: a
@@ -67,10 +73,20 @@ export class ProfileView extends LightElement {
   render() {
     return html`
       <section class="profile-view">
-        <hgroup class="section-group">
-          <h1 class="section-title" tabindex="-1">Profil</h1>
-          <p class="section-subtitle">Mon compte utilisateur</p>
-        </hgroup>
+        <header class="profile-view__header">
+          <button
+            class="profile-view__back pressable pressable--small"
+            type="button"
+            aria-label="Retour"
+            @click=${this.#goBack}
+          >
+            <app-icon icon="chevronLeft"></app-icon>
+          </button>
+          <hgroup class="section-group">
+            <h1 class="section-title" tabindex="-1">Profil</h1>
+            <p class="section-subtitle">Mon compte utilisateur</p>
+          </hgroup>
+        </header>
 
         ${this.#renderIdentity()} ${this.#renderPersonalInfo()} ${this.#renderPreferences()}
         ${this.#renderAccount()} ${this.#renderBackup()}
