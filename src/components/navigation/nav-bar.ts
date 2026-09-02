@@ -18,7 +18,7 @@ export class NavBar extends BaseElement {
          The .main-content rule already reserves this inset on the assumption
          that the bar absorbs it. */
       padding-block: var(--spacing-16);
-      padding-bottom: calc(var(--spacing-16) + env(safe-area-inset-bottom, 0px));
+      padding-bottom: calc(var(--spacing-8) + env(safe-area-inset-bottom, 0px));
     }
 
     .nav-bar__items {
