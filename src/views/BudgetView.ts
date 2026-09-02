@@ -4,7 +4,6 @@ import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { LightElement } from '../commons/base-element.ts';
 import { ViewState } from '../commons/controllers/view-state.ts';
-import { goBack } from '../commons/navigation.ts';
 import {
   activeHorseQuery,
   byDateDescending,
@@ -33,8 +32,6 @@ import '../components/app-segmented/app-segmented.ts';
 import '../components/app-select/app-select.ts';
 import '../components/event-card/event-card.ts';
 
-/** Where back falls to — this view is only reachable from the dashboard. */
-const HOME = '/';
 
 /** Text segments, not icons: "M" and "A" would mean nothing. */
 const GRANULARITIES: SegmentedOption[] = [
@@ -116,17 +113,10 @@ export class BudgetView extends LightElement {
 
     return html`
       <section class="budget-view">
-        <header class="budget-view__header">
-          <button
-            class="budget-view__back pressable pressable--small"
-            type="button"
-            aria-label="Retour"
-            @click=${() => goBack(HOME)}
-          >
-            <app-icon icon="chevronLeft"></app-icon>
-          </button>
-          <h1 class="budget-view__title" tabindex="-1">Dépenses</h1>
-        </header>
+        <hgroup class="section-group">
+          <h1 class="section-title" tabindex="-1">Budget</h1>
+          <p class="section-subtitle">Suivre toutes les dépenses</p>
+        </hgroup>
 
         <div class="container budget-view__summary">
           <div class="budget-view__controls">
