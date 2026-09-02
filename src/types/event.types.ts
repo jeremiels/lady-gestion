@@ -41,7 +41,7 @@ export const EVENT_TYPE_META: Record<EventTypeKey, TaxonomyMeta> = {
   },
   cours: {
     label: 'Cours',
-    icon: 'cowboyHat',
+    icon: 'cactus',
     theme: 'brown',
   },
   alimentation: {
@@ -65,7 +65,7 @@ export const EVENT_TYPE_META: Record<EventTypeKey, TaxonomyMeta> = {
   // next, so inserting in the middle would reshuffle every existing category.
   travail: {
     label: 'Travail',
-    icon: 'cactus',
+    icon: 'cowboyHat',
     theme: 'fuchsia',
   },
 };
