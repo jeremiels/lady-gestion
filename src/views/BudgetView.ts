@@ -1,5 +1,6 @@
 import { html, nothing } from 'lit';
 import { customElement } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { LightElement } from '../commons/base-element.ts';
@@ -22,7 +23,7 @@ import {
   type BudgetSlice,
 } from '../data/index.ts';
 import type { HorseEvent } from '../data/types.ts';
-import { eventType } from '../types/event.types.ts';
+import { eventType, type EventTypeKey } from '../types/event.types.ts';
 import type { SegmentedOption } from '../components/app-segmented/app-segmented.ts';
 import type { DonutSlice } from '../components/app-donut-chart/app-donut-chart.ts';
 
@@ -48,11 +49,18 @@ const GRANULARITIES: SegmentedOption[] = [
  * other, so switching to Année and back returns to the month that was selected.
  * Converting a single key loses the day-level choice on the way out and has to
  * guess it on the way back.
+ *
+ * `hidden` is the set of categories switched off in the legend. It belongs here
+ * for the same reason the period does — tapping a row open and pressing Retour
+ * should come back to the chart the way it was left — and it deliberately
+ * survives a change of period: a category muted in January stays muted in
+ * February, where `sumByType` simply never offers it.
  */
 type BudgetUiState = {
   granularity: BudgetGranularity;
   monthKey: string;
   yearKey: string;
+  hidden: EventTypeKey[];
 };
 
 @customElement('budget-view')
@@ -61,6 +69,7 @@ export class BudgetView extends LightElement {
     granularity: 'month',
     monthKey: periodOf(todayISO(), 'month').key,
     yearKey: periodOf(todayISO(), 'year').key,
+    hidden: [],
   }));
 
   /**
@@ -104,6 +113,31 @@ export class BudgetView extends LightElement {
     this.#ui.patch(this.#period.granularity === 'year' ? { yearKey: key } : { monthKey: key });
   };
 
+  /**
+   * The categories switched off in the legend.
+   *
+   * Guarded rather than read straight off the bag: `ViewState` restores the
+   * *values* an older build — or the devtools — left on the history entry, and
+   * only the keys are checked. A bag holding something that is not an array
+   * here would take `includes` down inside `render()`. An array holding a key
+   * that is no longer a category needs no guard: it simply never matches one.
+   */
+  get #hidden(): EventTypeKey[] {
+    const { hidden } = this.#ui.value;
+    return Array.isArray(hidden) ? hidden : [];
+  }
+
+  /**
+   * Curried so the type travels with the handler, the way `EventsView` binds
+   * its type chips.
+   */
+  #onLegendToggle = (type: EventTypeKey) => () => {
+    const hidden = this.#hidden;
+    this.#ui.patch({
+      hidden: hidden.includes(type) ? hidden.filter((key) => key !== type) : [...hidden, type],
+    });
+  };
+
   render() {
     const all = this.#budget.value ?? [];
     const period = this.#period;
@@ -142,6 +176,7 @@ export class BudgetView extends LightElement {
             caption="Total"
             note=${formatPeriodNote(period)}
             .slices=${this.#donutSlices(slices)}
+            .hiddenIds=${this.#hidden}
             .formatValue=${this.#formatTotal}
           ></app-donut-chart>
 
@@ -210,26 +245,51 @@ export class BudgetView extends LightElement {
   /**
    * The same `BudgetSlice[]` the chart was handed, so the ring and the list
    * beside it cannot disagree about what is in the period.
+   *
+   * A real `<button>` inside each `<li>`, carrying the item class the grid is
+   * written against — rather than a clickable `<li>`, which would need a role,
+   * a tabindex and a key handler to arrive at what the element already is. The
+   * `<li>` keeps the list semantics and the button becomes the grid cell;
+   * `display: contents` on the row would have done the same for the layout and
+   * dropped the list from the accessibility tree on several engines.
+   *
+   * The row survives being switched off — that is the only way back on — so the
+   * amount stays readable and only the text is muted.
    */
   #renderLegend(slices: BudgetSlice[]) {
+    const hidden = this.#hidden;
+
     return html`
       <ul class="budget-view__legend">
         ${repeat(
           slices,
           (slice) => slice.type,
-          (slice) => html`
-            <li class="budget-view__legend-item">
-              <span
-                class="budget-view__legend-dot"
-                style=${styleMap({
-                  backgroundColor: eventType.theme(slice.type).backgroundColor,
-                })}
-                aria-hidden="true"
-              ></span>
-              <span class="budget-view__legend-label">${eventType.label(slice.type)}</span>
-              <span class="budget-view__legend-value">${formatCents(slice.cents)}</span>
-            </li>
-          `,
+          (slice) => {
+            const off = hidden.includes(slice.type);
+
+            return html`
+              <li>
+                <button
+                  type="button"
+                  class="budget-view__legend-item pressable pressable--small ${classMap({
+                    'budget-view__legend-item--off': off,
+                  })}"
+                  aria-pressed=${off ? 'false' : 'true'}
+                  @click=${this.#onLegendToggle(slice.type)}
+                >
+                  <span
+                    class="budget-view__legend-dot"
+                    style=${styleMap({
+                      backgroundColor: eventType.theme(slice.type).backgroundColor,
+                    })}
+                    aria-hidden="true"
+                  ></span>
+                  <span class="budget-view__legend-label">${eventType.label(slice.type)}</span>
+                  <span class="budget-view__legend-value">${formatCents(slice.cents)}</span>
+                </button>
+              </li>
+            `;
+          },
         )}
       </ul>
     `;
