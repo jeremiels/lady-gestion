@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   FOLLOW_UP_INTERVALS,
+  activityChoices,
   followUpValue,
   formatFollowUpInterval,
+  formatWorkActivity,
   isFollowUpInterval,
+  matchActivity,
   parseFollowUpValue,
   statusForDate,
   workActivityByDate,
+  workSessionByDate,
 } from './events.ts';
 import { makeEvent } from './__tests__/factories.ts';
 
@@ -141,5 +145,84 @@ describe('workActivityByDate', () => {
     ]);
 
     expect(byDate.get('2026-08-10')).toBe('tap');
+  });
+});
+
+describe('workSessionByDate', () => {
+  it('answers with the row, not just its activity', () => {
+    const session = makeEvent({ id: 'a', type: 'travail', date: '2026-08-10', activity: 'longe' });
+
+    expect(workSessionByDate([session]).get('2026-08-10')?.id).toBe('a');
+  });
+
+  it('picks the same session the activity map reports', () => {
+    // The two must not be able to disagree: the strip draws one and its sheet
+    // writes to the other, so a day would edit a row it never showed.
+    const events = [
+      makeEvent({ id: 'timed', type: 'travail', date: '2026-08-10', time: '09:00', activity: 'plat' }),
+      makeEvent({ id: 'all-day', type: 'travail', date: '2026-08-10', activity: 'longe' }),
+    ];
+
+    const session = workSessionByDate(events).get('2026-08-10');
+    expect(session?.id).toBe('all-day');
+    expect(session?.activity).toBe(workActivityByDate(events).get('2026-08-10'));
+  });
+});
+
+describe('formatWorkActivity', () => {
+  it('resolves a built-in key to its French label', () => {
+    expect(formatWorkActivity('balade')).toBe('Balade à pied');
+  });
+
+  it('gives back an activity the user added, which is stored as its own label', () => {
+    expect(formatWorkActivity('Carrière')).toBe('Carrière');
+  });
+});
+
+describe('activityChoices', () => {
+  it('offers the six built-ins first, in table order', () => {
+    expect(activityChoices([])).toEqual(['balade', 'longe', 'tap', 'liberte', 'plat', 'trotting']);
+  });
+
+  it('appends the user’s own in the order they were added', () => {
+    expect(activityChoices(['Carrière', 'Repos']).slice(-2)).toEqual(['Carrière', 'Repos']);
+  });
+
+  it('drops a label that only repeats a built-in’s wording', () => {
+    // The built-in stores `trotting` and reads "Trotting"; a row spelling the
+    // label out would render a second chip identical to the first.
+    expect(activityChoices(['Trotting'])).not.toContain('Trotting');
+    expect(activityChoices(['Trotting'])).toHaveLength(6);
+  });
+
+  it('ignores case, surrounding space and accents when comparing', () => {
+    expect(activityChoices(['  liberte ', 'LIBERTÉ', 'Carrière', 'carriere'])).toEqual([
+      ...activityChoices([]),
+      'Carrière',
+    ]);
+  });
+
+  it('skips a blank label rather than offering an unlabelled chip', () => {
+    expect(activityChoices(['   '])).toHaveLength(6);
+  });
+});
+
+describe('matchActivity', () => {
+  const choices = activityChoices(['Carrière']);
+
+  it('resolves a typed label to the chip already offering it', () => {
+    expect(matchActivity('carriere', choices)).toBe('Carrière');
+  });
+
+  it('resolves a built-in by its label, not by its storage key', () => {
+    expect(matchActivity('Balade à pied', choices)).toBe('balade');
+  });
+
+  it('answers null for a label nothing offers yet', () => {
+    expect(matchActivity('Repos', choices)).toBe(null);
+  });
+
+  it('answers null for a blank label rather than matching the first chip', () => {
+    expect(matchActivity('  ', choices)).toBe(null);
   });
 });

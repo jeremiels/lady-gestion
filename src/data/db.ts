@@ -2,6 +2,7 @@ import Dexie, { liveQuery, type Table } from 'dexie';
 import { seasonFromLegacyFlag, type RationSeason } from './seasons.ts';
 import type { FollowUpInterval, WorkActivity } from './events.ts';
 import type {
+  ActivityItem,
   DocumentBlob,
   Horse,
   HorseEvent,
@@ -31,8 +32,9 @@ import type {
  * - v2 — `RationItem.seasonal: boolean` → `RationItem.season: RationSeason | null`.
  * - v3 — `HorseEvent` gains `vendor` and `followUpInterval`, both nullable.
  * - v4 — `HorseEvent` gains `activity`, nullable.
+ * - v5 — new `activities` table: the work activities the user added themselves.
  */
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -53,6 +55,20 @@ const STORES = {
   rationItems: 'id, horseId, [horseId+sortOrder], updatedAt',
   meta: 'key',
 } as const;
+
+/**
+ * v5 adds one store; the versions above keep the set they shipped with.
+ *
+ * Spread rather than appended to `STORES`, so v1..v4 keep declaring the schema
+ * they actually declared. Backdating the new table into them would make
+ * `db.test.ts` — which writes a database at each old version and then opens
+ * this one — exercise the upgrade against a store that version never had.
+ *
+ * `horseId` alone rather than a compound index: the catalogue is read whole,
+ * for one horse, and ordered in memory by `createdAt` so a new chip lands at
+ * the end. There is no `sortOrder` to pair it with because nothing reorders it.
+ */
+const STORES_V5 = { ...STORES, activities: 'id, horseId, updatedAt' } as const;
 
 /** A v1 ration row, mid-upgrade: the old flag is still there, the window is not. */
 type LegacyRationItem = {
@@ -77,6 +93,7 @@ export class LadyGestionDb extends Dexie {
   documents!: Table<StoredDocument, string>;
   documentBlobs!: Table<DocumentBlob, string>;
   rationItems!: Table<RationItem, string>;
+  activities!: Table<ActivityItem, string>;
   meta!: Table<MetaEntry, string>;
 
   constructor() {
@@ -130,6 +147,12 @@ export class LadyGestionDb extends Dexie {
             event.activity ??= null;
           }),
       );
+
+    // A brand-new store, so there is no row to rewrite and no `.upgrade()` to
+    // write — but the version still has to exist, or Dexie never creates it.
+    // Nothing seeds it either: the six built-in activities are code, not rows,
+    // and this table holds only what the user adds on top of them.
+    this.version(5).stores(STORES_V5);
   }
 }
 
@@ -161,6 +184,7 @@ export const RECORD_TABLES = {
   events: db.events,
   documents: db.documents,
   rationItems: db.rationItems,
+  activities: db.activities,
 } as const;
 
 export type RecordTableName = keyof typeof RECORD_TABLES;

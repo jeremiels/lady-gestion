@@ -44,6 +44,7 @@ export const ICON_NAMES = [
   'chevronLeft',
   'chevronRight',
   'close',
+  'check',
   'list',
   'signOut',
   'trash',

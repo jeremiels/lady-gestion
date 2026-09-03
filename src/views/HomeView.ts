@@ -11,14 +11,12 @@ import {
   horsesRepo,
   startOfMonth,
   todayISO,
-  weekGrid,
-  workActivityByDate,
 } from '../data/index.ts';
 import type { HorseEvent } from '../data/types.ts';
 import { ACCOUNT } from '../data/account.ts';
 import '../components/horse-card/horse-card.ts';
 import '../components/budget-card/budget-card.ts';
-import '../components/day-card/day-card.ts';
+import '../components/week-strip/week-strip.ts';
 import '../components/event-card/event-card.ts';
 import '../components/app-avatar/app-avatar.ts';
 
@@ -52,31 +50,8 @@ export class HomeView extends LightElement {
     0,
   );
 
-  /**
-   * This week's events, Monday to Sunday.
-   *
-   * The week is resolved inside the query for the same reason the month above
-   * is: `LiveQuery` re-runs on a write, not on a clock, so holding the range as
-   * state would only add a second thing to keep in step. An app left open
-   * across a Sunday midnight keeps showing the old week until the next write —
-   * the trade already made one query up.
-   */
-  #week = activeHorseQuery<HorseEvent[]>(
-    this,
-    (horseId) => {
-      const days = weekGrid(todayISO());
-      return eventsRepo.listInRange(horseId, days[0], days[6]);
-    },
-    [],
-  );
-
   render() {
     const upcoming = this.#upcoming.value ?? [];
-    // Resolved once and used for both the grid and the today flag, so the strip
-    // cannot draw a week that disagrees with the day it highlights.
-    const today = todayISO();
-    const days = weekGrid(today);
-    const activities = workActivityByDate(this.#week.value ?? []);
 
     return html`
       <section class="home-view">
@@ -89,6 +64,8 @@ export class HomeView extends LightElement {
             <app-avatar aria-hidden="true" initial=${ACCOUNT.firstName.charAt(0)} size="2.5rem"></app-avatar>
           </a>
         </div>
+
+        <week-strip></week-strip>
 
         <section class="section-appointments">
           <h2 class="section-title">Rendez-vous à venir</h2>
@@ -111,26 +88,6 @@ export class HomeView extends LightElement {
                   )}
                 </ul>
               `}
-        </section>
-
-        <section class="section-week">
-          <h2 class="section-title">Cette semaine</h2>
-          <!-- Positional, not keyed: seven cells in a fixed order, which is
-               exactly what positional binding is for. The appointment list
-               above is keyed because its window slides. -->
-          <ul class="week-list">
-            ${days.map(
-              (date) => html`
-                <li>
-                  <day-card
-                    .date=${date}
-                    .activity=${activities.get(date) ?? null}
-                    ?today=${date === today}
-                  ></day-card>
-                </li>
-              `,
-            )}
-          </ul>
         </section>
 
         <horse-card .horse=${this.#horse.value ?? null}></horse-card>

@@ -43,6 +43,7 @@ export * as horsesRepo from './repositories/horses.repo.ts';
 export * as eventsRepo from './repositories/events.repo.ts';
 export * as documentsRepo from './repositories/documents.repo.ts';
 export * as rationsRepo from './repositories/rations.repo.ts';
+export * as activitiesRepo from './repositories/activities.repo.ts';
 export * as metaRepo from './repositories/meta.repo.ts';
 
 export * as eventsService from './services/events.service.ts';

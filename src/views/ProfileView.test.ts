@@ -59,7 +59,7 @@ describe('profile-view', () => {
       schemaVersion: SCHEMA_VERSION,
       exportedAt: nowISO(),
       ownerId: OWNER,
-      tables: { horses: [], events: [], documents: [], rationItems: [] },
+      tables: { horses: [], events: [], documents: [], rationItems: [], activities: [] },
     };
     const file = new File([JSON.stringify(backup)], 'backup.json', { type: 'application/json' });
     const transfer = new DataTransfer();

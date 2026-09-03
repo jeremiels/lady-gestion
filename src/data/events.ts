@@ -86,16 +86,35 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
  * What was done in a schooling session — the "Activité" field on a `travail`
  * event.
  *
- * Short, stable keys in storage and French labels on screen, the same split
- * `EventTypeKey` makes: the wording is presentation and may be reworded, the key
- * is what a stored row means. A closed list rather than free text because it is
- * the field that says what the session *was*, and two spellings of "longe"
- * would make that unanswerable.
+ * Six built-in keys, short and stable in storage with French labels on screen:
+ * the same split `EventTypeKey` makes, where the wording is presentation and may
+ * be reworded and the key is what a stored row means.
+ *
+ * The list is no longer closed. The week strip's day sheet lets the user add
+ * their own, and one of those is stored as **its own label, verbatim** — not as
+ * an id into the catalogue it came from. Both consequences are the point:
+ *
+ * - a session stays readable on its own, so deleting a row from the catalogue
+ *   (`ActivityItem` in `types.ts`) retires a chip and never orphans an event;
+ * - nothing joins — `day-card`, `EventDetailView` and `workActivityByDate` keep
+ *   the shape they had when this was a closed union.
+ *
+ * What it gives up is what the closed list used to buy: two spellings of
+ * "carrière" are now two activities. `activityChoices` below is what stops that
+ * happening by accident.
  */
-export type WorkActivity = 'balade' | 'longe' | 'tap' | 'liberte' | 'plat' | 'trotting';
+export type BuiltInActivity = 'balade' | 'longe' | 'tap' | 'liberte' | 'plat' | 'trotting';
 
-/** In the order the select offers them. */
-const WORK_ACTIVITY_LABELS: Record<WorkActivity, string> = {
+/**
+ * A built-in key, or a label the user typed.
+ *
+ * `(string & {})` rather than a bare `string`: the union keeps editor completion
+ * on the six built-ins, which widening to `string` would silently drop.
+ */
+export type WorkActivity = BuiltInActivity | (string & {});
+
+/** In the order the sheet offers them. */
+const WORK_ACTIVITY_LABELS: Record<BuiltInActivity, string> = {
   balade: 'Balade à pied',
   longe: 'Longe',
   tap: 'TAP',
@@ -105,10 +124,72 @@ const WORK_ACTIVITY_LABELS: Record<WorkActivity, string> = {
 };
 
 /** Derived from the table above, so the list and the labels cannot drift. */
-export const WORK_ACTIVITIES = Object.keys(WORK_ACTIVITY_LABELS) as WorkActivity[];
+export const WORK_ACTIVITIES = Object.keys(WORK_ACTIVITY_LABELS) as BuiltInActivity[];
 
+/**
+ * A `Map` rather than indexing the `Record` above.
+ *
+ * That record's keys are literal, so reading it with an arbitrary
+ * `WorkActivity` needs a cast — and the cast would type a miss as `string`
+ * instead of `undefined`, which is the exact value the fallback below is built
+ * on. The one that type-checks is the one that lies.
+ */
+const LABELS: ReadonlyMap<string, string> = new Map(Object.entries(WORK_ACTIVITY_LABELS));
+
+/** A built-in key resolves to its French label; a user's activity is its own. */
 export const formatWorkActivity = (activity: WorkActivity): string =>
-  WORK_ACTIVITY_LABELS[activity];
+  LABELS.get(activity) ?? activity;
+
+/**
+ * What two labels are compared on when deciding whether they are the same
+ * activity — surrounding space, case and accents removed.
+ *
+ * Accents included deliberately. The comparison exists to stop a second chip
+ * appearing that reads the same as one already there, and on a phone keyboard
+ * "liberte" and "Liberté" are the same word typed twice.
+ */
+const activityKey = (label: string): string =>
+  label
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('fr-FR');
+
+/**
+ * The chips the day sheet offers: the six built-ins in table order, then the
+ * user's own in the order they were added.
+ *
+ * Deduplicated on what each choice *reads as* rather than on what it stores, so
+ * a user who types "Trotting" gets the built-in `trotting` back instead of a
+ * second chip spelling the same word.
+ */
+export const activityChoices = (custom: string[]): WorkActivity[] => {
+  const choices: WorkActivity[] = [...WORK_ACTIVITIES];
+  const seen = new Set(choices.map((choice) => activityKey(formatWorkActivity(choice))));
+
+  for (const label of custom) {
+    const key = activityKey(label);
+    if (key === '' || seen.has(key)) continue;
+    seen.add(key);
+    choices.push(label);
+  }
+
+  return choices;
+};
+
+/**
+ * The choice a typed label already stands for, or `null` when it is a new one.
+ *
+ * The sheet's input and its chips must not be able to disagree: typing the name
+ * of a chip already on screen has to select that chip, not write a second
+ * activity that renders identically to it.
+ */
+export const matchActivity = (label: string, choices: WorkActivity[]): WorkActivity | null => {
+  const key = activityKey(label);
+  if (key === '') return null;
+
+  return choices.find((choice) => activityKey(formatWorkActivity(choice)) === key) ?? null;
+};
 
 /**
  * All-day sessions before timed ones, then by start time.
@@ -127,31 +208,47 @@ const compareSessions = (a: HorseEvent, b: HorseEvent): number => {
   return a.time.localeCompare(b.time);
 };
 
+/** A `travail` row that actually says what was done — what the strip draws. */
+export type WorkSession = HorseEvent & { activity: WorkActivity };
+
 /**
- * The activity to show against each day — the dashboard's week strip.
+ * The session each day's activity comes from — the dashboard's week strip.
  *
  * One entry per day, the day's first session, so a cell keeps a fixed height
  * whatever the horse did. Cancelled events are skipped, as they are in
  * `occurrencesByDate`: a cancelled session did not happen and must not be the
  * one thing the week shows.
  *
+ * The row rather than just its activity, because the strip's sheet now edits
+ * what the strip shows: tapping a chip on a day that already has a session has
+ * to update that row, not add a second one no view would ever draw.
+ *
  * Pure, over rows the caller already fetched — the shape `budget.ts` uses, and
  * what puts this under the data-layer test rule rather than a component suite.
  */
-export const workActivityByDate = (events: HorseEvent[]): Map<IsoDate, WorkActivity> => {
+export const workSessionByDate = (events: HorseEvent[]): Map<IsoDate, WorkSession> => {
   const sessions = events
     .filter(
-      (event): event is HorseEvent & { activity: WorkActivity } =>
+      (event): event is WorkSession =>
         event.type === 'travail' && event.status !== 'cancelled' && event.activity !== null,
     )
     .sort(compareSessions);
 
-  const byDate = new Map<IsoDate, WorkActivity>();
+  const byDate = new Map<IsoDate, WorkSession>();
   for (const session of sessions) {
-    if (!byDate.has(session.date)) byDate.set(session.date, session.activity);
+    if (!byDate.has(session.date)) byDate.set(session.date, session);
   }
   return byDate;
 };
+
+/**
+ * Just the activity per day, for the card that only draws a label.
+ *
+ * Derived from `workSessionByDate` rather than filtering a second time, so the
+ * card and the sheet editing it cannot disagree about which row is the day's.
+ */
+export const workActivityByDate = (events: HorseEvent[]): Map<IsoDate, WorkActivity> =>
+  new Map([...workSessionByDate(events)].map(([date, session]) => [date, session.activity]));
 
 export const isFollowUpInterval = (value: unknown): value is FollowUpInterval => {
   if (typeof value !== 'object' || value === null) return false;

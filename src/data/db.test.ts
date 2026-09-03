@@ -16,9 +16,9 @@ import { DEFAULT_SEASON } from './seasons.ts';
 const DB_NAME = 'lady-gestion';
 
 /**
- * The stores as every version so far has declared them — no index has changed
- * across v1..v4, only row shapes. **Do not** update this to track `STORES`, or
- * the upgrades end up tested against themselves.
+ * The stores as v1..v4 declared them — no index changed across those four, only
+ * row shapes, and v5 adds a table none of them had. **Do not** update this to
+ * track `STORES`, or the upgrades end up tested against themselves.
  */
 const LEGACY_STORES = {
   horses: 'id, name, updatedAt',
@@ -72,6 +72,9 @@ const preV4Event = (id: string) => ({
   vendor: null,
   followUpInterval: null,
 });
+
+/** An event row as v4 wrote it: complete, with a session on it. */
+const v4Event = (id: string) => ({ ...preV4Event(id), activity: 'longe' });
 
 /** Writes a database at `version`, then closes it so `db` can upgrade it. */
 const writeLegacyDatabase = async (
@@ -212,6 +215,32 @@ describe('v3 -> v4: events gain activity', () => {
   });
 });
 
+describe('v4 -> v5: the activities table appears', () => {
+  it('creates the store on a database that never had it', async () => {
+    await writeLegacyDatabase(4, { events: [v4Event('event-1')] });
+
+    await db.open();
+
+    // Reaching the table at all is the assertion: on a database whose object
+    // stores predate it, `db.activities` throws rather than returning empty.
+    expect(await db.activities.count()).toBe(0);
+  });
+
+  it('leaves the existing rows alone', async () => {
+    await writeLegacyDatabase(4, { events: [v4Event('event-1')] });
+
+    await db.open();
+
+    // A new store means no rows to rewrite, and so no `.upgrade()` — which is
+    // exactly what could silently drop data if one were added later.
+    expect(await db.events.get('event-1')).toMatchObject({
+      title: 'event-1',
+      date: '2026-06-15',
+      activity: 'longe',
+    });
+  });
+});
+
 describe('a v1 database upgrading all the way', () => {
   it('runs every upgrade in sequence', async () => {
     await writeLegacyDatabase(1, {
@@ -224,6 +253,7 @@ describe('a v1 database upgrading all the way', () => {
     expect((await db.rationItems.get('ration-1'))?.season).toEqual(DEFAULT_SEASON);
     expect(await db.events.get('event-1')).toHaveProperty('vendor', null);
     expect(await db.events.get('event-1')).toHaveProperty('activity', null);
+    expect(await db.activities.count()).toBe(0);
   });
 
   it('opens at the version the backup envelope advertises', async () => {

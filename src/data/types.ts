@@ -116,13 +116,43 @@ export type HorseEvent = BaseRecord & {
    * What was done in a schooling session — the "Activité" field on a `travail`
    * event.
    *
-   * Its own column rather than folded into `title` or `notes`: it is a closed
-   * list (see `WorkActivity` in `events.ts`), which is what lets it be filtered
-   * and counted later, and a free-text field that happens to hold "Longe" is
+   * Its own column rather than folded into `title` or `notes`: it is the field
+   * that says what the session *was*, which is what lets it be filtered and
+   * counted later, and a free-text `title` that happens to read "Longe" is
    * neither. `null` on every other event type — the entry form writes it from
    * the layout, never from whatever the DOM still holds. Added in schema v4.
+   *
+   * One of six built-in keys, or a label the user added, stored **verbatim**
+   * rather than as an id into `ActivityItem` below. `WorkActivity` in
+   * `events.ts` has the whole reasoning; the short of it is that a session must
+   * stay readable after its chip has been retired from the catalogue.
    */
   activity: WorkActivity | null;
+};
+
+/**
+ * A work activity the user added themselves — the chips the week strip's day
+ * sheet offers beyond the six built into `events.ts`.
+ *
+ * A catalogue, not a parent table. Nothing holds a foreign key to it: a
+ * `travail` event stores this row's `label`, so deleting the row retires a chip
+ * and leaves every session that used it saying exactly what it always said.
+ * That is what lets the list be edited freely without a cascade.
+ *
+ * The app's first user-editable taxonomy. Every other closed list here — event
+ * types, document categories, ration units — is a TypeScript union with a
+ * hardcoded label table, because the wording is a design decision. What the
+ * horse worked on is not. Added in schema v5.
+ */
+export type ActivityItem = BaseRecord & {
+  horseId: string;
+  /**
+   * As typed, trimmed — and exactly what a `travail` row stores in `activity`.
+   *
+   * There is no separate key because there is nothing for one to be stable
+   * against: the user picked this wording and the user can retire it.
+   */
+  label: string;
 };
 
 export type StoredDocument = BaseRecord & {

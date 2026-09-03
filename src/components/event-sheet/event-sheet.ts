@@ -6,8 +6,10 @@ import {
   FOLLOW_UP_INTERVALS,
   type FieldParser,
   LiveQuery,
-  WORK_ACTIVITIES,
   type WorkActivity,
+  activeHorseQuery,
+  activitiesRepo,
+  activityChoices,
   bool,
   cents,
   eventsService,
@@ -22,7 +24,7 @@ import {
   text,
   todayISO,
 } from '../../data/index.ts';
-import type { HorseEvent } from '../../data/types.ts';
+import type { ActivityItem, HorseEvent } from '../../data/types.ts';
 import {
   EVENT_TYPES,
   EVENT_TYPES_BY_LABEL,
@@ -49,11 +51,6 @@ const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map((interval) 
   label: formatFollowUpInterval(interval),
 }));
 
-const ACTIVITY_OPTIONS: AppSelectOption[] = WORK_ACTIVITIES.map((activity) => ({
-  value: activity,
-  label: formatWorkActivity(activity),
-}));
-
 /**
  * The Activité parser, required only on the layout that draws the field.
  *
@@ -62,9 +59,18 @@ const ACTIVITY_OPTIONS: AppSelectOption[] = WORK_ACTIVITIES.map((activity) => ({
  * exactly the drift a schema exists to stop. The declared return type is the
  * looser of the two overloads so the schema's shape — and with it
  * `EventFieldName` — stays the same whichever layout is showing.
+ *
+ * It takes the activities rather than reading a module-scope list, because the
+ * list is no longer fixed: the week strip lets the user add their own, and a
+ * parser that only accepted the six built-ins would reject the session that
+ * opened this sheet. Same array as the select's options, deliberately — two
+ * lists here would mean an option the form refuses to submit.
  */
-const activityParser = (required: boolean): FieldParser<WorkActivity | null> =>
-  required ? oneOf(WORK_ACTIVITIES, { required: true }) : oneOf(WORK_ACTIVITIES);
+const activityParser = (
+  choices: readonly WorkActivity[],
+  required: boolean,
+): FieldParser<WorkActivity | null> =>
+  required ? oneOf(choices, { required: true }) : oneOf(choices);
 
 /**
  * Every field the form can submit, and how each is parsed.
@@ -92,7 +98,7 @@ const EVENT_SCHEMA = {
   amountCents: cents(),
   notes: text({ maxLength: 500 }),
   counterparty: text({ maxLength: 120 }),
-  activity: activityParser(false),
+  activity: activityParser([], false),
   planFollowUp: bool(),
   followUpInterval: text(),
 };
@@ -139,6 +145,26 @@ export class EventSheet extends BaseElement {
   @query('form') private formEl?: HTMLFormElement;
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
+
+  #activities = activeHorseQuery<ActivityItem[]>(
+    this,
+    (horseId) => activitiesRepo.listByHorse(horseId),
+    [],
+  );
+
+  /**
+   * The activities the select may offer — built-ins, the horse's own, and the
+   * one on the record being edited.
+   *
+   * That last case is the one that bites: an activity whose catalogue row has
+   * since been retired is still on the event, and without it here the select
+   * would open blank on a session that plainly has one, then refuse to save.
+   */
+  get #activityChoices(): WorkActivity[] {
+    const choices = activityChoices((this.#activities.value ?? []).map((item) => item.label));
+    const current = this.event?.activity ?? null;
+    return current !== null && !choices.includes(current) ? [...choices, current] : choices;
+  }
 
   static componentStyles = css`
     :host {
@@ -324,7 +350,7 @@ export class EventSheet extends BaseElement {
     const spec = this.#spec;
     const result = readForm(submitEvent.target as HTMLFormElement, {
       ...EVENT_SCHEMA,
-      activity: activityParser(spec?.activity ?? false),
+      activity: activityParser(this.#activityChoices, spec?.activity ?? false),
     });
 
     if (!result.ok) {
@@ -511,12 +537,17 @@ export class EventSheet extends BaseElement {
    * anything to relabel it to.
    */
   #renderActivity() {
+    const options: AppSelectOption[] = this.#activityChoices.map((activity) => ({
+      value: activity,
+      label: formatWorkActivity(activity),
+    }));
+
     return html`
       <app-select
         label="Activité"
         name="activity"
         placeholder="Choisir une activité"
-        .options=${ACTIVITY_OPTIONS}
+        .options=${options}
         .value=${this.event?.activity ?? ''}
         .error=${this.errors.activity ?? ''}
         required

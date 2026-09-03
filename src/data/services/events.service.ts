@@ -1,5 +1,11 @@
 import type { IsoDate } from '../dates.ts';
-import { parseFollowUpValue, statusForDate, type WorkActivity } from '../events.ts';
+import {
+  formatWorkActivity,
+  parseFollowUpValue,
+  statusForDate,
+  type WorkActivity,
+  type WorkSession,
+} from '../events.ts';
 import { DEFAULT_CURRENCY } from '../money.ts';
 import * as eventsRepo from '../repositories/events.repo.ts';
 import type { HorseEvent, NewRecord } from '../types.ts';
@@ -98,6 +104,87 @@ export const saveEvent = async ({
     ? eventsRepo.update(existing.id, fields)
     : eventsRepo.create({ horseId, ...fields });
 };
+
+export type SetDayActivityCommand = {
+  horseId: string;
+  date: IsoDate;
+  activity: WorkActivity;
+  /**
+   * The day's session, or `null`/absent when it has none.
+   *
+   * Passed in rather than looked up here, the same way `SaveEventCommand` takes
+   * the record it is replacing: the week strip already holds the whole week in
+   * a `LiveQuery`, so the row is in hand at the call site and a read from
+   * inside a command would be a second source for the same answer.
+   */
+  existing?: WorkSession | null;
+};
+
+/**
+ * Records what the horse did on one day — the week strip's day sheet.
+ *
+ * **Replaces, never appends.** The strip shows one activity per day and the
+ * sheet is titled for that day, so a second row would be invisible in the very
+ * place it was entered — `workSessionByDate` keeps the day's first session and
+ * nothing would ever draw the rest. Tapping a second chip changes the day's
+ * activity, which is what the gesture reads as.
+ *
+ * On an update the title follows the activity **only while it still is the
+ * activity**: a session titled by an earlier tap gets the new label, and one
+ * the user renamed in the event sheet ("Séance dressage") keeps their wording.
+ * `status` is deliberately not recomputed — the date has not moved, and a
+ * cancelled session stays cancelled, as `eventFields` has it.
+ *
+ * A cancelled row is not a session, so `workSessionByDate` never hands one over
+ * and a day whose only `travail` row was cancelled gets a new one. That is the
+ * intent: the horse did work after all.
+ *
+ * Returns `undefined` under the same single condition `saveEvent` does — the
+ * row was soft-deleted between the week being read and the chip being tapped.
+ */
+export const setDayActivity = ({
+  horseId,
+  date,
+  activity,
+  existing = null,
+}: SetDayActivityCommand): Promise<HorseEvent | undefined> => {
+  const title = formatWorkActivity(activity);
+
+  if (!existing) {
+    return eventsRepo.create({
+      horseId,
+      ...dayActivityFields(date, activity, title),
+    });
+  }
+
+  const renamed = existing.title === formatWorkActivity(existing.activity);
+  return eventsRepo.update(existing.id, renamed ? { activity, title } : { activity });
+};
+
+/**
+ * A session as the sheet creates one: a date, an activity, and nothing else.
+ *
+ * Spelled out against `EventFields` rather than filled in loosely, for the same
+ * reason `eventFields` is — the type is derived from the record, so a column
+ * added to `HorseEvent` fails to compile here instead of arriving `undefined`
+ * on every event the strip writes.
+ */
+const dayActivityFields = (date: IsoDate, activity: WorkActivity, title: string): EventFields => ({
+  type: 'travail',
+  title,
+  date,
+  time: null,
+  status: statusForDate(date),
+  amountCents: null,
+  currency: DEFAULT_CURRENCY,
+  providerName: null,
+  vendor: null,
+  location: null,
+  notes: null,
+  recurrenceId: null,
+  followUpInterval: null,
+  activity,
+});
 
 /**
  * The form's answers, resolved into a row.

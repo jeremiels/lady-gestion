@@ -178,13 +178,13 @@ export abstract class DialogElement extends BaseElement {
     .dialog__heading {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-4);
       min-width: 0;
     }
 
     .dialog__description {
       margin: 0;
-      font-size: var(--font-size-sm);
+      font-size: 0.688rem;
+      line-height: 1rem;
       color: var(--color-brown-light);
     }
 

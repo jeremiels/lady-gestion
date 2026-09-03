@@ -241,8 +241,8 @@ export class AppBottomSheet extends DialogElement {
     }
 
     .dialog__title {
-      font-size: 1.125rem;
-      line-height: 1.25rem;
+      font-size: 1rem;
+      line-height: 1.5rem;
       font-weight: 700;
       color: var(--font-color);
     }

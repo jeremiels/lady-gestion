@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db, SCHEMA_VERSION } from '../db.ts';
+import { db, SCHEMA_VERSION, type BackupTables } from '../db.ts';
 import { getOwnerId, setOwnerId } from '../owner.ts';
 import { DEFAULT_SEASON } from '../seasons.ts';
 import type { Horse, HorseEvent, RationItem } from '../types.ts';
@@ -66,13 +66,30 @@ const event = (over: Partial<HorseEvent> = {}): HorseEvent => ({
   ...over,
 });
 
-const snapshot = (over: Partial<BackupSnapshot> = {}): BackupSnapshot => ({
+/**
+ * A well-formed snapshot, overridden where a test cares.
+ *
+ * `tables` merges rather than replaces, so a case names only the table it is
+ * about. Every case used to restate all four to satisfy `BackupTables`, which
+ * meant adding a table to the schema broke seven literals that were never the
+ * point of their own test.
+ */
+const snapshot = (
+  over: Partial<Omit<BackupSnapshot, 'tables'>> & { tables?: Partial<BackupTables> } = {},
+): BackupSnapshot => ({
   app: 'lady-gestion',
   schemaVersion: SCHEMA_VERSION,
   exportedAt: '2026-08-11T00:00:00.000Z',
   ownerId: REMOTE_OWNER,
-  tables: { horses: [], events: [], documents: [], rationItems: [] },
   ...over,
+  tables: {
+    horses: [],
+    events: [],
+    documents: [],
+    rationItems: [],
+    activities: [],
+    ...over.tables,
+  },
 });
 
 beforeEach(async () => {
@@ -83,6 +100,7 @@ beforeEach(async () => {
     db.documents.clear(),
     db.documentBlobs.clear(),
     db.rationItems.clear(),
+    db.activities.clear(),
     db.meta.clear(),
   ]);
   await setOwnerId(LOCAL_OWNER);
@@ -95,7 +113,11 @@ describe('exportBackup', () => {
     expect(backup.app).toBe('lady-gestion');
     expect(backup.schemaVersion).toBe(SCHEMA_VERSION);
     expect(backup.ownerId).toBe(LOCAL_OWNER);
+    // Spelled out rather than derived from `RECORD_TABLES`: this is the
+    // assertion that a table added to the schema is actually exported, and one
+    // that reads its expectation from the same constant asserts nothing.
     expect(Object.keys(backup.tables).sort()).toEqual([
+      'activities',
       'documents',
       'events',
       'horses',
@@ -115,7 +137,7 @@ describe('exportBackup', () => {
 describe('importBackup — merge semantics', () => {
   it('writes rows that do not exist locally', async () => {
     const result = await importBackup(snapshot({
-      tables: { horses: [horse()], events: [], documents: [], rationItems: [ration()] },
+      tables: { horses: [horse()], rationItems: [ration()] },
     }));
 
     expect(result).toEqual({ imported: 2, skipped: 0 });
@@ -126,12 +148,7 @@ describe('importBackup — merge semantics', () => {
     await db.horses.put(horse({ name: 'Ancien nom', updatedAt: '2026-01-01T00:00:00.000Z' }));
 
     const result = await importBackup(snapshot({
-      tables: {
-        horses: [horse({ name: 'Nouveau nom', updatedAt: '2026-06-01T00:00:00.000Z' })],
-        events: [],
-        documents: [],
-        rationItems: [],
-      },
+      tables: { horses: [horse({ name: 'Nouveau nom', updatedAt: '2026-06-01T00:00:00.000Z' })] },
     }));
 
     expect(result).toEqual({ imported: 1, skipped: 0 });
@@ -142,12 +159,7 @@ describe('importBackup — merge semantics', () => {
     await db.horses.put(horse({ name: 'Édité depuis', updatedAt: '2026-06-01T00:00:00.000Z' }));
 
     const result = await importBackup(snapshot({
-      tables: {
-        horses: [horse({ name: 'Vieille sauvegarde', updatedAt: '2026-01-01T00:00:00.000Z' })],
-        events: [],
-        documents: [],
-        rationItems: [],
-      },
+      tables: { horses: [horse({ name: 'Vieille sauvegarde', updatedAt: '2026-01-01T00:00:00.000Z' })] },
     }));
 
     expect(result).toEqual({ imported: 0, skipped: 1 });
@@ -156,7 +168,7 @@ describe('importBackup — merge semantics', () => {
 
   it('is idempotent — importing the same file twice changes nothing', async () => {
     const file = snapshot({
-      tables: { horses: [horse()], events: [], documents: [], rationItems: [ration()] },
+      tables: { horses: [horse()], rationItems: [ration()] },
     });
 
     const first = await importBackup(structuredClone(file));
@@ -172,8 +184,6 @@ describe('importBackup — merge semantics', () => {
     const result = await importBackup(snapshot({
       tables: {
         horses: [horse({ id: 'h1' }), horse({ id: 'h2' })],
-        events: [],
-        documents: [],
         rationItems: [ration({ id: 'r1' }), ration({ id: 'r2' }), ration({ id: 'r3' })],
       },
     }));
@@ -186,7 +196,7 @@ describe('importBackup — owner adoption', () => {
   it("adopts the snapshot's owner id so the database does not end up split", async () => {
     expect(getOwnerId()).toBe(LOCAL_OWNER);
 
-    await importBackup(snapshot({ tables: { horses: [horse()], events: [], documents: [], rationItems: [] } }));
+    await importBackup(snapshot({ tables: { horses: [horse()] } }));
 
     expect(getOwnerId()).toBe(REMOTE_OWNER);
     expect(await db.meta.get('ownerId')).toMatchObject({ value: REMOTE_OWNER });
@@ -323,15 +333,37 @@ describe('importBackup — rejects bad input', () => {
     expect((await db.rationItems.get('ration-1'))?.season).toEqual({ from: 11, to: 3 });
   });
 
+  it('accepts a pre-v5 file that predates the activities table', async () => {
+    // Regression, and the expensive kind: `assertSnapshot` requires every table
+    // in `RECORD_TABLES` to be present, so adding one made every backup ever
+    // exported unrestorable — on the one feature that exists to stop data being
+    // lost. A v4 file simply has no such key.
+    const { activities: _activities, ...v4Tables } = snapshot().tables;
+
+    const result = await importBackup({
+      ...snapshot(),
+      schemaVersion: 4,
+      tables: { ...v4Tables, horses: [horse()] },
+    });
+
+    expect(result).toEqual({ imported: 1, skipped: 0 });
+    expect(await db.activities.count()).toBe(0);
+  });
+
+  it('still rejects a table missing from a current-version file', async () => {
+    // The allowance above is for *older* files only: a file claiming the
+    // current schema and missing a table is corrupt, not merely old.
+    const { activities: _activities, ...incomplete } = snapshot().tables;
+
+    await expect(
+      importBackup({ ...snapshot(), tables: incomplete }),
+    ).rejects.toThrow(/la table « activities » est absente/);
+  });
+
   it('writes nothing at all when validation fails', async () => {
     const broken = {
       ...snapshot(),
-      tables: {
-        horses: [horse()],
-        events: [],
-        documents: [],
-        rationItems: [{ label: 'sans id' }],
-      },
+      tables: { ...snapshot().tables, rationItems: [{ label: 'sans id' }], horses: [horse()] },
     };
 
     await expect(importBackup(broken)).rejects.toThrow(/rationItems/);

@@ -180,7 +180,7 @@ export class AppInput extends FormFieldElement {
     .field__input {
       grid-column: 2;
       font: inherit;
-      font-size: var(--font-size-base);
+      font-size: 0.813rem;
       color: var(--font-color);
       background: none;
       border: 0;

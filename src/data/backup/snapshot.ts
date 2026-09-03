@@ -165,6 +165,15 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     };
   }
 
+  // v4 -> v5: `activities` is a whole new table, so an older file has no such
+  // key at all. The first four steps fix up rows; this one supplies a table
+  // that was never written — `importBackup` merges every name in
+  // `TABLE_NAMES`, and `undefined` there is a TypeError from inside the
+  // transaction. `assertSnapshot` lets the absence through for exactly this.
+  if (backup.schemaVersion < 5) {
+    tables = { ...tables, activities: tables.activities ?? [] };
+  }
+
   return { ...backup, schemaVersion: SCHEMA_VERSION, tables };
 };
 
@@ -236,6 +245,14 @@ const assertSnapshot = (value: unknown): BackupSnapshot => {
 
   for (const name of TABLE_NAMES) {
     const rows = tables[name];
+
+    // A table introduced by a later schema is simply absent from an older file,
+    // and that is not corruption — `migrateSnapshot` supplies it below. Only a
+    // file already at the current version is required to carry every table.
+    // Without this, adding a table to `RECORD_TABLES` silently makes every
+    // backup ever exported unrestorable, on the one feature that exists to stop
+    // data being lost.
+    if (rows === undefined && snapshot.schemaVersion < SCHEMA_VERSION) continue;
 
     if (!Array.isArray(rows)) {
       throw new Error(`Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`);

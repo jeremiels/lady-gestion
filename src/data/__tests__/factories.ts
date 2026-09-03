@@ -1,4 +1,4 @@
-import { db } from '../db.ts';
+import { db, RECORD_TABLES } from '../db.ts';
 import { setOwnerId } from '../owner.ts';
 import { markDataReady } from '../ready.ts';
 import type { Horse, HorseEvent, RationItem, StoredDocument } from '../types.ts';
@@ -101,12 +101,14 @@ export const makeDocument = (over: Partial<StoredDocument> = {}): StoredDocument
 export const resetDb = async (): Promise<void> => {
   await db.open();
   markDataReady();
+  // Driven by `RECORD_TABLES` rather than a hand-written list, for the reason
+  // `db.ts` gives for that constant existing. A table missing from here does not
+  // fail — it leaks rows into the next test, which surfaces as a failure in some
+  // other file with nothing pointing back at the cause. `documentBlobs` and
+  // `meta` are named separately because they are deliberately not record tables.
   await Promise.all([
-    db.horses.clear(),
-    db.events.clear(),
-    db.documents.clear(),
+    ...Object.values(RECORD_TABLES).map((table) => table.clear()),
     db.documentBlobs.clear(),
-    db.rationItems.clear(),
     db.meta.clear(),
   ]);
   await setOwnerId(OWNER);

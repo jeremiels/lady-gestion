@@ -3,7 +3,8 @@ import { HORSE_ID, makeEvent, resetDb } from '../__tests__/factories.ts';
 import { addDays, todayISO } from '../dates.ts';
 import { db } from '../db.ts';
 import * as eventsRepo from '../repositories/events.repo.ts';
-import { saveEvent, type EventInput } from './events.service.ts';
+import { workSessionByDate, type WorkSession } from '../events.ts';
+import { saveEvent, setDayActivity, type EventInput } from './events.service.ts';
 
 /**
  * What the entry form is allowed to write, and what it must not.
@@ -205,5 +206,116 @@ describe('creating', () => {
       recurrenceId: null,
       currency: 'EUR',
     });
+  });
+});
+
+describe('setDayActivity', () => {
+  /** The row the week strip would hand over, resolved the way the strip does. */
+  const sessionOn = async (date: string): Promise<WorkSession | null> =>
+    workSessionByDate(await eventsRepo.listByHorse(HORSE_ID)).get(date) ?? null;
+
+  it('creates a session titled after the activity', async () => {
+    const event = await setDayActivity({ horseId: HORSE_ID, date: '2026-06-15', activity: 'longe' });
+
+    expect(event).toMatchObject({
+      type: 'travail',
+      title: 'Longe',
+      date: '2026-06-15',
+      activity: 'longe',
+      amountCents: null,
+      providerName: null,
+      vendor: null,
+      followUpInterval: null,
+    });
+  });
+
+  it('titles a user’s own activity with the label it stores', async () => {
+    const event = await setDayActivity({ horseId: HORSE_ID, date: '2026-06-15', activity: 'Carrière' });
+
+    expect(event).toMatchObject({ title: 'Carrière', activity: 'Carrière' });
+  });
+
+  it('derives status from the date, like every other entry point', async () => {
+    const past = await setDayActivity({ horseId: HORSE_ID, date: '2020-01-01', activity: 'plat' });
+    const future = await setDayActivity({
+      horseId: HORSE_ID,
+      date: addDays(todayISO(), 3),
+      activity: 'plat',
+    });
+
+    expect(past?.status).toBe('done');
+    expect(future?.status).toBe('planned');
+  });
+
+  it('replaces the day’s activity instead of adding a second session', async () => {
+    await setDayActivity({ horseId: HORSE_ID, date: '2026-06-15', activity: 'longe' });
+    const existing = await sessionOn('2026-06-15');
+
+    await setDayActivity({ horseId: HORSE_ID, date: '2026-06-15', activity: 'tap', existing });
+
+    const rows = await eventsRepo.listByHorse(HORSE_ID);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ activity: 'tap', title: 'TAP' });
+  });
+
+  it('keeps a title the user wrote themselves', async () => {
+    // Renamed in the event sheet: the tap changes what was done, not what the
+    // user chose to call it.
+    await db.events.add(
+      makeEvent({
+        id: 'renamed',
+        type: 'travail',
+        date: '2026-06-15',
+        activity: 'longe',
+        title: 'Séance dressage',
+      }),
+    );
+
+    await setDayActivity({
+      horseId: HORSE_ID,
+      date: '2026-06-15',
+      activity: 'tap',
+      existing: await sessionOn('2026-06-15'),
+    });
+
+    expect(await eventsRepo.get('renamed')).toMatchObject({
+      activity: 'tap',
+      title: 'Séance dressage',
+    });
+  });
+
+  it('leaves a cancelled session alone and records the work beside it', async () => {
+    // A cancelled row is not the day's session, so the strip never offers it as
+    // `existing` — and the horse did work after all.
+    await db.events.add(
+      makeEvent({
+        id: 'cancelled',
+        type: 'travail',
+        date: '2026-06-15',
+        activity: 'longe',
+        status: 'cancelled',
+      }),
+    );
+
+    await setDayActivity({
+      horseId: HORSE_ID,
+      date: '2026-06-15',
+      activity: 'tap',
+      existing: await sessionOn('2026-06-15'),
+    });
+
+    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
+    expect(await eventsRepo.get('cancelled')).toMatchObject({ status: 'cancelled', activity: 'longe' });
+  });
+
+  it('does not resurrect a session deleted since the week was read', async () => {
+    await setDayActivity({ horseId: HORSE_ID, date: '2026-06-15', activity: 'longe' });
+    const existing = await sessionOn('2026-06-15');
+    await eventsRepo.remove(existing!.id);
+
+    expect(
+      await setDayActivity({ horseId: HORSE_ID, date: '2026-06-15', activity: 'tap', existing }),
+    ).toBeUndefined();
+    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
   });
 });

@@ -1,7 +1,7 @@
 import { html } from 'lit';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../data/db.ts';
-import { addDays, addMonths, startOfWeek, todayISO } from '../data/index.ts';
+import { addDays, addMonths, todayISO } from '../data/index.ts';
 import { makeEvent, makeHorse, resetDb } from '../data/__tests__/factories.ts';
 import { fixture, waitFor } from '../components/__tests__/fixture.ts';
 import './HomeView.ts';
@@ -14,6 +14,9 @@ beforeEach(async () => {
   await db.horses.add(makeHorse());
 });
 
+// The week strip has its own suite: it is a shadow-DOM component now, so the
+// `querySelectorAll('day-card')` these tests used to do from the light-DOM view
+// no longer reaches it. See `components/week-strip/week-strip.test.ts`.
 describe('home-view', () => {
   it('shows the active horse and an empty state with no upcoming events', async () => {
     const el = await mount();
@@ -54,43 +57,11 @@ describe('home-view', () => {
     expect(el.querySelector('budget-card')?.totalCents).toBe(1500);
   });
 
-  it('lays the week out Monday to Sunday and marks today, once', async () => {
+  it('hands the week off to its own component', async () => {
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll('day-card').length > 0);
 
-    // 1 is `Date#getDay()` for Monday — the week start `weekGrid` uses.
-    const monday = startOfWeek(todayISO(), 1);
-    const cards = [...el.querySelectorAll('day-card')];
-
-    expect(cards).toHaveLength(7);
-    expect(cards.map((card) => card.date)).toEqual(
-      Array.from({ length: 7 }, (_, index) => addDays(monday, index)),
-    );
-    expect(cards.filter((card) => card.today).map((card) => card.date)).toEqual([todayISO()]);
-  });
-
-  it('shows this week’s work session on its own day, and nothing else’s', async () => {
-    const monday = startOfWeek(todayISO(), 1);
-    const wednesday = addDays(monday, 2);
-
-    await db.events.bulkAdd([
-      makeEvent({ id: 'work', type: 'travail', date: wednesday, activity: 'trotting' }),
-      // Same day, not a session: the strip is about work, not the whole agenda.
-      makeEvent({ id: 'care', type: 'veto', date: wednesday }),
-      // Next week — outside the range the query asks for.
-      makeEvent({
-        id: 'next-week',
-        type: 'travail',
-        date: addDays(monday, 7),
-        activity: 'liberte',
-      }),
-    ]);
-
-    const el = await mount();
-    await waitFor(el, () => [...el.querySelectorAll('day-card')].some((card) => card.activity));
-
-    const byDate = new Map([...el.querySelectorAll('day-card')].map((card) => [card.date, card]));
-    expect(byDate.get(wednesday)?.activity).toBe('trotting');
-    expect([...byDate.values()].filter((card) => card.activity)).toHaveLength(1);
+    // The strip owns the query, the grid and the day cards; the view only
+    // places it. Its behaviour is covered in its own suite.
+    expect(el.querySelector('week-strip')).not.toBeNull();
   });
 });

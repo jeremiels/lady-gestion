@@ -168,6 +168,26 @@ const DAY_LONG_FORMAT = new Intl.DateTimeFormat('fr-FR', {
 /** `2026-01-22` -> `22 janvier 2026`. */
 export const formatDayLong = (value: IsoDate): string => DAY_LONG_FORMAT.format(fromIsoDate(value));
 
+const DAY_SHORT_MONTH_FORMAT = new Intl.DateTimeFormat('fr-FR', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'short',
+});
+
+/**
+ * `2026-01-06` -> `Mardi 6 janv.` — the heading of the week strip's day sheet.
+ *
+ * The weekday spelled out because the sheet is about one day and has room to
+ * name it; the month abbreviated because the year is implied by the strip the
+ * sheet opened from. `Intl` renders `mardi 6 janv.` and the leading capital is
+ * a title convention it doesn't cover — the same hand-applied fix
+ * `formatMonthYear` makes, for the same reason.
+ */
+export const formatDayShortMonth = (value: IsoDate): string => {
+  const label = DAY_SHORT_MONTH_FORMAT.format(fromIsoDate(value));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
 const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
 
 /**
