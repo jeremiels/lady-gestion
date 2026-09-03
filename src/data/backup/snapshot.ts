@@ -195,7 +195,8 @@ export const downloadBackup = async (): Promise<void> => {
   // detached one, so the export appears to do nothing at all.
   const link = document.createElement('a');
   link.href = url;
-  link.download = `lady-gestion-${snapshot.exportedAt.slice(0, 10)}.json`;
+  const timestamp = snapshot.exportedAt.slice(0, 19).replace(/:/g, '-');
+  link.download = `lady-gestion-${timestamp}.json`;
   link.hidden = true;
   document.body.append(link);
   link.click();
