@@ -69,7 +69,7 @@ export const SECTIONS: Section[] = [
   {
     id: 'events',
     root: '/events',
-    label: 'Calendrier',
+    label: 'Activités',
     icon: 'date',
     // A prefix match: an event's own page is still the Calendrier section.
     matches: (path) => path.startsWith('/events'),

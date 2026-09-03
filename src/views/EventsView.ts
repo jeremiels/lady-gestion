@@ -118,8 +118,8 @@ export class EventsView extends LightElement {
       <section class="events-view">
         <header class="events-view__header">
           <hgroup class="section-group">
-            <h1 class="section-title" tabindex="-1">Évènements</h1>
-            <p class="section-subtitle">Récap des évènements</p>
+            <h1 class="section-title" tabindex="-1">Activités</h1>
+            <p class="section-subtitle">Récap des activités</p>
           </hgroup>
           <app-segmented
             label="Affichage"
