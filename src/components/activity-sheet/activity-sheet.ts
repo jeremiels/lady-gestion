@@ -149,8 +149,15 @@ export class ActivitySheet extends BaseElement {
    * and the owner sees a single tap as three closes. Reading `open` is enough
    * to tell the two apart: the first pass through is the only one that finds it
    * still set.
+   *
+   * Bound directly to the bottom sheet's own `sheet-close`, so `event` is that
+   * inner event when present. It is stopped here rather than left to bubble:
+   * `app-bottom-sheet`'s event is composed and would otherwise keep going past
+   * this host and reach a consumer as a second, indistinguishable
+   * `sheet-close` alongside the one this method dispatches below.
    */
-  #close = () => {
+  #close = (event?: Event) => {
+    event?.stopPropagation();
     if (!this.open) return;
 
     this.error = '';
