@@ -195,7 +195,17 @@ export const downloadBackup = async (): Promise<void> => {
   // detached one, so the export appears to do nothing at all.
   const link = document.createElement('a');
   link.href = url;
-  const timestamp = snapshot.exportedAt.slice(0, 19).replace(/:/g, '-');
+  const exportedAt = new Date(snapshot.exportedAt);
+  const timestamp = [
+    exportedAt.getFullYear(),
+    exportedAt.getMonth() + 1,
+    exportedAt.getDate(),
+    exportedAt.getHours(),
+    exportedAt.getMinutes(),
+    exportedAt.getSeconds(),
+  ]
+    .map((part) => `${part}`.padStart(2, '0'))
+    .join('-');
   link.download = `lady-gestion-${timestamp}.json`;
   link.hidden = true;
   document.body.append(link);
