@@ -50,7 +50,7 @@ order: `01-today.png`. Point the driver at another port with `PORT=4173`.
 
 | command | what it does |
 |---|---|
-| `nav <path>` | `goto http://localhost:5173<path>` — routes are `/`, `/events`, `/horse`, `/documents`, `/profile` |
+| `nav <path>` | Takes an **app path**, the one `app-root.ts` matches: `/`, `/events`, `/budget`, `/horse`, `/horse/<id>`, `/event/<id>`, `/documents`, `/profile`. The driver puts Vite's `base` back on the front — see the gotcha below |
 | `wait <selector>` | `waitForSelector`, 15s cap. Selectors pierce shadow DOM |
 | `click <selector>` | Click first match, then wait for transitions |
 | `fill <selector> \| <value>` | Type into a field. The `\|` is required — selectors here contain spaces |
@@ -112,15 +112,25 @@ npm run dev    # → http://localhost:5173, Ctrl-C to stop
 ## Test
 
 ```bash
-npm test         # 6 files, 113 tests, ~0.5s
+npm test              # both projects: 43 files, 618 tests, ~11s
+npm run test:data     # 20 files, 379 tests, ~2s
+npm run test:components   # 23 files, 239 tests, ~11s
 npm run typecheck
-npm run build    # typecheck + vite build
+npm run build         # typecheck + lint + vite build
 ```
 
-Tests cover the **data layer only** (`src/data/**/*.test.ts`, Vitest, node
-env, Dexie on `fake-indexeddb`). There is no component test suite — Lit
-components are verified by driving them with the driver above. `TZ` is pinned
-to `Europe/Paris` in `vitest.config.ts`.
+Two Vitest projects, declared in `vitest.config.ts`:
+
+- **`data`** — `src/data/**/*.test.ts` in node, Dexie on `fake-indexeddb`.
+- **`components`** — `src/components/**`, `src/views/**` and `src/commons/**`
+  in a real headless Chromium via Playwright. The components are built on
+  `ElementInternals`, `<dialog>.showModal()`, the top layer and CSS the engine
+  has to actually resolve, so there is no jsdom option here.
+
+`TZ` is pinned to `Europe/Paris` for both. The driver is *not* a substitute for
+the component suite any more — reach for it to see a rendered page, to
+screenshot one, or to drive a flow across views, and write a test for anything
+a `components` test can assert.
 
 ## Production / PWA
 
@@ -131,7 +141,7 @@ behaviour:
 ```bash
 npm run build
 npm run preview &
-timeout 30 bash -c 'until curl -sf http://localhost:4173 >/dev/null; do sleep 0.5; done'
+timeout 30 bash -c 'until curl -sf http://localhost:4173/lady-gestion/ >/dev/null; do sleep 0.5; done'
 PORT=4173 node .claude/skills/run-lady-gestion/driver.mjs <<'EOF'
 nav /events
 eval navigator.serviceWorker.getRegistrations().then(r => r.length)
@@ -161,6 +171,15 @@ Verified output: `1` registration, one cache named `lady-gestion-<hash>`.
   shows a muddy taupe circle instead of the dark brown one, and
   `getComputedStyle` returns the interpolated value. The driver's `settle()`
   handles it — replicate it if you write a one-off script.
+- **The dev server serves under Vite's `base`** (`/lady-gestion/`, because the
+  app is a GitHub Pages project site), while the app's route table matches
+  paths *without* it. `nav` and `seed` add the prefix for you — reading it out
+  of `vite.config.ts`, so it cannot go stale — but a hand-rolled Playwright
+  script has to add it itself. Getting it wrong is silent: Vite answers a
+  path outside the base with its "did you mean to visit ...?" page, so the
+  `goto` succeeds and only the first `waitForSelector` fails, 15s later.
+  (Both servers do redirect a bare `/`, so a readiness probe on the origin
+  still works.)
 - **Seed data is relative to today.** `src/data/seed.ts` places its five
   events at today ±6, +19, −11, −34, −52 days, so which month has dots
   changes daily. Never hardcode a date in an assertion — use

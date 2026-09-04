@@ -25,7 +25,7 @@
 import { createRequire } from 'node:module';
 import { execFileSync, spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -33,6 +33,32 @@ const ROOT = resolve(import.meta.dirname, '../../..');
 const PORT = Number(process.env.PORT ?? 5173);
 const ORIGIN = `http://localhost:${PORT}`;
 const SHOTS = process.env.SHOTS ?? '/tmp/lady-shots';
+
+/**
+ * Vite's `base`. The app is a GitHub Pages *project* site, so `npm run dev`
+ * and `npm run preview` both serve it under a prefix, while the route table in
+ * `app-root.ts` matches paths *without* one — `commons/base-path.ts` is what
+ * strips it. So every URL this driver builds needs the prefix back on the
+ * front, and the app paths you type stay the ones the app itself uses.
+ *
+ * Read out of the config rather than hardcoded: it drifted once already, and a
+ * stale prefix is a silent failure — Vite answers with its "did you mean to
+ * visit ...?" page, so `nav` succeeds, `wait` times out 15s later, and nothing
+ * says why. `BASE=` overrides for a server started some other way.
+ */
+const normalizeBase = (value) => {
+  const trimmed = value.replace(/^\/+|\/+$/g, '');
+  return trimmed ? `/${trimmed}/` : '/';
+};
+
+const BASE = normalizeBase(
+  process.env.BASE ??
+    readFileSync(join(ROOT, 'vite.config.ts'), 'utf8').match(/^\s*base:\s*['"]([^'"]+)['"]/m)?.[1] ??
+    '/',
+);
+
+/** An app path (`/budget`) as the dev server wants it. Already-prefixed passes through. */
+const url = (path) => ORIGIN + (path.startsWith(BASE) ? path : BASE + path.replace(/^\/+/, ''));
 
 /**
  * Playwright is not a project dependency and shouldn't become one — this app
@@ -123,7 +149,7 @@ const settle = async () => {
 
 const commands = {
   async nav([path = '/']) {
-    await page.goto(ORIGIN + path, { waitUntil: 'networkidle' });
+    await page.goto(url(path), { waitUntil: 'networkidle' });
     return page.url();
   },
 
@@ -224,7 +250,7 @@ const commands = {
   async seed(args) {
     const body = args.join(' ');
     const result = await page.evaluate(`(async () => {
-      const data = await import('/src/data/index.ts');
+      const data = await import('${BASE}src/data/index.ts');
       await data.initData();
       return (async () => { ${body} })();
     })()`);

@@ -22,7 +22,7 @@ not a computed minimum.
 Three consequences worth stating out loud:
 
 - **Feature-detect whatever the floor does not guarantee**, and say why in a
-  comment. Three things are guarded today, and they are not all the same case.
+  comment. Four things are guarded today, and they are not all the same case.
   `document.startViewTransition` and view-transition **types** sit at or below
   the floor, and are guarded only because the two halves shipped separately.
   The Navigation API sits **above** it, on two engines out of three: Safari did
@@ -31,8 +31,15 @@ Three consequences worth stating out loud:
   long-standing mix-up here.) Only Chrome has it at the floor, so
   `'navigation' in window` is a live seam rather than a legacy one: every iPhone
   below iOS 26.2 takes the fallback today, which means real page loads, no route
-  view transitions at all, and no persisted view state. Guarding what the floor
-  already guarantees is still dead code.
+  view transitions at all, and no persisted view state. **CSS anchor
+  positioning** is above the floor on the same two engines — Chrome 125, but
+  Safari **26** and Firefox **147** — so the sliding background behind the
+  selected segment of `app-segmented` sits entirely inside
+  `@supports (anchor-name: --sliding-selection)` in
+  `commons/sliding-selection.styles.ts`. What a browser without it loses is the
+  travel, not the state: the plain background swap that control has always had
+  is exactly the unguarded rule. Guarding what the floor already guarantees is
+  still dead code.
 - **Some tempting APIs are still above the floor.** Checked, and deliberately
   not used: `<dialog closedby>` (no Safari support at all — it would drop
   light-dismiss on the primary platform, and `ModalDialog` handles backdrop and
@@ -764,6 +771,21 @@ its `<svg>` is safe.
     shipped in `component-reset.css` is the weakest rule in the tree — so last
     in source order is the "utilities win" available there. One file, not a
     pair to keep in step.
+
+    Shared component CSS has a **second channel**, and the two are not
+    interchangeable. `component-utilities.css` is for rules the document *and*
+    every shadow root want — every `BaseElement` adopts them whether it uses
+    them or not. A `commons/*.styles.ts` fragment is the opt-in one: a
+    `CSSResult` a component composes into its own
+    `static componentStyles = [fragment, css`…`]`, **first** in the array so the
+    component still wins at equal specificity. `sliding-selection.styles.ts` is
+    the one that exists — the background that travels to the selected item of a
+    row, used by `app-segmented` and by `app-calendar`'s day grid, and wanted
+    by nothing in the document. Its anchor name is tree-scoped, so a consumer
+    has to hold both the row and the items in **one** shadow root: `nav-bar`
+    cannot use it, because each `nav-item` is its own tree. `css` caches the result, so
+    every consumer adopts the same `CSSStyleSheet` by reference, exactly as the
+    reset does.
 
     **`reset.styles.ts` exports these as two separate values on purpose** —
     `resetStyles` and `utilityStyles` — and `BaseElement.styles` composes them
