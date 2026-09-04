@@ -1,4 +1,4 @@
-import { css, html, nothing } from 'lit';
+import { css, html, nothing, type PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { live } from 'lit/directives/live.js';
@@ -63,6 +63,44 @@ export class AppSelect extends FormFieldElement {
 
   formStateRestoreCallback(restored: string | FormData | null) {
     this.value = typeof restored === 'string' ? restored : '';
+  }
+
+  /**
+   * A `<select>` with no explicit width sizes itself to its *widest* option
+   * so the box doesn't resize as the user picks — the opposite of what the
+   * pill wants, where the value alone is the affordance and it should read
+   * as a snug label. There's no CSS for "auto-width from the current option
+   * only", so this measures the selected label with a scratch canvas and
+   * writes an explicit pixel width, which `transition: width` below can then
+   * animate between.
+   */
+  #measureCanvas?: HTMLCanvasElement;
+
+  protected updated(changed?: PropertyValues<this>) {
+    super.updated();
+    if (this.pill && (changed?.has('value') || changed?.has('options') || changed?.has('pill'))) {
+      this.#syncPillWidth();
+    }
+  }
+
+  #syncPillWidth() {
+    const select = this.selectEl;
+    if (!select) return;
+    const ctx = (this.#measureCanvas ??= document.createElement('canvas')).getContext('2d');
+    if (!ctx) return;
+
+    const style = getComputedStyle(select);
+    ctx.font = style.font;
+    const label = this.options.find((option) => option.value === this.value)?.label ?? this.placeholder;
+    const textWidth = ctx.measureText(label).width;
+    const chrome =
+      parseFloat(style.paddingLeft) +
+      parseFloat(style.paddingRight) +
+      parseFloat(style.borderLeftWidth) +
+      parseFloat(style.borderRightWidth);
+    // +2: canvas metrics and the browser's own <option> layout don't hint
+    // identically, and a clipped label reads far worse than a spare pixel.
+    select.style.width = `${Math.ceil(textWidth + chrome) + 2}px`;
   }
 
   #onChange = (event: Event) => {
@@ -175,6 +213,9 @@ export class AppSelect extends FormFieldElement {
        back out by hand. The pill reads as compact through its height, padding
        and weight instead. */
     :host([pill]) .field__select {
+      /* Fallback until #syncPillWidth measures the selected option and
+         writes an explicit px width; see that method for why auto can't
+         stay — it sizes to the widest option, not the chosen one. */
       width: auto;
       min-height: 2.25rem;
       border: none;
@@ -183,6 +224,14 @@ export class AppSelect extends FormFieldElement {
       padding: var(--spacing-8) var(--spacing-32) var(--spacing-8) var(--spacing-16);
       font-weight: 600;
       color: var(--color-brown-dark);
+      transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease,
+        width var(--duration-fast) var(--easing-out);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      :host([pill]) .field__select {
+        transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+      }
     }
 
     :host([pill]) .field__arrow {
