@@ -8,6 +8,7 @@ import './views/HomeView';
 import { LightElement } from './commons/base-element.ts';
 import { Router } from './commons/controllers/router.ts';
 import { initData } from './data/index.ts';
+import { initDoubleTapGuard } from './commons/double-tap-guard.ts';
 import { initPwa } from './pwa/index.ts';
 import { appHref } from './commons/base-path.ts';
 import { isHorsePath, isLateral, SECTIONS } from './commons/sections.ts';
@@ -203,6 +204,12 @@ export class AppRoot extends LightElement {
     // Registers the service worker and asks the browser to stop treating the
     // IndexedDB data as evictable. No-op outside a production build.
     initPwa();
+
+    // Belt and braces for the CSS `touch-action: manipulation` fix (see
+    // `double-tap-guard.ts`): Safari doesn't always honour it across a shadow
+    // boundary, which is what makes the residual double-tap zoom look random
+    // and tied to component edges rather than to any one component.
+    initDoubleTapGuard();
 
     // The route the app was *opened* on never goes through the Navigation API,
     // so nothing else would load its chunk — a cold deep link to /budget
