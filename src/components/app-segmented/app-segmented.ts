@@ -8,8 +8,8 @@ import '../app-icon/app-icon.ts';
 
 export type SegmentedOption = {
   value: string;
-  /** Omit to show `label` as text instead. */
-  icon?: IconName;
+  /** Use `undefined` to show `label` as text instead. */
+  icon: IconName | undefined;
   /** The visible text in a text segment; the accessible name in an icon one. */
   label: string;
 };
@@ -146,7 +146,7 @@ export class AppSegmented extends BaseElement {
               tabindex=${checked ? 0 : -1}
               @click=${() => this.#select(option.value)}
             >
-              ${option.icon ? html`<app-icon icon=${option.icon}></app-icon>` : option.label}
+              ${option.icon ? html`<app-icon .icon=${option.icon}></app-icon>` : option.label}
             </button>
           `;
         })}

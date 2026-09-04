@@ -228,7 +228,7 @@ export class EventCard extends BaseElement {
         <article class="event-card">
           <app-icon
             class="event-card__icon"
-            icon=${eventType.icon(event.type)}
+            .icon=${eventType.icon(event.type)}
             style=${styleMap(iconStyle(theme))}
           ></app-icon>
 

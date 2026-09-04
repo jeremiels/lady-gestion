@@ -36,8 +36,8 @@ import '../components/event-card/event-card.ts';
 
 /** Text segments, not icons: "M" and "A" would mean nothing. */
 const GRANULARITIES: SegmentedOption[] = [
-  { value: 'month', label: 'Mois' },
-  { value: 'year', label: 'Année' },
+  { value: 'month', icon: undefined, label: 'Mois' },
+  { value: 'year', icon: undefined, label: 'Année' },
 ];
 
 /**
