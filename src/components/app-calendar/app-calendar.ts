@@ -4,6 +4,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { BaseElement } from '../../commons/base-element.ts';
 import { MediaQuery } from '../../commons/controllers/media-query.ts';
+import { slidingSelectionStyles } from '../../commons/sliding-selection.styles.ts';
 import {
   addDays,
   addMonths,
@@ -60,8 +61,13 @@ export class AppCalendar extends BaseElement {
   /** Overridable so a demo or a test can pin "today" to a fixed date. */
   @property({ type: String }) today: IsoDate = todayISO();
 
-  /** First day of the displayed month. */
-  @state() private visibleMonth: IsoDate = startOfMonth(this.value ?? todayISO());
+  /**
+   * First day of the displayed month.
+   *
+   * Not `private`, for the same reason as `focusedDate` below: `updated()`
+   * asks `changed.has('visibleMonth')`, which needs it in `keyof AppCalendar`.
+   */
+  @state() visibleMonth: IsoDate = startOfMonth(this.value ?? todayISO());
 
   /**
    * The day holding the grid's single tab stop.
@@ -77,175 +83,219 @@ export class AppCalendar extends BaseElement {
    */
   #reducedMotion = new MediaQuery(this, '(prefers-reduced-motion: reduce)');
 
-  static componentStyles = css`
-    :host {
-      display: block;
-    }
-
-    .calendar__header {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      align-items: center;
-      gap: var(--spacing-8);
-      margin-bottom: var(--spacing-16);
-    }
-
-    .calendar__nav {
-      display: grid;
-      place-items: center;
-      width: 2rem;
-      height: 2rem;
-      padding: 0;
-      border: none;
-      border-radius: var(--radius-8);
-      background: var(--color-brown-light-bg);
-      color: var(--color-brown-dark);
-      cursor: pointer;
-    }
-
-    @media (hover: hover) and (pointer: fine) {
-      .calendar__nav:hover {
-        background: var(--color-surface-hover);
+  // The travelling pill first, so the rules below still win at equal specificity.
+  static componentStyles = [
+    slidingSelectionStyles,
+    css`
+      :host {
+        display: block;
       }
-    }
 
-    .calendar__nav-icon {
-      height: 2rem;
-      width: 2rem;
-    }
+      .calendar__header {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: var(--spacing-8);
+        margin-bottom: var(--spacing-16);
+      }
 
-    .calendar__month {
-      text-align: center;
-      font-size: 0.875rem;
-      font-weight: 700;
-      color: var(--color-dark);
-    }
+      .calendar__nav {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        border: none;
+        border-radius: var(--radius-8);
+        background: var(--color-brown-light-bg);
+        color: var(--color-brown-dark);
+        cursor: pointer;
+      }
 
-    /* The seven columns are declared once, here. Every row below — the weekday
-       header included — inherits them through subgrid, so a wider Saturday
-       column can't drift out of line with its heading. */
-    .calendar__grid {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      row-gap: var(--spacing-4);
-    }
+      @media (hover: hover) and (pointer: fine) {
+        .calendar__nav:hover {
+          background: var(--color-surface-hover);
+        }
+      }
 
-    .calendar__row {
-      display: grid;
-      grid-template-columns: subgrid;
-      grid-column: 1 / -1;
-    }
+      .calendar__nav-icon {
+        height: 2rem;
+        width: 2rem;
+      }
 
-    .calendar__weekday {
-      justify-self: center;
-      padding-bottom: var(--spacing-8);
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--color-brown-light);
-    }
+      .calendar__month {
+        text-align: center;
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: var(--color-dark);
+      }
 
-    /* Two rows: the day itself, then a fixed strip for the dot. Reserving the
-       strip keeps every number on the same baseline whether or not its day has
-       events. */
-    .calendar__cell {
-      display: grid;
-      grid-template-rows: auto 0.625rem;
-      justify-items: center;
-      align-content: start;
-    }
+      /* The seven columns are declared once, here. Every row below — the weekday
+         header included — inherits them through subgrid, so a wider Saturday
+         column can't drift out of line with its heading. */
+      .calendar__grid {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        row-gap: var(--spacing-4);
+        --sliding-selection-background: var(--color-brown-dark);
+      }
 
-    /* isolation: isolate is load-bearing: it gives the button its own
-       stacking context so the z-index: -1 pill below lands behind the
-       button's own (transparent) background rather than behind whichever
-       ancestor happens to establish the nearest context. */
-    .calendar__day {
-      position: relative;
-      isolation: isolate;
-      display: grid;
-      place-items: center;
-      width: 2rem;
-      height: 1.5rem;
-      padding: 0;
-      border: none;
-      border-radius: var(--radius-pill);
-      background: transparent;
-      color: var(--color-dark);
-      font-family: inherit;
-      font-size: 0.813rem;
-      line-height: 1.5rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: color var(--duration-fast) ease;
-    }
+      /* Held for one forced reflow while a month page lands — see #snapSelection. */
+      .calendar__grid--paging {
+        --sliding-selection-duration: 0s;
+      }
 
-    /* The pill. Both the today tint and the selection now live here rather
-       than on the button, so the number never has to move out of its way and
-       the two states can hand over to each other in one place.
-       scale(0.9) and not scale(0) — a mark that grows from nothing is the
-       one thing a real object never does. 0.9 rather than a deeper 0.8: on a
-       2rem target the extra tenth is the difference between the pill settling
-       and the pill popping. */
-    .calendar__day::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      border-radius: var(--radius-pill);
-      background: transparent;
-      transform: scale(0.9);
-      opacity: 0;
-      transition:
-        transform var(--duration-fast) var(--easing-out),
-        opacity var(--duration-fast) var(--easing-out),
-        background-color var(--duration-fast) ease;
-    }
+      .calendar__row {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+      }
 
-    .calendar__day--outside {
-      color: var(--color-text-muted-on-dark);
-    }
+      .calendar__weekday {
+        justify-self: center;
+        padding-bottom: var(--spacing-8);
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-brown-light);
+      }
 
-    /* Today's pill is already present, just quiet — so selecting today
-       recolours it in place instead of growing a second one over it. */
-    .calendar__day--today::before {
-      background: var(--color-brown-light-bg);
-      transform: scale(1);
-      opacity: 1;
-    }
+      /* Two rows: the day itself, then a fixed strip for the dot. Reserving the
+         strip keeps every number on the same baseline whether or not its day has
+         events. */
+      .calendar__cell {
+        display: grid;
+        grid-template-rows: auto 0.625rem;
+        justify-items: center;
+        align-content: start;
+      }
 
-    /* Selection wins over today, which is why it comes last. */
-    .calendar__day--selected {
-      color: var(--color-white);
-    }
+      /* isolation: isolate is load-bearing: it gives the button its own
+         stacking context so the z-index: -1 pill below lands behind the
+         button's own (transparent) background rather than behind whichever
+         ancestor happens to establish the nearest context. */
+      .calendar__day {
+        position: relative;
+        isolation: isolate;
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 1.5rem;
+        padding: 0;
+        border: none;
+        border-radius: var(--radius-pill);
+        background: transparent;
+        color: var(--color-dark);
+        font-family: inherit;
+        font-size: 0.813rem;
+        line-height: 1.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: color var(--duration-fast) ease;
+      }
 
-    .calendar__day--selected::before {
-      background: var(--color-brown-dark);
-      transform: scale(1);
-      opacity: 1;
-    }
-
-    .calendar__day:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
-    }
-
-    .calendar__dot {
-      width: 0.3125rem;
-      height: 0.3125rem;
-      margin-top: 0.1875rem;
-      border-radius: var(--radius-pill);
-      background: var(--color-brown-light);
-    }
-
-    /* The pill's growth is movement; its colour and its arrival are not. */
-    @media (prefers-reduced-motion: reduce) {
+      /* The pill. Both the today tint and the selection now live here rather
+         than on the button, so the number never has to move out of its way and
+         the two states can hand over to each other in one place.
+         scale(0.9) and not scale(0) — a mark that grows from nothing is the
+         one thing a real object never does. 0.9 rather than a deeper 0.8: on a
+         2rem target the extra tenth is the difference between the pill settling
+         and the pill popping. */
       .calendar__day::before {
-        transform: none;
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        border-radius: var(--radius-pill);
+        background: transparent;
+        transform: scale(0.9);
+        opacity: 0;
         transition:
+          transform var(--duration-fast) var(--easing-out),
           opacity var(--duration-fast) var(--easing-out),
           background-color var(--duration-fast) ease;
       }
-    }
-  `;
+
+      .calendar__day--outside {
+        color: var(--color-text-muted-on-dark);
+      }
+
+      /* Today's pill is already present, just quiet — so selecting today
+         recolours it in place instead of growing a second one over it. */
+      .calendar__day--today::before {
+        background: var(--color-brown-light-bg);
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      .calendar__day--today.calendar__day--outside::before {
+        opacity: 0;
+      }
+
+      /* Selection wins over today, which is why it comes last. */
+      .calendar__day--selected {
+        color: var(--color-white);
+      }
+
+      .calendar__day--selected::before {
+        background: var(--color-brown-dark);
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      /*
+       * Where the pill travels, the selected day stops drawing its own. This
+       * one rule covers both cases because it already wins over the today
+       * tint above: a selected day that is also today goes transparent too,
+       * so the travelling pill shows through instead of being hidden behind
+       * today's opaque circle — the pill sits behind the row, not inside the
+       * button.
+       */
+      @supports (anchor-name: --sliding-selection) {
+        .calendar__day--selected::before {
+          background: transparent;
+        }
+
+        /*
+         * The ink waits for the pill. White on a circle that is still two
+         * cells away is white on white, and the day vanishes for the length
+         * of the travel. Only the *incoming* day waits — a day being left
+         * needs its dark number back immediately, because the pill it was
+         * standing on has already gone.
+         */
+        .calendar__day--selected {
+          transition: color var(--duration-fast) ease var(--duration-fast);
+        }
+      }
+
+      .calendar__day:focus-visible {
+        outline: 2px solid var(--color-brown-dark);
+        outline-offset: 2px;
+      }
+
+      .calendar__dot {
+        width: 0.3125rem;
+        height: 0.3125rem;
+        margin-top: 0.1875rem;
+        border-radius: var(--radius-pill);
+        background: var(--color-brown-light);
+      }
+
+      /* The pill's growth is movement; its colour and its arrival are not. */
+      @media (prefers-reduced-motion: reduce) {
+        .calendar__day::before {
+          transform: none;
+          transition:
+            opacity var(--duration-fast) var(--easing-out),
+            background-color var(--duration-fast) ease;
+        }
+
+        /* The pill snaps here, so there is nothing left for the ink to wait for. */
+        .calendar__day--selected {
+          transition-delay: 0s;
+        }
+      }
+    `,
+  ];
 
   protected willUpdate(changed: PropertyValues<this>) {
     // Follow a selection made from outside — picking a date elsewhere should
@@ -259,6 +309,8 @@ export class AppCalendar extends BaseElement {
   }
 
   protected updated(changed: PropertyValues<this>) {
+    if (changed.has('visibleMonth')) this.#snapSelection();
+
     if (!changed.has('focusedDate')) return;
 
     // Move the DOM focus along with the roving tab stop — but only when a day
@@ -269,6 +321,30 @@ export class AppCalendar extends BaseElement {
     if (!root.activeElement?.classList.contains('calendar__day')) return;
 
     root.querySelector<HTMLButtonElement>('.calendar__day[tabindex="0"]')?.focus();
+  }
+
+  /**
+   * Drops the selection pill onto its new cell instead of letting it travel
+   * there.
+   *
+   * A month page is a page change, not a move. The selected day can sit in
+   * both grids at different places — 1 April is a spill day at the foot of
+   * March and the second cell of April — and the pill would then slide the
+   * height of the grid while the grid itself plays its own page transition:
+   * two motions over one change, neither explaining the other.
+   *
+   * Zeroing the duration and *then* reading a layout property is what makes it
+   * a snap: the read forces the style recalc that resolves the anchor, so the
+   * new position is committed with no transition to run, and the class is off
+   * again before anything else can animate from it.
+   */
+  #snapSelection() {
+    const grid = this.renderRoot.querySelector<HTMLElement>('.calendar__grid');
+    if (!grid) return;
+
+    grid.classList.add('calendar__grid--paging');
+    void grid.offsetHeight;
+    grid.classList.remove('calendar__grid--paging');
   }
 
   #goToMonth = (month: IsoDate, reason: 'prev' | 'next' | 'keyboard') => {
@@ -463,7 +539,7 @@ export class AppCalendar extends BaseElement {
       </header>
 
       <div
-        class="calendar__grid"
+        class="calendar__grid sliding-selection"
         role="grid"
         aria-label="Calendrier, ${formatMonthYear(this.visibleMonth)}"
         @keydown=${this.#onKeyDown}
@@ -511,6 +587,9 @@ export class AppCalendar extends BaseElement {
             'calendar__day--outside': outside,
             'calendar__day--today': isToday,
             'calendar__day--selected': selected,
+            // Moving this class is the whole animation: the pill anchors to it
+            // and the browser interpolates the four insets between the cells.
+            'sliding-selection__active': selected,
           })}
           type="button"
           tabindex=${date === this.focusedDate ? 0 : -1}

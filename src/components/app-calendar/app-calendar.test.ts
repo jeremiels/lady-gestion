@@ -263,4 +263,99 @@ describe('app-calendar', () => {
       expect(outside?.parentElement?.querySelector('.calendar__dot')).toBeNull();
     });
   });
+
+  describe('sliding selection', () => {
+    /**
+     * Where the travelling pill actually is. It is the grid's `::after`, so it
+     * has no node to measure — the resolved inset off the grid's own box is
+     * the only view of it, and the only thing that distinguishes a resolved
+     * anchor from one that quietly fell back to `auto`.
+     */
+    const pillAt = (el: AppCalendar) => {
+      const grid = el.renderRoot.querySelector('.calendar__grid')!;
+      const box = grid.getBoundingClientRect();
+      const after = getComputedStyle(grid, '::after');
+      return [
+        Math.round(box.left + parseFloat(after.left)),
+        Math.round(box.top + parseFloat(after.top)),
+      ];
+    };
+
+    const selectedAt = (el: AppCalendar) => {
+      const box = el.renderRoot
+        .querySelector('.calendar__day--selected')!
+        .getBoundingClientRect();
+      return [Math.round(box.left), Math.round(box.top)];
+    };
+
+    it('anchors the pill to the selected day, and to no other', async () => {
+      const el = await mount();
+
+      const anchored = [...el.renderRoot.querySelectorAll('.sliding-selection__active')];
+
+      expect(anchored).toHaveLength(1);
+      expect(anchored[0]!.textContent?.trim()).toBe('15');
+      expect(pillAt(el)).toEqual(selectedAt(el));
+    });
+
+    it('follows the selection to another day', async () => {
+      const el = await mount();
+
+      el.value = '2026-03-23';
+      await settled(el);
+
+      expect(el.renderRoot.querySelector('.sliding-selection__active')?.textContent?.trim()).toBe(
+        '23',
+      );
+    });
+
+    /**
+     * Mounted with a travel time of its own, because the fixture has none: the
+     * motion tokens live in the document stylesheet this suite does not load,
+     * so the pill's `var(--duration-medium)` is invalid here and *every* move
+     * lands instantly — an assertion about snapping would pass against a
+     * component that had never learned to slide. Five linear seconds through
+     * the mixin's own knob makes "did it travel?" readable on the first frame.
+     */
+    const mountSlow = () =>
+      fixture<AppCalendar>(html`
+        <app-calendar
+          .value=${ANCHOR}
+          .today=${ANCHOR}
+          week-start="MO"
+          style="--sliding-selection-duration: 5s; --sliding-selection-easing: linear"
+        ></app-calendar>
+      `);
+
+    it('travels from the old cell when the selection moves within the month', async () => {
+      const el = await mountSlow();
+      const from = pillAt(el);
+
+      el.value = '2026-03-23';
+      await settled(el);
+
+      // One frame in, five seconds of travel has barely started: the pill is
+      // still where it was, which is what proves it moves at all.
+      expect(pillAt(el)).toEqual(from);
+      expect(pillAt(el)).not.toEqual(selectedAt(el));
+    });
+
+    it('lands on the new cell without travelling when the month pages', async () => {
+      const el = await mountSlow();
+
+      // 1 April is a spill day at the foot of March and the second cell of
+      // April, so selecting it moves the pill *and* the month. A page is not a
+      // move: the pill has to be there already, where the test above proves it
+      // would otherwise still be crossing the grid.
+      el.renderRoot
+        .querySelector<HTMLButtonElement>('.calendar__day--outside[aria-label^="1 avril"]')!
+        .click();
+      await settled(el);
+
+      expect(el.renderRoot.querySelector('.calendar__month')?.textContent?.trim()).toBe(
+        'Avril 2026',
+      );
+      expect(pillAt(el)).toEqual(selectedAt(el));
+    });
+  });
 });

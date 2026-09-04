@@ -1,7 +1,9 @@
 import { css, html, type PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { BaseElement } from '../../commons/base-element.ts';
+import { slidingSelectionStyles } from '../../commons/sliding-selection.styles.ts';
 import type { IconName } from '../app-icon/icons.ts';
 
 import '../app-icon/app-icon.ts';
@@ -36,53 +38,75 @@ export class AppSegmented extends BaseElement {
   /** Names the group itself, e.g. "Affichage". */
   @property({ type: String }) label = '';
 
-  static componentStyles = css`
-    :host {
-      display: inline-flex;
-    }
+  // The shared pill first, so the rules below still win at equal specificity.
+  static componentStyles = [
+    slidingSelectionStyles,
+    css`
+      :host {
+        display: inline-flex;
+      }
 
-    .segmented {
-      display: inline-flex;
-      gap: var(--spacing-4);
-      padding: var(--spacing-4);
-      border-radius: var(--radius-pill);
-      background: var(--color-brown-light-bg);
-    }
+      .segmented {
+        display: inline-flex;
+        gap: var(--spacing-4);
+        padding: var(--spacing-4);
+        border-radius: var(--radius-pill);
+        background: var(--color-brown-light-bg);
+      }
 
-    .segmented__option {
-      display: grid;
-      place-items: center;
-      width: 2.5rem;
-      height: 2.25rem;
-      padding: 0;
-      border: none;
-      border-radius: var(--radius-pill);
-      background: transparent;
-      font: inherit;
-      color: var(--color-brown-light);
-      cursor: pointer;
-      transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
-    }
+      .segmented__option {
+        display: grid;
+        place-items: center;
+        width: 2.5rem;
+        height: 2.25rem;
+        padding: 0;
+        border: none;
+        border-radius: var(--radius-pill);
+        background: transparent;
+        font: inherit;
+        color: var(--color-brown-light);
+        cursor: pointer;
+        /* The ink is on the same clock as the pill that travels under it —
+           at --duration-fast the incoming label finished darkening 50ms
+           before the pill arrived beneath it. */
+        transition:
+          background-color var(--duration-fast) ease,
+          color var(--duration-medium) var(--easing-standard);
+      }
 
-    /* A word cannot live in the fixed square an icon sits in. */
-    .segmented__option--text {
-      width: auto;
-      padding-inline: var(--spacing-16);
-      font-size: 0.9375rem;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+      /* A word cannot live in the fixed square an icon sits in. */
+      .segmented__option--text {
+        width: auto;
+        padding-inline: var(--spacing-16);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        white-space: nowrap;
+      }
 
-    .segmented__option[aria-checked='true'] {
-      background: var(--color-white);
-      color: var(--color-brown-dark);
-    }
+      .segmented__option[aria-checked='true'] {
+        background: var(--color-white);
+        color: var(--color-brown-dark);
+      }
 
-    .segmented__option:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
-    }
-  `;
+      /*
+       * Where the pill exists it is the selected surface, and this one has to
+       * go: the segment being left keeps its own background for as long as it
+       * takes to fade, which is a second white shape sitting in the path of the
+       * one still travelling. The colour above stays — it carries the state on
+       * both paths.
+       */
+      @supports (anchor-name: --sliding-selection) {
+        .segmented__option[aria-checked='true'] {
+          background: transparent;
+        }
+      }
+
+      .segmented__option:focus-visible {
+        outline: 2px solid var(--color-brown-dark);
+        outline-offset: 2px;
+      }
+    `,
+  ];
 
   #select = (value: string) => {
     if (value === this.value) return;
@@ -127,7 +151,7 @@ export class AppSegmented extends BaseElement {
   render() {
     return html`
       <div
-        class="segmented"
+        class="segmented sliding-selection"
         role="radiogroup"
         aria-label=${this.label}
         @keydown=${this.#onKeyDown}
@@ -138,7 +162,13 @@ export class AppSegmented extends BaseElement {
           // *is* the accessible name, and setting it again announces it twice.
           return html`
             <button
-              class="segmented__option ${option.icon ? '' : 'segmented__option--text'}"
+              class=${classMap({
+                'segmented__option': true,
+                'segmented__option--text': !option.icon,
+                // Moving this class is the whole animation — the pill anchors
+                // to it and the browser interpolates the rest.
+                'sliding-selection__active': checked,
+              })}
               type="button"
               role="radio"
               aria-checked=${checked ? 'true' : 'false'}
