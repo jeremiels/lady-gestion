@@ -48,11 +48,21 @@
   }
 
   /* `.container` gives the white card; the chart wants more room inside it than
-     the shared 12px. `views` sits after `components`, so this wins. */
+     the shared 12px. `views` sits after `components`, so this wins.
+
+     The card's height is also animated, from `BudgetView`'s `willUpdate`/
+     `updated` pair — see the note there for why this is WAAPI rather than a
+     CSS transition. `overflow: clip` is this rule's half of it: without it the
+     legend would spill out while a shrink is still mid-flight. The clip margin
+     leaves room for the legend buttons' focus ring at `outline-offset: 2px` so
+     it isn't cut off. */
   .budget-view__summary {
     display: grid;
     gap: var(--spacing-16);
     padding: var(--spacing-16);
+    overflow: clip;
+    overflow-clip-margin: var(--spacing-4);
+    align-content: start;
   }
 
   .budget-view__controls {

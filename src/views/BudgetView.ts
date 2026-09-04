@@ -1,9 +1,10 @@
-import { html, nothing } from 'lit';
+import { html, nothing, type PropertyValues } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { LightElement } from '../commons/base-element.ts';
+import { MediaQuery } from '../commons/controllers/media-query.ts';
 import { ViewState } from '../commons/controllers/view-state.ts';
 import {
   activeHorseQuery,
@@ -86,6 +87,19 @@ export class BudgetView extends LightElement {
    */
   #budget = activeHorseQuery<HorseEvent[]>(this, (horseId) => eventsRepo.listBudget(horseId), []);
 
+  #reducedMotion = new MediaQuery(this, '(prefers-reduced-motion: reduce)');
+
+  /** Set in `willUpdate`, consumed and cleared in `updated` — see the note there. */
+  #summaryHeightBeforeUpdate: number | null = null;
+
+  /**
+   * The period rendered last time round, `granularity:key` so Mois and Année
+   * can't collide on a bare key. `null` only before the first render, which is
+   * what keeps that first render from reading as a "change" and fading the
+   * legend in on load.
+   */
+  #renderedPeriodKey: string | null = null;
+
 
   /**
    * The one place the stored granularity is read, so the picker, the heading
@@ -137,6 +151,85 @@ export class BudgetView extends LightElement {
       hidden: hidden.includes(type) ? hidden.filter((key) => key !== type) : [...hidden, type],
     });
   };
+
+  protected willUpdate(_changed: PropertyValues<this>) {
+    this.#summaryHeightBeforeUpdate =
+      this.querySelector<HTMLElement>('.budget-view__summary')?.getBoundingClientRect().height ?? null;
+  }
+
+  /**
+   * Animates `.budget-view__summary`'s height across a render, WAAPI rather
+   * than a CSS transition. Mois↔Année (and adding or removing a legend row)
+   * changes how many legend rows there are, so the card's natural height
+   * changes — but the card's own `height` is `auto` before the render and
+   * `auto` after; nothing about the *declared* value changes for a transition
+   * to key off, so a plain `transition: height` never starts no matter how
+   * the box's rendered size moves. (Measured directly against this project's
+   * Chromium: `interpolate-size: allow-keywords`, set on `:root` in
+   * `layers/reset.css`, unlocks animating *between* `auto` and an explicit
+   * length — a class swapping `height: 0` for `height: auto` — not a resize
+   * that happens while `auto` stays `auto` throughout.)
+   *
+   * So the two heights are measured directly instead: the one `willUpdate`
+   * saw before this render's DOM landed, and the one `updated` sees right
+   * after — synchronously, in the same task as the DOM mutation, and
+   * deliberately not deferred a frame. The card's height depends only on
+   * markup this method's own render just committed (the legend is plain
+   * `<li>`s, not a child component whose own update could still be
+   * outstanding), so nothing here is still settling. Reading a frame late
+   * would cost more than it buys: the browser would already have painted the
+   * new, un-animated height at least once first, so the box would flash to
+   * its final size and then visibly snap back to `before` when the animation
+   * kicked in. `Element.animate` plays between the two measurements and,
+   * with no `fill`, hands the box back to its own `height: auto` the instant
+   * it ends — already the right value, since that is what `after` measured.
+   */
+  protected updated(_changed: PropertyValues<this>) {
+    const heightBefore = this.#summaryHeightBeforeUpdate;
+    this.#summaryHeightBeforeUpdate = null;
+
+    const periodKey = `${this.#period.granularity}:${this.#period.key}`;
+    const periodChanged = this.#renderedPeriodKey !== null && this.#renderedPeriodKey !== periodKey;
+    this.#renderedPeriodKey = periodKey;
+
+    if (this.#reducedMotion.matches) return;
+
+    // Mirrors `AppCalendar#playPageTransition`: tokens are authored in
+    // seconds, WAAPI wants milliseconds, and a fixture mounted without the
+    // app's global stylesheet falls back to skipping the animation rather
+    // than crashing on a `NaN` duration.
+    const style = getComputedStyle(this);
+    const duration = parseFloat(style.getPropertyValue('--duration-medium')) * 1000;
+    const easing = style.getPropertyValue('--easing-out').trim();
+    if (!(duration > 0) || !easing) return;
+
+    const summary = this.querySelector<HTMLElement>('.budget-view__summary');
+    if (summary && heightBefore !== null) {
+      const heightAfter = summary.getBoundingClientRect().height;
+      if (Math.abs(heightAfter - heightBefore) >= 1) {
+        summary.getAnimations().forEach((animation) => animation.cancel());
+        summary.animate(
+          [{ height: `${heightBefore}px` }, { height: `${heightAfter}px` }],
+          { duration, easing },
+        );
+      }
+    }
+
+    // Only a Mois↔Année or picked-period change crossfades the legend — not
+    // every re-render (an event edited elsewhere reaching this page through
+    // `#budget`, say), and not muting a row, which already has its own
+    // colour transition in `views/budget.css`. The legend swaps its content
+    // instantly underneath (`repeat()` keyed by category, not this
+    // animation), so this plays as a fade-out-then-in over that swap rather
+    // than a smooth cut.
+    if (!periodChanged) return;
+
+    const legend = this.querySelector<HTMLElement>('.budget-view__legend, .budget-view__empty');
+    if (!legend) return;
+
+    legend.getAnimations().forEach((animation) => animation.cancel());
+    legend.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
+  }
 
   render() {
     const all = this.#budget.value ?? [];
