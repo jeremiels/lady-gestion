@@ -1,5 +1,5 @@
-import { beforeAll, expect, it, vi } from 'vitest';
-import type * as Sections from './sections.ts';
+import { beforeAll, expect, it, vi } from "vitest";
+import type * as Sections from "./sections.ts";
 
 /**
  * The section table, loaded under the base path the app actually deploys to.
@@ -23,26 +23,26 @@ import type * as Sections from './sections.ts';
 let sections: typeof Sections;
 
 beforeAll(async () => {
-  vi.stubEnv('BASE_URL', '/lady-gestion/');
-  sections = await import('./sections.ts');
+  vi.stubEnv("BASE_URL", "/lady-gestion/");
+  sections = await import("./sections.ts");
 
   // Guards the guard: if the stub ever stops reaching `base-path.ts`, these
   // tests would quietly go back to exercising the root base and passing for the
   // wrong reason — the exact failure this file is here to rule out.
-  const { appHref } = await import('./base-path.ts');
-  expect(appHref('/events')).toBe('/lady-gestion/events');
+  const { appHref } = await import("./base-path.ts");
+  expect(appHref("/events")).toBe("/lady-gestion/events");
 });
 
-it('recognises a sideways move between section roots', () => {
-  expect(sections.isLateral('/', '/events')).toBe(true);
-  expect(sections.isLateral('/budget', '/documents')).toBe(true);
+it("recognises a sideways move between section roots", () => {
+  expect(sections.isLateral("/", "/events")).toBe(true);
+  expect(sections.isLateral("/budget", "/documents")).toBe(true);
 });
 
-it('keeps section roots app-relative', () => {
+it("keeps section roots app-relative", () => {
   expect(sections.SECTIONS.map((section) => section.root)).toEqual([
-    '/',
-    '/events',
-    '/budget',
-    '/documents',
+    "/",
+    "/events",
+    "/budget",
+    "/documents",
   ]);
 });

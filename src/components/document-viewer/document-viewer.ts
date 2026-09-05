@@ -1,10 +1,10 @@
-import { css, html, nothing, type PropertyValues } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { documentsRepo, isImage, isPdf } from '../../data/index.ts';
-import type { StoredDocument } from '../../data/types.ts';
+import { css, html, nothing, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { documentsRepo, isImage, isPdf } from "../../data/index.ts";
+import type { StoredDocument } from "../../data/types.ts";
 
-import '../app-modal/app-modal.ts';
+import "../app-modal/app-modal.ts";
 
 /**
  * Full-screen viewer for a stored document.
@@ -20,13 +20,13 @@ import '../app-modal/app-modal.ts';
  *
  * @fires viewer-close - No detail. Dismissed by any route the modal offers.
  */
-@customElement('document-viewer')
+@customElement("document-viewer")
 export class DocumentViewer extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
   @property({ attribute: false }) doc: StoredDocument | null = null;
 
-  @state() private url = '';
-  @state() private error = '';
+  @state() private url = "";
+  @state() private error = "";
 
   static componentStyles = css`
     :host {
@@ -84,11 +84,11 @@ export class DocumentViewer extends BaseElement {
   `;
 
   protected updated(changed: PropertyValues<this>) {
-    if (!changed.has('open') && !changed.has('doc')) return;
+    if (!changed.has("open") && !changed.has("doc")) return;
 
     // Swapping documents while open must not keep showing the previous bytes,
     // and must not strand the previous URL — `#load` bails when one is held.
-    if (changed.has('doc')) this.#release();
+    if (changed.has("doc")) this.#release();
 
     if (this.open && this.doc) void this.#load(this.doc.id);
     else this.#release();
@@ -107,7 +107,7 @@ export class DocumentViewer extends BaseElement {
     try {
       const url = await documentsRepo.getObjectUrl(id);
       if (!url) {
-        this.error = 'Ce fichier est introuvable.';
+        this.error = "Ce fichier est introuvable.";
         return;
       }
       // `open` may have gone false while the read was in flight. Nothing would
@@ -117,43 +117,53 @@ export class DocumentViewer extends BaseElement {
         return;
       }
       this.url = url;
-      this.error = '';
+      this.error = "";
     } catch {
-      this.error = 'Ce fichier n’a pas pu être ouvert.';
+      this.error = "Ce fichier n’a pas pu être ouvert.";
     }
   }
 
   #release() {
     if (this.url) URL.revokeObjectURL(this.url);
-    this.url = '';
-    this.error = '';
+    this.url = "";
+    this.error = "";
   }
 
   #close = () => {
     this.open = false;
-    this.dispatchEvent(new CustomEvent('viewer-close', { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("viewer-close", { bubbles: true, composed: true }),
+    );
   };
 
   render() {
     return html`
       <app-modal
         full-bleed
-        heading=${this.doc?.name ?? 'Document'}
+        heading=${this.doc?.name ?? "Document"}
         .open=${this.open}
         @modal-close=${this.#close}
       >
         ${this.#renderContent()}
-        ${this.url
-          ? html`
-              <!-- iOS Safari renders a PDF in an iframe as a single page that
+        ${
+          this.url
+            ? html`
+                <!-- iOS Safari renders a PDF in an iframe as a single page that
                    will not scroll, so on the device this app is built for this
                    link is the only way to reach page 2. Always offered rather
                    than sniffed for: guessing wrong means an unreadable file. -->
-              <a slot="footer" class="viewer__open pressable" href=${this.url} target="_blank" rel="noopener">
-                Ouvrir dans un nouvel onglet
-              </a>
-            `
-          : nothing}
+                <a
+                  slot="footer"
+                  class="viewer__open pressable"
+                  href=${this.url}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Ouvrir dans un nouvel onglet
+                </a>
+              `
+            : nothing
+        }
       </app-modal>
     `;
   }
@@ -166,18 +176,27 @@ export class DocumentViewer extends BaseElement {
     if (!this.url) return html`<p class="viewer__message">Ouverture…</p>`;
 
     if (isPdf(doc.mimeType)) {
-      return html`<iframe class="viewer__frame" src=${this.url} title=${doc.name}></iframe>`;
+      return html`<iframe
+        class="viewer__frame"
+        src=${this.url}
+        title=${doc.name}
+      ></iframe>`;
     }
 
     if (isImage(doc.mimeType)) {
-      return html`<img class="viewer__image" src=${this.url} alt=${doc.name} />`;
+      return html`<img
+        class="viewer__image"
+        src=${this.url}
+        alt=${doc.name}
+      />`;
     }
 
     // Anything else — a .docx, a .heic Safari won't decode. The footer link is
     // still there, and handing the file to the OS beats a broken frame.
     return html`
       <p class="viewer__message">
-        Ce type de fichier ne peut pas être affiché ici. Ouvrez-le dans un nouvel onglet.
+        Ce type de fichier ne peut pas être affiché ici. Ouvrez-le dans un
+        nouvel onglet.
       </p>
     `;
   }
@@ -185,6 +204,6 @@ export class DocumentViewer extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'document-viewer': DocumentViewer;
+    "document-viewer": DocumentViewer;
   }
 }

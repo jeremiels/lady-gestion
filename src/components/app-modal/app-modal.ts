@@ -1,6 +1,6 @@
-import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { DialogElement } from '../../commons/dialog-element.ts';
+import { css } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { DialogElement } from "../../commons/dialog-element.ts";
 
 /**
  * Centered dialog, for a decision that has to be made before anything else can
@@ -16,13 +16,14 @@ import { DialogElement } from '../../commons/dialog-element.ts';
  * `document-viewer` reuses this dialog machinery instead of hand-rolling a
  * third `<dialog>`.
  */
-@customElement('app-modal')
+@customElement("app-modal")
 export class AppModal extends DialogElement {
   /** Fills the viewport with no card, no padding — for media. */
-  @property({ type: Boolean, reflect: true, attribute: 'full-bleed' }) fullBleed = false;
+  @property({ type: Boolean, reflect: true, attribute: "full-bleed" })
+  fullBleed = false;
 
   constructor() {
-    super('modal');
+    super("modal");
   }
 
   static componentStyles = css`
@@ -73,7 +74,6 @@ export class AppModal extends DialogElement {
       opacity: 0;
       scale: 0.94;
     }
-
 
     /* Media wants the whole screen and no chrome around it. The header still
        renders — it carries the only close affordance. */
@@ -158,12 +158,12 @@ export class AppModal extends DialogElement {
   `;
 
   render() {
-    return this.renderDialog({ part: 'modal', className: 'modal' });
+    return this.renderDialog({ part: "modal", className: "modal" });
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-modal': AppModal;
+    "app-modal": AppModal;
   }
 }

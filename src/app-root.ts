@@ -1,21 +1,21 @@
-import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { keyed } from 'lit/directives/keyed.js';
+import { html, LitElement, nothing, type TemplateResult } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import { keyed } from "lit/directives/keyed.js";
 // The dashboard is the landing route, so it is imported statically — code
 // splitting it would only add a round trip to the first paint. Every other view
 // is pulled in by its route's `load()` below.
-import './views/HomeView';
-import { LightElement } from './commons/base-element.ts';
-import { Router } from './commons/controllers/router.ts';
-import { initData } from './data/index.ts';
-import { initDoubleTapGuard } from './commons/double-tap-guard.ts';
-import { initPwa } from './pwa/index.ts';
-import { appHref } from './commons/base-path.ts';
-import { isHorsePath, isLateral, SECTIONS } from './commons/sections.ts';
-import './components/navigation/nav-bar.ts';
-import './components/navigation/nav-item.ts';
-import './components/app-icon/app-icon.ts';
-import './components/app-update-toast/app-update-toast.ts';
+import "./views/HomeView";
+import { LightElement } from "./commons/base-element.ts";
+import { Router } from "./commons/controllers/router.ts";
+import { initData } from "./data/index.ts";
+import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
+import { initPwa } from "./pwa/index.ts";
+import { appHref } from "./commons/base-path.ts";
+import { isHorsePath, isLateral, SECTIONS } from "./commons/sections.ts";
+import "./components/navigation/nav-bar.ts";
+import "./components/navigation/nav-item.ts";
+import "./components/app-icon/app-icon.ts";
+import "./components/app-update-toast/app-update-toast.ts";
 
 type Route = {
   /** Matches a full pathname. */
@@ -43,7 +43,7 @@ type Route = {
 };
 
 /** `/events/<id>`. Also how the view's id is sliced back off the path. */
-const EVENT_DETAIL_PREFIX = '/events/';
+const EVENT_DETAIL_PREFIX = "/events/";
 
 /**
  * Where the `+` sits in the bar — between Calendrier and Documents.
@@ -53,7 +53,7 @@ const EVENT_DETAIL_PREFIX = '/events/';
  * destination: it opens the event sheet, so it has no route and nothing for the
  * Navigation API to intercept.
  */
-const ADD_BUTTON_BEFORE = 'budget';
+const ADD_BUTTON_BEFORE = "budget";
 
 /**
  * The route table.
@@ -64,18 +64,22 @@ const ADD_BUTTON_BEFORE = 'budget';
  * dashboard under whatever URL the user actually asked for.
  */
 const ROUTES: Route[] = [
-  { match: (path) => path === '/', title: 'Accueil', render: () => html`<home-view></home-view>` },
   {
-    match: (path) => path === '/events',
-    title: 'Évènements',
-    load: () => import('./views/EventsView.ts'),
+    match: (path) => path === "/",
+    title: "Accueil",
+    render: () => html`<home-view></home-view>`,
+  },
+  {
+    match: (path) => path === "/events",
+    title: "Évènements",
+    load: () => import("./views/EventsView.ts"),
     render: () => html`<events-view></events-view>`,
   },
   {
     // After the exact `/events` above, so the list keeps its own entry.
     match: (path) => path.startsWith(`${EVENT_DETAIL_PREFIX}`),
-    title: 'Évènement',
-    load: () => import('./views/EventDetailView.ts'),
+    title: "Évènement",
+    load: () => import("./views/EventDetailView.ts"),
     // `keyed` is load-bearing, not decoration: `LiveQuery` subscribes once in
     // `hostConnected` and re-runs only when Dexie writes, so going from one
     // event's page straight to another would reuse this element and leave the
@@ -94,23 +98,23 @@ const ROUTES: Route[] = [
   {
     // A drill-down from the dashboard's budget card, not a section of its
     // own — hence no nav item, and Accueil stays lit while it is open.
-    match: (path) => path === '/budget',
-    title: 'Dépenses',
+    match: (path) => path === "/budget",
+    title: "Dépenses",
     // The only route pulling `d3-shape` and `app-donut-chart`, and a drill-down
     // most sessions never open — the single most worthwhile split here.
-    load: () => import('./views/BudgetView.ts'),
+    load: () => import("./views/BudgetView.ts"),
     render: () => html`<budget-view></budget-view>`,
   },
   {
-    match: (path) => path === '/documents',
-    title: 'Documents',
-    load: () => import('./views/DocumentsView.ts'),
+    match: (path) => path === "/documents",
+    title: "Documents",
+    load: () => import("./views/DocumentsView.ts"),
     render: () => html`<documents-view></documents-view>`,
   },
   {
-    match: (path) => path === '/profile',
-    title: 'Profil',
-    load: () => import('./views/ProfileView.ts'),
+    match: (path) => path === "/profile",
+    title: "Profil",
+    load: () => import("./views/ProfileView.ts"),
     render: () => html`<profile-view></profile-view>`,
   },
   {
@@ -118,8 +122,8 @@ const ROUTES: Route[] = [
     // app is single-horse and `HorseView` reads `horsesRepo.getActive()`. Wire
     // the id through before a second horse can exist.
     match: isHorsePath,
-    title: 'Fiche du cheval',
-    load: () => import('./views/HorseView.ts'),
+    title: "Fiche du cheval",
+    load: () => import("./views/HorseView.ts"),
     render: () => html`<horse-view></horse-view>`,
   },
 ];
@@ -134,24 +138,29 @@ const ROUTES: Route[] = [
  */
 const NOT_FOUND: Route = {
   match: () => true,
-  title: 'Page introuvable',
+  title: "Page introuvable",
   render: () => html`
     <section class="not-found">
       <hgroup class="section-group">
         <h1 class="section-title" tabindex="-1">Page introuvable</h1>
-        <p class="section-subtitle">Cette page n’existe pas ou a été déplacée.</p>
+        <p class="section-subtitle">
+          Cette page n’existe pas ou a été déplacée.
+        </p>
       </hgroup>
-      <a class="not-found__link pressable" href="${appHref('/')}">Retour à l’accueil</a>
+      <a class="not-found__link pressable" href="${appHref("/")}"
+        >Retour à l’accueil</a
+      >
     </section>
   `,
 };
 
-const matchRoute = (path: string): Route | undefined => ROUTES.find((route) => route.match(path));
+const matchRoute = (path: string): Route | undefined =>
+  ROUTES.find((route) => route.match(path));
 
-@customElement('app-root')
+@customElement("app-root")
 export class AppRoot extends LightElement {
   /** Set when `initData()` rejects; replaces the whole view with an explanation. */
-  @state() private dataError = '';
+  @state() private dataError = "";
 
   @state() private eventSheetOpen = false;
 
@@ -178,11 +187,10 @@ export class AppRoot extends LightElement {
     // `--horse-card` its shared-element morph only there, and let it ride the
     // plain route slide like the rest of the page for every other destination.
     extraTransitionTypes: (from, to) => [
-      ...(isHorsePath(from) || isHorsePath(to) ? ['horse'] : []),
-      ...(isLateral(from, to) ? ['lateral'] : []),
+      ...(isHorsePath(from) || isHorsePath(to) ? ["horse"] : []),
+      ...(isLateral(from, to) ? ["lateral"] : []),
     ],
   });
-
 
   connectedCallback() {
     super.connectedCallback();
@@ -197,7 +205,10 @@ export class AppRoot extends LightElement {
     // console line to explain it — the worst outcome for an app whose only copy
     // of the user's data is IndexedDB.
     initData().catch((error: unknown) => {
-      console.error('Impossible d’initialiser la base de données locale', error);
+      console.error(
+        "Impossible d’initialiser la base de données locale",
+        error,
+      );
       this.dataError = error instanceof Error ? error.message : String(error);
     });
 
@@ -229,7 +240,6 @@ export class AppRoot extends LightElement {
     document.title = `${route.title} · Ladympala.cc`;
   }
 
-
   render() {
     return html`
       <!-- Rendered from SECTIONS, so which item is lit and which section the
@@ -248,21 +258,21 @@ export class AppRoot extends LightElement {
         )}
       </nav-bar>
 
-      <main class="main-content">
-        ${this.renderView()}
-      </main>
+      <main class="main-content">${this.renderView()}</main>
 
       <!-- Mounted in the shell, not in a view: the + is in the nav bar, so the
            sheet has to be reachable from every route. Rendered only once its
            chunk has arrived — see eventSheetLoaded. -->
-      ${this.eventSheetLoaded
-        ? html`
-            <event-sheet
-              .open=${this.eventSheetOpen}
-              @sheet-close=${this.closeEventSheet}
-            ></event-sheet>
-          `
-        : nothing}
+      ${
+        this.eventSheetLoaded
+          ? html`
+              <event-sheet
+                .open=${this.eventSheetOpen}
+                @sheet-close=${this.closeEventSheet}
+              ></event-sheet>
+            `
+          : nothing
+      }
 
       <app-update-toast></app-update-toast>
     `;
@@ -280,7 +290,7 @@ export class AppRoot extends LightElement {
         type="button"
         aria-label="Ajouter un évènement"
         aria-haspopup="dialog"
-        aria-expanded=${this.eventSheetOpen ? 'true' : 'false'}
+        aria-expanded=${this.eventSheetOpen ? "true" : "false"}
         @click=${this.openEventSheet}
       >
         <app-icon class="nav-button__icon" icon="plus"></app-icon>
@@ -293,7 +303,7 @@ export class AppRoot extends LightElement {
     // has `open` — `ModalDialog.hostUpdated` calls `showModal()` from there and
     // the @starting-style entry animation plays as normal.
     if (!this.eventSheetLoaded) {
-      await import('./components/event-sheet/event-sheet.ts');
+      await import("./components/event-sheet/event-sheet.ts");
       this.eventSheetLoaded = true;
     }
     this.eventSheetOpen = true;
@@ -321,18 +331,20 @@ export class AppRoot extends LightElement {
     // `app-root`'s own update only guarantees the view *element* exists; its
     // template has not rendered yet, so the heading is not in the DOM until the
     // child's own update settles.
-    const view = this.querySelector('main')?.firstElementChild;
+    const view = this.querySelector("main")?.firstElementChild;
     // `instanceof` rather than a structural cast to `{ updateComplete?: ... }`:
     // every view here is a LitElement, and saying so lets the compiler check it
     // instead of being told to trust a shape nothing verifies.
     if (view instanceof LitElement) await view.updateComplete;
 
-    this.querySelector<HTMLElement>('h1')?.focus();
+    this.querySelector<HTMLElement>("h1")?.focus();
   }
 
   private renderView() {
     if (this.dataError) return this.renderDataError();
-    return (matchRoute(this.#router.path) ?? NOT_FOUND).render(this.#router.path);
+    return (matchRoute(this.#router.path) ?? NOT_FOUND).render(
+      this.#router.path,
+    );
   }
 
   /**
@@ -349,23 +361,29 @@ export class AppRoot extends LightElement {
         <hgroup class="section-group">
           <h1 class="section-title" tabindex="-1">Données inaccessibles</h1>
           <p class="section-subtitle">
-            Le stockage local n’a pas pu être ouvert, donc rien ne peut être affiché.
+            Le stockage local n’a pas pu être ouvert, donc rien ne peut être
+            affiché.
           </p>
         </hgroup>
 
         <div class="container data-error__body">
           <p>
-            Cela arrive quand l’espace de stockage est plein, en navigation privée, ou si la base
-            locale a été endommagée.
+            Cela arrive quand l’espace de stockage est plein, en navigation
+            privée, ou si la base locale a été endommagée.
           </p>
           <p class="data-error__hint">
-            Essayez de libérer de l’espace puis de recharger. Si vous avez un fichier de sauvegarde,
-            vous pouvez le restaurer depuis le profil une fois l’application rouverte.
+            Essayez de libérer de l’espace puis de recharger. Si vous avez un
+            fichier de sauvegarde, vous pouvez le restaurer depuis le profil une
+            fois l’application rouverte.
           </p>
           <p class="data-error__detail">${this.dataError}</p>
         </div>
 
-        <button class="data-error__button pressable" type="button" @click=${() => location.reload()}>
+        <button
+          class="data-error__button pressable"
+          type="button"
+          @click=${() => location.reload()}
+        >
           Recharger
         </button>
       </section>

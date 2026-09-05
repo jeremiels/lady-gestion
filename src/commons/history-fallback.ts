@@ -22,26 +22,33 @@
  * the router keeps its own count on each entry's state. Prefixed so it cannot
  * collide with anything else that might one day share `history.state`.
  */
-const INDEX_KEY = '__routerIndex';
+const INDEX_KEY = "__routerIndex";
 
 /** This entry's position, or `undefined` if nothing has stamped one yet. */
-export function historyIndex(state: unknown = history.state): number | undefined {
-  const value = (state as Record<string, unknown> | null | undefined)?.[INDEX_KEY];
-  return typeof value === 'number' ? value : undefined;
+export function historyIndex(
+  state: unknown = history.state,
+): number | undefined {
+  const value = (state as Record<string, unknown> | null | undefined)?.[
+    INDEX_KEY
+  ];
+  return typeof value === "number" ? value : undefined;
 }
 
 /** Stamps `index` on the current entry, preserving anything already there. */
 export function stampHistoryIndex(index: number): void {
-  history.replaceState({ ...(history.state as object | null), [INDEX_KEY]: index }, '');
+  history.replaceState(
+    { ...(history.state as object | null), [INDEX_KEY]: index },
+    "",
+  );
 }
 
 /** Pushes a new entry at `index`, pointing at `url`. */
 export function pushHistoryEntry(index: number, url: string): void {
-  history.pushState({ [INDEX_KEY]: index }, '', url);
+  history.pushState({ [INDEX_KEY]: index }, "", url);
 }
 
 /** Fired on `window` by `navigateTo`, for the router's fallback to claim. */
-export const APP_NAVIGATE = 'app-navigate';
+export const APP_NAVIGATE = "app-navigate";
 
 /** The path a pending `APP_NAVIGATE` is asking for. */
 export interface AppNavigateDetail {

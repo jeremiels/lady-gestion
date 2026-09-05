@@ -51,7 +51,7 @@ Three consequences worth stating out loud:
 - **`overlay` is used unguarded and no Safari supports it.** The
   `transition: overlay … allow-discrete` in `app-modal` and `app-bottom-sheet`
   is Chromium-only, still absent in Safari 26.x. Entry animations are fine —
-  they ride `@starting-style` — but the *exit* never plays on iOS, because the
+  they ride `@starting-style` — but the _exit_ never plays on iOS, because the
   dialog leaves the top layer the instant `close()` runs. Accepted for now;
   fixing it means holding `open` until `transitionend` and closing from there.
 
@@ -88,7 +88,7 @@ Three consequences worth stating out loud:
   element and leaves the previous record on screen.
 - **To go back, call `goBack(fallback)` from `commons/navigation.ts`** — never
   hand-roll it. It asks the Navigation API, not `history.length`:
-  `navigation.currentEntry.index > 0` means there is a previous *same-origin*
+  `navigation.currentEntry.index > 0` means there is a previous _same-origin_
   entry, whereas `history.length` counts entries from before the app loaded and
   reads 2 on a genuinely cold start, so a bare `history.back()` walks off the
   app. Measured, not theoretical: the service worker answers any path with the
@@ -137,7 +137,7 @@ Three consequences worth stating out loud:
   the content is pure ASCII: **keep accents out of the PDF text**.
 - **`Télécharger` on the event detail page is a deliberate mock**, like
   `ProfileView`'s account block: it means "download from the Drive", and Drive
-  sync does not exist. The bytes *are* local, so if it should instead save the
+  sync does not exist. The bytes _are_ local, so if it should instead save the
   file from IndexedDB, `downloadBackup` in `backup/snapshot.ts` is the existing
   anchor-plus-`download` pattern to copy.
 - **Every form goes through `readForm()` (`src/data/forms.ts`).** It takes a
@@ -150,7 +150,7 @@ Three consequences worth stating out loud:
   a list of records, name fields from record ids (`quantity-<id>`) and generate
   the schema from that same list; then the markup and its reader cannot drift.
   `rationsService` is the reference: `rationFieldNames(id)` is called by the
-  markup that renders each control *and* by the schema that parses it back, so
+  markup that renders each control _and_ by the schema that parses it back, so
   neither half spells a name. The version before any of it hardcoded five
   product names and read four different keys, and saving wrote one unlabeled row
   and dropped the rest.
@@ -191,10 +191,11 @@ Three consequences worth stating out loud:
   the same table to label its Practicien/Site row, which is what keeps what is
   captured and what is displayed from drifting.
 
-  `activity` is also the one field whose *parser* varies: it is required on
+  `activity` is also the one field whose _parser_ varies: it is required on
   `work` and absent everywhere else, so `event-sheet` swaps in the required
   overload of `oneOf` for that layout rather than copying "Ce champ est requis."
   out of `forms.ts`. The schema's shape is the same either way.
+
 - **`HorseEvent.status` is derived, never asked for**: `statusForDate()` in
   `events.ts` — a future date is `planned`, today or past is `done`. None of the
   entry forms has a status control because the date already says which is meant.
@@ -340,6 +341,7 @@ src/data/
   Each call deliberately re-resolves the horse rather than sharing one lookup:
   Dexie re-runs a `liveQuery` only for tables it actually read, so a query that
   never touched `horses` would not notice the active horse changing.
+
 - **`resetDb()` opens that gate too.** It stands in for `initData()` in the
   tests, and standing in for it means standing in for all of it.
 - Every record carries `id` (client UUID), `ownerId`, `createdAt`,
@@ -371,7 +373,7 @@ src/data/
   neighbours, in the same place in the donut from one month to the next.
 - **`BudgetView` reads every budget and filters in memory**, and that is
   forced, not lazy: `LiveQuery` subscribes once and Dexie re-runs it only on a
-  *write*, so a query narrowed by the user-selected period would go stale the
+  _write_, so a query narrowed by the user-selected period would go stale the
   moment the picker was touched. `EventsView` does the same for the same reason.
   Its two period keys (`monthKey`, `yearKey`) are held separately rather than
   derived from each other, so flipping to Année and back returns to the month
@@ -379,7 +381,7 @@ src/data/
   `ViewState` bag rather than in `@state()` fields, so they survive a drill-down
   too.
 - **The dashboard's week strip is two pure functions plus a card**: `weekGrid`
-  (`icalendar.ts`) returns the seven days of a week as a *tuple*, so a caller
+  (`icalendar.ts`) returns the seven days of a week as a _tuple_, so a caller
   reading the first and last day for a range query needs no `!` under
   `noUncheckedIndexedAccess` — `monthGrid` builds its rows from the same helper.
   `workActivityByDate` (`events.ts`) buckets `travail` rows into one activity per
@@ -391,11 +393,11 @@ src/data/
   `null`, exclusive `DTEND`, `STATUS`, `WKST`) and owns `monthGrid()` and
   `occurrencesByDate()`. The stored record deliberately stays as it is; put
   `RRULE` expansion or an `.ics` export here rather than in a component.
-  A calendar's dots and its day list must read the *same*
+  A calendar's dots and its day list must read the _same_
   `occurrencesByDate()` result, or the two will disagree about a day.
 - **Seasonality is a window, not a flag.** `RationItem.season` is
   `{ from, to } | null` (month numbers, 1 = January, both ends inclusive,
-  `null` = fed all year). `to` may be *before* `from` — the plan's real window
+  `null` = fed all year). `to` may be _before_ `from` — the plan's real window
   is October→April, which wraps the year — so never compare `from`/`to`
   directly; go through `isInSeason()` in `seasons.ts`. That module also owns
   `formatSeasonRange()` (`Oct. → Avr.`), `formatSuspensionRange()` and
@@ -435,16 +437,15 @@ runs its `@customElement(...)` decorator.
 **Never put a backtick inside an HTML comment in a `html\`...\`` template.**
 It closes the template literal, and the errors point at whatever line the
 parser gave up on rather than the comment. Write component and file names bare
-in those comments. An HTML comment also cannot sit *inside* an opening tag,
+in those comments. An HTML comment also cannot sit _inside_ an opening tag,
 between attributes — put it on the line above the element.
 
-**SVG fragments need Lit's `svg\`\`` tag, not `html\`\``.** A nested template is
-parsed on its own, in HTML context, so a `<path>` returned from a helper comes
-out as an `HTMLUnknownElement` in the wrong namespace. It then has a valid `d`,
-resolves its `fill` correctly, reports the right computed style — and draws
-nothing, with a zero-size bounding box and no error anywhere. `app-donut-chart`
-hit exactly this. Only markup written inline inside the same `html` template as
-its `<svg>` is safe.
+**SVG fragments need Lit's `svg\`\``tag, not`html\`\``.** A nested template is
+parsed on its own, in HTML context, so a `<path>`returned from a helper comes
+out as an`HTMLUnknownElement`in the wrong namespace. It then has a valid`d`,
+resolves its `fill`correctly, reports the right computed style — and draws
+nothing, with a zero-size bounding box and no error anywhere.`app-donut-chart`hit exactly this. Only markup written inline inside the same`html`template as
+its`<svg>` is safe.
 
 ## Backend migration readiness
 
@@ -501,16 +502,16 @@ would surface under real network latency:
 ## Component conventions
 
 - Extend `BaseElement` (`src/commons/base-element.ts`), and declare
-  `static componentStyles = css\`...\`` instead of `static styles` —
-  `BaseElement.styles` auto-prepends the shared reset and appends the utilities.
+  `static componentStyles = css\`...\``instead of`static styles`—`BaseElement.styles` auto-prepends the shared reset and appends the utilities.
 
-  An intermediate base class for a *family* of components sets
+  An intermediate base class for a _family_ of components sets
   `static sharedStyles` instead, which lands between the reset and
   `componentStyles` so a member can still override it. `FormFieldElement` and
   `DialogElement` both do. **Never override `static styles` to add to it**:
   `BaseElement.styles` reads `this.componentStyles`, so calling it with `this`
   bound to `BaseElement` silently drops every subclass's own rules and nothing
   type-checks it.
+
 - **Cross-cutting behaviour goes in a reactive controller**, under
   `src/commons/controllers/` (and `LiveQuery` in `src/data/live.ts`, which
   predates the directory). Existing ones: `FormControl` (ElementInternals and
@@ -518,7 +519,7 @@ would surface under real network latency:
   `MediaQuery` (a media query as reactive state), `ViewState` (a view's UI
   state, kept on the history entry — see the Stack note above). The rule of thumb is Lit's
   own: a controller for logic that composes and needs the update lifecycle;
-  leave it on the component when it is the element's *public API* or one of the
+  leave it on the component when it is the element's _public API_ or one of the
   browser-called `form*Callback` hooks, neither of which a controller can
   receive. That boundary is why `FormControl` deliberately absorbs only half of
   a form field.
@@ -530,7 +531,7 @@ would surface under real network latency:
   shells render into **light DOM**, and they get it by extending
   **`LightElement` (`commons/base-element.ts`)** rather than repeating a
   `createRenderRoot()` override: `app-root.ts` and every `views/*View.ts`.
-  The *only* reason to opt out is that their CSS lives in `styles/views/*.css`
+  The _only_ reason to opt out is that their CSS lives in `styles/views/*.css`
   and has to sit in the `views` cascade layer, which a shadow root puts out of
   reach. Note `LightElement` extends `LitElement`, not `BaseElement`, and that
   is deliberate — Lit only adopts `static styles` into a shadow root, so
@@ -542,7 +543,7 @@ would surface under real network latency:
   from `tagStyle(eventType.theme(key))`, and `styles/components/tag.css` is
   gone. Don't
   reintroduce a global stylesheet for a component's own colours.
-- Sizing a shadow component *from* a light-DOM parent works — a rule on the host
+- Sizing a shadow component _from_ a light-DOM parent works — a rule on the host
   beats the component's own `:host` declarations. But **size the glyph, not the
   host**, when a component carries its own padding: `.nav-item__icon` set
   `width: 1.25rem` on an `app-icon` whose `:host` has 8px of padding, leaving a
@@ -562,7 +563,7 @@ would surface under real network latency:
   native element in its shadow root), `formValue` (what it contributes to
   `FormData` — `null` submits nothing), `captureDefault`/`restoreDefault` (the
   pristine value a reset returns to), and `formStateRestoreCallback`, which is
-  the one place the *argument* has to be read differently. Plus its template and
+  the one place the _argument_ has to be read differently. Plus its template and
   its styles. See `app-input.ts`, `app-select.ts`, `app-checkbox.ts` — each is
   now about fifteen lines of class body around a render method.
 
@@ -576,7 +577,7 @@ would surface under real network latency:
 
   Ids and message wiring come from the base too: `this.fieldId` is minted once
   from a single shared counter, and `this.messages` gives `{ hintId, errorId,
-  message }` for `fieldMessages()` and `describedBy()`.
+message }` for `fieldMessages()` and `describedBy()`.
 
   `commons/controllers/form-control.ts` still owns the `ElementInternals` half —
   `attachInternals()`, the `invalid` listener, `setFormValue()`, `sync()` and
@@ -591,6 +592,7 @@ would surface under real network latency:
   which the controller treats as "the user has had their chance" — so it reveals
   the error UI. Use `validity` directly for a genuinely silent read. Pinned by a
   test in `app-input.test.ts`.
+
 - BEM-ish class naming (`field`, `field__label`, `field__input`,
   `dialog__header`, ...), plus `part="..."` attributes on key internal
   elements so consumers can style through the shadow boundary
@@ -603,7 +605,7 @@ would surface under real network latency:
   ```ts
   declare global {
     interface HTMLElementTagNameMap {
-      'app-foo': AppFoo;
+      "app-foo": AppFoo;
     }
   }
   ```
@@ -620,6 +622,7 @@ would surface under real network latency:
   works, with no re-dispatch anywhere in `app-input`. Don't "fix" that by
   adding an `input-change` event, and don't assume the two events behave alike:
   they don't, and the difference is in the spec, not in this codebase.
+
 - Custom events follow the shape `app-bottom-sheet` introduced with
   `sheet-open`/`sheet-close`: `{ bubbles: true, composed: true }`, a
   lowercase-hyphenated name, and a `detail` object carrying the new value (or a
@@ -628,8 +631,8 @@ would surface under real network latency:
   surface that already provides one — the ration sheet wants a card per product,
   the event sheet lays its fields straight onto the sheet background.
 - **Two dialog primitives, both native `<dialog>` + `showModal()`.**
-  `app-bottom-sheet` is for a *task* (a form to fill in); `app-modal` is for an
-  *answer* that blocks everything else, above all a delete confirm. The shared
+  `app-bottom-sheet` is for a _task_ (a form to fill in); `app-modal` is for an
+  _answer_ that blocks everything else, above all a delete confirm. The shared
   mechanics live in `commons/controllers/modal-dialog.ts`: a
   `#dialog = new ModalDialog(this, () => this.dialogEl, 'sheet')` drives
   `showModal`/`close` off the host's `open` from its own `hostUpdated` (so
@@ -659,10 +662,11 @@ would surface under real network latency:
   `<dialog>`'s own layout and `@starting-style`, and anything genuinely its own —
   the sheet's drag-to-dismiss, `app-modal`'s `full-bleed` (which is how
   `document-viewer` reuses this machinery for media).
+
 - **A component that mints an object URL owns revoking it.**
   `documentsRepo.getObjectUrl` hands the URL over and does not track it, so a
   missed `URL.revokeObjectURL` pins the whole file in memory for the session.
-  `document-viewer` releases on close *and* in `disconnectedCallback`, and
+  `document-viewer` releases on close _and_ in `disconnectedCallback`, and
   discards a URL that arrived after the viewer was already closed — see the
   in-flight guard in its `#load`. Any new consumer must do the same.
 - **Same rule for a `requestAnimationFrame` loop: cancel it in
@@ -672,7 +676,7 @@ would surface under real network latency:
   its progress to 1 and never scheduling a frame — the global reduced-motion
   block in the reset only reaches CSS transitions, not JS animation.
 - **`event-card` has three layouts** (`layout="default" | "dashboard" |
-  "budget"`), reflected so its styles can key off the attribute. `default` is
+"budget"`), reflected so its styles can key off the attribute. `default` is
   everything; `dashboard` (HomeView) drops the notes, because a glance-list of
   three appointments should not carry a vet's paragraph; `budget`
   (BudgetView) moves the price out of the meta line into its own right-aligned
@@ -680,7 +684,7 @@ would surface under real network latency:
   than forking a second card.
 - **`app-segmented`'s `icon` is optional** — a segment with no icon renders its
   `label` as text (`Mois | Année`), and `aria-label` is set only in icon mode,
-  since visible text already *is* the accessible name. `app-select` has a `pill`
+  since visible text already _is_ the accessible name. `app-select` has a `pill`
   variant that hides the label visually and shrinks the control to the period
   picker's pill; it stays a real `<select>`, so the iPhone gives it the native
   wheel picker for free.
@@ -703,6 +707,7 @@ would surface under real network latency:
   dashboard as in the calendar — `layout` is an editorial choice about how much
   to say, which no measurement can stand in for. Reach for a container query
   when the thing that changed is genuinely the available room.
+
 - **Anything that has to float above the app is a popover, not a `z-index`.**
   `showModal()` puts both dialog primitives in the top layer, which beats every
   `z-index` there is — `app-update-toast` used to sit at `z-index: 10` and was
@@ -717,21 +722,22 @@ would surface under real network latency:
   `z-index: 1`. (A component may still use one privately inside its own shadow
   root — `app-calendar` puts its selection pill at `z-index: -1` — which is
   local to that tree and not what this rule is about.) It is not an
-  exception to the rule — it must *not* beat a dialog, and cannot, because
+  exception to the rule — it must _not_ beat a dialog, and cannot, because
   `showModal()` uses the top layer. What it does is lift the fixed nav bar above
   the page content scrolling under it, which tree order alone does not
-  guarantee: the bar is rendered *before* `<main>` in `app-root`, so at
+  guarantee: the bar is rendered _before_ `<main>` in `app-root`, so at
   `z-index: auto` anything in a view that forms a stacking context paints on top
   of it. `content-visibility: auto` on the event and budget rows does (it
   implies paint containment) and hid the bar completely; a `transform` or
   `opacity` animation would too. Reach for the top layer to float above the app;
   leave this one z-index alone.
+
 - **A live region has to exist before its contents change, and `hidden` does not
   count as existing.** Rendering a fully-formed `role="status"` element into the
   DOM typically announces nothing — and `hidden` (like `display: none`) takes an
   element out of the accessibility tree, so unhiding one is the same insertion
   by another name. Keep the region mounted, unhidden and empty, and change what
-  is *inside* it: `app-update-toast`'s `.toast-region`, `event-sheet`'s
+  is _inside_ it: `app-update-toast`'s `.toast-region`, `event-sheet`'s
   `.event-form__error-region` and `EventDetailView`'s
   `.event-detail__error-region` are all `display: contents` wrappers that cost
   no layout while empty — which is what makes never hiding them affordable, even
@@ -742,7 +748,7 @@ would surface under real network latency:
   The message reaches the user through `aria-describedby` + `aria-invalid` on
   the control, read on focus. An assertive region on every field fires on every
   blur, which is noise, and says nothing at all on the path that actually
-  matters. `?hidden` is fine *here* precisely because there is no live region to
+  matters. `?hidden` is fine _here_ precisely because there is no live region to
   keep in the accessibility tree. A new field type renders
   `${fieldMessages(...)}` rather than copying the markup — `app-input`,
   `app-select` and `app-checkbox` had three verbatim copies of it once already.
@@ -753,7 +759,7 @@ would surface under real network latency:
   `FormControl.setExternalError()` marks the field touched itself. That is the
   only reason a `novalidate` form works at all — and `event-sheet` is one, it
   has to be, because the reader in `data/forms.ts` owns the rules. Submitting it
-  empty once did *nothing visible*: `readForm` produced every message, each
+  empty once did _nothing visible_: `readForm` produced every message, each
   reached its field as `error`, and not one was displayed.
   `event-sheet.test.ts` pins that, including a `maxLength` failure the browser
   itself considers valid — reveal must not route through native validity.
@@ -762,7 +768,7 @@ would surface under real network latency:
   message the field already renders.
 - **`.container` is a wrapper, not a modifier.** Write
   `<div class="container"><ul class="meta-list">`, never both classes on one
-  element: `.meta-list` zeroes its own padding and sits in a *later*
+  element: `.meta-list` zeroes its own padding and sits in a _later_
   `components` sub-layer, so it silently wins and the card loses its inset.
   `HorseView` and `ProfileView` already nest it this way.
 
@@ -796,7 +802,7 @@ would surface under real network latency:
     files used to break that — two of them re-deriving a value an unused alias
     already held — which is what made a dark theme 12 files of hunting instead
     of one block of overrides. If no role fits, add one here rather than
-    inlining the scale. `--color-danger` covers validation errors *and*
+    inlining the scale. `--color-danger` covers validation errors _and_
     destructive actions; it replaced a bare `#b3261e` repeated in four field
     components.
   - Spacing: `--spacing-2/4/6/8/12/16/20/24/32` (rem, 4px scale).
@@ -812,12 +818,12 @@ would surface under real network latency:
     bar's items stay lined up with the content above them on a wide window.
     `.main-content` is deliberately **not** also a `container-type: inline-size`
     container — that implies `contain: layout`, and `HorseView` and
-    `EventDetailView` render `<dialog>`-based components *inside* `<main>`. Add
+    `EventDetailView` render `<dialog>`-based components _inside_ `<main>`. Add
     it when a rule needs it, with a test on the sheet's geometry.
   - Shadow-root utilities: `.visually-hidden` lives in one file,
     `styles/layers/component-utilities.css` — `main.css` imports it straight
     into the `utilities` layer for the document, and `BaseElement` also adopts
-    the same bytes (via `?inline`) *after* a component's own styles, because a
+    the same bytes (via `?inline`) _after_ a component's own styles, because a
     document `@layer` cannot cross a shadow boundary. Inside a shadow root
     component styles are unlayered and unlayered beats every layer — anything
     shipped in `component-reset.css` is the weakest rule in the tree — so last
@@ -825,7 +831,7 @@ would surface under real network latency:
     pair to keep in step.
 
     Shared component CSS has a **second channel**, and the two are not
-    interchangeable. `component-utilities.css` is for rules the document *and*
+    interchangeable. `component-utilities.css` is for rules the document _and_
     every shadow root want — every `BaseElement` adopts them whether it uses
     them or not. A `commons/*.styles.ts` fragment is the opt-in one: a
     `CSSResult` a component composes into its own
@@ -842,8 +848,9 @@ would surface under real network latency:
     **`reset.styles.ts` exports these as two separate values on purpose** —
     `resetStyles` and `utilityStyles` — and `BaseElement.styles` composes them
     as `[reset, shared, component, utilities]`. Do not merge the two exports
-    or reorder that array: the ordering *is* the mechanism, and collapsing it
+    or reorder that array: the ordering _is_ the mechanism, and collapsing it
     silently stops utilities winning inside every shadow root at once.
+
   - Motion: `src/styles/tokens/motion.css` — `--duration-fast` (0.15s,
     hover/selection feedback), `--duration-medium` (0.2s), `--duration-slow`
     (0.32s, the bottom sheet), plus `--easing-standard` and `--easing-sheet`.
@@ -889,7 +896,7 @@ public/
   `dist/` in `closeBundle` (the only hook that runs after `public/` is
   copied), then writes `dist/sw.js` from `src/pwa/service-worker.js` with
   two `__…__` tokens replaced: the precache URL list and a cache name
-  hashed from the *contents* of every file. Hashing contents matters —
+  hashed from the _contents_ of every file. Hashing contents matters —
   `index.html` is not content-hashed, so a build that only changes it must
   still produce a different `sw.js` or the browser sees no update.
 - The app has no backend, so the whole build is precached on install and
@@ -931,7 +938,7 @@ public/
   hard-coded hex) — that is what lets `--icon-color` theme them through the
   `<use>` shadow tree.
 - **A modal dialog locks the page behind it.** `showModal()` makes the rest of
-  the document inert but leaves it *scrollable*, so `ModalDialog` takes a lock
+  the document inert but leaves it _scrollable_, so `ModalDialog` takes a lock
   from `commons/scroll-lock.ts` on open and releases it on close and on
   teardown. Nothing else should touch `html.scroll-locked`. It lives in the
   controller rather than in a `html:has(app-modal[open])` rule because
@@ -942,7 +949,7 @@ public/
 
 - Modern/platform-first CSS is favored over hand-rolled JS: cascade
   `@layer`s, `:has()`, `@starting-style` + `transition-behavior:
-  allow-discrete` (see `app-bottom-sheet` for animating a native
+allow-discrete` (see `app-bottom-sheet` for animating a native
   `<dialog>` open/closed), `color-mix()`, `dvh` units,
   `env(safe-area-inset-*)` (requires `viewport-fit=cover` in
   `index.html`, already set), View Transitions API for route changes —
@@ -971,32 +978,30 @@ public/
   top layer, `delegatesFocus` and container queries, none of which jsdom
   implements — a shimmed suite would pass against a mock while the real thing
   broke. CI installs the browser with `npx playwright install --with-deps
-  chromium`; locally it is the same command, once.
+chromium`; locally it is the same command, once.
 - `src/commons/controllers/router.test.ts` drives **real** navigations rather
   than synthesising events (`NavigateEvent` is not constructible). A
   file-scoped "keeper" listener intercepts every navigation with a no-op
   handler so the runner's iframe never actually unloads — without it, the two
-  tests that check the router *doesn't* intercept would take the whole run
+  tests that check the router _doesn't_ intercept would take the whole run
   down. The `beforeRender` throws -> `location.href` fallback is deliberately
   left uncovered: it asks for a real page load, which no component fixture can
   survive. It needs a Playwright test against `npm run preview`.
 - `src/components/event-sheet/event-sheet.test.ts` covers the failed-submit
-  path — the one that used to fail *silently*, showing the user nothing while
+  path — the one that used to fail _silently_, showing the user nothing while
   every field had been told it was wrong. It seeds a horse through
   `data/__tests__/factories.ts`; component tests run against the browser's real
   IndexedDB.
 - `src/components/__tests__/change-events.test.ts` pins the composed-event
-  contract — the one thing here that fails *silently*, since a `change` that
+  contract — the one thing here that fails _silently_, since a `change` that
   never crosses the boundary just looks like an inert control.
-- Mount through `src/components/__tests__/fixture.ts`. `fixture(html\`...\`)`
-  renders into a container **attached to the document** — `connectedCallback` is
-  where every controller subscribes, `showModal()` throws on a disconnected
-  dialog, and `:state()` means nothing outside a rendered tree — and cleans up
-  after each test. Use its `settled(el)` rather than a bare
-  `await el.updateComplete`: several components legitimately set reactive state
-  from `updated()` (a field mirrors its native control's validity there, because
-  the control does not settle until the DOM has caught up), and Lit signals that
-  by resolving `updateComplete` with `false`. Awaiting once lands mid-cascade.
+- Mount through `src/components/__tests__/fixture.ts`. `fixture(html\`...\`)`renders into a container **attached to the document** —`connectedCallback`is
+where every controller subscribes,`showModal()`throws on a disconnected
+dialog, and`:state()`means nothing outside a rendered tree — and cleans up
+after each test. Use its`settled(el)`rather than a bare`await el.updateComplete`: several components legitimately set reactive state
+from `updated()`(a field mirrors its native control's validity there, because
+the control does not settle until the DOM has caught up), and Lit signals that
+by resolving`updateComplete`with`false`. Awaiting once lands mid-cascade.
 - Build calendar fixtures with a **whole** `CalendarEvent`, not a partial one:
   `occurrencesByDate` walks `end`, so a half-built literal fails inside date
   arithmetic rather than at the boundary. See `calendarEvent()` in

@@ -3,8 +3,7 @@
    after it, since the shared-element morph is what a route pair opts *into* on
    top of that. `reduced-motion` last: it is the guard that switches the whole
    layer off, and nothing may come after it. */
-@layer transitions.route, transitions.horse, transitions.list-entrance,
-  transitions.reduced-motion;
+@layer transitions.route, transitions.horse, transitions.list-entrance, transitions.reduced-motion;
 
 @import "../transitions/route.css";
 @import "../transitions/horse.css";

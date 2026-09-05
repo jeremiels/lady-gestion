@@ -1,5 +1,5 @@
-import { isIsoDate, type IsoDate } from './dates.ts';
-import { toCents } from './money.ts';
+import { isIsoDate, type IsoDate } from "./dates.ts";
+import { toCents } from "./money.ts";
 
 /**
  * Turning form input into valid record fields.
@@ -33,7 +33,9 @@ import { toCents } from './money.ts';
 /** Why a field was rejected. French, because it is shown to the user. */
 export type FieldError = string;
 
-export type ParseResult<T> = { ok: true; value: T } | { ok: false; error: FieldError };
+export type ParseResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: FieldError };
 
 /**
  * Parses one raw `FormData` entry.
@@ -48,7 +50,7 @@ const fail = (error: FieldError): ParseResult<never> => ({ ok: false, error });
 
 /** `FormData` hands back `string | File`; every field here wants the string. */
 const asString = (raw: FormDataEntryValue | null): string | null =>
-  typeof raw === 'string' ? raw : null;
+  typeof raw === "string" ? raw : null;
 
 /**
  * Every parser below is overloaded on `required`.
@@ -61,15 +63,20 @@ const asString = (raw: FormDataEntryValue | null): string | null =>
 export type TextOptions = { required?: boolean; maxLength?: number };
 
 /** Trimmed text. `null` when blank and not required — never an empty string. */
-export function text(options: TextOptions & { required: true }): FieldParser<string>;
+export function text(
+  options: TextOptions & { required: true },
+): FieldParser<string>;
 export function text(options?: TextOptions): FieldParser<string | null>;
 export function text(options: TextOptions = {}): FieldParser<string | null> {
   return (raw) => {
-    const value = asString(raw)?.trim() ?? '';
+    const value = asString(raw)?.trim() ?? "";
 
-    if (value === '') return options.required ? fail('Ce champ est requis.') : ok(null);
+    if (value === "")
+      return options.required ? fail("Ce champ est requis.") : ok(null);
     if (options.maxLength !== undefined && value.length > options.maxLength) {
-      return fail(`Ce champ ne peut pas dépasser ${options.maxLength} caractères.`);
+      return fail(
+        `Ce champ ne peut pas dépasser ${options.maxLength} caractères.`,
+      );
     }
     return ok(value);
   };
@@ -85,15 +92,20 @@ export type NumberOptions = { required?: boolean; min?: number; max?: number };
  * fields in this app are `type="text"` + `inputmode="decimal"` + `pattern`, and
  * why normalising the comma is this function's job rather than the browser's.
  */
-export function decimal(options: NumberOptions & { required: true }): FieldParser<number>;
+export function decimal(
+  options: NumberOptions & { required: true },
+): FieldParser<number>;
 export function decimal(options?: NumberOptions): FieldParser<number | null>;
-export function decimal(options: NumberOptions = {}): FieldParser<number | null> {
+export function decimal(
+  options: NumberOptions = {},
+): FieldParser<number | null> {
   return (raw) => {
-    const value = asString(raw)?.trim() ?? '';
-    if (value === '') return options.required ? fail('Ce champ est requis.') : ok(null);
+    const value = asString(raw)?.trim() ?? "";
+    if (value === "")
+      return options.required ? fail("Ce champ est requis.") : ok(null);
 
-    const parsed = Number(value.replace(',', '.'));
-    if (!Number.isFinite(parsed)) return fail('Saisissez un nombre valide.');
+    const parsed = Number(value.replace(",", "."));
+    if (!Number.isFinite(parsed)) return fail("Saisissez un nombre valide.");
     if (options.min !== undefined && parsed < options.min) {
       return fail(`La valeur doit être supérieure ou égale à ${options.min}.`);
     }
@@ -111,14 +123,19 @@ export function decimal(options: NumberOptions = {}): FieldParser<number | null>
  * so there is one place that decides how `12,50` becomes `1250`.
  */
 export function cents(options: { required: true }): FieldParser<number>;
-export function cents(options?: { required?: boolean }): FieldParser<number | null>;
-export function cents(options: { required?: boolean } = {}): FieldParser<number | null> {
+export function cents(options?: {
+  required?: boolean;
+}): FieldParser<number | null>;
+export function cents(
+  options: { required?: boolean } = {},
+): FieldParser<number | null> {
   return (raw) => {
-    const value = asString(raw)?.trim() ?? '';
-    if (value === '') return options.required ? fail('Ce champ est requis.') : ok(null);
+    const value = asString(raw)?.trim() ?? "";
+    if (value === "")
+      return options.required ? fail("Ce champ est requis.") : ok(null);
 
     const parsed = toCents(value);
-    if (parsed === null) return fail('Saisissez un montant valide.');
+    if (parsed === null) return fail("Saisissez un montant valide.");
     return ok(parsed);
   };
 }
@@ -143,24 +160,30 @@ export function oneOf<T extends string>(
   options: { required?: boolean } = {},
 ): FieldParser<T | null> {
   return (raw) => {
-    const value = asString(raw)?.trim() ?? '';
-    if (value === '') return options.required ? fail('Ce champ est requis.') : ok(null);
+    const value = asString(raw)?.trim() ?? "";
+    if (value === "")
+      return options.required ? fail("Ce champ est requis.") : ok(null);
 
     return (values as readonly string[]).includes(value)
       ? ok(value as T)
-      : fail('Sélectionnez une valeur dans la liste.');
+      : fail("Sélectionnez une valeur dans la liste.");
   };
 }
 
 /** A calendar date, `YYYY-MM-DD` — the format `<input type="date">` submits. */
 export function isoDate(options: { required: true }): FieldParser<IsoDate>;
-export function isoDate(options?: { required?: boolean }): FieldParser<IsoDate | null>;
-export function isoDate(options: { required?: boolean } = {}): FieldParser<IsoDate | null> {
+export function isoDate(options?: {
+  required?: boolean;
+}): FieldParser<IsoDate | null>;
+export function isoDate(
+  options: { required?: boolean } = {},
+): FieldParser<IsoDate | null> {
   return (raw) => {
-    const value = asString(raw)?.trim() ?? '';
-    if (value === '') return options.required ? fail('Ce champ est requis.') : ok(null);
+    const value = asString(raw)?.trim() ?? "";
+    if (value === "")
+      return options.required ? fail("Ce champ est requis.") : ok(null);
 
-    return isIsoDate(value) ? ok(value) : fail('Saisissez une date valide.');
+    return isIsoDate(value) ? ok(value) : fail("Saisissez une date valide.");
   };
 }
 

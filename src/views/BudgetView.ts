@@ -1,11 +1,11 @@
-import { html, nothing, type PropertyValues } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { classMap } from 'lit/directives/class-map.js';
-import { repeat } from 'lit/directives/repeat.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import { LightElement } from '../commons/base-element.ts';
-import { MediaQuery } from '../commons/controllers/media-query.ts';
-import { ViewState } from '../commons/controllers/view-state.ts';
+import { html, nothing, type PropertyValues } from "lit";
+import { customElement } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+import { repeat } from "lit/directives/repeat.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { LightElement } from "../commons/base-element.ts";
+import { MediaQuery } from "../commons/controllers/media-query.ts";
+import { ViewState } from "../commons/controllers/view-state.ts";
 import {
   activeHorseQuery,
   byDateDescending,
@@ -22,23 +22,22 @@ import {
   type BudgetGranularity,
   type BudgetPeriod,
   type BudgetSlice,
-} from '../data/index.ts';
-import type { HorseEvent } from '../data/types.ts';
-import { eventType, type EventTypeKey } from '../types/event.types.ts';
-import type { SegmentedOption } from '../components/app-segmented/app-segmented.ts';
-import type { DonutSlice } from '../components/app-donut-chart/app-donut-chart.ts';
+} from "../data/index.ts";
+import type { HorseEvent } from "../data/types.ts";
+import { eventType, type EventTypeKey } from "../types/event.types.ts";
+import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
+import type { DonutSlice } from "../components/app-donut-chart/app-donut-chart.ts";
 
-import '../components/app-donut-chart/app-donut-chart.ts';
-import '../components/app-icon/app-icon.ts';
-import '../components/app-segmented/app-segmented.ts';
-import '../components/app-select/app-select.ts';
-import '../components/event-card/event-card.ts';
-
+import "../components/app-donut-chart/app-donut-chart.ts";
+import "../components/app-icon/app-icon.ts";
+import "../components/app-segmented/app-segmented.ts";
+import "../components/app-select/app-select.ts";
+import "../components/event-card/event-card.ts";
 
 /** Text segments, not icons: "M" and "A" would mean nothing. */
 const GRANULARITIES: SegmentedOption[] = [
-  { value: 'month', icon: undefined, label: 'Mois' },
-  { value: 'year', icon: undefined, label: 'Année' },
+  { value: "month", icon: undefined, label: "Mois" },
+  { value: "year", icon: undefined, label: "Année" },
 ];
 
 /**
@@ -64,12 +63,12 @@ type BudgetUiState = {
   hidden: EventTypeKey[];
 };
 
-@customElement('budget-view')
+@customElement("budget-view")
 export class BudgetView extends LightElement {
-  #ui = new ViewState<BudgetUiState>(this, 'budget', () => ({
-    granularity: 'month',
-    monthKey: periodOf(todayISO(), 'month').key,
-    yearKey: periodOf(todayISO(), 'year').key,
+  #ui = new ViewState<BudgetUiState>(this, "budget", () => ({
+    granularity: "month",
+    monthKey: periodOf(todayISO(), "month").key,
+    yearKey: periodOf(todayISO(), "year").key,
     hidden: [],
   }));
 
@@ -85,9 +84,13 @@ export class BudgetView extends LightElement {
    *
    * `listBudget` already drops rows with no amount and cancelled ones.
    */
-  #budget = activeHorseQuery<HorseEvent[]>(this, (horseId) => eventsRepo.listBudget(horseId), []);
+  #budget = activeHorseQuery<HorseEvent[]>(
+    this,
+    (horseId) => eventsRepo.listBudget(horseId),
+    [],
+  );
 
-  #reducedMotion = new MediaQuery(this, '(prefers-reduced-motion: reduce)');
+  #reducedMotion = new MediaQuery(this, "(prefers-reduced-motion: reduce)");
 
   /** Set in `willUpdate`, consumed and cleared in `updated` — see the note there. */
   #summaryHeightBeforeUpdate: number | null = null;
@@ -99,7 +102,6 @@ export class BudgetView extends LightElement {
    * legend in on load.
    */
   #renderedPeriodKey: string | null = null;
-
 
   /**
    * The one place the stored granularity is read, so the picker, the heading
@@ -113,9 +115,9 @@ export class BudgetView extends LightElement {
   get #period(): BudgetPeriod {
     const { granularity, monthKey, yearKey } = this.#ui.value;
 
-    return granularity === 'year'
-      ? { granularity: 'year', key: yearKey }
-      : { granularity: 'month', key: monthKey };
+    return granularity === "year"
+      ? { granularity: "year", key: yearKey }
+      : { granularity: "month", key: monthKey };
   }
 
   #onGranularityChange = (event: CustomEvent<{ value: string }>) => {
@@ -124,7 +126,11 @@ export class BudgetView extends LightElement {
 
   #onPeriodChange = (event: CustomEvent<{ value: string }>) => {
     const key = event.detail.value;
-    this.#ui.patch(this.#period.granularity === 'year' ? { yearKey: key } : { monthKey: key });
+    this.#ui.patch(
+      this.#period.granularity === "year"
+        ? { yearKey: key }
+        : { monthKey: key },
+    );
   };
 
   /**
@@ -148,13 +154,17 @@ export class BudgetView extends LightElement {
   #onLegendToggle = (type: EventTypeKey) => () => {
     const hidden = this.#hidden;
     this.#ui.patch({
-      hidden: hidden.includes(type) ? hidden.filter((key) => key !== type) : [...hidden, type],
+      hidden: hidden.includes(type)
+        ? hidden.filter((key) => key !== type)
+        : [...hidden, type],
     });
   };
 
   protected willUpdate(_changed: PropertyValues<this>) {
     this.#summaryHeightBeforeUpdate =
-      this.querySelector<HTMLElement>('.budget-view__summary')?.getBoundingClientRect().height ?? null;
+      this.querySelector<HTMLElement>(
+        ".budget-view__summary",
+      )?.getBoundingClientRect().height ?? null;
   }
 
   /**
@@ -189,7 +199,8 @@ export class BudgetView extends LightElement {
     this.#summaryHeightBeforeUpdate = null;
 
     const periodKey = `${this.#period.granularity}:${this.#period.key}`;
-    const periodChanged = this.#renderedPeriodKey !== null && this.#renderedPeriodKey !== periodKey;
+    const periodChanged =
+      this.#renderedPeriodKey !== null && this.#renderedPeriodKey !== periodKey;
     this.#renderedPeriodKey = periodKey;
 
     if (this.#reducedMotion.matches) return;
@@ -199,18 +210,22 @@ export class BudgetView extends LightElement {
     // app's global stylesheet falls back to skipping the animation rather
     // than crashing on a `NaN` duration.
     const style = getComputedStyle(this);
-    const duration = parseFloat(style.getPropertyValue('--duration-medium')) * 1000;
-    const easing = style.getPropertyValue('--easing-out').trim();
+    const duration =
+      parseFloat(style.getPropertyValue("--duration-medium")) * 1000;
+    const easing = style.getPropertyValue("--easing-out").trim();
     if (!(duration > 0) || !easing) return;
 
-    const summary = this.querySelector<HTMLElement>('.budget-view__summary');
+    const summary = this.querySelector<HTMLElement>(".budget-view__summary");
     if (summary && heightBefore !== null) {
       const heightAfter = summary.getBoundingClientRect().height;
       if (Math.abs(heightAfter - heightBefore) >= 1) {
         summary.getAnimations().forEach((animation) => animation.cancel());
         summary.animate(
           [{ height: `${heightBefore}px` }, { height: `${heightAfter}px` }],
-          { duration, easing },
+          {
+            duration,
+            easing,
+          },
         );
       }
     }
@@ -224,7 +239,9 @@ export class BudgetView extends LightElement {
     // than a smooth cut.
     if (!periodChanged) return;
 
-    const legend = this.querySelector<HTMLElement>('.budget-view__legend, .budget-view__empty');
+    const legend = this.querySelector<HTMLElement>(
+      ".budget-view__legend, .budget-view__empty",
+    );
     if (!legend) return;
 
     legend.getAnimations().forEach((animation) => animation.cancel());
@@ -255,7 +272,7 @@ export class BudgetView extends LightElement {
             ></app-segmented>
             <app-select
               pill
-              label=${granularity === 'year' ? 'Année affichée' : 'Mois affiché'}
+              label=${granularity === "year" ? "Année affichée" : "Mois affiché"}
               .options=${periodOptions(all, granularity).map((option) => ({
                 value: option.key,
                 label: formatPeriod(option),
@@ -273,9 +290,13 @@ export class BudgetView extends LightElement {
             .formatValue=${this.#formatTotal}
           ></app-donut-chart>
 
-          ${slices.length === 0
-            ? html`<p class="budget-view__empty">Aucune dépense sur cette période.</p>`
-            : this.#renderLegend(slices)}
+          ${
+            slices.length === 0
+              ? html`<p class="budget-view__empty">
+                  Aucune dépense sur cette période.
+                </p>`
+              : this.#renderLegend(slices)
+          }
         </div>
 
         <!-- Dropped whole rather than shown with an empty message: the card
@@ -289,7 +310,9 @@ export class BudgetView extends LightElement {
   #renderLedger(events: HorseEvent[], granularity: BudgetGranularity) {
     return html`
       <section class="budget-view__ledger">
-        <h2 class="budget-view__group-title">${formatPeriodHeading(granularity)}</h2>
+        <h2 class="budget-view__group-title">
+          ${formatPeriodHeading(granularity)}
+        </h2>
         <!-- Keyed: changing the period replaces the whole ledger, and the
              month/year segmented control is component state rather than a
              write, so this re-renders far more often than the data changes. -->
@@ -364,21 +387,28 @@ export class BudgetView extends LightElement {
               <li>
                 <button
                   type="button"
-                  class="budget-view__legend-item pressable pressable--small ${classMap({
-                    'budget-view__legend-item--off': off,
-                  })}"
-                  aria-pressed=${off ? 'false' : 'true'}
+                  class="budget-view__legend-item pressable pressable--small ${classMap(
+                    {
+                      "budget-view__legend-item--off": off,
+                    },
+                  )}"
+                  aria-pressed=${off ? "false" : "true"}
                   @click=${this.#onLegendToggle(slice.type)}
                 >
                   <span
                     class="budget-view__legend-dot"
                     style=${styleMap({
-                      backgroundColor: eventType.theme(slice.type).backgroundColor,
+                      backgroundColor: eventType.theme(slice.type)
+                        .backgroundColor,
                     })}
                     aria-hidden="true"
                   ></span>
-                  <span class="budget-view__legend-label">${eventType.label(slice.type)}</span>
-                  <span class="budget-view__legend-value">${formatCents(slice.cents)}</span>
+                  <span class="budget-view__legend-label"
+                    >${eventType.label(slice.type)}</span
+                  >
+                  <span class="budget-view__legend-value"
+                    >${formatCents(slice.cents)}</span
+                  >
                 </button>
               </li>
             `;

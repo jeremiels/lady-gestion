@@ -1,4 +1,4 @@
-import { todayISO, type IsoDate } from './dates.ts';
+import { todayISO, type IsoDate } from "./dates.ts";
 
 /**
  * Seasonal feeding windows.
@@ -39,10 +39,13 @@ export type RationSeason = {
 export const DEFAULT_SEASON: RationSeason = { from: 10, to: 4 };
 
 export const isMonthNumber = (value: unknown): value is MonthNumber =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 12;
+  typeof value === "number" &&
+  Number.isInteger(value) &&
+  value >= 1 &&
+  value <= 12;
 
 export const isRationSeason = (value: unknown): value is RationSeason =>
-  typeof value === 'object' &&
+  typeof value === "object" &&
   value !== null &&
   isMonthNumber((value as Partial<RationSeason>).from) &&
   isMonthNumber((value as Partial<RationSeason>).to);
@@ -60,7 +63,10 @@ export const monthOf = (date: IsoDate): MonthNumber | null => {
  * the failure mode of this predicate is a struck-out row on the feed plan, and
  * showing a line that shouldn't be fed is safer than hiding one that should.
  */
-export const isInSeason = (season: RationSeason | null, on: IsoDate = todayISO()): boolean => {
+export const isInSeason = (
+  season: RationSeason | null,
+  on: IsoDate = todayISO(),
+): boolean => {
   if (season === null) return true;
 
   const month = monthOf(on);
@@ -75,10 +81,11 @@ export const isInSeason = (season: RationSeason | null, on: IsoDate = todayISO()
 /** Reference year for reading month names off `Intl`. Any non-leap year does. */
 const monthDate = (month: MonthNumber): Date => new Date(2001, month - 1, 1);
 
-const MONTH_SHORT_FORMAT = new Intl.DateTimeFormat('fr-FR', { month: 'short' });
-const MONTH_LONG_FORMAT = new Intl.DateTimeFormat('fr-FR', { month: 'long' });
+const MONTH_SHORT_FORMAT = new Intl.DateTimeFormat("fr-FR", { month: "short" });
+const MONTH_LONG_FORMAT = new Intl.DateTimeFormat("fr-FR", { month: "long" });
 
-const capitalize = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
+const capitalize = (value: string): string =>
+  value.charAt(0).toUpperCase() + value.slice(1);
 
 /** `10` -> `Oct.`. French only abbreviates the long ones, which is what `Intl` gives. */
 export const formatMonthShort = (month: MonthNumber): string =>
@@ -132,12 +139,13 @@ export const summariseSuspension = (
   on: IsoDate = todayISO(),
 ): string | null => {
   const suspended = seasons.filter(
-    (season): season is RationSeason => season !== null && !isInSeason(season, on),
+    (season): season is RationSeason =>
+      season !== null && !isInSeason(season, on),
   );
   if (suspended.length === 0) return null;
 
   const [first] = suspended;
-  const plural = suspended.length > 1 ? 's' : '';
+  const plural = suspended.length > 1 ? "s" : "";
   const subject = `${suspended.length} produit${plural} saisonnier${plural} suspendu${plural}`;
 
   return first && suspended.every((season) => sameSeason(season, first))

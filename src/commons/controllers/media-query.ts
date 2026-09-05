@@ -1,4 +1,4 @@
-import type { ReactiveController, ReactiveControllerHost } from 'lit';
+import type { ReactiveController, ReactiveControllerHost } from "lit";
 
 /**
  * A media query as reactive state.
@@ -38,11 +38,11 @@ export class MediaQuery implements ReactiveController {
     // Re-read on connect: the query can have changed while detached, and
     // between construction and connection for an element created ahead of time.
     this.matches = this.#list.matches;
-    this.#list.addEventListener('change', this.#onChange);
+    this.#list.addEventListener("change", this.#onChange);
   }
 
   hostDisconnected() {
-    this.#list.removeEventListener('change', this.#onChange);
+    this.#list.removeEventListener("change", this.#onChange);
   }
 
   #onChange = () => {

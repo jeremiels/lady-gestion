@@ -1,18 +1,21 @@
-import { css, html, unsafeCSS } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import type { IconName } from '../app-icon/icons.ts';
-import '../app-icon/app-icon.ts';
+import { css, html, unsafeCSS } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import type { IconName } from "../app-icon/icons.ts";
+import "../app-icon/app-icon.ts";
 
-const folderBgUrl = new URL('../../assets/folder/folder-bg.svg', import.meta.url).href;
+const folderBgUrl = new URL(
+  "../../assets/folder/folder-bg.svg",
+  import.meta.url,
+).href;
 
-@customElement('app-folder')
+@customElement("app-folder")
 export class AppFolder extends BaseElement {
   @property()
-  icon: IconName | '' = '';
+  icon: IconName | "" = "";
 
   @property()
-  name: string = '';
+  name: string = "";
 
   @property({ type: Number })
   number: number = 0;
@@ -30,7 +33,8 @@ export class AppFolder extends BaseElement {
       aspect-ratio: 157 / 110;
       display: grid;
       justify-items: left;
-      padding: var(--spacing-16) var(--spacing-16) var(--spacing-12) var(--spacing-16);
+      padding: var(--spacing-16) var(--spacing-16) var(--spacing-12)
+        var(--spacing-16);
       gap: var(--spacing-4);
       background-image: url("${unsafeCSS(folderBgUrl)}");
       background-size: cover;
@@ -38,7 +42,6 @@ export class AppFolder extends BaseElement {
       background-repeat: no-repeat;
       box-sizing: border-box;
     }
-
 
     /* Colours are hooks rather than fixed values so a consumer can tint the
        tile per category from THEME_META — a custom property beats ::part here
@@ -63,7 +66,7 @@ export class AppFolder extends BaseElement {
 
     .folder-number {
       font-size: 0.75rem;
-      line-height: .875rem;
+      line-height: 0.875rem;
       font-weight: 600;
       color: var(--color-brown-light);
     }
@@ -75,7 +78,7 @@ export class AppFolder extends BaseElement {
         <app-icon class="folder-icon" icon="${this.icon}"></app-icon>
         <span class="folder-name">${this.name}</span>
         <span class="folder-number">
-          ${this.number} ${this.number === 1 ? 'document' : 'documents'}
+          ${this.number} ${this.number === 1 ? "document" : "documents"}
         </span>
       </div>
     `;
@@ -84,6 +87,6 @@ export class AppFolder extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-folder': AppFolder;
+    "app-folder": AppFolder;
   }
 }

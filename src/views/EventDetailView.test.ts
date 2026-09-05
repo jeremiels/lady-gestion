@@ -1,10 +1,18 @@
-import { html } from 'lit';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { db } from '../data/db.ts';
-import { makeEvent, resetDb } from '../data/__tests__/factories.ts';
-import { fixture, settled, waitFor } from '../components/__tests__/fixture.ts';
-import './EventDetailView.ts';
-import type { EventDetailView } from './EventDetailView.ts';
+import { html } from "lit";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
+import { db } from "../data/db.ts";
+import { makeEvent, resetDb } from "../data/__tests__/factories.ts";
+import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
+import "./EventDetailView.ts";
+import type { EventDetailView } from "./EventDetailView.ts";
 
 /**
  * Deleting navigates back to the list through the real Navigation API — see
@@ -18,9 +26,9 @@ beforeAll(() => {
   startUrl = location.href;
   keeper = new AbortController();
   navigation.addEventListener(
-    'navigate',
+    "navigate",
     (event) => {
-      if (!event.canIntercept || event.navigationType === 'reload') return;
+      if (!event.canIntercept || event.navigationType === "reload") return;
       event.intercept({ handler: async () => {} });
     },
     { signal: keeper.signal },
@@ -31,80 +39,96 @@ afterAll(() => keeper.abort());
 
 afterEach(async () => {
   if (location.href !== startUrl) {
-    await navigation.navigate(startUrl, { history: 'replace' }).finished?.catch(() => {});
+    await navigation
+      .navigate(startUrl, { history: "replace" })
+      .finished?.catch(() => {});
   }
 });
 
 const mount = (eventId: string) =>
-  fixture<EventDetailView>(html`<event-detail-view .eventId=${eventId}></event-detail-view>`);
+  fixture<EventDetailView>(
+    html`<event-detail-view .eventId=${eventId}></event-detail-view>`,
+  );
 
 const actionLabeled = (el: EventDetailView, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>('.event-detail__action')].find((button) =>
-    button.textContent?.includes(label),
+  [...el.querySelectorAll<HTMLButtonElement>(".event-detail__action")].find(
+    (button) => button.textContent?.includes(label),
   )!;
 
 const dialogButtonLabeled = (el: EventDetailView, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>('.event-detail__button')].find((button) =>
-    button.textContent?.includes(label),
+  [...el.querySelectorAll<HTMLButtonElement>(".event-detail__button")].find(
+    (button) => button.textContent?.includes(label),
   )!;
 
 beforeEach(resetDb);
 
-describe('event-detail-view', () => {
-  it('shows a not-found state for an id with no matching event', async () => {
-    const el = await mount('missing');
-    await waitFor(el, () => el.textContent!.includes('introuvable'));
+describe("event-detail-view", () => {
+  it("shows a not-found state for an id with no matching event", async () => {
+    const el = await mount("missing");
+    await waitFor(el, () => el.textContent!.includes("introuvable"));
 
-    expect(el.querySelector('.event-detail__back-link')).not.toBeNull();
+    expect(el.querySelector(".event-detail__back-link")).not.toBeNull();
   });
 
-  it('shows a care event’s practitioner and a purchase’s vendor, never the other', async () => {
+  it("shows a care event’s practitioner and a purchase’s vendor, never the other", async () => {
     await db.events.bulkAdd([
-      makeEvent({ id: 'care-1', type: 'veto', providerName: 'Dr. Dupont', amountCents: 4500 }),
-      makeEvent({ id: 'purchase-1', type: 'achat', vendor: 'Décathlon', amountCents: 2000 }),
+      makeEvent({
+        id: "care-1",
+        type: "veto",
+        providerName: "Dr. Dupont",
+        amountCents: 4500,
+      }),
+      makeEvent({
+        id: "purchase-1",
+        type: "achat",
+        vendor: "Décathlon",
+        amountCents: 2000,
+      }),
     ]);
 
-    const care = await mount('care-1');
-    await waitFor(care, () => care.textContent!.includes('Practicien'));
-    expect(care.textContent).toContain('Dr. Dupont');
-    expect(care.textContent).not.toContain('Site');
+    const care = await mount("care-1");
+    await waitFor(care, () => care.textContent!.includes("Practicien"));
+    expect(care.textContent).toContain("Dr. Dupont");
+    expect(care.textContent).not.toContain("Site");
 
-    const purchase = await mount('purchase-1');
-    await waitFor(purchase, () => purchase.textContent!.includes('Site'));
-    expect(purchase.textContent).toContain('Décathlon');
-    expect(purchase.textContent).not.toContain('Practicien');
+    const purchase = await mount("purchase-1");
+    await waitFor(purchase, () => purchase.textContent!.includes("Site"));
+    expect(purchase.textContent).toContain("Décathlon");
+    expect(purchase.textContent).not.toContain("Practicien");
   });
 
-  it('shows a travail event’s activity by its label, not its stored key', async () => {
+  it("shows a travail event’s activity by its label, not its stored key", async () => {
     await db.events.bulkAdd([
-      makeEvent({ id: 'work-1', type: 'travail', activity: 'longe' }),
-      makeEvent({ id: 'care-2', type: 'veto', providerName: 'Dr. Dupont' }),
+      makeEvent({ id: "work-1", type: "travail", activity: "longe" }),
+      makeEvent({ id: "care-2", type: "veto", providerName: "Dr. Dupont" }),
     ]);
 
-    const work = await mount('work-1');
-    await waitFor(work, () => work.textContent!.includes('Activité'));
-    expect(work.textContent).toContain('Longe');
-    expect(work.textContent).not.toContain('longe');
+    const work = await mount("work-1");
+    await waitFor(work, () => work.textContent!.includes("Activité"));
+    expect(work.textContent).toContain("Longe");
+    expect(work.textContent).not.toContain("longe");
 
     // The row is driven by the value, so an event that has none never shows it.
-    const care = await mount('care-2');
-    await waitFor(care, () => care.textContent!.includes('Practicien'));
-    expect(care.textContent).not.toContain('Activité');
+    const care = await mount("care-2");
+    await waitFor(care, () => care.textContent!.includes("Practicien"));
+    expect(care.textContent).not.toContain("Activité");
   });
 
-  it('confirming delete soft-deletes the record and leaves the page', async () => {
-    await db.events.add(makeEvent({ id: 'to-delete', title: 'Visite à supprimer' }));
-    const el = await mount('to-delete');
-    await waitFor(el, () => el.textContent!.includes('Visite à supprimer'));
+  it("confirming delete soft-deletes the record and leaves the page", async () => {
+    await db.events.add(
+      makeEvent({ id: "to-delete", title: "Visite à supprimer" }),
+    );
+    const el = await mount("to-delete");
+    await waitFor(el, () => el.textContent!.includes("Visite à supprimer"));
 
-    actionLabeled(el, 'Supprimer').click();
+    actionLabeled(el, "Supprimer").click();
     await settled(el);
-    dialogButtonLabeled(el, 'Supprimer').click();
+    dialogButtonLabeled(el, "Supprimer").click();
 
-    let stored = await db.events.get('to-delete');
+    let stored = await db.events.get("to-delete");
     for (let i = 0; i < 20 && stored?.deletedAt == null; i++) {
       await new Promise((resolve) => setTimeout(resolve, 0));
-      stored = await db.events.get('to-delete');
+      stored = await db.events.get("to-delete");
     }
     expect(stored?.deletedAt).not.toBeNull();
   });

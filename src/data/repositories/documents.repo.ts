@@ -1,7 +1,7 @@
-import { db } from '../db.ts';
-import { createRecord, crud, liveOnly, softDelete } from '../record.ts';
-import type { DocumentCategory } from '../../types/document.types.ts';
-import type { NewRecord, StoredDocument } from '../types.ts';
+import { db } from "../db.ts";
+import { createRecord, crud, liveOnly, softDelete } from "../record.ts";
+import type { DocumentCategory } from "../../types/document.types.ts";
+import type { NewRecord, StoredDocument } from "../types.ts";
 
 /**
  * Document metadata and file bytes are stored in two tables and joined here.
@@ -11,13 +11,23 @@ import type { NewRecord, StoredDocument } from '../types.ts';
  * to render thirty file names. `getBlob()` fetches bytes only on demand.
  */
 
-export const listByHorse = async (horseId: string): Promise<StoredDocument[]> => {
-  const documents = await db.documents.where('horseId').equals(horseId).toArray();
+export const listByHorse = async (
+  horseId: string,
+): Promise<StoredDocument[]> => {
+  const documents = await db.documents
+    .where("horseId")
+    .equals(horseId)
+    .toArray();
   return sortByIssueDate(liveOnly(documents));
 };
 
-export const listByEvent = async (eventId: string): Promise<StoredDocument[]> => {
-  const documents = await db.documents.where('eventId').equals(eventId).toArray();
+export const listByEvent = async (
+  eventId: string,
+): Promise<StoredDocument[]> => {
+  const documents = await db.documents
+    .where("eventId")
+    .equals(eventId)
+    .toArray();
   return sortByIssueDate(liveOnly(documents));
 };
 
@@ -42,18 +52,21 @@ export const { get, update } = crud<StoredDocument>(db.documents);
 
 /** Stores metadata and bytes together, so the two can never diverge. */
 export const create = async (
-  fields: Omit<NewRecord<StoredDocument>, 'mimeType' | 'size' | 'driveFileId' | 'driveSyncedAt'>,
+  fields: Omit<
+    NewRecord<StoredDocument>,
+    "mimeType" | "size" | "driveFileId" | "driveSyncedAt"
+  >,
   file: Blob,
 ): Promise<StoredDocument> => {
   const document = createRecord<StoredDocument>({
     ...fields,
-    mimeType: file.type || 'application/octet-stream',
+    mimeType: file.type || "application/octet-stream",
     size: file.size,
     driveFileId: null,
     driveSyncedAt: null,
   });
 
-  await db.transaction('rw', [db.documents, db.documentBlobs], async () => {
+  await db.transaction("rw", [db.documents, db.documentBlobs], async () => {
     await db.documents.add(document);
     await db.documentBlobs.put({ documentId: document.id, blob: file });
   });
@@ -84,11 +97,13 @@ export const remove = async (id: string): Promise<void> => {
   const existing = await get(id);
   if (!existing) return;
 
-  await db.transaction('rw', [db.documents, db.documentBlobs], async () => {
+  await db.transaction("rw", [db.documents, db.documentBlobs], async () => {
     await db.documents.put(softDelete(existing));
     await db.documentBlobs.delete(id);
   });
 };
 
 const sortByIssueDate = (documents: StoredDocument[]): StoredDocument[] =>
-  documents.sort((a, b) => (b.issuedAt ?? b.createdAt).localeCompare(a.issuedAt ?? a.createdAt));
+  documents.sort((a, b) =>
+    (b.issuedAt ?? b.createdAt).localeCompare(a.issuedAt ?? a.createdAt),
+  );

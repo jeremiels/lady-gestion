@@ -1,9 +1,9 @@
-import { html, nothing, type TemplateResult } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import { LightElement } from '../commons/base-element.ts';
-import { goBack, navigateTo } from '../commons/navigation.ts';
+import { html, nothing, type TemplateResult } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { LightElement } from "../commons/base-element.ts";
+import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
   LiveQuery,
   documentsRepo,
@@ -15,33 +15,33 @@ import {
   formatFollowUpInterval,
   formatTime,
   formatWorkActivity,
-} from '../data/index.ts';
-import type { HorseEvent, StoredDocument } from '../data/types.ts';
-import { eventFormSpec, eventType } from '../types/event.types.ts';
-import type { IconName } from '../components/app-icon/icons.ts';
-import { documentCategory } from '../types/document.types.ts';
+} from "../data/index.ts";
+import type { HorseEvent, StoredDocument } from "../data/types.ts";
+import { eventFormSpec, eventType } from "../types/event.types.ts";
+import type { IconName } from "../components/app-icon/icons.ts";
+import { documentCategory } from "../types/document.types.ts";
 
-import '../components/app-icon/app-icon.ts';
-import { tagStyle } from '../components/app-tag/app-tag.ts';
-import '../components/app-modal/app-modal.ts';
-import '../components/document-viewer/document-viewer.ts';
-import '../components/event-sheet/event-sheet.ts';
+import "../components/app-icon/app-icon.ts";
+import { tagStyle } from "../components/app-tag/app-tag.ts";
+import "../components/app-modal/app-modal.ts";
+import "../components/document-viewer/document-viewer.ts";
+import "../components/event-sheet/event-sheet.ts";
 
 /** Where back falls to, and where a delete lands. */
-const EVENTS_LIST = '/events';
+const EVENTS_LIST = "/events";
 
 /** One row of the Informations card. `null` values are dropped, not shown blank. */
 type InfoRow = { label: string; value: TemplateResult | string };
 
-@customElement('event-detail-view')
+@customElement("event-detail-view")
 export class EventDetailView extends LightElement {
   /** Sliced out of the pathname by the route table; nothing else parses the URL. */
-  @property({ attribute: false }) eventId = '';
+  @property({ attribute: false }) eventId = "";
 
   @state() private editOpen = false;
   @state() private deleteOpen = false;
   @state() private viewing: StoredDocument | null = null;
-  @state() private actionError = '';
+  @state() private actionError = "";
 
   // Both read `this.eventId`, which never changes for a given element: the
   // route keys this view by path, so a different event is a different element.
@@ -50,13 +50,14 @@ export class EventDetailView extends LightElement {
     documentsRepo.listByEvent(this.eventId),
   );
 
-
   /** Back to the calendar or the list, whichever this was opened from. */
   #goBack = () => goBack(EVENTS_LIST);
 
   render() {
     if (this.#event.loading) {
-      return html`<section class="event-detail"><p class="event-detail__empty">Chargement…</p></section>`;
+      return html`<section class="event-detail">
+        <p class="event-detail__empty">Chargement…</p>
+      </section>`;
     }
 
     const event = this.#event.value;
@@ -113,9 +114,11 @@ export class EventDetailView extends LightElement {
             status region and \`event-sheet\`'s.
           -->
           <div class="event-detail__error-region" role="alert">
-            ${this.actionError
-              ? html`<p class="event-detail__error">${this.actionError}</p>`
-              : nothing}
+            ${
+              this.actionError
+                ? html`<p class="event-detail__error">${this.actionError}</p>`
+                : nothing
+            }
           </div>
         </section>
       </section>
@@ -131,7 +134,11 @@ export class EventDetailView extends LightElement {
           <h1 class="section-title" tabindex="-1">Évènement introuvable</h1>
           <p class="section-subtitle">Il a peut-être été supprimé.</p>
         </hgroup>
-        <button class="event-detail__back-link pressable" type="button" @click=${this.#goBack}>
+        <button
+          class="event-detail__back-link pressable"
+          type="button"
+          @click=${this.#goBack}
+        >
           Retour
         </button>
       </section>
@@ -151,15 +158,15 @@ export class EventDetailView extends LightElement {
     const rows: InfoRow[] = [
       // `app-tag` resolves both the label and the colours from the type alone.
       {
-        label: 'Type',
+        label: "Type",
         value: html`<app-tag
           label=${eventType.label(event.type)}
           style=${styleMap(tagStyle(eventType.theme(event.type)))}
         ></app-tag>`,
       },
-      { label: 'Nom', value: event.title },
+      { label: "Nom", value: event.title },
       {
-        label: 'Date',
+        label: "Date",
         value: event.time
           ? `${formatDateMedium(event.date)} · ${formatTime(event.time)}`
           : formatDateMedium(event.date),
@@ -170,7 +177,10 @@ export class EventDetailView extends LightElement {
     // meaning whatever the type, and the entry form nulls it on any layout that
     // does not ask for it — so there is nothing here for the spec to settle.
     if (event.activity) {
-      rows.push({ label: 'Activité', value: formatWorkActivity(event.activity) });
+      rows.push({
+        label: "Activité",
+        value: formatWorkActivity(event.activity),
+      });
     }
 
     const counterpartyValue = counterparty && event[counterparty.column];
@@ -178,16 +188,19 @@ export class EventDetailView extends LightElement {
       rows.push({ label: counterparty.label, value: counterpartyValue });
     }
     if (event.amountCents !== null) {
-      rows.push({ label: 'Budget', value: formatCents(event.amountCents, event.currency) });
+      rows.push({
+        label: "Budget",
+        value: formatCents(event.amountCents, event.currency),
+      });
     }
     if (event.followUpInterval) {
       rows.push({
-        label: 'Prochain rendez-vous',
+        label: "Prochain rendez-vous",
         value: formatFollowUpInterval(event.followUpInterval),
       });
     }
-    if (event.location) rows.push({ label: 'Lieu', value: event.location });
-    if (event.notes) rows.push({ label: 'Note', value: event.notes });
+    if (event.location) rows.push({ label: "Lieu", value: event.location });
+    if (event.notes) rows.push({ label: "Note", value: event.notes });
 
     return rows;
   }
@@ -208,7 +221,10 @@ export class EventDetailView extends LightElement {
                 type="button"
                 @click=${() => this.#openViewer(doc)}
               >
-                <app-icon class="event-detail__file-icon" icon="file"></app-icon>
+                <app-icon
+                  class="event-detail__file-icon"
+                  icon="file"
+                ></app-icon>
                 <span class="event-detail__file-name">${doc.name}</span>
                 <span class="event-detail__file-meta">
                   ${formatFileKind(doc.mimeType)} • ${formatFileSize(doc.size)}
@@ -231,16 +247,16 @@ export class EventDetailView extends LightElement {
 
     return html`
       ${this.#renderAction({
-        icon: 'download',
-        label: 'Télécharger',
+        icon: "download",
+        label: "Télécharger",
         // Deliberately inert: the file lives only in IndexedDB until Drive sync
         // exists, so there is nothing to download *from the drive* yet.
-        hint: 'Bientôt disponible',
+        hint: "Bientôt disponible",
         disabled: true,
       })}
       ${this.#renderAction({
-        icon: 'edit',
-        label: 'Modifier',
+        icon: "edit",
+        label: "Modifier",
         onClick: () => {
           this.editOpen = true;
         },
@@ -248,17 +264,17 @@ export class EventDetailView extends LightElement {
       ${
         // Hidden rather than disabled where the API is missing: an action that
         // throws on tap is worse than one that was never offered.
-        'share' in navigator
+        "share" in navigator
           ? this.#renderAction({
-              icon: 'share',
-              label: 'Partager',
+              icon: "share",
+              label: "Partager",
               onClick: () => void this.#share(event, doc),
             })
           : nothing
       }
       ${this.#renderAction({
-        icon: 'trash',
-        label: 'Supprimer',
+        icon: "trash",
+        label: "Supprimer",
         destructive: true,
         onClick: () => {
           this.deleteOpen = true;
@@ -278,16 +294,23 @@ export class EventDetailView extends LightElement {
     return html`
       <li>
         <button
-          class="event-detail__action pressable ${action.destructive ? 'event-detail__action--danger' : ''}"
+          class="event-detail__action pressable ${action.destructive ? "event-detail__action--danger" : ""}"
           type="button"
           ?disabled=${action.disabled ?? false}
           @click=${action.onClick}
         >
-          <app-icon class="event-detail__action-icon" icon=${action.icon}></app-icon>
+          <app-icon
+            class="event-detail__action-icon"
+            icon=${action.icon}
+          ></app-icon>
           <span class="event-detail__action-label">${action.label}</span>
-          ${action.hint
-            ? html`<span class="event-detail__action-hint">${action.hint}</span>`
-            : nothing}
+          ${
+            action.hint
+              ? html`<span class="event-detail__action-hint"
+                  >${action.hint}</span
+                >`
+              : nothing
+          }
         </button>
       </li>
     `;
@@ -354,31 +377,37 @@ export class EventDetailView extends LightElement {
    * less useful half, but it beats an action that silently does nothing.
    */
   async #share(event: HorseEvent, doc: StoredDocument | null) {
-    this.actionError = '';
+    this.actionError = "";
 
     const summary = [
       eventType.label(event.type),
       formatDateMedium(event.date),
-      event.providerName ?? event.vendor ?? '',
-      event.amountCents === null ? '' : formatCents(event.amountCents, event.currency),
+      event.providerName ?? event.vendor ?? "",
+      event.amountCents === null
+        ? ""
+        : formatCents(event.amountCents, event.currency),
     ]
       .filter(Boolean)
-      .join(' · ');
+      .join(" · ");
 
     try {
       const file = doc && (await this.#toFile(doc));
       // `canShare` is what decides, not the presence of a file: iOS refuses
       // some types outright, and `share` would reject rather than degrade.
       if (file && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: event.title, text: summary });
+        await navigator.share({
+          files: [file],
+          title: event.title,
+          text: summary,
+        });
       } else {
         await navigator.share({ title: event.title, text: summary });
       }
     } catch (error: unknown) {
       // Dismissing the OS sheet rejects with AbortError. That is the user
       // saying no, not a failure, and must not surface as one.
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      this.actionError = 'Le partage n’a pas abouti.';
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      this.actionError = "Le partage n’a pas abouti.";
     }
   }
 
@@ -392,7 +421,7 @@ export class EventDetailView extends LightElement {
     try {
       await eventsRepo.remove(this.eventId);
     } catch {
-      this.actionError = 'La suppression a échoué.';
+      this.actionError = "La suppression a échoué.";
       return;
     }
     // The record is gone from every read path, so staying here would only show
@@ -403,6 +432,6 @@ export class EventDetailView extends LightElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'event-detail-view': EventDetailView;
+    "event-detail-view": EventDetailView;
   }
 }

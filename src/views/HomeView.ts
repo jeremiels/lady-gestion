@@ -1,8 +1,8 @@
-import { html } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
-import { LightElement } from '../commons/base-element.ts';
-import { appHref } from '../commons/base-path.ts';
+import { html } from "lit";
+import { customElement } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
+import { LightElement } from "../commons/base-element.ts";
+import { appHref } from "../commons/base-path.ts";
 import {
   activeHorseQuery,
   LiveQuery,
@@ -11,19 +11,19 @@ import {
   horsesRepo,
   startOfMonth,
   todayISO,
-} from '../data/index.ts';
-import type { HorseEvent } from '../data/types.ts';
-import { ACCOUNT } from '../data/account.ts';
-import '../components/horse-card/horse-card.ts';
-import '../components/budget-card/budget-card.ts';
-import '../components/week-strip/week-strip.ts';
-import '../components/event-card/event-card.ts';
-import '../components/app-avatar/app-avatar.ts';
+} from "../data/index.ts";
+import type { HorseEvent } from "../data/types.ts";
+import { ACCOUNT } from "../data/account.ts";
+import "../components/horse-card/horse-card.ts";
+import "../components/budget-card/budget-card.ts";
+import "../components/week-strip/week-strip.ts";
+import "../components/event-card/event-card.ts";
+import "../components/app-avatar/app-avatar.ts";
 
 /** The dashboard shows the next few appointments, not the whole agenda. */
 const UPCOMING_LIMIT = 3;
 
-@customElement('home-view')
+@customElement("home-view")
 export class HomeView extends LightElement {
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
@@ -45,7 +45,11 @@ export class HomeView extends LightElement {
     this,
     (horseId) => {
       const today = todayISO();
-      return eventsRepo.totalSpent(horseId, startOfMonth(today), endOfMonth(today));
+      return eventsRepo.totalSpent(
+        horseId,
+        startOfMonth(today),
+        endOfMonth(today),
+      );
     },
     0,
   );
@@ -60,8 +64,16 @@ export class HomeView extends LightElement {
             <h1 class="section-title" tabindex="-1">Tableau de bord</h1>
             <p class="section-subtitle">Suivi de Ladympala</p>
           </hgroup>
-          <a class="home-view__profile-link pressable" href=${appHref('/profile')} aria-label="Profil">
-            <app-avatar aria-hidden="true" initial=${ACCOUNT.firstName.charAt(0)} size="2.5rem"></app-avatar>
+          <a
+            class="home-view__profile-link pressable"
+            href=${appHref("/profile")}
+            aria-label="Profil"
+          >
+            <app-avatar
+              aria-hidden="true"
+              initial=${ACCOUNT.firstName.charAt(0)}
+              size="2.5rem"
+            ></app-avatar>
           </a>
         </div>
 
@@ -69,25 +81,32 @@ export class HomeView extends LightElement {
 
         <section class="section-appointments">
           <h2 class="section-title">Rendez-vous à venir</h2>
-          ${upcoming.length === 0
-            ? html`<p class="appointment-empty">Aucun rendez-vous à venir.</p>`
-            : html`
-                <!-- Keyed: this is a top-3 window onto a moving list, so a new
+          ${
+            upcoming.length === 0
+              ? html`<p class="appointment-empty">
+                  Aucun rendez-vous à venir.
+                </p>`
+              : html`
+                  <!-- Keyed: this is a top-3 window onto a moving list, so a new
                      appointment sooner than the current first pushes every row
                      down by one — the exact case positional binding rewrites
                      wholesale. -->
-                <ul class="appointment-list">
-                  ${repeat(
-                    upcoming,
-                    (event) => event.id,
-                    (event) => html`
-                      <li>
-                        <event-card layout="dashboard" .event=${event}></event-card>
-                      </li>
-                    `,
-                  )}
-                </ul>
-              `}
+                  <ul class="appointment-list">
+                    ${repeat(
+                      upcoming,
+                      (event) => event.id,
+                      (event) => html`
+                        <li>
+                          <event-card
+                            layout="dashboard"
+                            .event=${event}
+                          ></event-card>
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                `
+          }
         </section>
 
         <horse-card .horse=${this.#horse.value ?? null}></horse-card>

@@ -1,7 +1,10 @@
-import type { ReactiveController, ReactiveElement } from 'lit';
+import type { ReactiveController, ReactiveElement } from "lit";
 
 /** The native element a field wraps and reads its validity from. */
-export type NativeControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+export type NativeControl =
+  | HTMLInputElement
+  | HTMLSelectElement
+  | HTMLTextAreaElement;
 
 /**
  * What a field has to expose for this controller to drive it.
@@ -57,7 +60,10 @@ export class FormControl implements ReactiveController {
    * the control through its abstract `control` getter; the getter is lazy, so it
    * is fine that `renderRoot` does not exist yet.
    */
-  constructor(host: ValidatedField, getControl: () => NativeControl | undefined) {
+  constructor(
+    host: ValidatedField,
+    getControl: () => NativeControl | undefined,
+  ) {
     this.#host = host;
     this.#getControl = getControl;
     this.internals = host.attachInternals();
@@ -68,11 +74,11 @@ export class FormControl implements ReactiveController {
     // `invalid` fires on the host when a form submission finds it invalid,
     // which is the one path that has to mark the field touched without the user
     // ever having focused it.
-    this.#host.addEventListener('invalid', this.#onInvalid);
+    this.#host.addEventListener("invalid", this.#onInvalid);
   }
 
   hostDisconnected() {
-    this.#host.removeEventListener('invalid', this.#onInvalid);
+    this.#host.removeEventListener("invalid", this.#onInvalid);
   }
 
   /** What this field contributes to `FormData`. `null` submits nothing. */
@@ -110,14 +116,18 @@ export class FormControl implements ReactiveController {
     if (control.disabled) {
       this.internals.setValidity({});
       this.#host.invalid = false;
-      this.#host.validationMessage = '';
-      this.internals.states.delete('invalid');
+      this.#host.validationMessage = "";
+      this.internals.states.delete("invalid");
       return;
     }
 
     // The form always knows the truth, touched or not — this is what makes
     // submission blocked and `reportValidity()` point at the right field.
-    this.internals.setValidity(control.validity, control.validationMessage, control);
+    this.internals.setValidity(
+      control.validity,
+      control.validationMessage,
+      control,
+    );
 
     const invalid = this.#host.touched && !control.validity.valid;
     this.#host.invalid = invalid;
@@ -136,13 +146,13 @@ export class FormControl implements ReactiveController {
      * that has been fixed, or reset back to untouched, clears its stale
      * message instead of keeping one nothing will ever show again.
      */
-    this.#host.validationMessage = invalid ? control.validationMessage : '';
+    this.#host.validationMessage = invalid ? control.validationMessage : "";
 
     // Drives `:host(:state(invalid))` in every field's stylesheet — a custom
     // state rather than a reflected attribute, so it cannot be spoofed from
     // markup and does not show up in the DOM inspector as author intent.
-    this.internals.states.delete('invalid');
-    if (invalid) this.internals.states.add('invalid');
+    this.internals.states.delete("invalid");
+    if (invalid) this.internals.states.add("invalid");
   }
 
   /**
@@ -207,7 +217,9 @@ export class FormControl implements ReactiveController {
    * differently.
    */
   get message(): string {
-    return this.#host.invalid ? this.#host.error || this.#host.validationMessage : '';
+    return this.#host.invalid
+      ? this.#host.error || this.#host.validationMessage
+      : "";
   }
 
   /** Blur and failed submission both mean "the user has had their chance". */
@@ -236,8 +248,8 @@ export class FormControl implements ReactiveController {
   reset() {
     this.#host.touched = false;
     this.#host.invalid = false;
-    this.#host.validationMessage = '';
-    this.internals.states.delete('invalid');
+    this.#host.validationMessage = "";
+    this.internals.states.delete("invalid");
   }
 
   #onInvalid = () => this.markTouched();

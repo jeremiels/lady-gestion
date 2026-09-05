@@ -1,10 +1,10 @@
-import { css, html, nothing, type TemplateResult } from 'lit';
-import { property, query } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { BaseElement } from './base-element.ts';
-import { ModalDialog } from './controllers/modal-dialog.ts';
+import { css, html, nothing, type TemplateResult } from "lit";
+import { property, query } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { BaseElement } from "./base-element.ts";
+import { ModalDialog } from "./controllers/modal-dialog.ts";
 
-import '../components/app-icon/app-icon.ts';
+import "../components/app-icon/app-icon.ts";
 
 /**
  * What `app-modal` and `app-bottom-sheet` are before they differ.
@@ -32,17 +32,17 @@ import '../components/app-icon/app-icon.ts';
  */
 export abstract class DialogElement extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
-  @property({ type: String }) heading = '';
+  @property({ type: String }) heading = "";
   /**
    * Optional line under the heading. Wired to `aria-describedby` rather than
    * folded into the title, so a screen reader announces the dialog's name and
    * its explanation as separate things.
    */
-  @property({ type: String }) description = '';
+  @property({ type: String }) description = "";
   /** When false, the close button, backdrop click and Esc are all inert. */
   @property({ type: Boolean }) dismissible = true;
 
-  @query('dialog') protected dialogEl?: HTMLDialogElement;
+  @query("dialog") protected dialogEl?: HTMLDialogElement;
 
   /**
    * Everything from `open` to `showModal()` and back out as an event. It syncs
@@ -91,7 +91,7 @@ export abstract class DialogElement extends BaseElement {
         part=${options.part}
         class=${options.className}
         aria-labelledby="dialog-title"
-        aria-describedby=${ifDefined(this.description ? 'dialog-description' : undefined)}
+        aria-describedby=${ifDefined(this.description ? "dialog-description" : undefined)}
         @click=${this.dialog.onBackdropClick}
         @cancel=${this.dialog.onCancel}
         @close=${this.dialog.onNativeClose}
@@ -99,26 +99,36 @@ export abstract class DialogElement extends BaseElement {
         ${options.leading ?? nothing}
         <header class="dialog__header" part="header">
           <hgroup class="dialog__heading">
-            <h2 class="dialog__title" part="title" id="dialog-title">${this.heading}</h2>
-            ${this.description
-              ? html`<p class="dialog__description" part="description" id="dialog-description">
-                  ${this.description}
-                </p>`
-              : nothing}
+            <h2 class="dialog__title" part="title" id="dialog-title">
+              ${this.heading}
+            </h2>
+            ${
+              this.description
+                ? html`<p
+                    class="dialog__description"
+                    part="description"
+                    id="dialog-description"
+                  >
+                    ${this.description}
+                  </p>`
+                : nothing
+            }
           </hgroup>
-          ${this.dismissible
-            ? html`
-                <button
-                  type="button"
-                  class="dialog__close"
-                  part="close-button"
-                  aria-label="Fermer"
-                  @click=${() => this.close()}
-                >
-                  <app-icon icon="close"></app-icon>
-                </button>
-              `
-            : nothing}
+          ${
+            this.dismissible
+              ? html`
+                  <button
+                    type="button"
+                    class="dialog__close"
+                    part="close-button"
+                    aria-label="Fermer"
+                    @click=${() => this.close()}
+                  >
+                    <app-icon icon="close"></app-icon>
+                  </button>
+                `
+              : nothing
+          }
         </header>
         <div class="dialog__body" part="body">
           <slot></slot>

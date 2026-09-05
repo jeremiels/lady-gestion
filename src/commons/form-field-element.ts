@@ -1,8 +1,12 @@
-import type { PropertyValues } from 'lit';
-import { property, state } from 'lit/decorators.js';
-import { BaseElement } from './base-element.ts';
-import { fieldStyles } from './field-parts.ts';
-import { FormControl, type NativeControl, type ValidatedField } from './controllers/form-control.ts';
+import type { PropertyValues } from "lit";
+import { property, state } from "lit/decorators.js";
+import { BaseElement } from "./base-element.ts";
+import { fieldStyles } from "./field-parts.ts";
+import {
+  FormControl,
+  type NativeControl,
+  type ValidatedField,
+} from "./controllers/form-control.ts";
 
 /** Unique-id counter for label/aria wiring, shared by every field type. */
 let nextId = 0;
@@ -30,10 +34,16 @@ let nextId = 0;
  * the constructor at definition time and static lookup walks the prototype
  * chain, so declaring it here reaches all three.
  */
-export abstract class FormFieldElement extends BaseElement implements ValidatedField {
+export abstract class FormFieldElement
+  extends BaseElement
+  implements ValidatedField
+{
   static formAssociated = true;
 
-  static shadowRootOptions = { ...BaseElement.shadowRootOptions, delegatesFocus: true };
+  static shadowRootOptions = {
+    ...BaseElement.shadowRootOptions,
+    delegatesFocus: true,
+  };
 
   /**
    * The hint/error/required painting all three fields render.
@@ -54,20 +64,20 @@ export abstract class FormFieldElement extends BaseElement implements ValidatedF
    */
   readonly fieldId = `app-field-${++nextId}`;
 
-  @property({ type: String }) label = '';
-  @property({ type: String }) name = '';
+  @property({ type: String }) label = "";
+  @property({ type: String }) name = "";
   @property({ type: Boolean, reflect: true }) required = false;
   @property({ type: Boolean, reflect: true }) disabled = false;
-  @property({ type: String, attribute: 'help-text' }) helpText = '';
+  @property({ type: String, attribute: "help-text" }) helpText = "";
   /** External/server-side validation message. Set to '' to clear. */
-  @property({ type: String }) error = '';
+  @property({ type: String }) error = "";
 
   /**
    * Not `private`: `changed.has(...)` in `updated()` needs these in `keyof`, and
    * `ValidatedField` requires them to be readable by the controller.
    */
   @state() invalid = false;
-  @state() validationMessage = '';
+  @state() validationMessage = "";
   @state() touched = false;
 
   /**
@@ -138,7 +148,7 @@ export abstract class FormFieldElement extends BaseElement implements ValidatedF
 
   formResetCallback() {
     this.restoreDefault();
-    this.error = '';
+    this.error = "";
     this.field.reset();
   }
 
@@ -173,6 +183,6 @@ export abstract class FormFieldElement extends BaseElement implements ValidatedF
    * A subclass that needs its own `willUpdate` must call `super.willUpdate()`.
    */
   protected willUpdate(changed: PropertyValues<this>) {
-    if (changed.has('error')) this.field.setExternalError(this.error);
+    if (changed.has("error")) this.field.setExternalError(this.error);
   }
 }

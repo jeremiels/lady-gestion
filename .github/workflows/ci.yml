@@ -23,7 +23,7 @@ jobs:
           # The service worker plugin uses readdir({ recursive: true }) and
           # dirent.parentPath, both Node >= 20.12. On anything older the
           # precache list is silently written with `undefined/` paths.
-          node-version: '22'
+          node-version: "22"
           cache: npm
 
       - run: npm ci

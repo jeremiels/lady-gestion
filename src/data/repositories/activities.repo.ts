@@ -1,6 +1,6 @@
-import { db } from '../db.ts';
-import { createRecord, crud, liveOnly } from '../record.ts';
-import type { ActivityItem, NewRecord } from '../types.ts';
+import { db } from "../db.ts";
+import { createRecord, crud, liveOnly } from "../record.ts";
+import type { ActivityItem, NewRecord } from "../types.ts";
 
 /**
  * The work activities the user added themselves — the catalogue behind the
@@ -20,14 +20,16 @@ import type { ActivityItem, NewRecord } from '../types.ts';
  * The catalogue is a handful of rows read whole, so the sort is free.
  */
 export const listByHorse = async (horseId: string): Promise<ActivityItem[]> => {
-  const items = await db.activities.where('horseId').equals(horseId).toArray();
+  const items = await db.activities.where("horseId").equals(horseId).toArray();
   return liveOnly(items).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 };
 
 export const { get, update, remove } = crud<ActivityItem>(db.activities);
 
 /** Adds an activity to the horse's catalogue. */
-export const add = async (fields: NewRecord<ActivityItem>): Promise<ActivityItem> => {
+export const add = async (
+  fields: NewRecord<ActivityItem>,
+): Promise<ActivityItem> => {
   const item = createRecord<ActivityItem>(fields);
   await db.activities.add(item);
   return item;

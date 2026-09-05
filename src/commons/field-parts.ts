@@ -1,4 +1,4 @@
-import { css, html, nothing } from 'lit';
+import { css, html, nothing } from "lit";
 
 /**
  * The hint and error nodes every field renders below its control, shared by
@@ -15,8 +15,9 @@ import { css, html, nothing } from 'lit';
  * screen. `undefined` rather than `''` so `ifDefined` omits the attribute
  * outright instead of writing an empty one.
  */
-export const describedBy = (...ids: (string | false | undefined)[]): string | undefined =>
-  ids.filter(Boolean).join(' ') || undefined;
+export const describedBy = (
+  ...ids: (string | false | undefined)[]
+): string | undefined => ids.filter(Boolean).join(" ") || undefined;
 
 export interface FieldMessagesOptions {
   hintId: string;
@@ -41,9 +42,16 @@ export interface FieldMessagesOptions {
  * immediately, and that is handled once, at form level, by focusing the first
  * field at fault.
  */
-export const fieldMessages = ({ hintId, errorId, helpText, message }: FieldMessagesOptions) => html`
+export const fieldMessages = ({
+  hintId,
+  errorId,
+  helpText,
+  message,
+}: FieldMessagesOptions) => html`
   ${helpText ? html`<p class="field__hint" part="hint" id=${hintId}>${helpText}</p>` : nothing}
-  <p class="field__error" part="error" id=${errorId} ?hidden=${!message}>${message}</p>
+  <p class="field__error" part="error" id=${errorId} ?hidden=${!message}>
+    ${message}
+  </p>
 `;
 
 /**

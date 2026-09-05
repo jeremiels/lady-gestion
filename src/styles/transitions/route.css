@@ -35,38 +35,54 @@
    * document element, so the type has to be matched there.
    */
   @keyframes route-enter-from-right {
-    from { translate: 100% 0; opacity: 0; }
+    from {
+      translate: 100% 0;
+      opacity: 0;
+    }
   }
 
   @keyframes route-leave-to-left {
-    to { translate: -25% 0; opacity: 0; }
+    to {
+      translate: -25% 0;
+      opacity: 0;
+    }
   }
 
   @keyframes route-enter-from-left {
-    from { translate: -25% 0; opacity: 0; }
+    from {
+      translate: -25% 0;
+      opacity: 0;
+    }
   }
 
   @keyframes route-leave-to-right {
-    to { translate: 100% 0; opacity: 0; }
+    to {
+      translate: 100% 0;
+      opacity: 0;
+    }
   }
 
   :root:active-view-transition-type(forward) {
     &::view-transition-old(root) {
-      animation: route-leave-to-left var(--duration-slow) var(--easing-standard) both;
+      animation: route-leave-to-left var(--duration-slow) var(--easing-standard)
+        both;
     }
 
     &::view-transition-new(root) {
-      animation: route-enter-from-right var(--duration-slow) var(--easing-standard) both;
+      animation: route-enter-from-right var(--duration-slow)
+        var(--easing-standard) both;
     }
   }
 
   :root:active-view-transition-type(back) {
     &::view-transition-old(root) {
-      animation: route-leave-to-right var(--duration-slow) var(--easing-standard) both;
+      animation: route-leave-to-right var(--duration-slow)
+        var(--easing-standard) both;
     }
 
     &::view-transition-new(root) {
-      animation: route-enter-from-left var(--duration-slow) var(--easing-standard) both;
+      animation: route-enter-from-left var(--duration-slow)
+        var(--easing-standard) both;
     }
   }
 
@@ -98,16 +114,21 @@
    * rather than in a sub-layer each.
    */
   @keyframes route-fade-out {
-    to { opacity: 0; }
+    to {
+      opacity: 0;
+    }
   }
 
   @keyframes route-fade-in {
-    from { opacity: 0; }
+    from {
+      opacity: 0;
+    }
   }
 
   :root:active-view-transition-type(lateral) {
     &::view-transition-old(root) {
-      animation: route-fade-out calc(var(--duration-slow) * 0.7) var(--easing-out) both;
+      animation: route-fade-out calc(var(--duration-slow) * 0.7)
+        var(--easing-out) both;
     }
 
     &::view-transition-new(root) {

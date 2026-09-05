@@ -1,6 +1,6 @@
-import { css, html, nothing, type PropertyValues } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
+import { css, html, nothing, type PropertyValues } from "lit";
+import { customElement, property, query, state } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
 import {
   DEFAULT_FOLLOW_UP,
   FOLLOW_UP_INTERVALS,
@@ -21,8 +21,8 @@ import {
   readForm,
   text,
   todayISO,
-} from '../../data/index.ts';
-import type { HorseEvent } from '../../data/types.ts';
+} from "../../data/index.ts";
+import type { HorseEvent } from "../../data/types.ts";
 import {
   EVENT_TYPES,
   EVENT_TYPES_BY_LABEL,
@@ -31,23 +31,25 @@ import {
   eventFormSpec,
   eventType,
   type EventTypeKey,
-} from '../../types/event.types.ts';
-import type { AppSelectOption } from '../app-select/app-select.ts';
+} from "../../types/event.types.ts";
+import type { AppSelectOption } from "../app-select/app-select.ts";
 
-import '../app-bottom-sheet/app-bottom-sheet.ts';
-import '../app-input/app-input.ts';
-import '../app-select/app-select.ts';
-import '../app-checkbox/app-checkbox.ts';
+import "../app-bottom-sheet/app-bottom-sheet.ts";
+import "../app-input/app-input.ts";
+import "../app-select/app-select.ts";
+import "../app-checkbox/app-checkbox.ts";
 
 const TYPE_OPTIONS: AppSelectOption[] = EVENT_TYPES_BY_LABEL.map((type) => ({
   value: type,
   label: eventType.label(type),
 }));
 
-const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map((interval) => ({
-  value: followUpValue(interval),
-  label: formatFollowUpInterval(interval),
-}));
+const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
+  (interval) => ({
+    value: followUpValue(interval),
+    label: formatFollowUpInterval(interval),
+  }),
+);
 
 /**
  * The Activité parser, required only on the layout that draws the field.
@@ -120,7 +122,7 @@ type EventFieldName = keyof typeof EVENT_SCHEMA;
  * @fires sheet-close - No detail. Fired on dismissal and after a successful
  * save; the owner clears `open` in response.
  */
-@customElement('event-sheet')
+@customElement("event-sheet")
 export class EventSheet extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
 
@@ -128,7 +130,7 @@ export class EventSheet extends BaseElement {
   @property({ attribute: false }) event: HorseEvent | null = null;
 
   /** `''` until a type is picked; the select is `required`, so submit is blocked. */
-  @state() private type: EventTypeKey | '' = '';
+  @state() private type: EventTypeKey | "" = "";
   @state() private planFollowUp = false;
   /**
    * Keyed by schema field name; absent means that field is fine.
@@ -138,9 +140,9 @@ export class EventSheet extends BaseElement {
    * the schema cannot drift.
    */
   @state() private errors: Partial<Record<EventFieldName, string>> = {};
-  @state() private saveError = '';
+  @state() private saveError = "";
 
-  @query('form') private formEl?: HTMLFormElement;
+  @query("form") private formEl?: HTMLFormElement;
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
@@ -159,7 +161,9 @@ export class EventSheet extends BaseElement {
   get #activityChoices(): WorkActivity[] {
     const choices: WorkActivity[] = WORK_ACTIVITIES;
     const current = this.event?.activity ?? null;
-    return current !== null && !choices.includes(current) ? [...choices, current] : choices;
+    return current !== null && !choices.includes(current)
+      ? [...choices, current]
+      : choices;
   }
 
   static componentStyles = css`
@@ -261,7 +265,7 @@ export class EventSheet extends BaseElement {
    * `event` directly and need nothing here.
    */
   protected willUpdate(changed: PropertyValues<this>) {
-    if (changed.has('event')) this.#seedFromEvent();
+    if (changed.has("event")) this.#seedFromEvent();
   }
 
   /**
@@ -272,10 +276,10 @@ export class EventSheet extends BaseElement {
    * prefilled from `event` in the template and need nothing here.
    */
   #seedFromEvent() {
-    this.type = this.event?.type ?? '';
+    this.type = this.event?.type ?? "";
     this.planFollowUp = this.event?.followUpInterval != null;
     this.errors = {};
-    this.saveError = '';
+    this.saveError = "";
   }
 
   /**
@@ -285,15 +289,15 @@ export class EventSheet extends BaseElement {
    */
   get #counterparty(): string {
     const event = this.event;
-    if (!event) return '';
+    if (!event) return "";
     const column = eventFormSpec(event.type).counterparty?.column;
-    return (column ? event[column] : null) ?? '';
+    return (column ? event[column] : null) ?? "";
   }
 
   // `select-change` / `checkbox-change`, not the native `change`: that one is
   // `composed: false` and never leaves the field's shadow root.
   #onTypeChange = (event: CustomEvent<{ value: string }>) => {
-    this.type = event.detail.value as EventTypeKey | '';
+    this.type = event.detail.value as EventTypeKey | "";
     // Leaving a layout that offers a follow-up takes it with it, so a hidden
     // checkbox can't smuggle an interval onto a purchase.
     if (!this.#spec?.followUp) this.planFollowUp = false;
@@ -305,7 +309,9 @@ export class EventSheet extends BaseElement {
 
   #close = () => {
     this.open = false;
-    this.dispatchEvent(new CustomEvent('sheet-close', { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("sheet-close", { bubbles: true, composed: true }),
+    );
   };
 
   /**
@@ -339,7 +345,7 @@ export class EventSheet extends BaseElement {
 
     const horse = this.#horse.value;
     if (!horse) {
-      this.saveError = 'Aucun cheval sélectionné.';
+      this.saveError = "Aucun cheval sélectionné.";
       return;
     }
 
@@ -362,7 +368,8 @@ export class EventSheet extends BaseElement {
         input: result.value,
       });
     } catch (error: unknown) {
-      this.saveError = error instanceof Error ? error.message : 'Enregistrement impossible.';
+      this.saveError =
+        error instanceof Error ? error.message : "Enregistrement impossible.";
       return;
     }
 
@@ -401,7 +408,7 @@ export class EventSheet extends BaseElement {
     // control inside the field's shadow root.
     const selector = Object.keys(this.errors)
       .map((name) => `[name="${name}"]`)
-      .join(',');
+      .join(",");
     if (selector) this.formEl?.querySelector<HTMLElement>(selector)?.focus();
   }
 
@@ -422,21 +429,28 @@ export class EventSheet extends BaseElement {
     // on the field that has one.
     return html`
       <app-bottom-sheet
-        heading=${event ? 'Modifier l’évènement' : 'Nouvel évènement'}
-        description=${event
-          ? 'Mettre à jour les informations'
-          : 'Ajouter un soin, une séance ou un achat'}
+        heading=${event ? "Modifier l’évènement" : "Nouvel évènement"}
+        description=${
+          event
+            ? "Mettre à jour les informations"
+            : "Ajouter un soin, une séance ou un achat"
+        }
         .open=${this.open}
         @sheet-close=${this.#close}
       >
-        <form id="event-form" class="event-form" novalidate @submit=${this.#onSubmit}>
+        <form
+          id="event-form"
+          class="event-form"
+          novalidate
+          @submit=${this.#onSubmit}
+        >
           <app-select
             label="Type"
             name="type"
             placeholder="Choisir un type"
             .options=${TYPE_OPTIONS}
             .value=${this.type}
-            .error=${this.errors.type ?? ''}
+            .error=${this.errors.type ?? ""}
             required
             @select-change=${this.#onTypeChange}
           ></app-select>
@@ -447,8 +461,8 @@ export class EventSheet extends BaseElement {
             flat
             label="Nom"
             name="title"
-            .value=${event?.title ?? ''}
-            .error=${this.errors.title ?? ''}
+            .value=${event?.title ?? ""}
+            .error=${this.errors.title ?? ""}
             required
           ></app-input>
 
@@ -458,13 +472,15 @@ export class EventSheet extends BaseElement {
             name="date"
             type="date"
             .value=${event?.date ?? todayISO()}
-            .error=${this.errors.date ?? ''}
+            .error=${this.errors.date ?? ""}
             required
           ></app-input>
 
-          ${counterparty?.position === 'before-amount'
-            ? this.#renderCounterparty(counterparty)
-            : nothing}
+          ${
+            counterparty?.position === "before-amount"
+              ? this.#renderCounterparty(counterparty)
+              : nothing
+          }
 
           <app-input
             flat
@@ -474,27 +490,27 @@ export class EventSheet extends BaseElement {
             inputmode="decimal"
             pattern="[0-9]+([.,][0-9]{1,2})?"
             suffix="€"
-            .value=${event?.amountCents == null ? '' : String(fromCents(event.amountCents))}
-            .error=${this.errors.amountCents ?? ''}
+            .value=${event?.amountCents == null ? "" : String(fromCents(event.amountCents))}
+            .error=${this.errors.amountCents ?? ""}
           ></app-input>
 
-          ${counterparty?.position === 'after-amount'
-            ? this.#renderCounterparty(counterparty)
-            : nothing}
+          ${
+            counterparty?.position === "after-amount"
+              ? this.#renderCounterparty(counterparty)
+              : nothing
+          }
           ${this.#spec?.followUp ? this.#renderFollowUp() : nothing}
 
           <app-input
             flat
             label="Note"
             name="notes"
-            .value=${event?.notes ?? ''}
-            .error=${this.errors.notes ?? ''}
+            .value=${event?.notes ?? ""}
+            .error=${this.errors.notes ?? ""}
           ></app-input>
 
           <div class="event-form__error-region" role="alert">
-            ${this.saveError
-              ? html`<p class="event-form__error">${this.saveError}</p>`
-              : nothing}
+            ${this.saveError ? html`<p class="event-form__error">${this.saveError}</p>` : nothing}
           </div>
         </form>
 
@@ -522,7 +538,7 @@ export class EventSheet extends BaseElement {
         label=${field.label}
         name="counterparty"
         .value=${this.#counterparty}
-        .error=${this.errors.counterparty ?? ''}
+        .error=${this.errors.counterparty ?? ""}
       ></app-input>
     `;
   }
@@ -533,10 +549,12 @@ export class EventSheet extends BaseElement {
    * anything to relabel it to.
    */
   #renderActivity() {
-    const options: AppSelectOption[] = this.#activityChoices.map((activity) => ({
-      value: activity,
-      label: formatWorkActivity(activity),
-    }));
+    const options: AppSelectOption[] = this.#activityChoices.map(
+      (activity) => ({
+        value: activity,
+        label: formatWorkActivity(activity),
+      }),
+    );
 
     return html`
       <app-select
@@ -544,8 +562,8 @@ export class EventSheet extends BaseElement {
         name="activity"
         placeholder="Choisir une activité"
         .options=${options}
-        .value=${this.event?.activity ?? ''}
-        .error=${this.errors.activity ?? ''}
+        .value=${this.event?.activity ?? ""}
+        .error=${this.errors.activity ?? ""}
         required
       ></app-select>
     `;
@@ -561,17 +579,19 @@ export class EventSheet extends BaseElement {
           @checkbox-change=${this.#onFollowUpToggle}
         ></app-checkbox>
 
-        ${this.planFollowUp
-          ? html`
-              <app-select
-                label="Prochain rendez-vous à planifier"
-                name="followUpInterval"
-                .options=${FOLLOW_UP_OPTIONS}
-                .value=${followUpValue(this.event?.followUpInterval ?? DEFAULT_FOLLOW_UP)}
-                required
-              ></app-select>
-            `
-          : nothing}
+        ${
+          this.planFollowUp
+            ? html`
+                <app-select
+                  label="Prochain rendez-vous à planifier"
+                  name="followUpInterval"
+                  .options=${FOLLOW_UP_OPTIONS}
+                  .value=${followUpValue(this.event?.followUpInterval ?? DEFAULT_FOLLOW_UP)}
+                  required
+                ></app-select>
+              `
+            : nothing
+        }
       </div>
     `;
   }
@@ -579,6 +599,6 @@ export class EventSheet extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'event-sheet': EventSheet;
+    "event-sheet": EventSheet;
   }
 }

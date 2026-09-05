@@ -1,5 +1,5 @@
-import { css, LitElement, type CSSResultGroup } from 'lit';
-import { resetStyles, utilityStyles } from './reset.styles';
+import { css, LitElement, type CSSResultGroup } from "lit";
+import { resetStyles, utilityStyles } from "./reset.styles";
 
 export class BaseElement extends LitElement {
   /** A component's own rules. Subclasses set this, never `styles`. */
@@ -29,7 +29,12 @@ export class BaseElement extends LitElement {
   // shadow root it has to be source order rather than `@layer`: component
   // styles are unlayered, and unlayered wins over every layer.
   static get styles(): CSSResultGroup {
-    return [resetStyles, this.sharedStyles, this.componentStyles, utilityStyles];
+    return [
+      resetStyles,
+      this.sharedStyles,
+      this.componentStyles,
+      utilityStyles,
+    ];
   }
 }
 

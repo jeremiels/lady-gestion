@@ -1,6 +1,6 @@
-import { db } from '../db.ts';
-import { nowISO, type IsoTimestamp } from '../dates.ts';
-import type { MetaKey } from '../types.ts';
+import { db } from "../db.ts";
+import { nowISO, type IsoTimestamp } from "../dates.ts";
+import type { MetaKey } from "../types.ts";
 
 /**
  * Local app state: which horse is on screen, when the last backup ran, the
@@ -20,9 +20,9 @@ export const remove = async (key: MetaKey): Promise<void> => {
 };
 
 export const getLastBackupAt = (): Promise<IsoTimestamp | undefined> =>
-  get<IsoTimestamp>('lastBackupAt');
+  get<IsoTimestamp>("lastBackupAt");
 
-export const markBackedUp = (): Promise<void> => set('lastBackupAt', nowISO());
+export const markBackedUp = (): Promise<void> => set("lastBackupAt", nowISO());
 
 /**
  * The notifications preference, on until the user says otherwise. The default
@@ -30,10 +30,10 @@ export const markBackedUp = (): Promise<void> => set('lastBackupAt', nowISO());
  * the flag yet — reminders are not implemented.
  */
 export const getNotificationsEnabled = async (): Promise<boolean> =>
-  (await get<boolean>('notificationsEnabled')) ?? true;
+  (await get<boolean>("notificationsEnabled")) ?? true;
 
 export const setNotificationsEnabled = (enabled: boolean): Promise<void> =>
-  set('notificationsEnabled', enabled);
+  set("notificationsEnabled", enabled);
 
 /** Whole days since the last backup; `Infinity` when there has never been one. */
 export const daysSinceBackup = async (): Promise<number> => {

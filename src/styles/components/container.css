@@ -1,5 +1,4 @@
 @layer components.container {
-
   .container {
     padding: var(--spacing-12);
     border-radius: var(--radius-12);

@@ -1,13 +1,17 @@
-import { html } from 'lit';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { db } from '../../data/db.ts';
-import { HORSE_ID, makeHorse, resetDb } from '../../data/__tests__/factories.ts';
-import * as activitiesRepo from '../../data/repositories/activities.repo.ts';
-import { fixture, settled } from '../__tests__/fixture.ts';
-import type { AppInput } from '../app-input/app-input.ts';
-import type { AppSelect } from '../app-select/app-select.ts';
-import './event-sheet.ts';
-import type { EventSheet } from './event-sheet.ts';
+import { html } from "lit";
+import { beforeEach, describe, expect, it } from "vitest";
+import { db } from "../../data/db.ts";
+import {
+  HORSE_ID,
+  makeHorse,
+  resetDb,
+} from "../../data/__tests__/factories.ts";
+import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
+import { fixture, settled } from "../__tests__/fixture.ts";
+import type { AppInput } from "../app-input/app-input.ts";
+import type { AppSelect } from "../app-select/app-select.ts";
+import "./event-sheet.ts";
+import type { EventSheet } from "./event-sheet.ts";
 
 /**
  * The submit path, and specifically what a *failed* submit shows.
@@ -32,17 +36,19 @@ const openSheet = async () => {
   // mount. The submit button is disabled until it does, so that is the signal
   // to wait on rather than reaching into the controller.
   const button = () => el.renderRoot.querySelector('button[type="submit"]')!;
-  for (let i = 0; i < 20 && button().hasAttribute('disabled'); i++) {
+  for (let i = 0; i < 20 && button().hasAttribute("disabled"); i++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
     await settled(el);
   }
-  expect(button().hasAttribute('disabled'), 'the horse never loaded').toBe(false);
+  expect(button().hasAttribute("disabled"), "the horse never loaded").toBe(
+    false,
+  );
 
   return el;
 };
 
 const submit = async (el: EventSheet) => {
-  const form = el.renderRoot.querySelector('form')!;
+  const form = el.renderRoot.querySelector("form")!;
   form.requestSubmit();
   await settled(el);
   // `#onSubmit` is async and the reveal awaits another update after it.
@@ -56,18 +62,26 @@ const fieldNamed = <T extends Element>(form: HTMLFormElement, name: string) =>
 
 /** Picks a value the way a user does, so the sheet's own state follows. */
 const pick = async (el: EventSheet, name: string, value: string) => {
-  const field = fieldNamed<AppSelect>(el.renderRoot.querySelector('form')!, name);
-  const select = field.renderRoot.querySelector('select')!;
+  const field = fieldNamed<AppSelect>(
+    el.renderRoot.querySelector("form")!,
+    name,
+  );
+  const select = field.renderRoot.querySelector("select")!;
   select.value = value;
-  select.dispatchEvent(new Event('change', { bubbles: true }));
+  select.dispatchEvent(new Event("change", { bubbles: true }));
   await settled(el);
 };
 
 const fill = async (el: EventSheet, name: string, value: string) => {
-  const field = fieldNamed<AppInput>(el.renderRoot.querySelector('form')!, name);
-  const input = field.renderRoot.querySelector('input')!;
+  const field = fieldNamed<AppInput>(
+    el.renderRoot.querySelector("form")!,
+    name,
+  );
+  const input = field.renderRoot.querySelector("input")!;
   input.value = value;
-  input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+  input.dispatchEvent(
+    new InputEvent("input", { bubbles: true, composed: true }),
+  );
   await settled(field);
 };
 
@@ -86,7 +100,7 @@ const savedEvent = async () => {
 /** What the user can actually read under a field, or `''` if nothing is shown. */
 const errorTextOf = (field: AppInput | AppSelect) => {
   const node = field.renderRoot.querySelector('[part="error"]');
-  return node?.hasAttribute('hidden') ? '' : (node?.textContent?.trim() ?? '');
+  return node?.hasAttribute("hidden") ? "" : (node?.textContent?.trim() ?? "");
 };
 
 beforeEach(async () => {
@@ -94,43 +108,50 @@ beforeEach(async () => {
   await db.horses.add(makeHorse());
 });
 
-describe('event-sheet submit', () => {
-  it('shows a message on every required field left empty', async () => {
+describe("event-sheet submit", () => {
+  it("shows a message on every required field left empty", async () => {
     const el = await openSheet();
     const form = await submit(el);
 
     // `type` and `title` are the required fields with nothing in them — `date`
     // is prefilled with today, so it parses.
-    for (const name of ['type', 'title']) {
+    for (const name of ["type", "title"]) {
       const field = fieldNamed<AppInput | AppSelect>(form, name);
-      expect(errorTextOf(field), `${name} should show its message`).not.toBe('');
+      expect(errorTextOf(field), `${name} should show its message`).not.toBe(
+        "",
+      );
     }
   });
 
-  it('moves focus to the first field at fault', async () => {
+  it("moves focus to the first field at fault", async () => {
     const el = await openSheet();
     const form = await submit(el);
 
     // `activeElement` is per-tree — at document level it reports the outermost
     // host — so the sheet's own root is where the focused field shows up.
-    expect(el.shadowRoot!.activeElement).toBe(fieldNamed(form, 'type'));
+    expect(el.shadowRoot!.activeElement).toBe(fieldNamed(form, "type"));
   });
 
-  it('shows an error native validity could never have produced', async () => {
+  it("shows an error native validity could never have produced", async () => {
     const el = await openSheet();
-    let form = el.renderRoot.querySelector('form')!;
+    let form = el.renderRoot.querySelector("form")!;
 
     // Pick a type the way a user does, so the sheet's variant state follows.
-    const type = fieldNamed<AppSelect>(form, 'type');
-    const select = type.renderRoot.querySelector('select')!;
-    select.value = 'veto';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    const type = fieldNamed<AppSelect>(form, "type");
+    const select = type.renderRoot.querySelector("select")!;
+    select.value = "veto";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
     await settled(el);
 
-    const title = fieldNamed<AppInput>(el.renderRoot.querySelector('form')!, 'title');
-    const input = title.renderRoot.querySelector('input')!;
-    input.value = 'x'.repeat(121);
-    input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    const title = fieldNamed<AppInput>(
+      el.renderRoot.querySelector("form")!,
+      "title",
+    );
+    const input = title.renderRoot.querySelector("input")!;
+    input.value = "x".repeat(121);
+    input.dispatchEvent(
+      new InputEvent("input", { bubbles: true, composed: true }),
+    );
     await settled(title);
 
     // The point of the case: `text({ maxLength: 120 })` is a rule only
@@ -140,61 +161,67 @@ describe('event-sheet submit', () => {
     expect(input.validity.valid).toBe(true);
 
     form = await submit(el);
-    expect(errorTextOf(fieldNamed<AppInput>(form, 'title'))).toContain('120');
+    expect(errorTextOf(fieldNamed<AppInput>(form, "title"))).toContain("120");
   });
 
-  it('focuses the first field at fault in document order, not schema order', async () => {
+  it("focuses the first field at fault in document order, not schema order", async () => {
     const el = await openSheet();
-    let form = el.renderRoot.querySelector('form')!;
+    let form = el.renderRoot.querySelector("form")!;
 
     // The care variant renders `counterparty` between `date` and `amountCents`,
     // but the submit schema declares `amountCents` first — so schema order and
     // document order disagree here, which is exactly the case that matters.
-    const type = fieldNamed<AppSelect>(form, 'type');
-    const select = type.renderRoot.querySelector('select')!;
-    select.value = 'veto';
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    const type = fieldNamed<AppSelect>(form, "type");
+    const select = type.renderRoot.querySelector("select")!;
+    select.value = "veto";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
     await settled(el);
 
-    form = el.renderRoot.querySelector('form')!;
-    const title = fieldNamed<AppInput>(form, 'title');
-    const titleInput = title.renderRoot.querySelector('input')!;
-    titleInput.value = 'Vaccin';
-    titleInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    form = el.renderRoot.querySelector("form")!;
+    const title = fieldNamed<AppInput>(form, "title");
+    const titleInput = title.renderRoot.querySelector("input")!;
+    titleInput.value = "Vaccin";
+    titleInput.dispatchEvent(
+      new InputEvent("input", { bubbles: true, composed: true }),
+    );
     await settled(title);
 
     // Both of these fail `readForm`: `counterparty` on length, `amountCents` on
     // shape — so both end up in `errors`, and only their position on screen
     // should decide which one gets focus.
-    const counterparty = fieldNamed<AppInput>(form, 'counterparty');
-    const counterpartyInput = counterparty.renderRoot.querySelector('input')!;
-    counterpartyInput.value = 'x'.repeat(121);
-    counterpartyInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    const counterparty = fieldNamed<AppInput>(form, "counterparty");
+    const counterpartyInput = counterparty.renderRoot.querySelector("input")!;
+    counterpartyInput.value = "x".repeat(121);
+    counterpartyInput.dispatchEvent(
+      new InputEvent("input", { bubbles: true, composed: true }),
+    );
     await settled(counterparty);
 
-    const amount = fieldNamed<AppInput>(form, 'amountCents');
-    const amountInput = amount.renderRoot.querySelector('input')!;
-    amountInput.value = 'abc';
-    amountInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+    const amount = fieldNamed<AppInput>(form, "amountCents");
+    const amountInput = amount.renderRoot.querySelector("input")!;
+    amountInput.value = "abc";
+    amountInput.dispatchEvent(
+      new InputEvent("input", { bubbles: true, composed: true }),
+    );
     await settled(amount);
 
     form = await submit(el);
 
-    expect(el.shadowRoot!.activeElement).toBe(fieldNamed(form, 'counterparty'));
+    expect(el.shadowRoot!.activeElement).toBe(fieldNamed(form, "counterparty"));
   });
 
-  it('keeps the sheet-level alert region mounted before it has anything to say', async () => {
+  it("keeps the sheet-level alert region mounted before it has anything to say", async () => {
     const el = await openSheet();
 
     // A live region has to be in the accessibility tree before its contents
     // change, so this one is never conditional and never hidden — only what is
     // inside it changes. Rendering it into existence alongside its message is
     // the shape screen readers announce as nothing.
-    const region = el.renderRoot.querySelector('.event-form__error-region')!;
+    const region = el.renderRoot.querySelector(".event-form__error-region")!;
     expect(region).not.toBeNull();
-    expect(region.getAttribute('role')).toBe('alert');
-    expect(region.hasAttribute('hidden')).toBe(false);
-    expect(region.textContent?.trim()).toBe('');
+    expect(region.getAttribute("role")).toBe("alert");
+    expect(region.hasAttribute("hidden")).toBe(false);
+    expect(region.textContent?.trim()).toBe("");
   });
 });
 
@@ -203,67 +230,77 @@ describe('event-sheet submit', () => {
  * optional, and whose value has to be dropped again on the way out when the
  * user changes their mind about the type.
  */
-describe('event-sheet — the travail layout', () => {
-  it('shows the activity select for Travail and nothing else’s extra fields', async () => {
+describe("event-sheet — the travail layout", () => {
+  it("shows the activity select for Travail and nothing else’s extra fields", async () => {
     const el = await openSheet();
-    await pick(el, 'type', 'travail');
+    await pick(el, "type", "travail");
 
-    const form = el.renderRoot.querySelector('form')!;
+    const form = el.renderRoot.querySelector("form")!;
     expect(form.querySelector('[name="activity"]')).not.toBeNull();
     expect(form.querySelector('[name="counterparty"]')).toBeNull();
     expect(form.querySelector('[name="planFollowUp"]')).toBeNull();
 
     // And it leaves with the layout: a care event has no activity to record.
-    await pick(el, 'type', 'veto');
-    expect(el.renderRoot.querySelector('form')!.querySelector('[name="activity"]')).toBeNull();
+    await pick(el, "type", "veto");
+    expect(
+      el.renderRoot.querySelector("form")!.querySelector('[name="activity"]'),
+    ).toBeNull();
   });
 
-  it('refuses to save a Travail with no activity picked', async () => {
+  it("refuses to save a Travail with no activity picked", async () => {
     const el = await openSheet();
-    await pick(el, 'type', 'travail');
-    await fill(el, 'title', 'Séance du matin');
+    await pick(el, "type", "travail");
+    await fill(el, "title", "Séance du matin");
 
     const form = await submit(el);
 
     // The message comes from `forms.ts`, not from a copy in the sheet — the
     // parser is simply the required overload on this layout.
-    expect(errorTextOf(fieldNamed<AppSelect>(form, 'activity'))).not.toBe('');
+    expect(errorTextOf(fieldNamed<AppSelect>(form, "activity"))).not.toBe("");
     expect(await db.events.count()).toBe(0);
   });
 
-  it('stores the activity key, not its label', async () => {
+  it("stores the activity key, not its label", async () => {
     const el = await openSheet();
-    await pick(el, 'type', 'travail');
-    await fill(el, 'title', 'Séance du matin');
-    await pick(el, 'activity', 'longe');
+    await pick(el, "type", "travail");
+    await fill(el, "title", "Séance du matin");
+    await pick(el, "activity", "longe");
 
     await submit(el);
 
-    expect(await savedEvent()).toMatchObject({ type: 'travail', activity: 'longe' });
+    expect(await savedEvent()).toMatchObject({
+      type: "travail",
+      activity: "longe",
+    });
   });
 
-  it('does not offer a custom activity from the day sheet’s catalogue', async () => {
-    await activitiesRepo.add({ horseId: HORSE_ID, label: 'Carrière' });
+  it("does not offer a custom activity from the day sheet’s catalogue", async () => {
+    await activitiesRepo.add({ horseId: HORSE_ID, label: "Carrière" });
 
     const el = await openSheet();
-    await pick(el, 'type', 'travail');
+    await pick(el, "type", "travail");
 
-    const select = fieldNamed<AppSelect>(el.renderRoot.querySelector('form')!, 'activity');
-    expect(select.options.map((option) => option.label)).not.toContain('Carrière');
+    const select = fieldNamed<AppSelect>(
+      el.renderRoot.querySelector("form")!,
+      "activity",
+    );
+    expect(select.options.map((option) => option.label)).not.toContain(
+      "Carrière",
+    );
   });
 
-  it('drops the activity when the type is changed away from Travail', async () => {
+  it("drops the activity when the type is changed away from Travail", async () => {
     const el = await openSheet();
-    await pick(el, 'type', 'travail');
-    await fill(el, 'title', 'Séance du matin');
-    await pick(el, 'activity', 'longe');
+    await pick(el, "type", "travail");
+    await fill(el, "title", "Séance du matin");
+    await pick(el, "activity", "longe");
 
     // Changing the type takes the field off screen, but a value the layout no
     // longer shows must not reach the record either.
-    await pick(el, 'type', 'cours');
+    await pick(el, "type", "cours");
 
     await submit(el);
 
-    expect(await savedEvent()).toMatchObject({ type: 'cours', activity: null });
+    expect(await savedEvent()).toMatchObject({ type: "cours", activity: null });
   });
 });

@@ -1,7 +1,7 @@
-import { todayISO, type IsoDate } from './dates.ts';
-import { formatMonthLong, formatMonthShort, monthOf } from './seasons.ts';
-import { EVENT_TYPES, type EventTypeKey } from '../types/event.types.ts';
-import type { HorseEvent } from './types.ts';
+import { todayISO, type IsoDate } from "./dates.ts";
+import { formatMonthLong, formatMonthShort, monthOf } from "./seasons.ts";
+import { EVENT_TYPES, type EventTypeKey } from "../types/event.types.ts";
+import type { HorseEvent } from "./types.ts";
 
 /**
  * The arithmetic behind the budget view.
@@ -12,7 +12,7 @@ import type { HorseEvent } from './types.ts';
  * holds the query; this file holds the maths.
  */
 
-export type BudgetGranularity = 'month' | 'year';
+export type BudgetGranularity = "month" | "year";
 
 /**
  * A period is a **date prefix**, not a pair of bounds: `2026-01` or `2026`.
@@ -26,17 +26,25 @@ export type BudgetPeriod = { granularity: BudgetGranularity; key: string };
 /** One wedge of the donut: a category and what was spent on it. */
 export type BudgetSlice = { type: EventTypeKey; cents: number };
 
-const PERIOD_KEY_LENGTH: Record<BudgetGranularity, number> = { month: 7, year: 4 };
+const PERIOD_KEY_LENGTH: Record<BudgetGranularity, number> = {
+  month: 7,
+  year: 4,
+};
 
 /** The period a given day belongs to. */
-export const periodOf = (date: IsoDate, granularity: BudgetGranularity): BudgetPeriod => ({
+export const periodOf = (
+  date: IsoDate,
+  granularity: BudgetGranularity,
+): BudgetPeriod => ({
   granularity,
   key: date.slice(0, PERIOD_KEY_LENGTH[granularity]),
 });
 
 /** The events falling inside a period, order preserved. */
-export const inPeriod = (events: HorseEvent[], period: BudgetPeriod): HorseEvent[] =>
-  events.filter((event) => event.date.startsWith(period.key));
+export const inPeriod = (
+  events: HorseEvent[],
+  period: BudgetPeriod,
+): HorseEvent[] => events.filter((event) => event.date.startsWith(period.key));
 
 /**
  * Spend per category, in `EVENT_TYPES` order, categories with nothing spent on
@@ -50,7 +58,10 @@ export const inPeriod = (events: HorseEvent[], period: BudgetPeriod): HorseEvent
 export const sumByType = (events: HorseEvent[]): BudgetSlice[] => {
   const totals = new Map<EventTypeKey, number>();
   for (const event of events) {
-    totals.set(event.type, (totals.get(event.type) ?? 0) + (event.amountCents ?? 0));
+    totals.set(
+      event.type,
+      (totals.get(event.type) ?? 0) + (event.amountCents ?? 0),
+    );
   }
 
   return EVENT_TYPES.flatMap((type) => {
@@ -75,10 +86,14 @@ export const periodOptions = (
   granularity: BudgetGranularity,
   on: IsoDate = todayISO(),
 ): BudgetPeriod[] => {
-  const keys = new Set(events.map((event) => periodOf(event.date, granularity).key));
+  const keys = new Set(
+    events.map((event) => periodOf(event.date, granularity).key),
+  );
   keys.add(periodOf(on, granularity).key);
 
-  return [...keys].sort((a, b) => b.localeCompare(a)).map((key) => ({ granularity, key }));
+  return [...keys]
+    .sort((a, b) => b.localeCompare(a))
+    .map((key) => ({ granularity, key }));
 };
 
 /**
@@ -90,8 +105,11 @@ export const periodOptions = (
  * mostly 2026 is noise. Ambiguity only appears once the list reaches back into
  * another year, which is exactly when the suffix appears.
  */
-export const formatPeriod = (period: BudgetPeriod, on: IsoDate = todayISO()): string => {
-  if (period.granularity === 'year') return period.key;
+export const formatPeriod = (
+  period: BudgetPeriod,
+  on: IsoDate = todayISO(),
+): string => {
+  if (period.granularity === "year") return period.key;
 
   const month = monthOf(`${period.key}-01`);
   if (month === null) return period.key;
@@ -103,15 +121,15 @@ export const formatPeriod = (period: BudgetPeriod, on: IsoDate = todayISO()): st
 
 /** The donut's centre line: `en janvier`, `en 2026`. */
 export const formatPeriodNote = (period: BudgetPeriod): string => {
-  if (period.granularity === 'year') return `en ${period.key}`;
+  if (period.granularity === "year") return `en ${period.key}`;
 
   const month = monthOf(`${period.key}-01`);
-  return month === null ? '' : `en ${formatMonthLong(month)}`;
+  return month === null ? "" : `en ${formatMonthLong(month)}`;
 };
 
 /** `Dépenses mensuelles` / `Dépenses annuelles`. */
 export const formatPeriodHeading = (granularity: BudgetGranularity): string =>
-  granularity === 'month' ? 'Dépenses mensuelles' : 'Dépenses annuelles';
+  granularity === "month" ? "Dépenses mensuelles" : "Dépenses annuelles";
 
 /**
  * Sorts budget newest first.

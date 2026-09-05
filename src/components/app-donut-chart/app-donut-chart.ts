@@ -1,9 +1,9 @@
-import { arc, pie } from 'd3-shape';
-import { css, html, nothing, svg, type PropertyValues } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { MediaQuery } from '../../commons/controllers/media-query.ts';
+import { arc, pie } from "d3-shape";
+import { css, html, nothing, svg, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { MediaQuery } from "../../commons/controllers/media-query.ts";
 
 export type DonutSlice = {
   id: string;
@@ -66,7 +66,8 @@ type Ring = { startAngle: number; endAngle: number };
  * while the last one crawled. The near-linear middle here is what gives each
  * segment roughly its own share of the second.
  */
-const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2);
+const easeInOutCubic = (t: number) =>
+  t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
 
 /**
  * Decelerates only — the shape of `--easing-out`, which is what the rest of the
@@ -113,7 +114,11 @@ const slicesChanged = (next: DonutSlice[] = [], previous: DonutSlice[] = []) =>
   next.length !== previous.length ||
   next.some((slice, index) => {
     const before = previous[index];
-    return slice.id !== before?.id || slice.value !== before.value || slice.color !== before.color;
+    return (
+      slice.id !== before?.id ||
+      slice.value !== before.value ||
+      slice.color !== before.color
+    );
   });
 
 /**
@@ -139,9 +144,10 @@ const hiddenChanged = (next: string[] = [], previous: string[] = []) =>
  * would put scales, axes, geo and force into an offline precache to draw eight
  * wedges.
  */
-@customElement('app-donut-chart')
+@customElement("app-donut-chart")
 export class AppDonutChart extends BaseElement {
-  @property({ attribute: false, hasChanged: slicesChanged }) slices: DonutSlice[] = [];
+  @property({ attribute: false, hasChanged: slicesChanged })
+  slices: DonutSlice[] = [];
   /**
    * Slice ids left out of the ring and out of the centre total.
    *
@@ -149,16 +155,18 @@ export class AppDonutChart extends BaseElement {
    * caller — the chart needs them to animate their own collapse, and to grow
    * them back from where they will end up.
    */
-  @property({ attribute: false, hasChanged: hiddenChanged }) hiddenIds: string[] = [];
+  @property({ attribute: false, hasChanged: hiddenChanged })
+  hiddenIds: string[] = [];
   /** Small line above the figure, e.g. "Total". */
-  @property({ type: String }) caption = '';
+  @property({ type: String }) caption = "";
   /** Small line below it, e.g. "en janvier". */
-  @property({ type: String }) note = '';
+  @property({ type: String }) note = "";
   /**
    * Formats the centre figure. Called on every frame with the value reached so
    * far — and on the last frame with the exact total, never a rounding of it.
    */
-  @property({ attribute: false }) formatValue: (value: number) => string = String;
+  @property({ attribute: false }) formatValue: (value: number) => string =
+    String;
 
   /** 0 → 1 across the entrance sweep. Starts settled so a static render is correct. */
   @state() private progress = 1;
@@ -171,7 +179,7 @@ export class AppDonutChart extends BaseElement {
    * bare `matchMedia(...).matches` would only ever be re-read when the data
    * happened to change.
    */
-  #reducedMotion = new MediaQuery(this, '(prefers-reduced-motion: reduce)');
+  #reducedMotion = new MediaQuery(this, "(prefers-reduced-motion: reduce)");
 
   /**
    * One frame handle for both clocks.
@@ -261,7 +269,9 @@ export class AppDonutChart extends BaseElement {
    *   between — the sweep is about to redraw the ring from nothing.
    */
   #relayout(dataChanged: boolean) {
-    const values = this.slices.map((slice) => (this.#isHidden(slice.id) ? 0 : slice.value));
+    const values = this.slices.map((slice) =>
+      this.#isHidden(slice.id) ? 0 : slice.value,
+    );
     const total = values.reduce((sum, value) => sum + value, 0);
 
     // Both read before the targets move under them: a morph interrupted halfway
@@ -287,14 +297,15 @@ export class AppDonutChart extends BaseElement {
 
     // A length mismatch means there is nothing to morph from — a first render,
     // or a data change that replaced every wedge.
-    this.#fromAngles = from.length === this.#toAngles.length ? from : this.#toAngles;
+    this.#fromAngles =
+      from.length === this.#toAngles.length ? from : this.#toAngles;
     this.#fromTotal = fromTotal;
     this.#toTotal = total;
   }
 
   protected willUpdate(changed: PropertyValues<this>) {
-    const dataChanged = changed.has('slices');
-    const hiddenSetChanged = changed.has('hiddenIds');
+    const dataChanged = changed.has("slices");
+    const hiddenSetChanged = changed.has("hiddenIds");
 
     // Ahead of the reduced-motion return below, not after it: this is the cache
     // the render path reads, so a pass that skips it would draw the new totals
@@ -390,7 +401,10 @@ export class AppDonutChart extends BaseElement {
       // Assigned rather than computed on the last frame: `from + (1 - from)` is
       // not reliably 1 in binary floating point, and both the loop's exit test
       // and the exact-total guard in `render()` compare against exactly 1.
-      this.progress = elapsed < 1 ? this.#sweepFrom + (1 - this.#sweepFrom) * easeInOutCubic(elapsed) : 1;
+      this.progress =
+        elapsed < 1
+          ? this.#sweepFrom + (1 - this.#sweepFrom) * easeInOutCubic(elapsed)
+          : 1;
     }
 
     if (this.morph < 1) {
@@ -482,9 +496,11 @@ export class AppDonutChart extends BaseElement {
                in HTML context a path element comes out as an unknown HTML
                element in the wrong namespace. It then has a valid d attribute,
                inherits the right fill, and draws nothing at all. -->
-          ${track
-            ? svg`<path class="donut__track" d=${wedge({ startAngle: 0, endAngle: TAU }) ?? ''}></path>`
-            : nothing}
+          ${
+            track
+              ? svg`<path class="donut__track" d=${wedge({ startAngle: 0, endAngle: TAU }) ?? ""}></path>`
+              : nothing
+          }
           ${this.#renderWedges(wedge)}
         </svg>
 
@@ -530,7 +546,9 @@ export class AppDonutChart extends BaseElement {
 
       // Inline style, not a fill attribute: the colours are custom properties,
       // and that is where var() resolves reliably inside SVG.
-      return [svg`<path d=${path} style=${styleMap({ fill: slice.color })}></path>`];
+      return [
+        svg`<path d=${path} style=${styleMap({ fill: slice.color })}></path>`,
+      ];
     });
   }
 
@@ -543,19 +561,22 @@ export class AppDonutChart extends BaseElement {
       // every category has been switched off read the same to a screen reader
       // otherwise, and only one of them is fixed by tapping the legend.
       return this.slices.length > 0
-        ? 'Aucune catégorie affichée'
-        : 'Aucune dépense sur cette période';
+        ? "Aucune catégorie affichée"
+        : "Aucune dépense sur cette période";
     }
 
     const parts = this.slices
       .filter((slice) => !this.#isHidden(slice.id))
-      .map((slice) => `${slice.label} ${Math.round((slice.value / total) * 100)} %`);
-    return `Répartition : ${parts.join(', ')}`;
+      .map(
+        (slice) =>
+          `${slice.label} ${Math.round((slice.value / total) * 100)} %`,
+      );
+    return `Répartition : ${parts.join(", ")}`;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-donut-chart': AppDonutChart;
+    "app-donut-chart": AppDonutChart;
   }
 }

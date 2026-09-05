@@ -1,10 +1,10 @@
-import { css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { appHref } from '../../commons/base-path.ts';
-import { formatMonthDe, monthOf } from '../../data/seasons.ts';
-import { todayISO, type IsoDate } from '../../data/dates.ts';
-import { formatCents } from '../../data/money.ts';
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { appHref } from "../../commons/base-path.ts";
+import { formatMonthDe, monthOf } from "../../data/seasons.ts";
+import { todayISO, type IsoDate } from "../../data/dates.ts";
+import { formatCents } from "../../data/money.ts";
 
 /**
  * This month's spend.
@@ -14,7 +14,7 @@ import { formatCents } from '../../data/money.ts';
  * "Budget d'août", the month being a string literal that would still have said
  * août in December.
  */
-@customElement('budget-card')
+@customElement("budget-card")
 export class BudgetCard extends BaseElement {
   /** Total spend for `month`, in integer cents. `null` renders as "—". */
   @property({ attribute: false }) totalCents: number | null = null;
@@ -80,12 +80,12 @@ export class BudgetCard extends BaseElement {
     // for free, and where that API is missing this still works as a real page
     // load — the service worker answers any path with the cached shell.
     return html`
-      <a class="budget__link pressable" href="${appHref('/budget')}">
+      <a class="budget__link pressable" href="${appHref("/budget")}">
         <section class="budget">
           <div class="budget__info">
             <h2 class="budget__title">Dépenses</h2>
             <div class="budget__subtitle">
-              ${month === null ? 'Budget du mois' : `Budget ${formatMonthDe(month)}`}
+              ${month === null ? "Budget du mois" : `Budget ${formatMonthDe(month)}`}
             </div>
           </div>
           <div class="budget__amount">${formatCents(this.totalCents)}</div>
@@ -97,6 +97,6 @@ export class BudgetCard extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'budget-card': BudgetCard;
+    "budget-card": BudgetCard;
   }
 }

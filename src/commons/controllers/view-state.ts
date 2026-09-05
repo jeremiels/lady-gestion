@@ -1,4 +1,4 @@
-import type { ReactiveController, ReactiveControllerHost } from 'lit';
+import type { ReactiveController, ReactiveControllerHost } from "lit";
 
 /**
  * A view's UI state, held on the history entry rather than on the element.
@@ -35,10 +35,10 @@ import type { ReactiveController, ReactiveControllerHost } from 'lit';
  * module did not write, and what makes `clearViewState()` a single delete
  * rather than a list of names to keep in step with the views.
  */
-const NAMESPACE = 'views';
+const NAMESPACE = "views";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+  typeof value === "object" && value !== null;
 
 /**
  * The current entry's whole state object.
@@ -53,7 +53,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * component suite could never exercise.
  */
 const currentState = (): Record<string, unknown> => {
-  if (!('navigation' in window)) return {};
+  if (!("navigation" in window)) return {};
 
   const state: unknown = navigation.currentEntry?.getState();
   return isRecord(state) ? state : {};
@@ -71,7 +71,7 @@ const read = (key: string): Record<string, unknown> => {
 };
 
 const write = (key: string, bag: object): void => {
-  if (!('navigation' in window)) return;
+  if (!("navigation" in window)) return;
 
   navigation.updateCurrentEntry({
     state: { ...currentState(), [NAMESPACE]: { ...namespace(), [key]: bag } },
@@ -89,7 +89,10 @@ const write = (key: string, bag: object): void => {
  * survivable by testing for the non-default branch, so anything unrecognised
  * falls back to the default rendering rather than to a blank one.
  */
-const restore = <T extends object>(defaults: T, stored: Record<string, unknown>): T => {
+const restore = <T extends object>(
+  defaults: T,
+  stored: Record<string, unknown>,
+): T => {
   const merged = { ...defaults };
 
   for (const key of Object.keys(defaults) as (keyof T & string)[]) {
@@ -109,7 +112,7 @@ const restore = <T extends object>(defaults: T, stored: Record<string, unknown>)
  * nothing pointing at the cause.
  */
 export const clearViewState = (): void => {
-  if (!('navigation' in window)) return;
+  if (!("navigation" in window)) return;
 
   const { [NAMESPACE]: _views, ...rest } = currentState();
   navigation.updateCurrentEntry({ state: rest });

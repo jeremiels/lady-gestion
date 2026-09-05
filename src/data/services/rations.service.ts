@@ -1,7 +1,13 @@
-import { bool, decimal, readForm, type FieldError, type FormSchema } from '../forms.ts';
-import * as rationsRepo from '../repositories/rations.repo.ts';
-import { DEFAULT_SEASON } from '../seasons.ts';
-import type { RationItem, RecordPatch } from '../types.ts';
+import {
+  bool,
+  decimal,
+  readForm,
+  type FieldError,
+  type FormSchema,
+} from "../forms.ts";
+import * as rationsRepo from "../repositories/rations.repo.ts";
+import { DEFAULT_SEASON } from "../seasons.ts";
+import type { RationItem, RecordPatch } from "../types.ts";
 
 /**
  * Reading the feed-plan sheet back and writing what actually changed.
@@ -26,7 +32,9 @@ import type { RationItem, RecordPatch } from '../types.ts';
  * Called by the markup in `HorseView.#renderRationField` and by the schema
  * below, so a rename is one edit rather than two that must be made together.
  */
-export const rationFieldNames = (id: string): { quantity: string; seasonal: string } => ({
+export const rationFieldNames = (
+  id: string,
+): { quantity: string; seasonal: string } => ({
   quantity: `quantity-${id}`,
   seasonal: `seasonal-${id}`,
 });
@@ -99,7 +107,9 @@ const rationPatches = (
 
     // Re-ticking "Saisonnier" restores the line's own window when it still has
     // one, so a stored Nov→Mar isn't quietly flattened to the default.
-    const season = values[names.seasonal] ? (ration.season ?? DEFAULT_SEASON) : null;
+    const season = values[names.seasonal]
+      ? (ration.season ?? DEFAULT_SEASON)
+      : null;
 
     const unchanged =
       quantity === ration.quantity &&

@@ -1,13 +1,13 @@
-import { html } from 'lit';
-import { describe, expect, it } from 'vitest';
-import { fixture, settled } from '../__tests__/fixture.ts';
-import './app-donut-chart.ts';
-import type { AppDonutChart, DonutSlice } from './app-donut-chart.ts';
+import { html } from "lit";
+import { describe, expect, it } from "vitest";
+import { fixture, settled } from "../__tests__/fixture.ts";
+import "./app-donut-chart.ts";
+import type { AppDonutChart, DonutSlice } from "./app-donut-chart.ts";
 
 const SLICES: DonutSlice[] = [
-  { id: 'a', label: 'Alpha', value: 60, color: 'red' },
-  { id: 'b', label: 'Bravo', value: 30, color: 'green' },
-  { id: 'c', label: 'Charlie', value: 10, color: 'blue' },
+  { id: "a", label: "Alpha", value: 60, color: "red" },
+  { id: "b", label: "Bravo", value: 30, color: "green" },
+  { id: "c", label: "Charlie", value: 10, color: "blue" },
 ];
 
 const mount = () =>
@@ -20,10 +20,14 @@ const mount = () =>
 
 const shadow = (el: AppDonutChart) => el.shadowRoot!;
 /** Every drawn wedge, which is every path but the empty-state ring behind them. */
-const wedges = (el: AppDonutChart) => [...shadow(el).querySelectorAll('path:not(.donut__track)')];
-const track = (el: AppDonutChart) => shadow(el).querySelector('.donut__track');
-const centre = (el: AppDonutChart) => shadow(el).querySelector('.donut__value')!.textContent!.trim();
-const description = (el: AppDonutChart) => shadow(el).querySelector('svg')!.getAttribute('aria-label');
+const wedges = (el: AppDonutChart) => [
+  ...shadow(el).querySelectorAll("path:not(.donut__track)"),
+];
+const track = (el: AppDonutChart) => shadow(el).querySelector(".donut__track");
+const centre = (el: AppDonutChart) =>
+  shadow(el).querySelector(".donut__value")!.textContent!.trim();
+const description = (el: AppDonutChart) =>
+  shadow(el).querySelector("svg")!.getAttribute("aria-label");
 
 const tick = async (el: AppDonutChart) => {
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -40,7 +44,10 @@ const tick = async (el: AppDonutChart) => {
  */
 const untilChart = async (el: AppDonutChart, predicate: () => boolean) => {
   for (let i = 0; i < 60 && !predicate(); i++) await tick(el);
-  if (!predicate()) throw new Error(`chart never reached the expected state (centre: ${centre(el)})`);
+  if (!predicate())
+    throw new Error(
+      `chart never reached the expected state (centre: ${centre(el)})`,
+    );
 };
 
 /**
@@ -54,51 +61,53 @@ const untilChart = async (el: AppDonutChart, predicate: () => boolean) => {
  * frame rewrites each wedge's `d` to a dozen decimal places.
  */
 const drawn = async (el: AppDonutChart) => {
-  let previous = '';
+  let previous = "";
   for (let i = 0; i < 60; i++) {
     await tick(el);
     const current = shadow(el).innerHTML;
     if (current === previous) return;
     previous = current;
   }
-  throw new Error('chart never stopped animating');
+  throw new Error("chart never stopped animating");
 };
 
-describe('app-donut-chart', () => {
-  it('draws one wedge per slice and totals them', async () => {
+describe("app-donut-chart", () => {
+  it("draws one wedge per slice and totals them", async () => {
     const el = await mount();
     await drawn(el);
 
     expect(wedges(el)).toHaveLength(3);
-    expect(centre(el)).toBe('100');
-    expect(description(el)).toBe('Répartition : Alpha 60 %, Bravo 30 %, Charlie 10 %');
+    expect(centre(el)).toBe("100");
+    expect(description(el)).toBe(
+      "Répartition : Alpha 60 %, Bravo 30 %, Charlie 10 %",
+    );
   });
 
-  it('hiding a slice takes it out of the ring, the total and the description', async () => {
+  it("hiding a slice takes it out of the ring, the total and the description", async () => {
     const el = await mount();
     await drawn(el);
 
-    el.hiddenIds = ['b'];
+    el.hiddenIds = ["b"];
     await drawn(el);
 
     expect(wedges(el)).toHaveLength(2);
-    expect(centre(el)).toBe('70');
+    expect(centre(el)).toBe("70");
     // Re-based on what is left, not on the period's total: a ring that adds up
     // to 100% of nothing it is showing is worse than no percentages at all.
-    expect(description(el)).toBe('Répartition : Alpha 86 %, Charlie 14 %');
+    expect(description(el)).toBe("Répartition : Alpha 86 %, Charlie 14 %");
   });
 
-  it('shows it again when it leaves the hidden set', async () => {
+  it("shows it again when it leaves the hidden set", async () => {
     const el = await mount();
     await drawn(el);
 
-    el.hiddenIds = ['b'];
+    el.hiddenIds = ["b"];
     await drawn(el);
     el.hiddenIds = [];
     await drawn(el);
 
     expect(wedges(el)).toHaveLength(3);
-    expect(centre(el)).toBe('100');
+    expect(centre(el)).toBe("100");
   });
 
   /**
@@ -107,42 +116,42 @@ describe('app-donut-chart', () => {
    * expose. Caught on the first poll after the toggle rather than at a fixed
    * offset into it, so a slow machine widens the window instead of missing it.
    */
-  it('counts the centre figure between the two totals rather than snapping', async () => {
+  it("counts the centre figure between the two totals rather than snapping", async () => {
     const el = await mount();
     await drawn(el);
 
-    el.hiddenIds = ['b'];
+    el.hiddenIds = ["b"];
     await settled(el);
-    expect(centre(el)).toBe('100');
+    expect(centre(el)).toBe("100");
 
-    await untilChart(el, () => centre(el) !== '100');
+    await untilChart(el, () => centre(el) !== "100");
     expect(Number(centre(el))).toBeGreaterThan(70);
 
     await drawn(el);
-    expect(centre(el)).toBe('70');
+    expect(centre(el)).toBe("70");
   });
 
-  it('reveals the track and empties the figure when every slice is hidden', async () => {
+  it("reveals the track and empties the figure when every slice is hidden", async () => {
     const el = await mount();
     await drawn(el);
 
-    el.hiddenIds = ['a', 'b', 'c'];
+    el.hiddenIds = ["a", "b", "c"];
     await drawn(el);
 
     expect(wedges(el)).toHaveLength(0);
     expect(track(el)).not.toBeNull();
-    expect(centre(el)).toBe('0');
+    expect(centre(el)).toBe("0");
     // Told apart from a period with nothing in it: only one of the two is
     // fixed by tapping the legend.
-    expect(description(el)).toBe('Aucune catégorie affichée');
+    expect(description(el)).toBe("Aucune catégorie affichée");
   });
 
-  it('stops its frame loop when it leaves the document', async () => {
+  it("stops its frame loop when it leaves the document", async () => {
     const el = await mount();
     await drawn(el);
 
-    el.hiddenIds = ['b'];
-    await untilChart(el, () => centre(el) !== '100');
+    el.hiddenIds = ["b"];
+    await untilChart(el, () => centre(el) !== "100");
     el.remove();
 
     const atRemoval = centre(el);

@@ -1,7 +1,7 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { basename } from 'node:path';
-import type { Plugin, ViteDevServer } from 'vite';
-import { SPRITE_PATH } from '../src/components/app-icon/icons.ts';
+import { readFile, readdir } from "node:fs/promises";
+import { basename } from "node:path";
+import type { Plugin, ViteDevServer } from "vite";
+import { SPRITE_PATH } from "../src/components/app-icon/icons.ts";
 
 /**
  * Builds `/icons.svg` — one `<symbol>` per file in `src/assets/icons/` — and
@@ -27,11 +27,13 @@ import { SPRITE_PATH } from '../src/components/app-icon/icons.ts';
  * hashed names exist to provide.
  */
 
-const ICONS_DIR = new URL('../src/assets/icons/', import.meta.url);
+const ICONS_DIR = new URL("../src/assets/icons/", import.meta.url);
 
 /** `chevron-left.svg` -> `chevronLeft`, matching the `IconName` spelling. */
 const idOf = (file: string): string =>
-  basename(file, '.svg').replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
+  basename(file, ".svg").replace(/-([a-z])/g, (_, letter: string) =>
+    letter.toUpperCase(),
+  );
 
 const SVG = /^<svg([^>]*)>([\s\S]*)<\/svg>\s*$/;
 
@@ -45,7 +47,9 @@ const SVG = /^<svg([^>]*)>([\s\S]*)<\/svg>\s*$/;
 const DROP_ATTRS = /\s(?:xmlns(?::\w+)?|width|height|id|class)="[^"]*"/g;
 
 async function buildSprite(expected: readonly string[]): Promise<string> {
-  const files = (await readdir(ICONS_DIR)).filter((file) => file.endsWith('.svg')).sort();
+  const files = (await readdir(ICONS_DIR))
+    .filter((file) => file.endsWith(".svg"))
+    .sort();
 
   const found = files.map(idOf);
   // The old `?raw` imports failed the build when a file went missing, and that
@@ -55,24 +59,27 @@ async function buildSprite(expected: readonly string[]): Promise<string> {
   const extra = found.filter((name) => !expected.includes(name));
   if (missing.length || extra.length) {
     throw new Error(
-      '[lady-gestion:icon-sprite] src/assets/icons/ and ICON_NAMES disagree — ' +
-        `${missing.length ? `no file for: ${missing.join(', ')}. ` : ''}` +
-        `${extra.length ? `no name for: ${extra.join(', ')}.` : ''}`,
+      "[lady-gestion:icon-sprite] src/assets/icons/ and ICON_NAMES disagree — " +
+        `${missing.length ? `no file for: ${missing.join(", ")}. ` : ""}` +
+        `${extra.length ? `no name for: ${extra.join(", ")}.` : ""}`,
     );
   }
 
   const symbols = await Promise.all(
     files.map(async (file) => {
-      const source = await readFile(new URL(file, ICONS_DIR), 'utf8');
+      const source = await readFile(new URL(file, ICONS_DIR), "utf8");
       const match = SVG.exec(source.trim());
-      if (!match) throw new Error(`[lady-gestion:icon-sprite] ${file} is not a single <svg> element.`);
+      if (!match)
+        throw new Error(
+          `[lady-gestion:icon-sprite] ${file} is not a single <svg> element.`,
+        );
 
-      const [, attributes = '', inner = ''] = match;
-      return `<symbol id="${idOf(file)}"${attributes.replace(DROP_ATTRS, '')}>${inner}</symbol>`;
+      const [, attributes = "", inner = ""] = match;
+      return `<symbol id="${idOf(file)}"${attributes.replace(DROP_ATTRS, "")}>${inner}</symbol>`;
     }),
   );
 
-  return `<svg xmlns="http://www.w3.org/2000/svg">${symbols.join('')}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg">${symbols.join("")}</svg>`;
 }
 
 export function iconSprite(options: { names: readonly string[] }): Plugin {
@@ -81,7 +88,7 @@ export function iconSprite(options: { names: readonly string[] }): Plugin {
   // both reach `buildStart` in serve mode, where calling it warns that the
   // plugin is not Vite-compatible — they take the middleware above instead.
   let building = false;
-  let base = '/';
+  let base = "/";
 
   // Dev and preview serve it from memory; the build writes it into `dist/`,
   // where the service worker plugin's directory walk picks it up like any other
@@ -95,22 +102,28 @@ export function iconSprite(options: { names: readonly string[] }): Plugin {
   // that request; it falls through to Vite's SPA history fallback, which
   // serves `index.html` instead — 200 OK, wrong content, so every icon's
   // `<use>` silently resolves against HTML and draws nothing.
-  const serve = (middlewares: ViteDevServer['middlewares'], servedBase: string) => {
-    middlewares.use(`${servedBase.slice(0, -1)}${SPRITE_PATH}`, (_request, response, next) => {
-      sprite()
-        .then((body) => {
-          response.setHeader('Content-Type', 'image/svg+xml');
-          response.end(body);
-        })
-        .catch(next);
-    });
+  const serve = (
+    middlewares: ViteDevServer["middlewares"],
+    servedBase: string,
+  ) => {
+    middlewares.use(
+      `${servedBase.slice(0, -1)}${SPRITE_PATH}`,
+      (_request, response, next) => {
+        sprite()
+          .then((body) => {
+            response.setHeader("Content-Type", "image/svg+xml");
+            response.end(body);
+          })
+          .catch(next);
+      },
+    );
   };
 
   return {
-    name: 'lady-gestion:icon-sprite',
+    name: "lady-gestion:icon-sprite",
 
     configResolved(config) {
-      building = config.command === 'build';
+      building = config.command === "build";
       base = config.base;
     },
 
@@ -140,13 +153,13 @@ export function iconSprite(options: { names: readonly string[] }): Plugin {
     transformIndexHtml() {
       return [
         {
-          tag: 'link',
-          injectTo: 'head',
+          tag: "link",
+          injectTo: "head",
           attrs: {
-            rel: 'preload',
+            rel: "preload",
             href: `${base.slice(0, -1)}${SPRITE_PATH}`,
-            as: 'image',
-            type: 'image/svg+xml',
+            as: "image",
+            type: "image/svg+xml",
           },
         },
       ];
@@ -156,7 +169,11 @@ export function iconSprite(options: { names: readonly string[] }): Plugin {
       // Emitting from `buildStart` rather than `generateBundle` so a mismatch
       // between the folder and `ICON_NAMES` fails before anything is written.
       if (!building) return;
-      this.emitFile({ type: 'asset', fileName: SPRITE_PATH.slice(1), source: await sprite() });
+      this.emitFile({
+        type: "asset",
+        fileName: SPRITE_PATH.slice(1),
+        source: await sprite(),
+      });
     },
   };
 }

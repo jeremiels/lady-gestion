@@ -1,6 +1,6 @@
-import Dexie, { liveQuery, type Table } from 'dexie';
-import { seasonFromLegacyFlag, type RationSeason } from './seasons.ts';
-import type { FollowUpInterval, WorkActivity } from './events.ts';
+import Dexie, { liveQuery, type Table } from "dexie";
+import { seasonFromLegacyFlag, type RationSeason } from "./seasons.ts";
+import type { FollowUpInterval, WorkActivity } from "./events.ts";
 import type {
   ActivityItem,
   DocumentBlob,
@@ -9,7 +9,7 @@ import type {
   MetaEntry,
   RationItem,
   StoredDocument,
-} from './types.ts';
+} from "./types.ts";
 
 /**
  * The only module in the app that imports `dexie`.
@@ -48,12 +48,13 @@ export const SCHEMA_VERSION = 5;
  * not be a key path at all. Seasonality is resolved in memory by `seasons.ts`.
  */
 const STORES = {
-  horses: 'id, name, updatedAt',
-  events: 'id, horseId, date, type, status, [horseId+date], [horseId+type], updatedAt',
-  documents: 'id, horseId, eventId, category, [horseId+category], updatedAt',
-  documentBlobs: 'documentId',
-  rationItems: 'id, horseId, [horseId+sortOrder], updatedAt',
-  meta: 'key',
+  horses: "id, name, updatedAt",
+  events:
+    "id, horseId, date, type, status, [horseId+date], [horseId+type], updatedAt",
+  documents: "id, horseId, eventId, category, [horseId+category], updatedAt",
+  documentBlobs: "documentId",
+  rationItems: "id, horseId, [horseId+sortOrder], updatedAt",
+  meta: "key",
 } as const;
 
 /**
@@ -68,7 +69,7 @@ const STORES = {
  * for one horse, and ordered in memory by `createdAt` so a new chip lands at
  * the end. There is no `sortOrder` to pair it with because nothing reorders it.
  */
-const STORES_V5 = { ...STORES, activities: 'id, horseId, updatedAt' } as const;
+const STORES_V5 = { ...STORES, activities: "id, horseId, updatedAt" } as const;
 
 /** A v1 ration row, mid-upgrade: the old flag is still there, the window is not. */
 type LegacyRationItem = {
@@ -97,7 +98,7 @@ export class LadyGestionDb extends Dexie {
   meta!: Table<MetaEntry, string>;
 
   constructor() {
-    super('lady-gestion');
+    super("lady-gestion");
 
     this.version(1).stores(STORES);
 
@@ -109,7 +110,7 @@ export class LadyGestionDb extends Dexie {
       .stores(STORES)
       .upgrade((transaction) =>
         transaction
-          .table<LegacyRationItem>('rationItems')
+          .table<LegacyRationItem>("rationItems")
           .toCollection()
           .modify((item) => {
             item.season = seasonFromLegacyFlag(item.seasonal);
@@ -125,7 +126,7 @@ export class LadyGestionDb extends Dexie {
       .stores(STORES)
       .upgrade((transaction) =>
         transaction
-          .table<LegacyHorseEvent>('events')
+          .table<LegacyHorseEvent>("events")
           .toCollection()
           .modify((event) => {
             event.vendor ??= null;
@@ -141,7 +142,7 @@ export class LadyGestionDb extends Dexie {
       .stores(STORES)
       .upgrade((transaction) =>
         transaction
-          .table<LegacyWorkEvent>('events')
+          .table<LegacyWorkEvent>("events")
           .toCollection()
           .modify((event) => {
             event.activity ??= null;
@@ -191,7 +192,12 @@ export type RecordTableName = keyof typeof RECORD_TABLES;
 
 /** `{ horses: Horse[], events: HorseEvent[], … }`, derived rather than restated. */
 export type BackupTables = {
-  [K in RecordTableName]: (typeof RECORD_TABLES)[K] extends Table<infer T, string> ? T[] : never;
+  [K in RecordTableName]: (typeof RECORD_TABLES)[K] extends Table<
+    infer T,
+    string
+  >
+    ? T[]
+    : never;
 };
 
 // Re-exported so `live.ts` gets reactivity without importing dexie itself.

@@ -1,7 +1,7 @@
-import { playwright } from '@vitest/browser-playwright';
-import { defineConfig } from 'vitest/config';
-import { iconSprite } from './vite/icon-sprite.ts';
-import { ICON_NAMES } from './src/components/app-icon/icons.ts';
+import { playwright } from "@vitest/browser-playwright";
+import { defineConfig } from "vitest/config";
+import { iconSprite } from "./vite/icon-sprite.ts";
+import { ICON_NAMES } from "./src/components/app-icon/icons.ts";
 
 /**
  * Two suites, because the two halves of this app are only testable in different
@@ -36,14 +36,14 @@ export default defineConfig({
     projects: [
       {
         test: {
-          name: 'data',
-          environment: 'node',
+          name: "data",
+          environment: "node",
           // Pinned so the local-vs-UTC date assertions are deterministic; the
           // app is French and `todayISO()` deliberately reads local calendar
           // fields.
-          env: { TZ: 'Europe/Paris' },
-          include: ['src/data/**/*.test.ts'],
-          setupFiles: ['./src/data/__tests__/setup.ts'],
+          env: { TZ: "Europe/Paris" },
+          include: ["src/data/**/*.test.ts"],
+          setupFiles: ["./src/data/__tests__/setup.ts"],
           // Each file gets a fresh module registry and therefore a fresh
           // database.
           isolate: true,
@@ -72,32 +72,32 @@ export default defineConfig({
          */
         optimizeDeps: {
           include: [
-            'lit',
-            'lit/decorators.js',
-            'lit/directives/class-map.js',
-            'lit/directives/if-defined.js',
-            'lit/directives/keyed.js',
-            'lit/directives/live.js',
-            'lit/directives/repeat.js',
-            'lit/directives/style-map.js',
-            'dexie',
-            'd3-shape',
+            "lit",
+            "lit/decorators.js",
+            "lit/directives/class-map.js",
+            "lit/directives/if-defined.js",
+            "lit/directives/keyed.js",
+            "lit/directives/live.js",
+            "lit/directives/repeat.js",
+            "lit/directives/style-map.js",
+            "dexie",
+            "d3-shape",
           ],
         },
 
         test: {
-          name: 'components',
-          env: { TZ: 'Europe/Paris' },
+          name: "components",
+          env: { TZ: "Europe/Paris" },
           include: [
-            'src/components/**/*.test.ts',
-            'src/views/**/*.test.ts',
-            'src/commons/**/*.test.ts',
+            "src/components/**/*.test.ts",
+            "src/views/**/*.test.ts",
+            "src/commons/**/*.test.ts",
           ],
           browser: {
             enabled: true,
             provider: playwright(),
             headless: true,
-            instances: [{ browser: 'chromium' }],
+            instances: [{ browser: "chromium" }],
           },
         },
       },

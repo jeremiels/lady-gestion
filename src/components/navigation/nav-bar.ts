@@ -1,9 +1,9 @@
-import { css, html } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
+import { css, html } from "lit";
+import { customElement } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
 
 /** Layout shell for the fixed bottom navigation. Items are slotted in by `app-root`. */
-@customElement('nav-bar')
+@customElement("nav-bar")
 export class NavBar extends BaseElement {
   static componentStyles = css`
     /* Two boxes, deliberately. The surface spans the viewport — it is the
@@ -47,6 +47,6 @@ export class NavBar extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'nav-bar': NavBar;
+    "nav-bar": NavBar;
   }
 }

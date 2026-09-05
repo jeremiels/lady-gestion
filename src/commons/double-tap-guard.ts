@@ -30,10 +30,13 @@ let lastTarget: EventTarget | null = null;
 
 export const initDoubleTapGuard = (): void => {
   document.addEventListener(
-    'touchend',
+    "touchend",
     (event) => {
       const now = Date.now();
-      if (event.target === lastTarget && now - lastTouchEnd <= DOUBLE_TAP_WINDOW_MS) {
+      if (
+        event.target === lastTarget &&
+        now - lastTouchEnd <= DOUBLE_TAP_WINDOW_MS
+      ) {
         event.preventDefault();
       }
       lastTouchEnd = now;

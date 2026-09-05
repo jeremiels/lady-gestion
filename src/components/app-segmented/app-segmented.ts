@@ -1,12 +1,12 @@
-import { css, html, type PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { classMap } from 'lit/directives/class-map.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { slidingSelectionStyles } from '../../commons/sliding-selection.styles.ts';
-import type { IconName } from '../app-icon/icons.ts';
+import { css, html, type PropertyValues } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { slidingSelectionStyles } from "../../commons/sliding-selection.styles.ts";
+import type { IconName } from "../app-icon/icons.ts";
 
-import '../app-icon/app-icon.ts';
+import "../app-icon/app-icon.ts";
 
 export type SegmentedOption = {
   value: string;
@@ -31,12 +31,12 @@ export type SegmentedOption = {
  * @fires segment-change - `{ value: string }`. Fired only when the value
  * actually changes; re-selecting the active segment is a no-op.
  */
-@customElement('app-segmented')
+@customElement("app-segmented")
 export class AppSegmented extends BaseElement {
   @property({ attribute: false }) options: SegmentedOption[] = [];
-  @property({ type: String }) value = '';
+  @property({ type: String }) value = "";
   /** Names the group itself, e.g. "Affichage". */
-  @property({ type: String }) label = '';
+  @property({ type: String }) label = "";
 
   // The shared pill first, so the rules below still win at equal specificity.
   static componentStyles = [
@@ -83,7 +83,7 @@ export class AppSegmented extends BaseElement {
         white-space: nowrap;
       }
 
-      .segmented__option[aria-checked='true'] {
+      .segmented__option[aria-checked="true"] {
         background: var(--color-white);
         color: var(--color-brown-dark);
       }
@@ -96,7 +96,7 @@ export class AppSegmented extends BaseElement {
        * both paths.
        */
       @supports (anchor-name: --sliding-selection) {
-        .segmented__option[aria-checked='true'] {
+        .segmented__option[aria-checked="true"] {
           background: transparent;
         }
       }
@@ -112,7 +112,7 @@ export class AppSegmented extends BaseElement {
     if (value === this.value) return;
     this.value = value;
     this.dispatchEvent(
-      new CustomEvent('segment-change', {
+      new CustomEvent("segment-change", {
         detail: { value },
         bubbles: true,
         composed: true,
@@ -122,11 +122,16 @@ export class AppSegmented extends BaseElement {
 
   /** Arrows move *and* select, which is the expected behaviour for a radio group. */
   #onKeyDown = (event: KeyboardEvent) => {
-    const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[event.key];
+    const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[
+      event.key
+    ];
     if (step === undefined) return;
 
-    const index = this.options.findIndex((option) => option.value === this.value);
-    const next = this.options[(index + step + this.options.length) % this.options.length];
+    const index = this.options.findIndex(
+      (option) => option.value === this.value,
+    );
+    const next =
+      this.options[(index + step + this.options.length) % this.options.length];
     if (!next) return;
 
     event.preventDefault();
@@ -135,7 +140,7 @@ export class AppSegmented extends BaseElement {
   };
 
   protected updated(changed: PropertyValues<this>) {
-    if (!changed.has('value')) return;
+    if (!changed.has("value")) return;
 
     // Move DOM focus onto the newly selected segment — but only when a segment
     // already holds it. Lit renders asynchronously, so doing this straight after
@@ -143,9 +148,11 @@ export class AppSegmented extends BaseElement {
     // stranding focus on an element that had just become `tabindex="-1"`.
     // Guarded so a programmatic `.value` change from a view can't steal focus.
     const root = this.renderRoot as ShadowRoot;
-    if (!root.activeElement?.classList.contains('segmented__option')) return;
+    if (!root.activeElement?.classList.contains("segmented__option")) return;
 
-    root.querySelector<HTMLButtonElement>('.segmented__option[tabindex="0"]')?.focus();
+    root
+      .querySelector<HTMLButtonElement>('.segmented__option[tabindex="0"]')
+      ?.focus();
   }
 
   render() {
@@ -163,15 +170,15 @@ export class AppSegmented extends BaseElement {
           return html`
             <button
               class=${classMap({
-                'segmented__option': true,
-                'segmented__option--text': !option.icon,
+                segmented__option: true,
+                "segmented__option--text": !option.icon,
                 // Moving this class is the whole animation — the pill anchors
                 // to it and the browser interpolates the rest.
-                'sliding-selection__active': checked,
+                "sliding-selection__active": checked,
               })}
               type="button"
               role="radio"
-              aria-checked=${checked ? 'true' : 'false'}
+              aria-checked=${checked ? "true" : "false"}
               aria-label=${ifDefined(option.icon ? option.label : undefined)}
               tabindex=${checked ? 0 : -1}
               @click=${() => this.#select(option.value)}
@@ -187,6 +194,6 @@ export class AppSegmented extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-segmented': AppSegmented;
+    "app-segmented": AppSegmented;
   }
 }

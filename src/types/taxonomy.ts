@@ -1,5 +1,5 @@
-import type { IconName } from '../components/app-icon/icons.ts';
-import { THEME_META, type ThemeKey, type ThemeMeta } from '../theme/theme.ts';
+import type { IconName } from "../components/app-icon/icons.ts";
+import { THEME_META, type ThemeKey, type ThemeMeta } from "../theme/theme.ts";
 
 /**
  * How a category presents itself: what to call it, what to draw for it, and

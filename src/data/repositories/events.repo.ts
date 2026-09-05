@@ -1,11 +1,11 @@
-import { db } from '../db.ts';
-import { todayISO, type IsoDate } from '../dates.ts';
-import { sumByType } from '../budget.ts';
-import { isAppointmentType } from '../events.ts';
-import { sumCents } from '../money.ts';
-import { createRecord, crud, liveOnly } from '../record.ts';
-import type { EventTypeKey } from '../../types/event.types.ts';
-import type { HorseEvent, NewRecord } from '../types.ts';
+import { db } from "../db.ts";
+import { todayISO, type IsoDate } from "../dates.ts";
+import { sumByType } from "../budget.ts";
+import { isAppointmentType } from "../events.ts";
+import { sumCents } from "../money.ts";
+import { createRecord, crud, liveOnly } from "../record.ts";
+import type { EventTypeKey } from "../../types/event.types.ts";
+import type { HorseEvent, NewRecord } from "../types.ts";
 
 /**
  * Queries over the unified events table.
@@ -16,12 +16,12 @@ import type { HorseEvent, NewRecord } from '../types.ts';
  */
 
 // IndexedDB range bounds. '' sorts before every date string, '￿' after.
-const MIN_DATE = '';
-const MAX_DATE = '￿';
+const MIN_DATE = "";
+const MAX_DATE = "￿";
 
 const byHorseAndDateRange = (horseId: string, from: IsoDate, to: IsoDate) =>
   db.events
-    .where('[horseId+date]')
+    .where("[horseId+date]")
     .between([horseId, from], [horseId, to], true, true)
     .toArray();
 
@@ -38,7 +38,8 @@ export const listInRange = async (
   horseId: string,
   from: IsoDate,
   to: IsoDate,
-): Promise<HorseEvent[]> => liveOnly(await byHorseAndDateRange(horseId, from, to));
+): Promise<HorseEvent[]> =>
+  liveOnly(await byHorseAndDateRange(horseId, from, to));
 
 /**
  * Still-to-happen appointments, soonest first.
@@ -48,10 +49,13 @@ export const listInRange = async (
  * rendez-vous, and filtering it here rather than in the view is what keeps the
  * limit honest: the caller asks for three and gets three appointments.
  */
-export const listUpcoming = async (horseId: string, limit?: number): Promise<HorseEvent[]> => {
+export const listUpcoming = async (
+  horseId: string,
+  limit?: number,
+): Promise<HorseEvent[]> => {
   const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
   const upcoming = liveOnly(events).filter(
-    (event) => event.status === 'planned' && isAppointmentType(event.type),
+    (event) => event.status === "planned" && isAppointmentType(event.type),
   );
   return limit === undefined ? upcoming : upcoming.slice(0, limit);
 };
@@ -63,7 +67,9 @@ export const listBudget = async (
   to: IsoDate = MAX_DATE,
 ): Promise<HorseEvent[]> => {
   const events = await listInRange(horseId, from, to);
-  return events.filter((event) => event.amountCents !== null && event.status !== 'cancelled');
+  return events.filter(
+    (event) => event.amountCents !== null && event.status !== "cancelled",
+  );
 };
 
 /** Total spend in cents over a range. */
@@ -94,7 +100,9 @@ export const totalSpentByType = async (
   return Object.fromEntries(slices.map((slice) => [slice.type, slice.cents]));
 };
 
-export const create = async (fields: NewRecord<HorseEvent>): Promise<HorseEvent> => {
+export const create = async (
+  fields: NewRecord<HorseEvent>,
+): Promise<HorseEvent> => {
   const event = createRecord<HorseEvent>(fields);
   await db.events.add(event);
   return event;

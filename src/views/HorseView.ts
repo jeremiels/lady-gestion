@@ -1,8 +1,8 @@
-import { html, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
-import { LightElement } from '../commons/base-element.ts';
-import { goBack } from '../commons/navigation.ts';
+import { html, nothing } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
+import { LightElement } from "../commons/base-element.ts";
+import { goBack } from "../commons/navigation.ts";
 import {
   LiveQuery,
   activeHorseQuery,
@@ -16,31 +16,35 @@ import {
   summariseSuspension,
   todayISO,
   type IsoDate,
-} from '../data/index.ts';
-import type { Horse, RationItem } from '../data/types.ts';
+} from "../data/index.ts";
+import type { Horse, RationItem } from "../data/types.ts";
 import {
   HORSE_SEX_LABEL,
   RATION_UNIT_LABEL,
   formatRationAmount,
-} from '../types/horse.types.ts';
+} from "../types/horse.types.ts";
 
-import '../components/horse-card/horse-card.ts';
-import '../components/app-icon/app-icon.ts';
-import '../components/app-bottom-sheet/app-bottom-sheet.ts';
-import '../components/app-input/app-input.ts';
-import '../components/app-checkbox/app-checkbox.ts';
+import "../components/horse-card/horse-card.ts";
+import "../components/app-icon/app-icon.ts";
+import "../components/app-bottom-sheet/app-bottom-sheet.ts";
+import "../components/app-input/app-input.ts";
+import "../components/app-checkbox/app-checkbox.ts";
 
 /** Only ever opened from the dashboard, so that's the only fallback back needs. */
-const HOME = '/';
+const HOME = "/";
 
-@customElement('horse-view')
+@customElement("horse-view")
 export class HorseView extends LightElement {
   @state() private rationSheetOpen = false;
 
   // Both re-run automatically whenever a table they read is written to, so
   // adding a ration below re-renders the list without any manual refresh.
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
-  #rations = activeHorseQuery<RationItem[]>(this, (horseId) => rationsRepo.listByHorse(horseId), []);
+  #rations = activeHorseQuery<RationItem[]>(
+    this,
+    (horseId) => rationsRepo.listByHorse(horseId),
+    [],
+  );
 
   #openRationSheet = () => {
     this.rationSheetOpen = true;
@@ -96,9 +100,15 @@ export class HorseView extends LightElement {
           the view a real h1 for the document outline and a focus target for the
           route change in app-root.
         -->
-        <h1 class="visually-hidden" tabindex="-1">${horse?.name ?? 'Fiche du cheval'}</h1>
+        <h1 class="visually-hidden" tabindex="-1">
+          ${horse?.name ?? "Fiche du cheval"}
+        </h1>
         <div class="horse-view__cover">
-          <horse-card context-type="horse-view" class="horse-view__card" .horse=${horse ?? null}></horse-card>
+          <horse-card
+            context-type="horse-view"
+            class="horse-view__card"
+            .horse=${horse ?? null}
+          ></horse-card>
           <button
             class="horse-view__back pressable pressable--small"
             type="button"
@@ -127,14 +137,23 @@ export class HorseView extends LightElement {
           different record and the in-progress edit — and the focus — lands on
           the wrong product.
         -->
-        <form id="ration-form" class="ration-form" @submit=${this.#onRationSubmit}>
+        <form
+          id="ration-form"
+          class="ration-form"
+          @submit=${this.#onRationSubmit}
+        >
           ${repeat(
             this.#rations.value ?? [],
             (ration) => ration.id,
             (ration) => this.#renderRationField(ration),
           )}
         </form>
-        <button slot="footer" class="horse-view__submit pressable" type="submit" form="ration-form">
+        <button
+          slot="footer"
+          class="horse-view__submit pressable"
+          type="submit"
+          form="ration-form"
+        >
           Enregistrer
         </button>
       </app-bottom-sheet>
@@ -187,11 +206,11 @@ export class HorseView extends LightElement {
         <h2 class="section-title-small">Identité</h2>
         <div class="container">
           <ul class="meta-list">
-            ${this.#renderMetaItem('Sexe', horse ? HORSE_SEX_LABEL[horse.sex] : null)}
+            ${this.#renderMetaItem("Sexe", horse ? HORSE_SEX_LABEL[horse.sex] : null)}
             <!-- Derived, never stored: an age column is wrong within the year. -->
-            ${this.#renderMetaItem('Âge', formatAge(ageInYears(horse?.birthDate ?? null)))}
-            ${this.#renderMetaItem('Race', horse?.breed ?? null)}
-            ${this.#renderMetaItem('N° Sire', horse?.sireNumber ?? null)}
+            ${this.#renderMetaItem("Âge", formatAge(ageInYears(horse?.birthDate ?? null)))}
+            ${this.#renderMetaItem("Race", horse?.breed ?? null)}
+            ${this.#renderMetaItem("N° Sire", horse?.sireNumber ?? null)}
           </ul>
         </div>
       </section>
@@ -204,9 +223,9 @@ export class HorseView extends LightElement {
         <h2 class="section-title-small">Origine</h2>
         <div class="container">
           <ul class="meta-list">
-            ${this.#renderMetaItem('Robe', horse?.coat ?? null)}
-            ${this.#renderMetaItem('Mère', horse?.damName ?? null)}
-            ${this.#renderMetaItem('Père', horse?.sireName ?? null)}
+            ${this.#renderMetaItem("Robe", horse?.coat ?? null)}
+            ${this.#renderMetaItem("Mère", horse?.damName ?? null)}
+            ${this.#renderMetaItem("Père", horse?.sireName ?? null)}
           </ul>
         </div>
       </section>
@@ -217,7 +236,7 @@ export class HorseView extends LightElement {
     return html`
       <li class="meta-item">
         <span class="meta-label">${label}</span>
-        <span class="meta-value">${value || '—'}</span>
+        <span class="meta-value">${value || "—"}</span>
       </li>
     `;
   }
@@ -246,25 +265,31 @@ export class HorseView extends LightElement {
             <app-icon icon="edit" size="1.25rem"></app-icon>
           </button>
         </div>
-        ${rations.length === 0
-          ? html`<p class="ration-empty">Aucune ration enregistrée pour le moment.</p>`
-          : html`
-              <ul class="ration-list container">
-                ${repeat(
-                  rations,
-                  (ration) => ration.id,
-                  (ration) => this.#renderRationItem(ration, today),
-                )}
-              </ul>
-            `}
-        ${note
-          ? html`
-              <p class="ration-note">
-                <app-icon class="ration-note__icon" icon="info"></app-icon>
-                <span>${note}</span>
-              </p>
-            `
-          : nothing}
+        ${
+          rations.length === 0
+            ? html`<p class="ration-empty">
+                Aucune ration enregistrée pour le moment.
+              </p>`
+            : html`
+                <ul class="ration-list container">
+                  ${repeat(
+                    rations,
+                    (ration) => ration.id,
+                    (ration) => this.#renderRationItem(ration, today),
+                  )}
+                </ul>
+              `
+        }
+        ${
+          note
+            ? html`
+                <p class="ration-note">
+                  <app-icon class="ration-note__icon" icon="info"></app-icon>
+                  <span>${note}</span>
+                </p>
+              `
+            : nothing
+        }
       </section>
     `;
   }
@@ -273,7 +298,7 @@ export class HorseView extends LightElement {
     const suspended = !isInSeason(ration.season, today);
 
     return html`
-      <li class="ration-item ${suspended ? 'ration-item--suspended' : ''}">
+      <li class="ration-item ${suspended ? "ration-item--suspended" : ""}">
         <span class="ration-item__marker" aria-hidden="true"></span>
         <span class="ration-item__text">
           <span class="ration-item__label">
@@ -282,13 +307,21 @@ export class HorseView extends LightElement {
             ${suspended ? html`<span class="visually-hidden">Suspendu — </span>` : nothing}
             ${ration.label}
           </span>
-          ${ration.season
-            ? html`<span class="ration-item__season">${formatSeasonRange(ration.season)}</span>`
-            : nothing}
+          ${
+            ration.season
+              ? html`<span class="ration-item__season"
+                  >${formatSeasonRange(ration.season)}</span
+                >`
+              : nothing
+          }
         </span>
         <span class="ration-item__quantity">
-          <span class="ration-item__amount">${formatRationAmount(ration.quantity)}</span>
-          <span class="ration-item__unit">${RATION_UNIT_LABEL[ration.unit]}</span>
+          <span class="ration-item__amount"
+            >${formatRationAmount(ration.quantity)}</span
+          >
+          <span class="ration-item__unit"
+            >${RATION_UNIT_LABEL[ration.unit]}</span
+          >
         </span>
       </li>
     `;

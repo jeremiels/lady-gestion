@@ -1,9 +1,17 @@
-import { html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { fixture } from '../../components/__tests__/fixture.ts';
-import { historyIndex, requestNavigate } from '../history-fallback.ts';
-import { Router, type RouterOptions } from './router.ts';
+import { html, LitElement } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { fixture } from "../../components/__tests__/fixture.ts";
+import { historyIndex, requestNavigate } from "../history-fallback.ts";
+import { Router, type RouterOptions } from "./router.ts";
 
 /**
  * `Router` is the one controller with nothing between it and the browser: it
@@ -29,9 +37,9 @@ beforeAll(() => {
   startUrl = location.href;
   keeper = new AbortController();
   navigation.addEventListener(
-    'navigate',
+    "navigate",
     (event) => {
-      if (!event.canIntercept || event.navigationType === 'reload') return;
+      if (!event.canIntercept || event.navigationType === "reload") return;
       // Registered before any router under test, but interception is not
       // exclusive — every handler for the event runs, so this does not stop the
       // router from doing its own work.
@@ -46,7 +54,7 @@ afterAll(() => keeper.abort());
 afterEach(async () => {
   // Back to where the runner started, so the next test reads the URL it expects
   // and the run does not drift somewhere the harness cannot recover from.
-  if (location.href !== startUrl) await settleNavigation(startUrl, 'replace');
+  if (location.href !== startUrl) await settleNavigation(startUrl, "replace");
 });
 
 /**
@@ -56,7 +64,7 @@ afterEach(async () => {
  * refuses outright returns a bare object — and a rejection here is expected
  * (the fallback test deliberately makes one), so both are swallowed.
  */
-const settleNavigation = async (path: string, history?: 'replace') => {
+const settleNavigation = async (path: string, history?: "replace") => {
   const options = history ? { history } : {};
   await navigation.navigate(path, options).finished?.catch(() => {});
 };
@@ -75,9 +83,11 @@ const back = async () => {
  * read back — so the tests state the condition rather than quietly asserting
  * whatever the runner happens to support.
  */
-const supportsTypes = CSS.supports('selector(:active-view-transition-type(forward))');
+const supportsTypes = CSS.supports(
+  "selector(:active-view-transition-type(forward))",
+);
 
-@customElement('router-test-host')
+@customElement("router-test-host")
 class RouterTestHost extends LitElement {
   options: RouterOptions = {};
   renders = 0;
@@ -97,39 +107,41 @@ class RouterTestHost extends LitElement {
 }
 
 const mount = (options: RouterOptions = {}) =>
-  fixture<RouterTestHost>(html`<router-test-host></router-test-host>`).then((el) => {
-    el.options = options;
-    return el;
-  });
+  fixture<RouterTestHost>(html`<router-test-host></router-test-host>`).then(
+    (el) => {
+      el.options = options;
+      return el;
+    },
+  );
 
-describe('Router', () => {
-  it('starts on the pathname the page was loaded with', async () => {
+describe("Router", () => {
+  it("starts on the pathname the page was loaded with", async () => {
     const el = await mount();
     expect(el.router.path).toBe(decodeURI(location.pathname));
   });
 
-  it('swaps the path and re-renders the host on a same-origin navigation', async () => {
+  it("swaps the path and re-renders the host on a same-origin navigation", async () => {
     const el = await mount();
     const before = el.renders;
 
-    await go('/events');
+    await go("/events");
 
-    expect(el.router.path).toBe('/events');
+    expect(el.router.path).toBe("/events");
     expect(el.renders).toBeGreaterThan(before);
-    expect(el.renderRoot.textContent).toContain('/events');
+    expect(el.renderRoot.textContent).toContain("/events");
   });
 
-  it('decodes the pathname', async () => {
+  it("decodes the pathname", async () => {
     const el = await mount();
 
-    await go('/events/caf%C3%A9');
+    await go("/events/caf%C3%A9");
 
     // The route table slices ids straight off this string, so a still-encoded
     // path would look up a record whose id nothing in the database matches.
-    expect(el.router.path).toBe('/events/café');
+    expect(el.router.path).toBe("/events/café");
   });
 
-  it('runs beforeRender before the swap and afterRender after it', async () => {
+  it("runs beforeRender before the swap and afterRender after it", async () => {
     const order: string[] = [];
     const el = await mount({
       beforeRender: (path) => {
@@ -144,15 +156,15 @@ describe('Router', () => {
     });
 
     const origin = el.router.path;
-    await go('/documents');
+    await go("/documents");
 
-    expect(order).toEqual([`before:${origin}`, 'after:/documents']);
+    expect(order).toEqual([`before:${origin}`, "after:/documents"]);
   });
 
-  it('waits for beforeRender to resolve before rendering the new path', async () => {
+  it("waits for beforeRender to resolve before rendering the new path", async () => {
     let release = () => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
-    let pathWhenGateOpened = '';
+    let pathWhenGateOpened = "";
 
     const el = await mount({
       beforeRender: async () => {
@@ -162,7 +174,7 @@ describe('Router', () => {
     });
 
     const origin = el.router.path;
-    const navigated = go('/profile');
+    const navigated = go("/profile");
 
     // Still on the old path while the chunk is notionally in flight.
     expect(el.router.path).toBe(origin);
@@ -171,19 +183,19 @@ describe('Router', () => {
     await navigated;
 
     expect(pathWhenGateOpened).toBe(origin);
-    expect(el.router.path).toBe('/profile');
+    expect(el.router.path).toBe("/profile");
   });
 
-  it('wraps the swap in a view transition', async () => {
+  it("wraps the swap in a view transition", async () => {
     const el = await mount();
-    const spy = vi.spyOn(document, 'startViewTransition');
+    const spy = vi.spyOn(document, "startViewTransition");
 
     try {
-      await go('/documents');
+      await go("/documents");
       expect(spy).toHaveBeenCalledTimes(1);
       // The update callback must return the host's update, or the transition
       // snapshots the old DOM and cross-fades it with itself.
-      expect(el.router.path).toBe('/documents');
+      expect(el.router.path).toBe("/documents");
     } finally {
       spy.mockRestore();
     }
@@ -208,55 +220,55 @@ describe('Router', () => {
    */
 
   it.skipIf(!supportsTypes)(
-    'tags a push forward and a traversal back, so back undoes the way in',
+    "tags a push forward and a traversal back, so back undoes the way in",
     async () => {
       await mount();
-      const spy = vi.spyOn(document, 'startViewTransition');
+      const spy = vi.spyOn(document, "startViewTransition");
 
       try {
-        await go('/events');
+        await go("/events");
         // The object form, because there is a direction to carry.
         // `styles/transitions/route.css` reads it through
         // `:root:active-view-transition-type(...)`; without it both directions
         // would slide the same way.
-        expect(spy.mock.calls[0]?.[0]).toMatchObject({ types: ['forward'] });
+        expect(spy.mock.calls[0]?.[0]).toMatchObject({ types: ["forward"] });
 
         await back();
-        expect(spy.mock.calls[1]?.[0]).toMatchObject({ types: ['back'] });
+        expect(spy.mock.calls[1]?.[0]).toMatchObject({ types: ["back"] });
       } finally {
         spy.mockRestore();
       }
     },
   );
 
-  it('gives a replace no direction at all', async () => {
+  it("gives a replace no direction at all", async () => {
     await mount();
-    const spy = vi.spyOn(document, 'startViewTransition');
+    const spy = vi.spyOn(document, "startViewTransition");
 
     try {
-      await go('/profile', 'replace');
+      await go("/profile", "replace");
 
       // The bare callback form, not an object with an empty `types`: nothing
       // moved through the history stack, so the cross-fade is the honest
       // animation and there is no type for the CSS to have to ignore.
-      expect(typeof spy.mock.calls[0]?.[0]).toBe('function');
+      expect(typeof spy.mock.calls[0]?.[0]).toBe("function");
     } finally {
       spy.mockRestore();
     }
   });
 
-  it('stops listening once the host disconnects', async () => {
+  it("stops listening once the host disconnects", async () => {
     const beforeRender = vi.fn();
     const el = await mount({ beforeRender });
 
     el.remove();
-    await go('/events');
+    await go("/events");
 
     // The keeper is what makes this assertable: with the router's listener gone
     // this navigation is nobody's to intercept, and without the keeper it would
     // be a real page load rather than a failed expectation.
     expect(beforeRender).not.toHaveBeenCalled();
-    expect(el.router.path).not.toBe('/events');
+    expect(el.router.path).not.toBe("/events");
   });
 });
 
@@ -274,7 +286,7 @@ describe('Router', () => {
  * not be exercised anywhere in this suite — which is precisely how it came to
  * be missing in the first place.
  */
-@customElement('router-fallback-host')
+@customElement("router-fallback-host")
 class RouterFallbackHost extends LitElement {
   onAfterRender?: (path: string) => void;
 
@@ -298,7 +310,9 @@ class RouterFallbackHost extends LitElement {
 }
 
 const mountFallback = () =>
-  fixture<RouterFallbackHost>(html`<router-fallback-host></router-fallback-host>`);
+  fixture<RouterFallbackHost>(
+    html`<router-fallback-host></router-fallback-host>`,
+  );
 
 const link = (el: RouterFallbackHost, id: string) =>
   el.renderRoot.querySelector<HTMLAnchorElement>(`#${id}`)!;
@@ -307,45 +321,48 @@ const link = (el: RouterFallbackHost, id: string) =>
 const committed = (el: RouterFallbackHost) =>
   new Promise<string>((resolve) => (el.onAfterRender = resolve));
 
-describe('Router — history fallback', () => {
-  it('intercepts an in-app link click and swaps the path without a page load', async () => {
+describe("Router — history fallback", () => {
+  it("intercepts an in-app link click and swaps the path without a page load", async () => {
     const el = await mountFallback();
 
     const done = committed(el);
-    link(el, 'events').click();
+    link(el, "events").click();
     await done;
 
-    expect(el.router.path).toBe('/events');
-    expect(location.pathname).toBe('/events');
-    expect(el.renderRoot.textContent).toContain('/events');
+    expect(el.router.path).toBe("/events");
+    expect(location.pathname).toBe("/events");
+    expect(el.renderRoot.textContent).toContain("/events");
   });
 
-  it.skipIf(!supportsTypes)('tags a click forward and a traversal back', async () => {
-    const el = await mountFallback();
-    const spy = vi.spyOn(document, 'startViewTransition');
+  it.skipIf(!supportsTypes)(
+    "tags a click forward and a traversal back",
+    async () => {
+      const el = await mountFallback();
+      const spy = vi.spyOn(document, "startViewTransition");
 
-    try {
-      const forward = committed(el);
-      link(el, 'events').click();
-      await forward;
+      try {
+        const forward = committed(el);
+        link(el, "events").click();
+        await forward;
 
-      expect(spy.mock.calls[0]?.[0]).toMatchObject({ types: ['forward'] });
+        expect(spy.mock.calls[0]?.[0]).toMatchObject({ types: ["forward"] });
 
-      // The back gesture. Same-document, because the entry above came from
-      // `pushState` — so this is a traversal, not a reload.
-      const backward = committed(el);
-      history.back();
-      await backward;
+        // The back gesture. Same-document, because the entry above came from
+        // `pushState` — so this is a traversal, not a reload.
+        const backward = committed(el);
+        history.back();
+        await backward;
 
-      // The whole point of stamping an index on each entry: without one there
-      // is nothing to compare, and every traversal would animate as a push.
-      expect(spy.mock.calls[1]?.[0]).toMatchObject({ types: ['back'] });
-    } finally {
-      spy.mockRestore();
-    }
-  });
+        // The whole point of stamping an index on each entry: without one there
+        // is nothing to compare, and every traversal would animate as a push.
+        expect(spy.mock.calls[1]?.[0]).toMatchObject({ types: ["back"] });
+      } finally {
+        spy.mockRestore();
+      }
+    },
+  );
 
-  it('stamps an index on the entry, which is what goBack reads', async () => {
+  it("stamps an index on the entry, which is what goBack reads", async () => {
     const el = await mountFallback();
 
     // Seeded at connect, so `goBack` can tell "nothing behind us" from "one
@@ -353,22 +370,24 @@ describe('Router — history fallback', () => {
     expect(historyIndex()).toBe(0);
 
     const done = committed(el);
-    link(el, 'events').click();
+    link(el, "events").click();
     await done;
 
     expect(historyIndex()).toBe(1);
   });
 
-  it('leaves a click something else already handled alone', async () => {
+  it("leaves a click something else already handled alone", async () => {
     const el = await mountFallback();
-    const spy = vi.spyOn(document, 'startViewTransition');
+    const spy = vi.spyOn(document, "startViewTransition");
     const path = el.router.path;
 
     try {
-      const anchor = link(el, 'events');
+      const anchor = link(el, "events");
       // A component that handles its own click and cancels the navigation —
       // re-claiming it here would resurrect a navigation that was called off.
-      anchor.addEventListener('click', (event) => event.preventDefault(), { once: true });
+      anchor.addEventListener("click", (event) => event.preventDefault(), {
+        once: true,
+      });
       anchor.click();
       await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -379,7 +398,7 @@ describe('Router — history fallback', () => {
     }
   });
 
-  it('claims a programmatic navigateTo instead of letting it reload the app', async () => {
+  it("claims a programmatic navigateTo instead of letting it reload the app", async () => {
     const el = await mountFallback();
 
     const done = committed(el);
@@ -387,26 +406,26 @@ describe('Router — history fallback', () => {
     // `location.href`, which reboots the shell — correct, but it is a whole
     // page load where a view transition would do, and `EventDetailView` takes
     // this path every time a record is deleted.
-    const claimed = requestNavigate('/documents');
+    const claimed = requestNavigate("/documents");
     await done;
 
     expect(claimed).toBe(true);
-    expect(el.router.path).toBe('/documents');
-    expect(location.pathname).toBe('/documents');
+    expect(el.router.path).toBe("/documents");
+    expect(location.pathname).toBe("/documents");
   });
 
-  it('leaves a fragment link to the browser', async () => {
+  it("leaves a fragment link to the browser", async () => {
     const el = await mountFallback();
-    const spy = vi.spyOn(document, 'startViewTransition');
+    const spy = vi.spyOn(document, "startViewTransition");
 
     try {
-      link(el, 'fragment').click();
+      link(el, "fragment").click();
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       // There is no route to swap and the browser has scrolling to do — running
       // a full route transition here would animate a page that never changed.
       expect(spy).not.toHaveBeenCalled();
-      expect(location.hash).toBe('#section');
+      expect(location.hash).toBe("#section");
     } finally {
       spy.mockRestore();
     }

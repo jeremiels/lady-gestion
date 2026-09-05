@@ -1,7 +1,7 @@
-import { db } from './db.ts';
-import { initOwnerId } from './owner.ts';
-import { markDataReady } from './ready.ts';
-import { seedIfEmpty } from './seed.ts';
+import { db } from "./db.ts";
+import { initOwnerId } from "./owner.ts";
+import { markDataReady } from "./ready.ts";
+import { seedIfEmpty } from "./seed.ts";
 
 /**
  * Public surface of the data layer.
@@ -39,29 +39,29 @@ import { seedIfEmpty } from './seed.ts';
  * need a repository, a `LiveQuery` or the backup; reach past it for arithmetic.
  */
 
-export * as horsesRepo from './repositories/horses.repo.ts';
-export * as eventsRepo from './repositories/events.repo.ts';
-export * as documentsRepo from './repositories/documents.repo.ts';
-export * as rationsRepo from './repositories/rations.repo.ts';
-export * as activitiesRepo from './repositories/activities.repo.ts';
-export * as metaRepo from './repositories/meta.repo.ts';
+export * as horsesRepo from "./repositories/horses.repo.ts";
+export * as eventsRepo from "./repositories/events.repo.ts";
+export * as documentsRepo from "./repositories/documents.repo.ts";
+export * as rationsRepo from "./repositories/rations.repo.ts";
+export * as activitiesRepo from "./repositories/activities.repo.ts";
+export * as metaRepo from "./repositories/meta.repo.ts";
 
-export * as eventsService from './services/events.service.ts';
-export * as rationsService from './services/rations.service.ts';
+export * as eventsService from "./services/events.service.ts";
+export * as rationsService from "./services/rations.service.ts";
 
-export * from './live.ts';
-export * from './active-horse.ts';
-export * from './backup/snapshot.ts';
+export * from "./live.ts";
+export * from "./active-horse.ts";
+export * from "./backup/snapshot.ts";
 
-export * from './types.ts';
-export * from './money.ts';
-export * from './dates.ts';
-export * from './icalendar.ts';
-export * from './seasons.ts';
-export * from './events.ts';
-export * from './files.ts';
-export * from './budget.ts';
-export * from './forms.ts';
+export * from "./types.ts";
+export * from "./money.ts";
+export * from "./dates.ts";
+export * from "./icalendar.ts";
+export * from "./seasons.ts";
+export * from "./events.ts";
+export * from "./files.ts";
+export * from "./budget.ts";
+export * from "./forms.ts";
 
 let ready: Promise<void> | undefined;
 

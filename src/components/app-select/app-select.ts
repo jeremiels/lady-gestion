@@ -1,9 +1,9 @@
-import { css, html, nothing, type PropertyValues } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { live } from 'lit/directives/live.js';
-import { describedBy, fieldMessages } from '../../commons/field-parts.ts';
-import { FormFieldElement } from '../../commons/form-field-element.ts';
+import { css, html, nothing, type PropertyValues } from "lit";
+import { customElement, property, query } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { live } from "lit/directives/live.js";
+import { describedBy, fieldMessages } from "../../commons/field-parts.ts";
+import { FormFieldElement } from "../../commons/form-field-element.ts";
 
 export interface AppSelectOption {
   value: string;
@@ -18,11 +18,11 @@ export interface AppSelectOption {
  * @fires select-change - `{ value: string }`. Listen for this, not the native
  * `change`, which is `composed: false` and never leaves the shadow root.
  */
-@customElement('app-select')
+@customElement("app-select")
 export class AppSelect extends FormFieldElement {
-  @property({ type: String }) value = '';
+  @property({ type: String }) value = "";
   @property({ type: Array }) options: AppSelectOption[] = [];
-  @property({ type: String }) placeholder = '';
+  @property({ type: String }) placeholder = "";
   /**
    * Compact pill with its label hidden — the period picker on the budget
    * view, where the value alone is the affordance and the surrounding heading
@@ -34,12 +34,12 @@ export class AppSelect extends FormFieldElement {
    */
   @property({ type: Boolean, reflect: true }) pill = false;
 
-  @query('select') private selectEl?: HTMLSelectElement;
+  @query("select") private selectEl?: HTMLSelectElement;
 
   protected get control(): HTMLSelectElement | undefined {
     return this.selectEl;
   }
-  #defaultValue = '';
+  #defaultValue = "";
 
   protected get formValue(): string {
     return this.value;
@@ -57,12 +57,12 @@ export class AppSelect extends FormFieldElement {
 
   formResetCallback() {
     this.value = this.#defaultValue;
-    this.error = '';
+    this.error = "";
     this.field.reset();
   }
 
   formStateRestoreCallback(restored: string | FormData | null) {
-    this.value = typeof restored === 'string' ? restored : '';
+    this.value = typeof restored === "string" ? restored : "";
   }
 
   /**
@@ -78,7 +78,10 @@ export class AppSelect extends FormFieldElement {
 
   protected updated(changed?: PropertyValues<this>) {
     super.updated();
-    if (this.pill && (changed?.has('value') || changed?.has('options') || changed?.has('pill'))) {
+    if (
+      this.pill &&
+      (changed?.has("value") || changed?.has("options") || changed?.has("pill"))
+    ) {
       this.#syncPillWidth();
     }
   }
@@ -86,12 +89,15 @@ export class AppSelect extends FormFieldElement {
   #syncPillWidth() {
     const select = this.selectEl;
     if (!select) return;
-    const ctx = (this.#measureCanvas ??= document.createElement('canvas')).getContext('2d');
+    const ctx = (this.#measureCanvas ??=
+      document.createElement("canvas")).getContext("2d");
     if (!ctx) return;
 
     const style = getComputedStyle(select);
     ctx.font = style.font;
-    const label = this.options.find((option) => option.value === this.value)?.label ?? this.placeholder;
+    const label =
+      this.options.find((option) => option.value === this.value)?.label ??
+      this.placeholder;
     const textWidth = ctx.measureText(label).width;
     const chrome =
       parseFloat(style.paddingLeft) +
@@ -112,7 +118,7 @@ export class AppSelect extends FormFieldElement {
     // boundary and a consumer's `@change` never fires. Re-dispatched as a
     // composed custom event, matching `switch-change` / `segment-change`.
     this.dispatchEvent(
-      new CustomEvent('select-change', {
+      new CustomEvent("select-change", {
         detail: { value: this.value },
         bubbles: true,
         composed: true,
@@ -157,13 +163,16 @@ export class AppSelect extends FormFieldElement {
       background-color: var(--app-select-background, var(--color-white));
       border: 1px solid var(--app-select-border-color, var(--color-brown-light));
       border-radius: var(--radius-8);
-      padding: var(--spacing-8) var(--spacing-32) var(--spacing-8) var(--spacing-12);
+      padding: var(--spacing-8) var(--spacing-32) var(--spacing-8)
+        var(--spacing-12);
       min-height: 2.75rem;
       box-sizing: border-box;
       width: 100%;
       appearance: none;
       cursor: pointer;
-      transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+      transition:
+        border-color var(--duration-fast) ease,
+        box-shadow var(--duration-fast) ease;
     }
 
     @media (hover: hover) and (pointer: fine) {
@@ -220,17 +229,25 @@ export class AppSelect extends FormFieldElement {
       min-height: 2.25rem;
       border: none;
       border-radius: var(--radius-pill);
-      background-color: var(--app-select-background, var(--color-brown-light-bg));
-      padding: var(--spacing-8) var(--spacing-32) var(--spacing-8) var(--spacing-16);
+      background-color: var(
+        --app-select-background,
+        var(--color-brown-light-bg)
+      );
+      padding: var(--spacing-8) var(--spacing-32) var(--spacing-8)
+        var(--spacing-16);
       font-weight: 600;
       color: var(--color-brown-dark);
-      transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease,
+      transition:
+        border-color var(--duration-fast) ease,
+        box-shadow var(--duration-fast) ease,
         width var(--duration-fast) var(--easing-out);
     }
 
     @media (prefers-reduced-motion: reduce) {
       :host([pill]) .field__select {
-        transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+        transition:
+          border-color var(--duration-fast) ease,
+          box-shadow var(--duration-fast) ease;
       }
     }
 
@@ -238,7 +255,6 @@ export class AppSelect extends FormFieldElement {
       right: var(--spacing-16);
       border-color: var(--color-brown-dark);
     }
-
 
     :host(:state(invalid)) .field__select {
       border-color: var(--app-field-error-color);
@@ -256,13 +272,21 @@ export class AppSelect extends FormFieldElement {
     return html`
       <div class="field">
         <label
-          class="field__label ${this.pill ? 'visually-hidden' : ''}"
+          class="field__label ${this.pill ? "visually-hidden" : ""}"
           part="label"
           for=${this.fieldId}
         >
-          ${this.label}${this.required
-            ? html`<span class="field__required" part="required" aria-hidden="true"> *</span>`
-            : nothing}
+          ${this.label}${
+            this.required
+              ? html`<span
+                  class="field__required"
+                  part="required"
+                  aria-hidden="true"
+                >
+                  *</span
+                >`
+              : nothing
+          }
         </label>
         <div class="field__wrapper">
           <select
@@ -273,19 +297,29 @@ export class AppSelect extends FormFieldElement {
             .value=${live(this.value)}
             ?required=${this.required}
             ?disabled=${this.disabled}
-            aria-invalid=${this.invalid ? 'true' : 'false'}
+            aria-invalid=${this.invalid ? "true" : "false"}
             aria-describedby=${ifDefined(described)}
             @change=${this.#onChange}
             @blur=${this.field.markTouched}
           >
-            ${this.placeholder
-              ? html`<option value="" ?disabled=${this.required} ?selected=${!this.value}>
-                  ${this.placeholder}
-                </option>`
-              : nothing}
+            ${
+              this.placeholder
+                ? html`<option
+                    value=""
+                    ?disabled=${this.required}
+                    ?selected=${!this.value}
+                  >
+                    ${this.placeholder}
+                  </option>`
+                : nothing
+            }
             ${this.options.map(
               (option) => html`
-                <option value=${option.value} ?disabled=${option.disabled} ?selected=${option.value === this.value}>
+                <option
+                  value=${option.value}
+                  ?disabled=${option.disabled}
+                  ?selected=${option.value === this.value}
+                >
                   ${option.label}
                 </option>
               `,
@@ -301,6 +335,6 @@ export class AppSelect extends FormFieldElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-select': AppSelect;
+    "app-select": AppSelect;
   }
 }

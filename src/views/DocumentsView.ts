@@ -1,17 +1,17 @@
-import { html } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import { LightElement } from '../commons/base-element.ts';
-import { activeHorseQuery, documentsRepo } from '../data/index.ts';
+import { html } from "lit";
+import { customElement } from "lit/decorators.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { LightElement } from "../commons/base-element.ts";
+import { activeHorseQuery, documentsRepo } from "../data/index.ts";
 import {
   DOCUMENT_CATEGORIES,
   type DocumentCategory,
   documentCategory,
-} from '../types/document.types.ts';
+} from "../types/document.types.ts";
 
-import '../components/app-folder/app-folder.ts';
+import "../components/app-folder/app-folder.ts";
 
-@customElement('documents-view')
+@customElement("documents-view")
 export class DocumentsView extends LightElement {
   /**
    * Live counts per category.
@@ -25,7 +25,6 @@ export class DocumentsView extends LightElement {
     (horseId) => documentsRepo.countByCategory(horseId),
     {},
   );
-
 
   render() {
     const counts = this.#counts.value ?? {};
@@ -56,8 +55,8 @@ export class DocumentsView extends LightElement {
           name=${documentCategory.label(category)}
           .number=${count}
           style=${styleMap({
-            '--app-folder-icon-background': theme.backgroundColor,
-            '--app-folder-icon-color': theme.color,
+            "--app-folder-icon-background": theme.backgroundColor,
+            "--app-folder-icon-color": theme.color,
           })}
         ></app-folder>
       </li>

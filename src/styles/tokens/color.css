@@ -1,38 +1,38 @@
 @layer tokens.color {
   :root {
-    --color-brown-0: #4A2C17;
-    --color-brown-1: #7F6038;
-    --color-brown-2: #8A7A70;
-    --color-brown-3: #B0A090;
-    --color-brown-4: #C8C0B8;
-    --color-brown-5: #D6CCBF;
-    --color-brown-6: #EBDFD2;
-    --color-brown-7: #EDE8E3;
-    --color-brown-8: #F5F1EC;
-    --color-brown-9: #FAF8F6;
-    --color-pink-1: #C9A4B2;
-    --color-pink-2: #F3DAE4;
-    --color-green-1: #A8B89A;
-    --color-green-2: #DBE9CE;
-    --color-purple-1: #B8A8CC;
-    --color-purple-2: #E6DCF4;
-    --color-orange-1: #E1AB7F;
-    --color-orange-2: #F7DBC5;
-    --color-yellow-1: #DDCB85;
-    --color-yellow-2: #F6ECC6;
-    --color-taupe-1: #D4B0A8;
-    --color-taupe-2: #F6ECEA;
-    --color-turquoise-1: #9BC9C2;
-    --color-turquoise-2: #DEF1EF;
-    --color-fuchsia-1: #DAA8CD;
-    --color-fuchsia-2: #FFEAF9;
-    --color-white: #FFFFFF;
+    --color-brown-0: #4a2c17;
+    --color-brown-1: #7f6038;
+    --color-brown-2: #8a7a70;
+    --color-brown-3: #b0a090;
+    --color-brown-4: #c8c0b8;
+    --color-brown-5: #d6ccbf;
+    --color-brown-6: #ebdfd2;
+    --color-brown-7: #ede8e3;
+    --color-brown-8: #f5f1ec;
+    --color-brown-9: #faf8f6;
+    --color-pink-1: #c9a4b2;
+    --color-pink-2: #f3dae4;
+    --color-green-1: #a8b89a;
+    --color-green-2: #dbe9ce;
+    --color-purple-1: #b8a8cc;
+    --color-purple-2: #e6dcf4;
+    --color-orange-1: #e1ab7f;
+    --color-orange-2: #f7dbc5;
+    --color-yellow-1: #ddcb85;
+    --color-yellow-2: #f6ecc6;
+    --color-taupe-1: #d4b0a8;
+    --color-taupe-2: #f6ecea;
+    --color-turquoise-1: #9bc9c2;
+    --color-turquoise-2: #def1ef;
+    --color-fuchsia-1: #daa8cd;
+    --color-fuchsia-2: #ffeaf9;
+    --color-white: #ffffff;
     --color-black: #000000;
-    --color-dark: #2D2520;
+    --color-dark: #2d2520;
     --color-grey-0: #929292;
-    --color-grey-1: #D6D6D6;
-    --color-grey-2: #F4F4F4;
-    --color-grey-3: #F0F0F0;
+    --color-grey-1: #d6d6d6;
+    --color-grey-2: #f4f4f4;
+    --color-grey-3: #f0f0f0;
 
     --color-brown-light: var(--color-brown-3);
     --color-brown-middle: var(--color-brown-2);
@@ -68,7 +68,7 @@
     /* One-off card tint from the design, not on the brown scale — it sits
        between --color-brown-3 and -4. Kept as its own token so the value has a
        name rather than sitting inline in budget-card. */
-    --color-card-budget: #B9A790;
+    --color-card-budget: #b9a790;
     /*
      * Roles, not palette positions.
      *
@@ -104,6 +104,6 @@
        #b3261e in the fallback of every field component's error colour, which
        is the same drift the motion tokens were introduced to stop — four
        copies with nothing to flag it if one of them changed. */
-    --color-danger: #B3261E;
+    --color-danger: #b3261e;
   }
 }

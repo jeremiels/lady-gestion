@@ -1,11 +1,11 @@
-import { userEvent } from '@vitest/browser/context';
-import { html, type TemplateResult } from 'lit';
-import { afterEach, describe, expect, it } from 'vitest';
-import { fixture, settled } from '../../components/__tests__/fixture.ts';
-import { ModalDialog, type DialogHost } from './modal-dialog.ts';
+import { userEvent } from "vitest/browser";
+import { html, type TemplateResult } from "lit";
+import { afterEach, describe, expect, it } from "vitest";
+import { fixture, settled } from "../../components/__tests__/fixture.ts";
+import { ModalDialog, type DialogHost } from "./modal-dialog.ts";
 
-import '../../components/app-modal/app-modal.ts';
-import '../../components/app-bottom-sheet/app-bottom-sheet.ts';
+import "../../components/app-modal/app-modal.ts";
+import "../../components/app-bottom-sheet/app-bottom-sheet.ts";
 
 /**
  * `ModalDialog` is a state machine driven entirely by platform events —
@@ -40,29 +40,39 @@ type DialogCase = {
 
 const CASES: DialogCase[] = [
   {
-    tag: 'app-modal',
-    name: 'modal',
+    tag: "app-modal",
+    name: "modal",
     template: (open, dismissible) => html`
-      <app-modal heading="Supprimer ?" .open=${open} .dismissible=${dismissible}>
+      <app-modal
+        heading="Supprimer ?"
+        .open=${open}
+        .dismissible=${dismissible}
+      >
         <p class="body-content">Cette action est définitive.</p>
       </app-modal>
     `,
   },
   {
-    tag: 'app-bottom-sheet',
-    name: 'sheet',
+    tag: "app-bottom-sheet",
+    name: "sheet",
     template: (open, dismissible) => html`
-      <app-bottom-sheet heading="Ration" .open=${open} .dismissible=${dismissible}>
+      <app-bottom-sheet
+        heading="Ration"
+        .open=${open}
+        .dismissible=${dismissible}
+      >
         <p class="body-content">Modifier les quantités.</p>
       </app-bottom-sheet>
     `,
   },
 ];
 
-describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
+describe.each(CASES)("ModalDialog on $tag", (dialogCase) => {
   const mount = async (open = false, dismissible = true) => {
-    const el = await fixture<DialogHost>(dialogCase.template(open, dismissible));
-    const dialog = el.renderRoot.querySelector('dialog')!;
+    const el = await fixture<DialogHost>(
+      dialogCase.template(open, dismissible),
+    );
+    const dialog = el.renderRoot.querySelector("dialog")!;
     return { el, dialog };
   };
 
@@ -74,8 +84,8 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
     await opened;
   };
 
-  describe('opening', () => {
-    it('drives the native dialog into the top layer from the `open` property', async () => {
+  describe("opening", () => {
+    it("drives the native dialog into the top layer from the `open` property", async () => {
       const { el, dialog } = await mount();
       expect(dialog.open).toBe(false);
 
@@ -85,10 +95,10 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
       // `:modal` is true only for a dialog shown with `showModal()` — this is
       // what puts it in the top layer, above every z-index there is, and it is
       // the whole reason both primitives are built on <dialog>.
-      expect(dialog.matches(':modal')).toBe(true);
+      expect(dialog.matches(":modal")).toBe(true);
     });
 
-    it('announces itself across the shadow boundary', async () => {
+    it("announces itself across the shadow boundary", async () => {
       const { el } = await mount();
 
       // Listening on the host, outside the shadow root: the controller
@@ -100,7 +110,7 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
       await expect(opened).resolves.toBeInstanceOf(CustomEvent);
     });
 
-    it('is idempotent across unrelated re-renders', async () => {
+    it("is idempotent across unrelated re-renders", async () => {
       const { el } = await mount();
 
       let opens = 0;
@@ -112,29 +122,31 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
       // `changed.has('open')` check, so it has to no-op when the dialog is
       // already in the requested state — `showModal()` on an open dialog
       // throws.
-      (el as unknown as { heading: string }).heading = 'Autre titre';
+      (el as unknown as { heading: string }).heading = "Autre titre";
       await settled(el);
       el.open = true;
       await settled(el);
 
       expect(opens).toBe(1);
-      expect(el.renderRoot.querySelector('dialog')!.open).toBe(true);
+      expect(el.renderRoot.querySelector("dialog")!.open).toBe(true);
     });
   });
 
-  describe('closing', () => {
-    it('closes on a close button press', async () => {
+  describe("closing", () => {
+    it("closes on a close button press", async () => {
       const { el } = await mount();
       await open(el);
 
       const closed = nextEvent(el, `${dialogCase.name}-close`);
-      el.renderRoot.querySelector<HTMLButtonElement>('[part="close-button"]')!.click();
+      el.renderRoot
+        .querySelector<HTMLButtonElement>('[part="close-button"]')!
+        .click();
 
       await closed;
       expect(el.open).toBe(false);
     });
 
-    it('closes on Esc', async () => {
+    it("closes on Esc", async () => {
       // A real key press, not a synthetic `cancel`. It is the browser's own Esc
       // handling that closes the dialog, so dispatching `cancel` by hand leaves
       // it open and proves nothing. This is exactly the kind of thing a DOM
@@ -143,40 +155,42 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
       await open(el);
 
       const closed = nextEvent(el, `${dialogCase.name}-close`);
-      await userEvent.keyboard('{Escape}');
+      await userEvent.keyboard("{Escape}");
 
       await closed;
       expect(el.open).toBe(false);
       expect(dialog.open).toBe(false);
     });
 
-    it('closes on a backdrop click', async () => {
+    it("closes on a backdrop click", async () => {
       const { el, dialog } = await mount();
       await open(el);
 
       // Clicking the ::backdrop dispatches on the dialog element itself, which
       // is the only way to tell it apart from a click on the content.
       const closed = nextEvent(el, `${dialogCase.name}-close`);
-      dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      dialog.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       await closed;
       expect(el.open).toBe(false);
     });
 
-    it('ignores a click on the content', async () => {
+    it("ignores a click on the content", async () => {
       const { el } = await mount();
       await open(el);
 
       // Bubbles up to the dialog's own handler, but `event.target` is the
       // paragraph, so it is not the backdrop and must not dismiss.
-      const content = el.querySelector('.body-content')!;
-      content.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+      const content = el.querySelector(".body-content")!;
+      content.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, composed: true }),
+      );
       await settled(el);
 
       expect(el.open).toBe(true);
     });
 
-    it('closes programmatically', async () => {
+    it("closes programmatically", async () => {
       const { el } = await mount();
       await open(el);
 
@@ -187,7 +201,7 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
       expect(el.open).toBe(false);
     });
 
-    it('closes when `open` is set back to false', async () => {
+    it("closes when `open` is set back to false", async () => {
       const { el, dialog } = await mount();
       await open(el);
 
@@ -200,39 +214,39 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
     });
   });
 
-  describe('dismissible=false', () => {
-    it('blocks Esc', async () => {
+  describe("dismissible=false", () => {
+    it("blocks Esc", async () => {
       const { el, dialog } = await mount(false, false);
       await open(el);
 
       // Again a real press: `preventDefault()` on the `cancel` event is only
       // meaningful against the browser's own Esc handling, so asserting it
       // against a synthetic event would assert nothing about what a user sees.
-      await userEvent.keyboard('{Escape}');
+      await userEvent.keyboard("{Escape}");
       await settled(el);
 
       expect(el.open).toBe(true);
       expect(dialog.open).toBe(true);
     });
 
-    it('blocks a backdrop click', async () => {
+    it("blocks a backdrop click", async () => {
       const { el, dialog } = await mount(false, false);
       await open(el);
 
-      dialog.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      dialog.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await settled(el);
 
       expect(el.open).toBe(true);
     });
 
-    it('offers no close button', async () => {
+    it("offers no close button", async () => {
       const { el } = await mount(false, false);
       await open(el);
 
       expect(el.renderRoot.querySelector('[part="close-button"]')).toBeNull();
     });
 
-    it('still closes programmatically', async () => {
+    it("still closes programmatically", async () => {
       const { el } = await mount(false, false);
       await open(el);
 
@@ -246,13 +260,15 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
     });
   });
 
-  describe('teardown', () => {
-    it('survives being closed while already closed', async () => {
+  describe("teardown", () => {
+    it("survives being closed while already closed", async () => {
       const { el } = await mount();
 
       // A consumer is invited to call this defensively, so it has to be a
       // no-op rather than throw on a dialog that was never opened.
-      expect(() => (el as unknown as { close: () => void }).close()).not.toThrow();
+      expect(() =>
+        (el as unknown as { close: () => void }).close(),
+      ).not.toThrow();
       expect(el.open).toBe(false);
     });
   });
@@ -271,27 +287,28 @@ describe.each(CASES)('ModalDialog on $tag', (dialogCase) => {
  * Not part of the `describe.each` above because the interesting cases need two
  * dialogs at once, which is the state a single-case fixture cannot reach.
  */
-describe('ModalDialog scroll lock', () => {
-  const isLocked = () => document.documentElement.classList.contains('scroll-locked');
+describe("ModalDialog scroll lock", () => {
+  const isLocked = () =>
+    document.documentElement.classList.contains("scroll-locked");
 
   const openSheet = async (heading: string) => {
     const el = await fixture<DialogHost>(
       html`<app-bottom-sheet heading=${heading}></app-bottom-sheet>`,
     );
-    const opened = nextEvent(el, 'sheet-open');
+    const opened = nextEvent(el, "sheet-open");
     el.open = true;
     await settled(el);
     await opened;
     return el;
   };
 
-  it('locks the page while open and releases it on close', async () => {
+  it("locks the page while open and releases it on close", async () => {
     expect(isLocked()).toBe(false);
 
-    const el = await openSheet('Ration');
+    const el = await openSheet("Ration");
     expect(isLocked()).toBe(true);
 
-    const closed = nextEvent(el, 'sheet-close');
+    const closed = nextEvent(el, "sheet-close");
     el.open = false;
     await settled(el);
     await closed;
@@ -299,22 +316,22 @@ describe('ModalDialog scroll lock', () => {
     expect(isLocked()).toBe(false);
   });
 
-  it('stays locked until the last of two dialogs closes', async () => {
+  it("stays locked until the last of two dialogs closes", async () => {
     // The case a plain boolean gets wrong: `EventDetailView` mounts an edit
     // sheet, a delete modal and a document viewer side by side, and the inner
     // one closing must not hand the page back while another is still up.
-    const first = await openSheet('Ration');
-    const second = await openSheet('Confirmer');
+    const first = await openSheet("Ration");
+    const second = await openSheet("Confirmer");
     expect(isLocked()).toBe(true);
 
-    const secondClosed = nextEvent(second, 'sheet-close');
+    const secondClosed = nextEvent(second, "sheet-close");
     second.open = false;
     await settled(second);
     await secondClosed;
 
     expect(isLocked()).toBe(true);
 
-    const firstClosed = nextEvent(first, 'sheet-close');
+    const firstClosed = nextEvent(first, "sheet-close");
     first.open = false;
     await settled(first);
     await firstClosed;
@@ -322,12 +339,12 @@ describe('ModalDialog scroll lock', () => {
     expect(isLocked()).toBe(false);
   });
 
-  it('releases the lock when an open dialog is torn down', async () => {
+  it("releases the lock when an open dialog is torn down", async () => {
     // A dialog removed while open never fires `close`, so without the release
     // in `hostDisconnected` the page would stay locked with nothing left on
     // screen to explain why — a navigation away from a view with an open sheet
     // does exactly this.
-    const el = await openSheet('Ration');
+    const el = await openSheet("Ration");
     expect(isLocked()).toBe(true);
 
     el.remove();
@@ -336,16 +353,16 @@ describe('ModalDialog scroll lock', () => {
     expect(isLocked()).toBe(false);
   });
 
-  it('is idempotent when the same dialog closes twice', async () => {
-    const el = await openSheet('Ration');
-    const closed = nextEvent(el, 'sheet-close');
+  it("is idempotent when the same dialog closes twice", async () => {
+    const el = await openSheet("Ration");
+    const closed = nextEvent(el, "sheet-close");
     el.open = false;
     await settled(el);
     await closed;
 
     // Releasing a holder that no longer holds anything must not lift a lock
     // some other dialog is relying on.
-    const other = await openSheet('Confirmer');
+    const other = await openSheet("Confirmer");
     el.remove();
     await settled(el);
 
@@ -371,7 +388,7 @@ describe('ModalDialog scroll lock', () => {
  * static the controller reads. Without that the branch every iPhone runs would
  * have no coverage at all.
  */
-describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
+describe.each(CASES)("ModalDialog exit animation on $tag", (dialogCase) => {
   afterEach(() => {
     ModalDialog.supportsOverlay = true;
   });
@@ -392,12 +409,12 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
 
   const mountOpen = async () => {
     const el = await fixture<DialogHost>(dialogCase.template(false, true));
-    const dialog = el.renderRoot.querySelector('dialog')!;
+    const dialog = el.renderRoot.querySelector("dialog")!;
 
-    el.style.setProperty('--duration-medium', `${EXIT_MS}ms`);
-    el.style.setProperty('--duration-slow', `${EXIT_MS}ms`);
-    el.style.setProperty('--easing-out', 'ease');
-    el.style.setProperty('--easing-sheet', 'ease');
+    el.style.setProperty("--duration-medium", `${EXIT_MS}ms`);
+    el.style.setProperty("--duration-slow", `${EXIT_MS}ms`);
+    el.style.setProperty("--easing-out", "ease");
+    el.style.setProperty("--easing-sheet", "ease");
 
     const opened = nextEvent(el, `${dialogCase.name}-open`);
     el.open = true;
@@ -410,7 +427,7 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     return { el, dialog };
   };
 
-  it('keeps the dialog in the top layer while the exit plays', async () => {
+  it("keeps the dialog in the top layer while the exit plays", async () => {
     const { el, dialog } = await mountOpen();
 
     const closed = nextEvent(el, `${dialogCase.name}-close`);
@@ -422,17 +439,17 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     // what the platform does for us on Chromium — is what made the animation
     // invisible on Safari.
     expect(dialog.open).toBe(true);
-    expect(dialog.matches(':modal')).toBe(true);
-    expect(dialog.hasAttribute('data-closing')).toBe(true);
+    expect(dialog.matches(":modal")).toBe(true);
+    expect(dialog.hasAttribute("data-closing")).toBe(true);
 
     await closed;
 
     expect(dialog.open).toBe(false);
     // Cleared before the close, so re-opening does not land in the exit state.
-    expect(dialog.hasAttribute('data-closing')).toBe(false);
+    expect(dialog.hasAttribute("data-closing")).toBe(false);
   });
 
-  it('still announces the close, once there is nothing left to look at', async () => {
+  it("still announces the close, once there is nothing left to look at", async () => {
     const { el } = await mountOpen();
 
     const closed = nextEvent(el, `${dialogCase.name}-close`);
@@ -443,7 +460,7 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     expect(el.open).toBe(false);
   });
 
-  it('takes Esc through the same exit', async () => {
+  it("takes Esc through the same exit", async () => {
     const { el, dialog } = await mountOpen();
 
     // Recorded as it happens rather than sampled afterwards. Every other test
@@ -454,12 +471,16 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     // state at all, which is a thing to observe, not a moment to catch.
     let heldOpenWhileClosing = false;
     const observer = new MutationObserver(() => {
-      if (dialog.open && dialog.hasAttribute('data-closing')) heldOpenWhileClosing = true;
+      if (dialog.open && dialog.hasAttribute("data-closing"))
+        heldOpenWhileClosing = true;
     });
-    observer.observe(dialog, { attributes: true, attributeFilter: ['data-closing'] });
+    observer.observe(dialog, {
+      attributes: true,
+      attributeFilter: ["data-closing"],
+    });
 
     const closed = nextEvent(el, `${dialogCase.name}-close`);
-    await userEvent.keyboard('{Escape}');
+    await userEvent.keyboard("{Escape}");
     await closed;
     observer.disconnect();
 
@@ -469,18 +490,18 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     expect(dialog.open).toBe(false);
   });
 
-  it('calls the exit off if the dialog is re-opened while it plays', async () => {
+  it("calls the exit off if the dialog is re-opened while it plays", async () => {
     const { el, dialog } = await mountOpen();
 
     el.open = false;
     await settled(el);
-    expect(dialog.hasAttribute('data-closing')).toBe(true);
+    expect(dialog.hasAttribute("data-closing")).toBe(true);
 
     el.open = true;
     await settled(el);
 
     expect(dialog.open).toBe(true);
-    expect(dialog.hasAttribute('data-closing')).toBe(false);
+    expect(dialog.hasAttribute("data-closing")).toBe(false);
 
     // And it stays: the exit that was already in flight must not close the
     // dialog out from under the re-open when its wait finally resolves.
@@ -488,7 +509,7 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     expect(dialog.open).toBe(true);
   });
 
-  it('closes immediately where the platform can animate it itself', async () => {
+  it("closes immediately where the platform can animate it itself", async () => {
     const { el, dialog } = await mountOpen();
     // Back to the Chromium path, which must stay exactly what it was: the
     // native `overlay` transition is the better mechanism where it exists.
@@ -498,6 +519,6 @@ describe.each(CASES)('ModalDialog exit animation on $tag', (dialogCase) => {
     await settled(el);
 
     expect(dialog.open).toBe(false);
-    expect(dialog.hasAttribute('data-closing')).toBe(false);
+    expect(dialog.hasAttribute("data-closing")).toBe(false);
   });
 });

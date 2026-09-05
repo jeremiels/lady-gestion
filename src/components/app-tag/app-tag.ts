@@ -1,7 +1,7 @@
-import { css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import type { ThemeMeta } from '../../theme/theme.ts';
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import type { ThemeMeta } from "../../theme/theme.ts";
 
 /**
  * Fills the two custom properties below from any theme, for `styleMap`.
@@ -13,8 +13,8 @@ import type { ThemeMeta } from '../../theme/theme.ts';
  * That hand-written path is now the only path, and it serves both.
  */
 export const tagStyle = (theme: ThemeMeta) => ({
-  '--app-tag-color': theme.color,
-  '--app-tag-background': theme.backgroundColor,
+  "--app-tag-color": theme.color,
+  "--app-tag-background": theme.backgroundColor,
 });
 
 /**
@@ -27,9 +27,9 @@ export const tagStyle = (theme: ThemeMeta) => ({
  * as custom properties, which pierce shadow boundaries, so nothing above it has
  * to give up encapsulation to render a tag.
  */
-@customElement('app-tag')
+@customElement("app-tag")
 export class AppTag extends BaseElement {
-  @property({ type: String }) label = '';
+  @property({ type: String }) label = "";
 
   static componentStyles = css`
     :host {
@@ -56,6 +56,6 @@ export class AppTag extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-tag': AppTag;
+    "app-tag": AppTag;
   }
 }

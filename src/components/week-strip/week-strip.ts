@@ -1,5 +1,5 @@
-import { css, html, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { css, html, nothing } from "lit";
+import { customElement, state } from "lit/decorators.js";
 import {
   activeHorseQuery,
   eventsRepo,
@@ -8,12 +8,12 @@ import {
   weekGrid,
   workSessionByDate,
   type IsoDate,
-} from '../../data/index.ts';
-import type { HorseEvent } from '../../data/types.ts';
-import { BaseElement } from '../../commons/base-element.ts';
+} from "../../data/index.ts";
+import type { HorseEvent } from "../../data/types.ts";
+import { BaseElement } from "../../commons/base-element.ts";
 
-import '../day-card/day-card.ts';
-import '../activity-sheet/activity-sheet.ts';
+import "../day-card/day-card.ts";
+import "../activity-sheet/activity-sheet.ts";
 
 /**
  * The dashboard's week at a glance, and the way to fill it in.
@@ -27,7 +27,7 @@ import '../activity-sheet/activity-sheet.ts';
  * strip that knows which row each day is showing — the sheet is handed that row
  * and never looks one up, so the two cannot disagree about what a tap edits.
  */
-@customElement('week-strip')
+@customElement("week-strip")
 export class WeekStrip extends BaseElement {
   /**
    * The day the sheet is about, or `null` before it has ever been opened.
@@ -145,7 +145,7 @@ export class WeekStrip extends BaseElement {
                 class="week__day pressable pressable--small"
                 type="button"
                 aria-haspopup="dialog"
-                aria-expanded=${sheetOpen && selected === date ? 'true' : 'false'}
+                aria-expanded=${sheetOpen && selected === date ? "true" : "false"}
                 aria-label=${`Activité du ${formatDayLong(date)}`}
                 @click=${this.#open(date)}
               >
@@ -163,22 +163,24 @@ export class WeekStrip extends BaseElement {
       <!-- Mounted on the first open and kept from then on: the sheet owns its
            own exit animation, and an element removed the moment it closes never
            gets to run one. -->
-      ${selected === null
-        ? nothing
-        : html`
-            <activity-sheet
-              .open=${sheetOpen}
-              .date=${selected}
-              .existing=${sessions.get(selected) ?? null}
-              @sheet-close=${this.#close}
-            ></activity-sheet>
-          `}
+      ${
+        selected === null
+          ? nothing
+          : html`
+              <activity-sheet
+                .open=${sheetOpen}
+                .date=${selected}
+                .existing=${sessions.get(selected) ?? null}
+                @sheet-close=${this.#close}
+              ></activity-sheet>
+            `
+      }
     `;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'week-strip': WeekStrip;
+    "week-strip": WeekStrip;
   }
 }

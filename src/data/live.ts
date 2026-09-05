@@ -1,6 +1,6 @@
-import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import { liveQuery } from './db.ts';
-import { dataReady, isDataReady } from './ready.ts';
+import type { ReactiveController, ReactiveControllerHost } from "lit";
+import { liveQuery } from "./db.ts";
+import { dataReady, isDataReady } from "./ready.ts";
 
 /**
  * Bridges Dexie's `liveQuery` to Lit's reactive update cycle.

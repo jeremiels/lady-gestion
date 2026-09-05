@@ -1,8 +1,8 @@
-import { html } from 'lit';
-import { afterEach, describe, expect, it } from 'vitest';
-import { fixture, settled } from '../__tests__/fixture.ts';
-import './app-bottom-sheet.ts';
-import type { AppBottomSheet } from './app-bottom-sheet.ts';
+import { html } from "lit";
+import { afterEach, describe, expect, it } from "vitest";
+import { fixture, settled } from "../__tests__/fixture.ts";
+import "./app-bottom-sheet.ts";
+import type { AppBottomSheet } from "./app-bottom-sheet.ts";
 
 /**
  * Drag-to-dismiss, in a real browser because there is nowhere else to run it:
@@ -42,7 +42,7 @@ afterEach(async () => {
 });
 
 const handleOf = (el: AppBottomSheet) => {
-  const handle = el.renderRoot.querySelector<HTMLElement>('.sheet__handle')!;
+  const handle = el.renderRoot.querySelector<HTMLElement>(".sheet__handle")!;
   // Synthetic pointer events have no matching active pointer, so the real
   // `setPointerCapture` throws NotFoundError. Capture is not what these tests
   // are about — the handler runs identically with or without it.
@@ -92,11 +92,14 @@ const flush = async (el: AppBottomSheet) => {
 const dismissal = (el: AppBottomSheet) =>
   new Promise<void>((resolve, reject) => {
     const timer = setTimeout(
-      () => reject(new Error('sheet-close never fired — the sheet did not dismiss')),
+      () =>
+        reject(
+          new Error("sheet-close never fired — the sheet did not dismiss"),
+        ),
       2000,
     );
     el.addEventListener(
-      'sheet-close',
+      "sheet-close",
       () => {
         clearTimeout(timer);
         resolve();
@@ -120,21 +123,20 @@ const dismissal = (el: AppBottomSheet) =>
  */
 const watchCloses = (el: AppBottomSheet) => {
   const closes = { count: 0 };
-  el.addEventListener('sheet-close', () => (closes.count += 1));
+  el.addEventListener("sheet-close", () => (closes.count += 1));
   return closes;
 };
 
-describe('app-bottom-sheet drag-to-dismiss', () => {
-
-  it('dismisses on a drag past the distance threshold', async () => {
+describe("app-bottom-sheet drag-to-dismiss", () => {
+  it("dismisses on a drag past the distance threshold", async () => {
     const el = await mount();
     const closes = watchCloses(el);
     const dismissed = dismissal(el);
     const handle = handleOf(el);
 
-    handle.dispatchEvent(pointer('pointerdown', 0));
-    handle.dispatchEvent(pointer('pointermove', 200));
-    handle.dispatchEvent(pointer('pointerup', 200));
+    handle.dispatchEvent(pointer("pointerdown", 0));
+    handle.dispatchEvent(pointer("pointermove", 200));
+    handle.dispatchEvent(pointer("pointerup", 200));
     await dismissed;
 
     expect(closes.count).toBe(1);
@@ -146,20 +148,22 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
    * `pointercancel` into the pointerup handler closed any sheet that happened
    * to be past the threshold when the interruption landed.
    */
-  it('springs back instead of dismissing when the gesture is cancelled past the threshold', async () => {
+  it("springs back instead of dismissing when the gesture is cancelled past the threshold", async () => {
     const el = await mount();
     const closes = watchCloses(el);
     const handle = handleOf(el);
 
-    handle.dispatchEvent(pointer('pointerdown', 0));
-    handle.dispatchEvent(pointer('pointermove', 200));
-    handle.dispatchEvent(pointer('pointercancel', 200));
+    handle.dispatchEvent(pointer("pointerdown", 0));
+    handle.dispatchEvent(pointer("pointermove", 200));
+    handle.dispatchEvent(pointer("pointercancel", 200));
     await flush(el);
 
     expect(closes.count).toBe(0);
     expect(el.open).toBe(true);
     // Released back to the stylesheet, so the sheet transitions home.
-    expect(el.renderRoot.querySelector<HTMLElement>('dialog')!.style.transform).toBe('');
+    expect(
+      el.renderRoot.querySelector<HTMLElement>("dialog")!.style.transform,
+    ).toBe("");
   });
 
   /**
@@ -172,39 +176,39 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
    * drag below averages 0.04 px/ms over its whole life; nothing about it is a
    * flick except the last two milliseconds.
    */
-  it('does not dismiss when a slow drag ends in a twitch', async () => {
+  it("does not dismiss when a slow drag ends in a twitch", async () => {
     const el = await mount();
     const closes = watchCloses(el);
     const handle = handleOf(el);
 
-    handle.dispatchEvent(pointer('pointerdown', 0));
-    handle.dispatchEvent(pointer('pointermove', 10));
+    handle.dispatchEvent(pointer("pointerdown", 0));
+    handle.dispatchEvent(pointer("pointermove", 10));
     await wait(300);
-    handle.dispatchEvent(pointer('pointermove', 20));
+    handle.dispatchEvent(pointer("pointermove", 20));
     await wait(300);
-    handle.dispatchEvent(pointer('pointermove', 30));
+    handle.dispatchEvent(pointer("pointermove", 30));
     await wait(200);
-    handle.dispatchEvent(pointer('pointermove', 31));
+    handle.dispatchEvent(pointer("pointermove", 31));
     // The twitch, immediately before the finger leaves the glass.
-    handle.dispatchEvent(pointer('pointerup', 33));
+    handle.dispatchEvent(pointer("pointerup", 33));
     await flush(el);
 
     expect(closes.count).toBe(0);
     expect(el.open).toBe(true);
   });
 
-  it('still dismisses on a genuine flick that never crosses the distance threshold', async () => {
+  it("still dismisses on a genuine flick that never crosses the distance threshold", async () => {
     const el = await mount();
     const closes = watchCloses(el);
     const dismissed = dismissal(el);
     const handle = handleOf(el);
 
-    handle.dispatchEvent(pointer('pointerdown', 0));
-    handle.dispatchEvent(pointer('pointermove', 10));
+    handle.dispatchEvent(pointer("pointerdown", 0));
+    handle.dispatchEvent(pointer("pointermove", 10));
     await wait(120);
     // ~60px in the few ms after the sample aged — a flick, well under 120px.
-    handle.dispatchEvent(pointer('pointermove', 20));
-    handle.dispatchEvent(pointer('pointerup', 80));
+    handle.dispatchEvent(pointer("pointermove", 20));
+    handle.dispatchEvent(pointer("pointerup", 80));
     await dismissed;
 
     expect(closes.count).toBe(1);
@@ -214,43 +218,48 @@ describe('app-bottom-sheet drag-to-dismiss', () => {
    * A second finger landing mid-drag used to re-anchor `#dragStartY` on itself,
    * so the sheet jumped to meet it and the accumulated distance was lost.
    */
-  it('ignores a second pointer that lands mid-drag', async () => {
+  it("ignores a second pointer that lands mid-drag", async () => {
     const el = await mount();
     const closes = watchCloses(el);
     const dismissed = dismissal(el);
     const handle = handleOf(el);
-    const dialog = el.renderRoot.querySelector<HTMLElement>('dialog')!;
+    const dialog = el.renderRoot.querySelector<HTMLElement>("dialog")!;
 
-    handle.dispatchEvent(pointer('pointerdown', 0));
-    handle.dispatchEvent(pointer('pointermove', 200));
+    handle.dispatchEvent(pointer("pointerdown", 0));
+    handle.dispatchEvent(pointer("pointermove", 200));
 
     // Second finger, far up the screen. It must not re-anchor or steal the drag.
-    handle.dispatchEvent(pointer('pointerdown', 500, 2));
-    handle.dispatchEvent(pointer('pointermove', 500, 2));
-    expect(dialog.style.transform).toBe('translateY(200px)');
+    handle.dispatchEvent(pointer("pointerdown", 500, 2));
+    handle.dispatchEvent(pointer("pointermove", 500, 2));
+    expect(dialog.style.transform).toBe("translateY(200px)");
 
     // The owning pointer still decides, and still sees its full 200px.
-    handle.dispatchEvent(pointer('pointerup', 200, 1));
+    handle.dispatchEvent(pointer("pointerup", 200, 1));
     await dismissed;
 
     expect(closes.count).toBe(1);
   });
 
-  it('does not drag at all when the sheet is not dismissible', async () => {
+  it("does not drag at all when the sheet is not dismissible", async () => {
     const el = await fixture<AppBottomSheet>(
-      html`<app-bottom-sheet heading="Ration" .dismissible=${false}></app-bottom-sheet>`,
+      html`<app-bottom-sheet
+        heading="Ration"
+        .dismissible=${false}
+      ></app-bottom-sheet>`,
     );
     el.show();
     await settled(el);
     const closes = watchCloses(el);
     const handle = handleOf(el);
 
-    handle.dispatchEvent(pointer('pointerdown', 0));
-    handle.dispatchEvent(pointer('pointermove', 300));
-    handle.dispatchEvent(pointer('pointerup', 300));
+    handle.dispatchEvent(pointer("pointerdown", 0));
+    handle.dispatchEvent(pointer("pointermove", 300));
+    handle.dispatchEvent(pointer("pointerup", 300));
     await flush(el);
 
     expect(closes.count).toBe(0);
-    expect(el.renderRoot.querySelector<HTMLElement>('dialog')!.style.transform).toBe('');
+    expect(
+      el.renderRoot.querySelector<HTMLElement>("dialog")!.style.transform,
+    ).toBe("");
   });
 });

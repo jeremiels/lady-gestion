@@ -1,7 +1,7 @@
-import { nowISO } from './dates.ts';
-import { newId } from './ids.ts';
-import { getOwnerId } from './owner.ts';
-import type { BaseRecord, NewRecord, RecordPatch } from './types.ts';
+import { nowISO } from "./dates.ts";
+import { newId } from "./ids.ts";
+import { getOwnerId } from "./owner.ts";
+import type { BaseRecord, NewRecord, RecordPatch } from "./types.ts";
 
 /**
  * The single place where `id`, `ownerId`, timestamps and soft-delete are
@@ -26,7 +26,10 @@ export const createRecord = <T extends BaseRecord>(fields: NewRecord<T>): T => {
  * and bookkeeping fields, so a caller cannot rewrite `id`, `ownerId` or
  * `createdAt` by accident.
  */
-export const touch = <T extends BaseRecord>(record: T, patch: RecordPatch<T>): T => ({
+export const touch = <T extends BaseRecord>(
+  record: T,
+  patch: RecordPatch<T>,
+): T => ({
   ...record,
   ...patch,
   updatedAt: nowISO(),
@@ -42,9 +45,11 @@ export const softDelete = <T extends BaseRecord>(record: T): T => {
   return { ...record, deletedAt: timestamp, updatedAt: timestamp };
 };
 
-export const isLive = <T extends BaseRecord>(record: T): boolean => record.deletedAt === null;
+export const isLive = <T extends BaseRecord>(record: T): boolean =>
+  record.deletedAt === null;
 
-export const liveOnly = <T extends BaseRecord>(records: T[]): T[] => records.filter(isLive);
+export const liveOnly = <T extends BaseRecord>(records: T[]): T[] =>
+  records.filter(isLive);
 
 /**
  * Last-write-wins resolution, used when merging a backup into the local
@@ -100,7 +105,10 @@ export const crud = <T extends BaseRecord>(table: RecordTable<T>) => {
     get,
 
     /** `undefined` when there is no live record under `id` — never a throw. */
-    update: async (id: string, patch: RecordPatch<T>): Promise<T | undefined> => {
+    update: async (
+      id: string,
+      patch: RecordPatch<T>,
+    ): Promise<T | undefined> => {
       const existing = await get(id);
       if (!existing) return undefined;
 

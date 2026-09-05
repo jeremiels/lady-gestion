@@ -34,7 +34,7 @@ const PREFIX = BASE.slice(0, -1);
  */
 export function toAppPath(pathname: string): string {
   if (!PREFIX) return pathname;
-  if (pathname === PREFIX) return '/';
+  if (pathname === PREFIX) return "/";
   return pathname.startsWith(BASE) ? pathname.slice(PREFIX.length) : pathname;
 }
 

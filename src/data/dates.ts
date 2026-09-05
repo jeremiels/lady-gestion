@@ -24,15 +24,15 @@ export const nowISO = (): IsoTimestamp => new Date().toISOString();
 export const todayISO = (): IsoDate => toIsoDate(new Date());
 
 export const toIsoDate = (date: Date): IsoDate => {
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const isIsoDate = (value: unknown): value is IsoDate =>
-  typeof value === 'string' && ISO_DATE.test(value);
+  typeof value === "string" && ISO_DATE.test(value);
 
 /**
  * Splits `YYYY-MM-DD` into numeric year/month/day. A malformed string yields
@@ -40,7 +40,7 @@ export const isIsoDate = (value: unknown): value is IsoDate =>
  * silently reading as year zero.
  */
 const isoDateParts = (value: IsoDate): [number, number, number] => {
-  const [year = NaN, month = NaN, day = NaN] = value.split('-').map(Number);
+  const [year = NaN, month = NaN, day = NaN] = value.split("-").map(Number);
   return [year, month, day];
 };
 
@@ -95,13 +95,17 @@ export const endOfMonth = (value: IsoDate): IsoDate => {
  * iCalendar `WKST` code — the RFC vocabulary lives in `icalendar.ts`, which
  * converts before calling in here.
  */
-export const startOfWeek = (value: IsoDate, weekStartIndex: number): IsoDate => {
+export const startOfWeek = (
+  value: IsoDate,
+  weekStartIndex: number,
+): IsoDate => {
   const date = fromIsoDate(value);
   const offset = (date.getDay() - weekStartIndex + 7) % 7;
   return addDays(value, -offset);
 };
 
-export const isSameMonth = (a: IsoDate, b: IsoDate): boolean => a.slice(0, 7) === b.slice(0, 7);
+export const isSameMonth = (a: IsoDate, b: IsoDate): boolean =>
+  a.slice(0, 7) === b.slice(0, 7);
 
 /**
  * The day-of-month number, for rendering a calendar cell: `2026-03-05` -> `5`.
@@ -112,7 +116,10 @@ export const isSameMonth = (a: IsoDate, b: IsoDate): boolean => a.slice(0, 7) ==
 export const dayOfMonth = (value: IsoDate): number => isoDateParts(value)[2];
 
 /** Whole years elapsed, or `null` when the birth date is unknown. */
-export const ageInYears = (birthDate: IsoDate | null, on: IsoDate = todayISO()): number | null => {
+export const ageInYears = (
+  birthDate: IsoDate | null,
+  on: IsoDate = todayISO(),
+): number | null => {
   if (!isIsoDate(birthDate)) return null;
 
   const [birthYear, birthMonth, birthDay] = isoDateParts(birthDate);
@@ -123,12 +130,15 @@ export const ageInYears = (birthDate: IsoDate | null, on: IsoDate = todayISO()):
   return age < 0 || Number.isNaN(age) ? null : age;
 };
 
-const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short' });
+const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", { dateStyle: "short" });
 
 /** `2026-03-15` -> `15/03/2026`. */
-export const formatDate = (value: IsoDate): string => DATE_FORMAT.format(fromIsoDate(value));
+export const formatDate = (value: IsoDate): string =>
+  DATE_FORMAT.format(fromIsoDate(value));
 
-const DATE_MEDIUM_FORMAT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+const DATE_MEDIUM_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  dateStyle: "medium",
+});
 
 /**
  * `2026-01-10` -> `10 janv. 2026`.
@@ -149,9 +159,12 @@ export const formatDateMedium = (value: IsoDate): string =>
  * `null` (an all-day entry) formats as an empty string, which callers drop.
  */
 export const formatTime = (time: string | null): string =>
-  time === null ? '' : time.replace(':', 'h');
+  time === null ? "" : time.replace(":", "h");
 
-const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' });
+const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  month: "long",
+  year: "numeric",
+});
 
 /** `2026-01-22` -> `Janvier 2026`. French lowercases month names; a title doesn't. */
 export const formatMonthYear = (value: IsoDate): string => {
@@ -159,19 +172,20 @@ export const formatMonthYear = (value: IsoDate): string => {
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-const DAY_LONG_FORMAT = new Intl.DateTimeFormat('fr-FR', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
+const DAY_LONG_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
 });
 
 /** `2026-01-22` -> `22 janvier 2026`. */
-export const formatDayLong = (value: IsoDate): string => DAY_LONG_FORMAT.format(fromIsoDate(value));
+export const formatDayLong = (value: IsoDate): string =>
+  DAY_LONG_FORMAT.format(fromIsoDate(value));
 
-const DAY_SHORT_MONTH_FORMAT = new Intl.DateTimeFormat('fr-FR', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'short',
+const DAY_SHORT_MONTH_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "short",
 });
 
 /**
@@ -188,7 +202,9 @@ export const formatDayShortMonth = (value: IsoDate): string => {
   return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
-const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short' });
+const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "short",
+});
 
 /**
  * `2026-08-10` -> `LUN`.
@@ -198,10 +214,16 @@ const WEEKDAY_SHORT_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'short'
  * a display convention it doesn't cover, the same way `formatTime` owns the `h`.
  */
 export const formatWeekdayShort = (value: IsoDate): string =>
-  WEEKDAY_SHORT_FORMAT.format(fromIsoDate(value)).replace('.', '').toUpperCase();
+  WEEKDAY_SHORT_FORMAT.format(fromIsoDate(value))
+    .replace(".", "")
+    .toUpperCase();
 
-const WEEKDAY_NARROW_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'narrow' });
-const WEEKDAY_LONG_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'long' });
+const WEEKDAY_NARROW_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "narrow",
+});
+const WEEKDAY_LONG_FORMAT = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+});
 
 /** The first Sunday of 2024 — an arbitrary week used only to read weekday names off. */
 const REFERENCE_SUNDAY = new Date(2024, 0, 7);
@@ -233,6 +255,6 @@ export const weekdayLabels = (weekStartIndex: number): WeekdayLabel[] =>
 
 /** `5` -> `5 ans`, `1` -> `1 an`, `null` -> `—`. */
 export const formatAge = (age: number | null): string => {
-  if (age === null) return '—';
+  if (age === null) return "—";
   return age <= 1 ? `${age} an` : `${age} ans`;
 };

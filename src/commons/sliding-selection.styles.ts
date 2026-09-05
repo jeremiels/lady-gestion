@@ -1,4 +1,4 @@
-import { css } from 'lit';
+import { css } from "lit";
 
 /**
  * A background that travels to whichever child is currently selected, rather
@@ -64,7 +64,7 @@ export const slidingSelectionStyles = css`
      * really occurs.
      */
     .sliding-selection:has(.sliding-selection__active)::after {
-      content: '';
+      content: "";
       position: absolute;
       z-index: 0;
       position-anchor: --sliding-selection;
@@ -79,7 +79,8 @@ export const slidingSelectionStyles = css`
       /* A transition rather than keyframes or the WAAPI: it retargets from
          wherever the pill currently is, so holding down an arrow key slides it
          on from mid-travel instead of restarting each time. */
-      transition: inset var(--sliding-selection-duration, var(--duration-medium))
+      transition: inset
+        var(--sliding-selection-duration, var(--duration-medium))
         var(--sliding-selection-easing, var(--easing-standard));
     }
 

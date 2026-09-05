@@ -1,10 +1,10 @@
-import { css, html, nothing, type PropertyValues } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { classMap } from 'lit/directives/class-map.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { MediaQuery } from '../../commons/controllers/media-query.ts';
-import { slidingSelectionStyles } from '../../commons/sliding-selection.styles.ts';
+import { css, html, nothing, type PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { MediaQuery } from "../../commons/controllers/media-query.ts";
+import { slidingSelectionStyles } from "../../commons/sliding-selection.styles.ts";
 import {
   addDays,
   addMonths,
@@ -17,7 +17,7 @@ import {
   todayISO,
   weekdayLabels,
   type IsoDate,
-} from '../../data/dates.ts';
+} from "../../data/dates.ts";
 import {
   DEFAULT_WEEK_START,
   monthGrid,
@@ -25,9 +25,9 @@ import {
   weekDayIndex,
   type CalendarEvent,
   type WeekDay,
-} from '../../data/icalendar.ts';
+} from "../../data/icalendar.ts";
 
-import '../app-icon/app-icon.ts';
+import "../app-icon/app-icon.ts";
 
 /**
  * A month calendar: one dot under every day that has events, a filled circle on
@@ -47,7 +47,7 @@ import '../app-icon/app-icon.ts';
  * @fires month-change - `{ month: IsoDate, reason }` when the visible month
  * moves, whether from the arrows or from focus crossing a boundary.
  */
-@customElement('app-calendar')
+@customElement("app-calendar")
 export class AppCalendar extends BaseElement {
   /** Occurrences to mark. Days outside the visible month are simply ignored. */
   @property({ attribute: false }) events: CalendarEvent[] = [];
@@ -56,7 +56,8 @@ export class AppCalendar extends BaseElement {
   @property({ type: String }) value: IsoDate | null = null;
 
   /** RFC 5545 `WKST`. Monday both by the RFC's default and by French habit. */
-  @property({ type: String, attribute: 'week-start' }) weekStart: WeekDay = DEFAULT_WEEK_START;
+  @property({ type: String, attribute: "week-start" }) weekStart: WeekDay =
+    DEFAULT_WEEK_START;
 
   /** Overridable so a demo or a test can pin "today" to a fixed date. */
   @property({ type: String }) today: IsoDate = todayISO();
@@ -81,7 +82,7 @@ export class AppCalendar extends BaseElement {
    * JS-driven animation the blanket CSS `prefers-reduced-motion` block in the
    * reset can't reach. Same pattern `app-donut-chart` uses for its sweep.
    */
-  #reducedMotion = new MediaQuery(this, '(prefers-reduced-motion: reduce)');
+  #reducedMotion = new MediaQuery(this, "(prefers-reduced-motion: reduce)");
 
   // The travelling pill first, so the rules below still win at equal specificity.
   static componentStyles = [
@@ -201,7 +202,7 @@ export class AppCalendar extends BaseElement {
          2rem target the extra tenth is the difference between the pill settling
          and the pill popping. */
       .calendar__day::before {
-        content: '';
+        content: "";
         position: absolute;
         inset: 0;
         z-index: -1;
@@ -300,7 +301,7 @@ export class AppCalendar extends BaseElement {
   protected willUpdate(changed: PropertyValues<this>) {
     // Follow a selection made from outside — picking a date elsewhere should
     // bring its month into view rather than leave the grid where it was.
-    if (changed.has('value') && this.value) {
+    if (changed.has("value") && this.value) {
       this.focusedDate = this.value;
       if (!isSameMonth(this.value, this.visibleMonth)) {
         this.visibleMonth = startOfMonth(this.value);
@@ -309,18 +310,20 @@ export class AppCalendar extends BaseElement {
   }
 
   protected updated(changed: PropertyValues<this>) {
-    if (changed.has('visibleMonth')) this.#snapSelection();
+    if (changed.has("visibleMonth")) this.#snapSelection();
 
-    if (!changed.has('focusedDate')) return;
+    if (!changed.has("focusedDate")) return;
 
     // Move the DOM focus along with the roving tab stop — but only when a day
     // already holds it. Refocusing whenever the date changes would yank focus
     // away on first render, and would pull it off the month arrows the moment
     // one was pressed, so a second press would land on a day instead.
     const root = this.renderRoot as ShadowRoot;
-    if (!root.activeElement?.classList.contains('calendar__day')) return;
+    if (!root.activeElement?.classList.contains("calendar__day")) return;
 
-    root.querySelector<HTMLButtonElement>('.calendar__day[tabindex="0"]')?.focus();
+    root
+      .querySelector<HTMLButtonElement>('.calendar__day[tabindex="0"]')
+      ?.focus();
   }
 
   /**
@@ -339,18 +342,18 @@ export class AppCalendar extends BaseElement {
    * again before anything else can animate from it.
    */
   #snapSelection() {
-    const grid = this.renderRoot.querySelector<HTMLElement>('.calendar__grid');
+    const grid = this.renderRoot.querySelector<HTMLElement>(".calendar__grid");
     if (!grid) return;
 
-    grid.classList.add('calendar__grid--paging');
+    grid.classList.add("calendar__grid--paging");
     void grid.offsetHeight;
-    grid.classList.remove('calendar__grid--paging');
+    grid.classList.remove("calendar__grid--paging");
   }
 
-  #goToMonth = (month: IsoDate, reason: 'prev' | 'next' | 'keyboard') => {
+  #goToMonth = (month: IsoDate, reason: "prev" | "next" | "keyboard") => {
     this.#setVisibleMonth(month);
     this.dispatchEvent(
-      new CustomEvent('month-change', {
+      new CustomEvent("month-change", {
         detail: { month: this.visibleMonth, reason },
         bubbles: true,
         composed: true,
@@ -369,7 +372,9 @@ export class AppCalendar extends BaseElement {
   #setVisibleMonth = (month: IsoDate) => {
     const target = startOfMonth(month);
     if (target !== this.visibleMonth) {
-      this.#playPageTransition(target > this.visibleMonth ? 'forward' : 'backward');
+      this.#playPageTransition(
+        target > this.visibleMonth ? "forward" : "backward",
+      );
     }
     this.visibleMonth = target;
   };
@@ -382,10 +387,10 @@ export class AppCalendar extends BaseElement {
    * across a month change; swapping to a keyed re-mount to get a retriggering
    * CSS animation would have broken exactly that.
    */
-  #playPageTransition(direction: 'forward' | 'backward') {
+  #playPageTransition(direction: "forward" | "backward") {
     if (this.#reducedMotion.matches) return;
 
-    const grid = this.renderRoot.querySelector<HTMLElement>('.calendar__grid');
+    const grid = this.renderRoot.querySelector<HTMLElement>(".calendar__grid");
     if (!grid) return;
 
     // Reads the shared tokens rather than restating them. `--duration-medium`
@@ -397,11 +402,12 @@ export class AppCalendar extends BaseElement {
     // throws on a `NaN` duration, so that same case is guarded explicitly
     // below rather than inheriting the crash.
     const style = getComputedStyle(this);
-    const duration = parseFloat(style.getPropertyValue('--duration-medium')) * 1000;
-    const easing = style.getPropertyValue('--easing-out').trim();
+    const duration =
+      parseFloat(style.getPropertyValue("--duration-medium")) * 1000;
+    const easing = style.getPropertyValue("--easing-out").trim();
     if (!(duration > 0) || !easing) return;
 
-    const offset = direction === 'forward' ? '0.75rem' : '-0.75rem';
+    const offset = direction === "forward" ? "0.75rem" : "-0.75rem";
 
     // Cancel rather than let it compose: paging twice in quick succession
     // should retarget cleanly from wherever the grid currently is, not layer
@@ -410,9 +416,9 @@ export class AppCalendar extends BaseElement {
     grid.animate(
       [
         { opacity: 0, transform: `translateX(${offset})` },
-        { opacity: 1, transform: 'translateX(0)' },
+        { opacity: 1, transform: "translateX(0)" },
       ],
-      { duration, easing, fill: 'both' },
+      { duration, easing, fill: "both" },
     );
   }
 
@@ -429,14 +435,14 @@ export class AppCalendar extends BaseElement {
    * two values the long way round — and re-implemented `dates.ts`'s own
    * `YYYY-MM-DD` splitting to do it.
    */
-  #stepMonth = (delta: number, reason: 'prev' | 'next') => {
+  #stepMonth = (delta: number, reason: "prev" | "next") => {
     this.focusedDate = addMonths(this.focusedDate, delta);
     this.#goToMonth(addMonths(this.visibleMonth, delta), reason);
   };
 
-  #onPrevMonth = () => this.#stepMonth(-1, 'prev');
+  #onPrevMonth = () => this.#stepMonth(-1, "prev");
 
-  #onNextMonth = () => this.#stepMonth(1, 'next');
+  #onNextMonth = () => this.#stepMonth(1, "next");
 
   #select = (date: IsoDate) => {
     this.value = date;
@@ -444,7 +450,7 @@ export class AppCalendar extends BaseElement {
     this.#setVisibleMonth(date);
 
     this.dispatchEvent(
-      new CustomEvent('date-select', {
+      new CustomEvent("date-select", {
         detail: { date },
         bubbles: true,
         composed: true,
@@ -455,7 +461,8 @@ export class AppCalendar extends BaseElement {
   /** Moves the roving focus, pulling the visible month along when it crosses out. */
   #moveFocus = (date: IsoDate) => {
     this.focusedDate = date;
-    if (!isSameMonth(date, this.visibleMonth)) this.#goToMonth(date, 'keyboard');
+    if (!isSameMonth(date, this.visibleMonth))
+      this.#goToMonth(date, "keyboard");
   };
 
   #onKeyDown = (event: KeyboardEvent) => {
@@ -463,32 +470,32 @@ export class AppCalendar extends BaseElement {
     const weekStartIndex = weekDayIndex(this.weekStart);
 
     switch (event.key) {
-      case 'ArrowLeft':
+      case "ArrowLeft":
         this.#moveFocus(addDays(from, -1));
         break;
-      case 'ArrowRight':
+      case "ArrowRight":
         this.#moveFocus(addDays(from, 1));
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         this.#moveFocus(addDays(from, -7));
         break;
-      case 'ArrowDown':
+      case "ArrowDown":
         this.#moveFocus(addDays(from, 7));
         break;
-      case 'Home':
+      case "Home":
         this.#moveFocus(startOfWeek(from, weekStartIndex));
         break;
-      case 'End':
+      case "End":
         this.#moveFocus(addDays(startOfWeek(from, weekStartIndex), 6));
         break;
-      case 'PageUp':
+      case "PageUp":
         this.#moveFocus(addMonths(from, event.shiftKey ? -12 : -1));
         break;
-      case 'PageDown':
+      case "PageDown":
         this.#moveFocus(addMonths(from, event.shiftKey ? 12 : 1));
         break;
-      case 'Enter':
-      case ' ':
+      case "Enter":
+      case " ":
         this.#select(from);
         break;
       default:
@@ -510,7 +517,9 @@ export class AppCalendar extends BaseElement {
     // outside days from the following month.
     while (weeks.length < 6) {
       const lastDate = weeks.at(-1)?.at(-1) ?? this.visibleMonth;
-      weeks.push(Array.from({ length: 7 }, (_, index) => addDays(lastDate, index + 1)));
+      weeks.push(
+        Array.from({ length: 7 }, (_, index) => addDays(lastDate, index + 1)),
+      );
     }
 
     const first = weeks[0]?.[0] ?? this.visibleMonth;
@@ -527,7 +536,9 @@ export class AppCalendar extends BaseElement {
         >
           <app-icon class="calendar__nav-icon" icon="chevronLeft"></app-icon>
         </button>
-        <h2 class="calendar__month" aria-live="polite">${formatMonthYear(this.visibleMonth)}</h2>
+        <h2 class="calendar__month" aria-live="polite">
+          ${formatMonthYear(this.visibleMonth)}
+        </h2>
         <button
           class="calendar__nav"
           type="button"
@@ -547,7 +558,11 @@ export class AppCalendar extends BaseElement {
         <div class="calendar__row" role="row">
           ${weekdayLabels(weekDayIndex(this.weekStart)).map(
             (day) => html`
-              <span class="calendar__weekday" role="columnheader" aria-label=${day.long}>
+              <span
+                class="calendar__weekday"
+                role="columnheader"
+                aria-label=${day.long}
+              >
                 ${day.narrow}
               </span>
             `,
@@ -577,23 +592,29 @@ export class AppCalendar extends BaseElement {
 
     // The dot is decorative, so the count has to reach a screen reader through
     // the label instead.
-    const events = marked ? `, ${count} ${count === 1 ? 'évènement' : 'évènements'}` : '';
+    const events = marked
+      ? `, ${count} ${count === 1 ? "évènement" : "évènements"}`
+      : "";
 
     return html`
-      <div class="calendar__cell" role="gridcell" aria-selected=${selected ? 'true' : 'false'}>
+      <div
+        class="calendar__cell"
+        role="gridcell"
+        aria-selected=${selected ? "true" : "false"}
+      >
         <button
           class=${classMap({
             calendar__day: true,
-            'calendar__day--outside': outside,
-            'calendar__day--today': isToday,
-            'calendar__day--selected': selected,
+            "calendar__day--outside": outside,
+            "calendar__day--today": isToday,
+            "calendar__day--selected": selected,
             // Moving this class is the whole animation: the pill anchors to it
             // and the browser interpolates the four insets between the cells.
-            'sliding-selection__active': selected,
+            "sliding-selection__active": selected,
           })}
           type="button"
           tabindex=${date === this.focusedDate ? 0 : -1}
-          aria-current=${ifDefined(isToday ? 'date' : undefined)}
+          aria-current=${ifDefined(isToday ? "date" : undefined)}
           aria-label="${formatDayLong(date)}${events}"
           @click=${() => this.#select(date)}
         >
@@ -607,6 +628,6 @@ export class AppCalendar extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-calendar': AppCalendar;
+    "app-calendar": AppCalendar;
   }
 }

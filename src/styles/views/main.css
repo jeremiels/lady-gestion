@@ -1,10 +1,10 @@
-@layer  views.main {
-    .navigation {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      /*
+@layer views.main {
+  .navigation {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    /*
        * The only z-index in document CSS, and it is not the kind the popover rule
        * in AGENTS.md forbids — this does not try to beat a dialog, and it
        * cannot: showModal() puts both dialog primitives in the top layer, which
@@ -20,88 +20,88 @@
        * behind a scrolled list. A `transform`, a `filter` or an `opacity`
        * animation anywhere in a view would have done the same thing.
        */
-      z-index: 1;
-    }
+    z-index: 1;
+  }
 
-    .nav-button {
-      appearance: none;
-      display: grid;
-      place-items: center;
-      background: var(--color-brown-dark);
-      color: var(--color-white);
-      text-decoration: none;
-      padding: var(--spacing-8);
-      border-radius: var(--radius-8);
-      border: none;
-      aspect-ratio: 1;
-      width: 2.25rem;
-      height: 2.25rem;
-      cursor: pointer;
-    }
+  .nav-button {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    background: var(--color-brown-dark);
+    color: var(--color-white);
+    text-decoration: none;
+    padding: var(--spacing-8);
+    border-radius: var(--radius-8);
+    border: none;
+    aspect-ratio: 1;
+    width: 2.25rem;
+    height: 2.25rem;
+    cursor: pointer;
+  }
 
-    /* Size the glyph, never the host — see the note in nav-item.ts. The button
+  /* Size the glyph, never the host — see the note in nav-item.ts. The button
        already provides the padded brown tile, so the icon needs none of its own. */
-    .nav-button__icon {
-      --icon-size: 1.25rem;
-      padding: 0;
-    }
+  .nav-button__icon {
+    --icon-size: 1.25rem;
+    padding: 0;
+  }
 
-    /* Lives in the shell layer rather than getting its own view stylesheet:
+  /* Lives in the shell layer rather than getting its own view stylesheet:
        it is what the shell shows when no view matched. */
-    .not-found {
-      display: grid;
-      gap: var(--spacing-16);
-      justify-items: start;
-    }
+  .not-found {
+    display: grid;
+    gap: var(--spacing-16);
+    justify-items: start;
+  }
 
-    .not-found__link {
-      padding: var(--spacing-12) var(--spacing-16);
-      border-radius: var(--radius-8);
-      background: var(--color-brown-dark);
-      color: var(--color-white);
-      font-weight: 600;
-      text-decoration: none;
-    }
+  .not-found__link {
+    padding: var(--spacing-12) var(--spacing-16);
+    border-radius: var(--radius-8);
+    background: var(--color-brown-dark);
+    color: var(--color-white);
+    font-weight: 600;
+    text-decoration: none;
+  }
 
-    /* Shown instead of any view when initData() rejects — see app-root. */
-    .data-error {
-      display: grid;
-      gap: var(--spacing-16);
-      justify-items: start;
-    }
+  /* Shown instead of any view when initData() rejects — see app-root. */
+  .data-error {
+    display: grid;
+    gap: var(--spacing-16);
+    justify-items: start;
+  }
 
-    .data-error__body {
-      display: grid;
-      gap: var(--spacing-12);
-      font-size: 0.875rem;
-      line-height: 1.4;
-    }
+  .data-error__body {
+    display: grid;
+    gap: var(--spacing-12);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
 
-    .data-error__hint {
-      color: var(--color-brown-middle);
-    }
+  .data-error__hint {
+    color: var(--color-brown-middle);
+  }
 
-    .data-error__detail {
-      font-family: ui-monospace, monospace;
-      font-size: 0.75rem;
-      color: var(--color-brown-light);
-      overflow-wrap: anywhere;
-    }
+  .data-error__detail {
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    color: var(--color-brown-light);
+    overflow-wrap: anywhere;
+  }
 
-    .data-error__button {
-      appearance: none;
-      border: none;
-      padding: var(--spacing-12) var(--spacing-16);
-      border-radius: var(--radius-8);
-      background: var(--color-brown-dark);
-      color: var(--color-white);
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-    }
+  .data-error__button {
+    appearance: none;
+    border: none;
+    padding: var(--spacing-12) var(--spacing-16);
+    border-radius: var(--radius-8);
+    background: var(--color-brown-dark);
+    color: var(--color-white);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
 
-    .main-content {
-      /*
+  .main-content {
+    /*
        * The app is phone-first, and until now that meant "no measure at all":
        * on anything wider than a phone every list and paragraph stretched the
        * full window. Centred rather than left-aligned, so the content sits
@@ -118,14 +118,16 @@
        * rule that needs it, and pin the sheet's geometry with a test at the
        * same time. `event-card` queries itself and is unaffected either way.
        */
-      max-width: var(--content-max-width);
-      margin-inline: auto;
-      padding: calc(env(safe-area-inset-top) + var(--spacing-20)) var(--spacing-20) var(--spacing-20) var(--spacing-20);
-      /* The nav bar is fixed, so it sits on top of the end of a scrolling
+    max-width: var(--content-max-width);
+    margin-inline: auto;
+    padding: calc(env(safe-area-inset-top) + var(--spacing-20))
+      var(--spacing-20) var(--spacing-20) var(--spacing-20);
+    /* The nav bar is fixed, so it sits on top of the end of a scrolling
          page. Reserve its height plus the home-indicator inset the bar itself
          absorbs, or the last row of any long list is unreachable. */
-      padding-bottom: calc(
-        var(--nav-bar-height) + var(--spacing-20) + env(safe-area-inset-bottom, 0px)
-      );
-    }
+    padding-bottom: calc(
+      var(--nav-bar-height) + var(--spacing-20) +
+        env(safe-area-inset-bottom, 0px)
+    );
+  }
 }

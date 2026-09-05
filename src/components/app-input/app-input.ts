@@ -1,53 +1,54 @@
-import { css, html, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { live } from 'lit/directives/live.js';
-import { describedBy, fieldMessages } from '../../commons/field-parts.ts';
-import { FormFieldElement } from '../../commons/form-field-element.ts';
-import type { IconName } from '../app-icon/icons.ts';
+import { css, html, nothing } from "lit";
+import { customElement, property, query } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { live } from "lit/directives/live.js";
+import { describedBy, fieldMessages } from "../../commons/field-parts.ts";
+import { FormFieldElement } from "../../commons/form-field-element.ts";
+import type { IconName } from "../app-icon/icons.ts";
 
-import '../app-icon/app-icon.ts';
+import "../app-icon/app-icon.ts";
 
 export type AppInputType =
-  | 'text'
-  | 'email'
-  | 'password'
-  | 'number'
-  | 'tel'
-  | 'url'
-  | 'search'
-  | 'date'
-  | 'time'
-  | 'datetime-local'
-  | 'month'
-  | 'week'
-  | 'color';
+  | "text"
+  | "email"
+  | "password"
+  | "number"
+  | "tel"
+  | "url"
+  | "search"
+  | "date"
+  | "time"
+  | "datetime-local"
+  | "month"
+  | "week"
+  | "color";
 
 /**
  * Labeled input, form-associated so it works with native <form>,
  * FormData and constraint validation like a built-in field.
  */
-@customElement('app-input')
+@customElement("app-input")
 export class AppInput extends FormFieldElement {
-  @property({ type: String }) type: AppInputType = 'text';
-  @property({ type: String }) value = '';
-  @property({ type: String }) placeholder = '';
+  @property({ type: String }) type: AppInputType = "text";
+  @property({ type: String }) value = "";
+  @property({ type: String }) placeholder = "";
   /** Trailing text rendered inside the field, e.g. a unit ("kg", "€"). */
-  @property({ type: String }) suffix = '';
+  @property({ type: String }) suffix = "";
   /** Decorative icon rendered at the start of the field, e.g. `search`. */
-  @property({ type: String }) icon: IconName | '' = '';
+  @property({ type: String }) icon: IconName | "" = "";
   /**
    * Keeps the label for screen readers but drops it — and the field's own
    * padded backdrop — visually, leaving just the control. For a search box
    * whose placeholder already says what it is. Never omit `label` instead:
    * that leaves the input with no accessible name at all.
    */
-  @property({ type: Boolean, reflect: true, attribute: 'hide-label' }) hideLabel = false;
+  @property({ type: Boolean, reflect: true, attribute: "hide-label" })
+  hideLabel = false;
   /** Drops the card behind the field, for a surface that already provides one. */
   @property({ type: Boolean, reflect: true }) flat = false;
   @property({ type: Boolean, reflect: true }) readonly = false;
-  @property({ type: String }) autocomplete: AutoFill | '' = '';
-  @property({ type: String }) inputmode = '';
+  @property({ type: String }) autocomplete: AutoFill | "" = "";
+  @property({ type: String }) inputmode = "";
   @property({ type: String }) min?: string;
   @property({ type: String }) max?: string;
   @property({ type: String }) step?: string;
@@ -55,12 +56,12 @@ export class AppInput extends FormFieldElement {
   @property({ type: Number }) maxlength?: number;
   @property({ type: String }) pattern?: string;
 
-  @query('input') private inputEl?: HTMLInputElement;
+  @query("input") private inputEl?: HTMLInputElement;
 
   protected get control(): HTMLInputElement | undefined {
     return this.inputEl;
   }
-  #defaultValue = '';
+  #defaultValue = "";
 
   protected get formValue(): string {
     return this.value;
@@ -77,7 +78,7 @@ export class AppInput extends FormFieldElement {
   // --- Form-associated custom element lifecycle ---
 
   formStateRestoreCallback(restored: string | FormData | null) {
-    this.value = typeof restored === 'string' ? restored : '';
+    this.value = typeof restored === "string" ? restored : "";
   }
 
   #onInput = (event: InputEvent) => {
@@ -106,7 +107,7 @@ export class AppInput extends FormFieldElement {
     }
 
     .field__label {
-      font-size: .75rem;
+      font-size: 0.75rem;
       line-height: 1.25rem;
       font-weight: 600;
       color: var(--font-color);
@@ -144,7 +145,9 @@ export class AppInput extends FormFieldElement {
       padding-inline: var(--spacing-12);
       min-height: 2.75rem;
       box-sizing: border-box;
-      transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+      transition:
+        border-color var(--duration-fast) ease,
+        box-shadow var(--duration-fast) ease;
     }
 
     @media (hover: hover) and (pointer: fine) {
@@ -225,7 +228,6 @@ export class AppInput extends FormFieldElement {
       color: var(--color-disabled-content);
     }
 
-
     :host(:state(invalid)) .field__control {
       border-color: var(--app-field-error-color);
     }
@@ -246,23 +248,41 @@ export class AppInput extends FormFieldElement {
     const { hintId, errorId, message } = this.messages;
     const suffixId = `${this.fieldId}-suffix`;
     // The suffix is a unit, so it belongs in the accessible description.
-    const described = describedBy(this.suffix && suffixId, this.helpText && hintId, message && errorId);
+    const described = describedBy(
+      this.suffix && suffixId,
+      this.helpText && hintId,
+      message && errorId,
+    );
 
     return html`
       <div class="field">
         <label
-          class="field__label ${this.hideLabel ? 'visually-hidden' : ''}"
+          class="field__label ${this.hideLabel ? "visually-hidden" : ""}"
           part="label"
           for=${this.fieldId}
         >
-          ${this.label}${this.required
-            ? html`<span class="field__required" part="required" aria-hidden="true"> *</span>`
-            : nothing}
+          ${this.label}${
+            this.required
+              ? html`<span
+                  class="field__required"
+                  part="required"
+                  aria-hidden="true"
+                >
+                  *</span
+                >`
+              : nothing
+          }
         </label>
         <div class="field__control" part="control">
-          ${this.icon
-            ? html`<app-icon class="field__icon" part="icon" icon=${this.icon}></app-icon>`
-            : nothing}
+          ${
+            this.icon
+              ? html`<app-icon
+                  class="field__icon"
+                  part="icon"
+                  icon=${this.icon}
+                ></app-icon>`
+              : nothing
+          }
           <input
             id=${this.fieldId}
             part="input"
@@ -275,21 +295,25 @@ export class AppInput extends FormFieldElement {
             inputmode=${ifDefined(this.inputmode || undefined)}
             min=${ifDefined(this.min)}
             max=${ifDefined(this.max)}
-            .step=${this.step ?? ''}
+            .step=${this.step ?? ""}
             minlength=${ifDefined(this.minlength)}
             maxlength=${ifDefined(this.maxlength)}
             pattern=${ifDefined(this.pattern)}
             ?required=${this.required}
             ?disabled=${this.disabled}
             ?readonly=${this.readonly}
-            aria-invalid=${this.invalid ? 'true' : 'false'}
+            aria-invalid=${this.invalid ? "true" : "false"}
             aria-describedby=${ifDefined(described)}
             @input=${this.#onInput}
             @blur=${this.field.markTouched}
           />
-          ${this.suffix
-            ? html`<span class="field__suffix" part="suffix" id=${suffixId}>${this.suffix}</span>`
-            : nothing}
+          ${
+            this.suffix
+              ? html`<span class="field__suffix" part="suffix" id=${suffixId}
+                  >${this.suffix}</span
+                >`
+              : nothing
+          }
         </div>
         ${fieldMessages({ hintId, errorId, helpText: this.helpText, message })}
       </div>
@@ -299,6 +323,6 @@ export class AppInput extends FormFieldElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-input': AppInput;
+    "app-input": AppInput;
   }
 }

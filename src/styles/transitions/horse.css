@@ -55,20 +55,27 @@
   }
 
   @keyframes horse-view-meta-enter {
-    from { opacity: 0; translate: 0 1rem; }
+    from {
+      opacity: 0;
+      translate: 0 1rem;
+    }
   }
 
   @keyframes horse-view-meta-leave {
-    to { opacity: 0; }
+    to {
+      opacity: 0;
+    }
   }
 
   ::view-transition-new(--horse-view-identity) {
-    animation: horse-view-meta-enter var(--duration-medium) var(--easing-out) var(--horse-card-morph-duration) both;
+    animation: horse-view-meta-enter var(--duration-medium) var(--easing-out)
+      var(--horse-card-morph-duration) both;
   }
 
   ::view-transition-new(--horse-view-origin) {
     animation: horse-view-meta-enter var(--duration-medium) var(--easing-out)
-      calc(var(--horse-card-morph-duration) + var(--horse-view-meta-stagger)) both;
+      calc(var(--horse-card-morph-duration) + var(--horse-view-meta-stagger))
+      both;
   }
 
   ::view-transition-old(--horse-view-identity),

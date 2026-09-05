@@ -5,15 +5,15 @@
  * just events. Multiple event types can share the same theme.
  */
 export type ThemeKey =
-  | 'pink'
-  | 'green'
-  | 'purple'
-  | 'orange'
-  | 'brown'
-  | 'yellow'
-  | 'taupe'
-  | 'turquoise'
-  | 'fuchsia';
+  | "pink"
+  | "green"
+  | "purple"
+  | "orange"
+  | "brown"
+  | "yellow"
+  | "taupe"
+  | "turquoise"
+  | "fuchsia";
 
 export type ThemeMeta = {
   color: string;

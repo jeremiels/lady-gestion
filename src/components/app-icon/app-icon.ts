@@ -1,9 +1,9 @@
-import { css, html, nothing, type PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { appHref } from '../../commons/base-path.ts';
-import type { ThemeMeta } from '../../theme/theme.ts';
-import { ICON_NAMES, SPRITE_PATH, isIconName, type IconName } from './icons.ts';
+import { css, html, nothing, type PropertyValues } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { appHref } from "../../commons/base-path.ts";
+import type { ThemeMeta } from "../../theme/theme.ts";
+import { ICON_NAMES, SPRITE_PATH, isIconName, type IconName } from "./icons.ts";
 
 /**
  * Fills the two custom properties below from any theme, for `styleMap`.
@@ -22,14 +22,14 @@ import { ICON_NAMES, SPRITE_PATH, isIconName, type IconName } from './icons.ts';
  * the event taxonomy at all.
  */
 export const iconStyle = (theme: ThemeMeta) => ({
-  '--icon-color': theme.color,
-  '--icon-background': theme.backgroundColor,
+  "--icon-color": theme.color,
+  "--icon-background": theme.backgroundColor,
 });
 
-@customElement('app-icon')
+@customElement("app-icon")
 export class AppIcon extends BaseElement {
   @property({ type: String })
-  icon: IconName | '' = '';
+  icon: IconName | "" = "";
 
   /**
    * Glyph size, any CSS length. Sets `--icon-size` rather than the host's
@@ -67,12 +67,12 @@ export class AppIcon extends BaseElement {
   `;
 
   protected willUpdate(changed: PropertyValues<this>) {
-    if (!changed.has('size')) return;
+    if (!changed.has("size")) return;
 
     // The one property still written to the host, because a custom property is
     // the host's own API surface rather than a cascade override.
-    if (this.size) this.style.setProperty('--icon-size', this.size);
-    else this.style.removeProperty('--icon-size');
+    if (this.size) this.style.setProperty("--icon-size", this.size);
+    else this.style.removeProperty("--icon-size");
   }
 
   /**
@@ -88,7 +88,10 @@ export class AppIcon extends BaseElement {
     if (!isIconName(this.icon)) {
       // `''` is the legitimate "no icon" state and is not worth a warning.
       if (import.meta.env.DEV && this.icon) {
-        console.warn(`Icône introuvable : "${this.icon}". Disponibles :`, ICON_NAMES);
+        console.warn(
+          `Icône introuvable : "${this.icon}". Disponibles :`,
+          ICON_NAMES,
+        );
       }
       return nothing;
     }
@@ -100,12 +103,14 @@ export class AppIcon extends BaseElement {
     //
     // No viewBox here on purpose: the symbol carries its own, which is what
     // lets the set mix 16, 20 and 24 unit grids and still draw at one size.
-    return html`<svg><use href="${appHref(SPRITE_PATH)}#${this.icon}"></use></svg>`;
+    return html`<svg>
+      <use href="${appHref(SPRITE_PATH)}#${this.icon}"></use>
+    </svg>`;
   }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-icon': AppIcon;
+    "app-icon": AppIcon;
   }
 }

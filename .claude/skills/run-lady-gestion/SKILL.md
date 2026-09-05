@@ -48,22 +48,22 @@ EOF
 Screenshots land in `/tmp/lady-shots/` (override with `SHOTS=`), numbered in
 order: `01-today.png`. Point the driver at another port with `PORT=4173`.
 
-| command | what it does |
-|---|---|
-| `nav <path>` | Takes an **app path**, the one `app-root.ts` matches: `/`, `/events`, `/budget`, `/horse`, `/horse/<id>`, `/event/<id>`, `/documents`, `/profile`. The driver puts Vite's `base` back on the front — see the gotcha below |
-| `wait <selector>` | `waitForSelector`, 15s cap. Selectors pierce shadow DOM |
-| `click <selector>` | Click first match, then wait for transitions |
-| `fill <selector> \| <value>` | Type into a field. The `\|` is required — selectors here contain spaces |
-| `press <key> [n]` | Keyboard press, optionally repeated — `press ArrowLeft 20` |
-| `focus <selector>` | Focus an element (works inside shadow roots) |
-| `viewport <w> <h>` | Resize — default is 393×852 |
-| `ss [name]` | Screenshot to `/tmp/lady-shots/NN-name.png` |
-| `$ <selector>` | **Describe every match**: tag, text, class, `aria-label`, computed bg/color. The main inspection tool — works inside shadow DOM |
-| `eval <js>` | Raw page JS, result as JSON. Does *not* pierce shadow DOM |
-| `seed <js>` | Run JS with the app's data layer in scope as `data` — see below |
-| `errors` | Console errors + page exceptions collected so far |
-| `route` | Current URL |
-| `quit` | Close browser, stop the dev server it started |
+| command                      | what it does                                                                                                                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nav <path>`                 | Takes an **app path**, the one `app-root.ts` matches: `/`, `/events`, `/budget`, `/horse`, `/horse/<id>`, `/event/<id>`, `/documents`, `/profile`. The driver puts Vite's `base` back on the front — see the gotcha below |
+| `wait <selector>`            | `waitForSelector`, 15s cap. Selectors pierce shadow DOM                                                                                                                                                                   |
+| `click <selector>`           | Click first match, then wait for transitions                                                                                                                                                                              |
+| `fill <selector> \| <value>` | Type into a field. The `\|` is required — selectors here contain spaces                                                                                                                                                   |
+| `press <key> [n]`            | Keyboard press, optionally repeated — `press ArrowLeft 20`                                                                                                                                                                |
+| `focus <selector>`           | Focus an element (works inside shadow roots)                                                                                                                                                                              |
+| `viewport <w> <h>`           | Resize — default is 393×852                                                                                                                                                                                               |
+| `ss [name]`                  | Screenshot to `/tmp/lady-shots/NN-name.png`                                                                                                                                                                               |
+| `$ <selector>`               | **Describe every match**: tag, text, class, `aria-label`, computed bg/color. The main inspection tool — works inside shadow DOM                                                                                           |
+| `eval <js>`                  | Raw page JS, result as JSON. Does _not_ pierce shadow DOM                                                                                                                                                                 |
+| `seed <js>`                  | Run JS with the app's data layer in scope as `data` — see below                                                                                                                                                           |
+| `errors`                     | Console errors + page exceptions collected so far                                                                                                                                                                         |
+| `route`                      | Current URL                                                                                                                                                                                                               |
+| `quit`                       | Close browser, stop the dev server it started                                                                                                                                                                             |
 
 ### Seeding state
 
@@ -127,7 +127,7 @@ Two Vitest projects, declared in `vitest.config.ts`:
   `ElementInternals`, `<dialog>.showModal()`, the top layer and CSS the engine
   has to actually resolve, so there is no jsdom option here.
 
-`TZ` is pinned to `Europe/Paris` for both. The driver is *not* a substitute for
+`TZ` is pinned to `Europe/Paris` for both. The driver is _not_ a substitute for
 the component suite any more — reach for it to see a rendered page, to
 screenshot one, or to drive a flow across views, and write a test for anything
 a `components` test can assert.
@@ -173,7 +173,7 @@ Verified output: `1` registration, one cache named `lady-gestion-<hash>`.
   handles it — replicate it if you write a one-off script.
 - **The dev server serves under Vite's `base`** (`/lady-gestion/`, because the
   app is a GitHub Pages project site), while the app's route table matches
-  paths *without* it. `nav` and `seed` add the prefix for you — reading it out
+  paths _without_ it. `nav` and `seed` add the prefix for you — reading it out
   of `vite.config.ts`, so it cannot go stale — but a hand-rolled Playwright
   script has to add it itself. Getting it wrong is silent: Vite answers a
   path outside the base with its "did you mean to visit ...?" page, so the
@@ -189,7 +189,7 @@ Verified output: `1` registration, one cache named `lady-gestion-<hash>`.
   invocations. Anything a test needs must be created in the same run.
 - **Locale and timezone are load-bearing**, and the driver pins both to
   `fr-FR` / `Europe/Paris`. The UI asserts French `Intl` output
-  (`Août 2026`), and `src/data/dates.ts` builds calendar dates from *local*
+  (`Août 2026`), and `src/data/dates.ts` builds calendar dates from _local_
   midnight — a UTC container shifts them by a day near midnight.
 - **`playwright` must not become a project dependency.** The driver resolves
   it from `~/.cache/lady-gestion-run/`. Don't "fix" this by adding it to
@@ -201,14 +201,14 @@ Verified output: `1` registration, one cache named `lady-gestion-<hash>`.
   `playwright` is CommonJS, so `await import()` puts its exports on
   `.default`. The driver unwraps this; a hand-rolled script must too.
 - **`sudo: a terminal is required to read the password` / `Failed to install
-  browsers`**: from `npx playwright install --with-deps chromium`. Drop
+browsers`**: from `npx playwright install --with-deps chromium`. Drop
   `--with-deps` — it needs root and the shared libraries are already present.
   Plain `npx playwright install chromium` works.
 - **`locator.evaluateAll` returns `undefined`**: it was passed a stringified
   function. Pass a real function — Playwright serializes it — and it will not
   error, just silently yield nothing.
 - **Dev server won't start / port busy**: a previous run leaked it. `npm run
-  dev` is spawned via npm, which doesn't forward SIGTERM, so kill the
+dev` is spawned via npm, which doesn't forward SIGTERM, so kill the
   listener:
   ```bash
   lsof -ti:5173 -sTCP:LISTEN | xargs -r kill

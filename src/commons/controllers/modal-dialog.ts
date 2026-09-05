@@ -1,5 +1,5 @@
-import type { ReactiveController, ReactiveElement } from 'lit';
-import { lockScroll, unlockScroll } from '../scroll-lock.ts';
+import type { ReactiveController, ReactiveElement } from "lit";
+import { lockScroll, unlockScroll } from "../scroll-lock.ts";
 
 /**
  * How long to wait for an exit animation before closing anyway.
@@ -32,7 +32,9 @@ async function exitAnimations(dialog: HTMLDialogElement): Promise<void> {
   await new Promise(requestAnimationFrame);
   await new Promise(requestAnimationFrame);
 
-  const finished = dialog.getAnimations({ subtree: true }).map((animation) => animation.finished);
+  const finished = dialog
+    .getAnimations({ subtree: true })
+    .map((animation) => animation.finished);
 
   await Promise.race([
     Promise.allSettled(finished),
@@ -93,7 +95,8 @@ export class ModalDialog implements ReactiveController {
    * answers `true`, so the animated path would otherwise ship uncovered — the
    * same gap, and the same fix, as `Router`'s `forceHistoryFallback`.
    */
-  static supportsOverlay = typeof CSS !== 'undefined' && CSS.supports('overlay', 'auto');
+  static supportsOverlay =
+    typeof CSS !== "undefined" && CSS.supports("overlay", "auto");
 
   #host: DialogHost;
   #getDialog: () => HTMLDialogElement | undefined;
@@ -105,7 +108,11 @@ export class ModalDialog implements ReactiveController {
    * `name` prefixes the two events this dispatches — `'sheet'` gives
    * `sheet-open`/`sheet-close`, `'modal'` gives `modal-open`/`modal-close`.
    */
-  constructor(host: DialogHost, getDialog: () => HTMLDialogElement | undefined, name: string) {
+  constructor(
+    host: DialogHost,
+    getDialog: () => HTMLDialogElement | undefined,
+    name: string,
+  ) {
     this.#host = host;
     this.#getDialog = getDialog;
     this.#name = name;
@@ -153,7 +160,7 @@ export class ModalDialog implements ReactiveController {
       if (!dialog.open) {
         dialog.showModal();
         lockScroll(this);
-        this.#dispatch('open');
+        this.#dispatch("open");
       }
       return;
     }
@@ -205,7 +212,7 @@ export class ModalDialog implements ReactiveController {
     // alongside `[open]` rather than replacing it, which is the whole trick:
     // the dialog is still open, so it is still in the top layer and still
     // painting, while the transition runs.
-    dialog.dataset.closing = '';
+    dialog.dataset.closing = "";
 
     await exitAnimations(dialog);
 
@@ -232,7 +239,7 @@ export class ModalDialog implements ReactiveController {
   onNativeClose = () => {
     this.#host.open = false;
     unlockScroll(this);
-    this.#dispatch('close');
+    this.#dispatch("close");
   };
 
   /** `@cancel` — Esc, fired before the native close so it can be blocked. */
@@ -258,10 +265,15 @@ export class ModalDialog implements ReactiveController {
     }
   };
 
-  #dispatch(kind: 'open' | 'close') {
+  #dispatch(kind: "open" | "close") {
     // Composed, so it crosses the host's shadow boundary and a consumer's
     // listener on the element actually fires — the same rule every field's
     // re-dispatched change event follows.
-    this.#host.dispatchEvent(new CustomEvent(`${this.#name}-${kind}`, { bubbles: true, composed: true }));
+    this.#host.dispatchEvent(
+      new CustomEvent(`${this.#name}-${kind}`, {
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 }

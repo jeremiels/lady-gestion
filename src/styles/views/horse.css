@@ -6,7 +6,7 @@
 
   .horse-view__meta {
     display: grid;
-    gap: .5rem;
+    gap: 0.5rem;
   }
 
   /* Full-bleed past the page padding, and the positioning context for the
@@ -255,4 +255,3 @@
     cursor: pointer;
   }
 }
-

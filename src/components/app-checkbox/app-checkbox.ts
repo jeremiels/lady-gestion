@@ -1,9 +1,9 @@
-import { css, html, nothing } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { live } from 'lit/directives/live.js';
-import { describedBy, fieldMessages } from '../../commons/field-parts.ts';
-import { FormFieldElement } from '../../commons/form-field-element.ts';
+import { css, html, nothing } from "lit";
+import { customElement, property, query } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { live } from "lit/directives/live.js";
+import { describedBy, fieldMessages } from "../../commons/field-parts.ts";
+import { FormFieldElement } from "../../commons/form-field-element.ts";
 
 /**
  * Labeled checkbox, form-associated so it works with native <form>,
@@ -12,12 +12,12 @@ import { FormFieldElement } from '../../commons/form-field-element.ts';
  * @fires checkbox-change - `{ checked: boolean }`. Listen for this, not the
  * native `change`, which is `composed: false` and never leaves the shadow root.
  */
-@customElement('app-checkbox')
+@customElement("app-checkbox")
 export class AppCheckbox extends FormFieldElement {
-  @property({ type: String }) value = 'on';
+  @property({ type: String }) value = "on";
   @property({ type: Boolean, reflect: true }) checked = false;
 
-  @query('input') private inputEl?: HTMLInputElement;
+  @query("input") private inputEl?: HTMLInputElement;
 
   protected get control(): HTMLInputElement | undefined {
     return this.inputEl;
@@ -43,7 +43,7 @@ export class AppCheckbox extends FormFieldElement {
   // --- Form-associated custom element lifecycle ---
 
   formStateRestoreCallback(restored: string | FormData | null) {
-    this.checked = typeof restored === 'string';
+    this.checked = typeof restored === "string";
   }
 
   #onChange = (event: Event) => {
@@ -55,7 +55,7 @@ export class AppCheckbox extends FormFieldElement {
     // boundary and a consumer's `@change` never fires. Re-dispatched as a
     // composed custom event, matching `switch-change` / `segment-change`.
     this.dispatchEvent(
-      new CustomEvent('checkbox-change', {
+      new CustomEvent("checkbox-change", {
         detail: { checked: this.checked },
         bubbles: true,
         composed: true,
@@ -102,11 +102,13 @@ export class AppCheckbox extends FormFieldElement {
       border-radius: var(--radius-4);
       background-color: var(--color-white);
       cursor: pointer;
-      transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+      transition:
+        background-color var(--duration-fast) ease,
+        border-color var(--duration-fast) ease;
     }
 
     .field__box::before {
-      content: '';
+      content: "";
       width: 0.7rem;
       height: 0.7rem;
       background-color: var(--color-white);
@@ -155,8 +157,6 @@ export class AppCheckbox extends FormFieldElement {
       color: var(--font-color);
     }
 
-
-
     :host(:state(invalid)) .field__box {
       border-color: var(--app-field-error-color);
     }
@@ -189,15 +189,23 @@ export class AppCheckbox extends FormFieldElement {
             value=${this.value}
             ?required=${this.required}
             ?disabled=${this.disabled}
-            aria-invalid=${this.invalid ? 'true' : 'false'}
+            aria-invalid=${this.invalid ? "true" : "false"}
             aria-describedby=${ifDefined(described)}
             @change=${this.#onChange}
             @blur=${this.field.markTouched}
           />
           <span class="field__label" part="label">
-            ${this.label}${this.required
-              ? html`<span class="field__required" part="required" aria-hidden="true"> *</span>`
-              : nothing}
+            ${this.label}${
+              this.required
+                ? html`<span
+                    class="field__required"
+                    part="required"
+                    aria-hidden="true"
+                  >
+                    *</span
+                  >`
+                : nothing
+            }
           </span>
         </label>
         ${fieldMessages({ hintId, errorId, helpText: this.helpText, message })}
@@ -208,6 +216,6 @@ export class AppCheckbox extends FormFieldElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-checkbox': AppCheckbox;
+    "app-checkbox": AppCheckbox;
   }
 }

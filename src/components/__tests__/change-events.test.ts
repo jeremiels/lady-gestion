@@ -1,12 +1,12 @@
-import { html, type TemplateResult } from 'lit';
-import { describe, expect, it } from 'vitest';
-import { fixture, settled } from './fixture.ts';
+import { html, type TemplateResult } from "lit";
+import { describe, expect, it } from "vitest";
+import { fixture, settled } from "./fixture.ts";
 
-import '../app-input/app-input.ts';
-import '../app-select/app-select.ts';
-import '../app-checkbox/app-checkbox.ts';
-import '../app-switch/app-switch.ts';
-import '../app-segmented/app-segmented.ts';
+import "../app-input/app-input.ts";
+import "../app-select/app-select.ts";
+import "../app-checkbox/app-checkbox.ts";
+import "../app-switch/app-switch.ts";
+import "../app-segmented/app-segmented.ts";
 
 /**
  * The one contract in this codebase that fails *silently*.
@@ -42,140 +42,159 @@ type ChangeCase = {
 
 const CASES: ChangeCase[] = [
   {
-    tag: 'app-select',
-    event: 'select-change',
+    tag: "app-select",
+    event: "select-change",
     template: () => html`
       <app-select
         label="Type"
         .options=${[
-          { value: 'veterinaire', label: 'Vétérinaire' },
-          { value: 'marechal', label: 'Maréchal' },
+          { value: "veterinaire", label: "Vétérinaire" },
+          { value: "marechal", label: "Maréchal" },
         ]}
       ></app-select>
     `,
     interact: (el) => {
-      const select = el.shadowRoot!.querySelector('select')!;
-      select.value = 'marechal';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
+      const select = el.shadowRoot!.querySelector("select")!;
+      select.value = "marechal";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
     },
-    detail: { value: 'marechal' },
+    detail: { value: "marechal" },
   },
   {
-    tag: 'app-checkbox',
-    event: 'checkbox-change',
+    tag: "app-checkbox",
+    event: "checkbox-change",
     template: () => html`<app-checkbox label="J'accepte"></app-checkbox>`,
     interact: (el) => {
-      const input = el.shadowRoot!.querySelector('input')!;
+      const input = el.shadowRoot!.querySelector("input")!;
       input.checked = true;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     },
     detail: { checked: true },
   },
   {
-    tag: 'app-switch',
-    event: 'switch-change',
+    tag: "app-switch",
+    event: "switch-change",
     template: () => html`<app-switch label="Rappels"></app-switch>`,
     interact: (el) => {
-      const input = el.shadowRoot!.querySelector('input')!;
+      const input = el.shadowRoot!.querySelector("input")!;
       input.checked = true;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     },
     detail: { checked: true },
   },
   {
-    tag: 'app-input',
+    tag: "app-input",
     // Native, and correctly so — see the note above.
-    event: 'input',
+    event: "input",
     template: () => html`<app-input label="Nom"></app-input>`,
     interact: (el) => {
-      const input = el.shadowRoot!.querySelector('input')!;
-      input.value = 'Ladympala';
-      input.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
+      const input = el.shadowRoot!.querySelector("input")!;
+      input.value = "Ladympala";
+      input.dispatchEvent(
+        new InputEvent("input", { bubbles: true, composed: true }),
+      );
     },
   },
 ];
 
-describe.each(CASES)('$tag emits $event across its shadow boundary', (field) => {
-  it('reaches a listener bound on the host element', async () => {
-    const el = await fixture<HTMLElement>(field.template());
-
-    const seen: Event[] = [];
-    el.addEventListener(field.event, (event) => seen.push(event));
-
-    field.interact(el);
-    await settled(el);
-
-    expect(seen).toHaveLength(1);
-  });
-
-  it('reaches a listener bound on an ancestor outside the shadow root', async () => {
-    const host = await fixture<HTMLDivElement>(html`<div>${field.template()}</div>`);
-    const el = host.querySelector<HTMLElement>(field.tag)!;
-    await settled(el);
-
-    // `bubbles` alone is not enough: an event that is not `composed` is
-    // retargeted to nothing outside the boundary it was dispatched in.
-    const seen: Event[] = [];
-    host.addEventListener(field.event, (event) => seen.push(event));
-
-    field.interact(el);
-    await settled(el);
-
-    expect(seen).toHaveLength(1);
-    expect(seen[0]!.composed).toBe(true);
-    expect(seen[0]!.bubbles).toBe(true);
-    // Retargeted to the custom element, so a consumer reads the field it bound
-    // to rather than an implementation detail of its shadow root.
-    expect(seen[0]!.target).toBe(el);
-  });
-
-  if (field.detail !== undefined) {
-    it('carries the new value in detail', async () => {
+describe.each(CASES)(
+  "$tag emits $event across its shadow boundary",
+  (field) => {
+    it("reaches a listener bound on the host element", async () => {
       const el = await fixture<HTMLElement>(field.template());
 
-      let detail: unknown;
-      el.addEventListener(field.event, (event) => {
-        detail = (event as CustomEvent).detail;
-      });
+      const seen: Event[] = [];
+      el.addEventListener(field.event, (event) => seen.push(event));
 
       field.interact(el);
       await settled(el);
 
-      expect(detail).toEqual(field.detail);
+      expect(seen).toHaveLength(1);
     });
-  }
-});
 
-describe('app-segmented', () => {
+    it("reaches a listener bound on an ancestor outside the shadow root", async () => {
+      const host = await fixture<HTMLDivElement>(
+        html`<div>${field.template()}</div>`,
+      );
+      const el = host.querySelector<HTMLElement>(field.tag)!;
+      await settled(el);
+
+      // `bubbles` alone is not enough: an event that is not `composed` is
+      // retargeted to nothing outside the boundary it was dispatched in.
+      const seen: Event[] = [];
+      host.addEventListener(field.event, (event) => seen.push(event));
+
+      field.interact(el);
+      await settled(el);
+
+      expect(seen).toHaveLength(1);
+      expect(seen[0]!.composed).toBe(true);
+      expect(seen[0]!.bubbles).toBe(true);
+      // Retargeted to the custom element, so a consumer reads the field it bound
+      // to rather than an implementation detail of its shadow root.
+      expect(seen[0]!.target).toBe(el);
+    });
+
+    if (field.detail !== undefined) {
+      it("carries the new value in detail", async () => {
+        const el = await fixture<HTMLElement>(field.template());
+
+        let detail: unknown;
+        el.addEventListener(field.event, (event) => {
+          detail = (event as CustomEvent).detail;
+        });
+
+        field.interact(el);
+        await settled(el);
+
+        expect(detail).toEqual(field.detail);
+      });
+    }
+  },
+);
+
+describe("app-segmented", () => {
   const options = [
-    { value: 'calendar', label: 'Calendrier' },
-    { value: 'list', label: 'Liste' },
+    { value: "calendar", label: "Calendrier" },
+    { value: "list", label: "Liste" },
   ];
 
-  it('emits segment-change with the newly selected value', async () => {
+  it("emits segment-change with the newly selected value", async () => {
     const el = await fixture<HTMLElement>(
-      html`<app-segmented label="Affichage" .options=${options} value="calendar"></app-segmented>`,
+      html`<app-segmented
+        label="Affichage"
+        .options=${options}
+        value="calendar"
+      ></app-segmented>`,
     );
 
     const seen: CustomEvent[] = [];
-    el.addEventListener('segment-change', (event) => seen.push(event as CustomEvent));
+    el.addEventListener("segment-change", (event) =>
+      seen.push(event as CustomEvent),
+    );
 
-    el.shadowRoot!.querySelectorAll<HTMLElement>('button')[1]!.click();
+    el.shadowRoot!.querySelectorAll<HTMLElement>("button")[1]!.click();
     await settled(el);
 
     expect(seen).toHaveLength(1);
-    expect(seen[0]!.detail).toEqual({ value: 'list' });
+    expect(seen[0]!.detail).toEqual({ value: "list" });
   });
 
-  it('stays silent when the already-selected segment is pressed again', async () => {
+  it("stays silent when the already-selected segment is pressed again", async () => {
     const el = await fixture<HTMLElement>(
-      html`<app-segmented label="Affichage" .options=${options} value="calendar"></app-segmented>`,
+      html`<app-segmented
+        label="Affichage"
+        .options=${options}
+        value="calendar"
+      ></app-segmented>`,
     );
 
     const seen: CustomEvent[] = [];
-    el.addEventListener('segment-change', (event) => seen.push(event as CustomEvent));
+    el.addEventListener("segment-change", (event) =>
+      seen.push(event as CustomEvent),
+    );
 
-    el.shadowRoot!.querySelectorAll<HTMLElement>('button')[0]!.click();
+    el.shadowRoot!.querySelectorAll<HTMLElement>("button")[0]!.click();
     await settled(el);
 
     // A consumer keys view state off this event; re-emitting on a no-op press

@@ -1,7 +1,12 @@
-import { db, RECORD_TABLES } from '../db.ts';
-import { setOwnerId } from '../owner.ts';
-import { markDataReady } from '../ready.ts';
-import type { Horse, HorseEvent, RationItem, StoredDocument } from '../types.ts';
+import { db, RECORD_TABLES } from "../db.ts";
+import { setOwnerId } from "../owner.ts";
+import { markDataReady } from "../ready.ts";
+import type {
+  Horse,
+  HorseEvent,
+  RationItem,
+  StoredDocument,
+} from "../types.ts";
 
 /**
  * Shared fixtures for the repository tests.
@@ -14,10 +19,10 @@ import type { Horse, HorseEvent, RationItem, StoredDocument } from '../types.ts'
  * Not named `*.test.ts`, so Vitest treats it as a module rather than a suite.
  */
 
-export const OWNER = 'owner-test';
-export const HORSE_ID = 'horse-1';
+export const OWNER = "owner-test";
+export const HORSE_ID = "horse-1";
 
-const STAMP = '2026-01-01T00:00:00.000Z';
+const STAMP = "2026-01-01T00:00:00.000Z";
 
 const base = (id: string) => ({
   id,
@@ -29,9 +34,9 @@ const base = (id: string) => ({
 
 export const makeHorse = (over: Partial<Horse> = {}): Horse => ({
   ...base(HORSE_ID),
-  name: 'Ladympala',
-  sex: 'jument',
-  birthDate: '2021-05-01',
+  name: "Ladympala",
+  sex: "jument",
+  birthDate: "2021-05-01",
   breed: null,
   coat: null,
   sireNumber: null,
@@ -43,15 +48,15 @@ export const makeHorse = (over: Partial<Horse> = {}): Horse => ({
 });
 
 export const makeEvent = (over: Partial<HorseEvent> = {}): HorseEvent => ({
-  ...base('event-1'),
+  ...base("event-1"),
   horseId: HORSE_ID,
-  type: 'veto',
-  title: 'Visite',
-  date: '2026-06-15',
+  type: "veto",
+  title: "Visite",
+  date: "2026-06-15",
   time: null,
-  status: 'planned',
+  status: "planned",
   amountCents: null,
-  currency: 'EUR',
+  currency: "EUR",
   providerName: null,
   vendor: null,
   location: null,
@@ -63,23 +68,25 @@ export const makeEvent = (over: Partial<HorseEvent> = {}): HorseEvent => ({
 });
 
 export const makeRation = (over: Partial<RationItem> = {}): RationItem => ({
-  ...base('ration-1'),
+  ...base("ration-1"),
   horseId: HORSE_ID,
-  label: 'Fib & Fib',
+  label: "Fib & Fib",
   quantity: 1.5,
-  unit: 'L',
+  unit: "L",
   season: null,
   sortOrder: 0,
   ...over,
 });
 
-export const makeDocument = (over: Partial<StoredDocument> = {}): StoredDocument => ({
-  ...base('document-1'),
+export const makeDocument = (
+  over: Partial<StoredDocument> = {},
+): StoredDocument => ({
+  ...base("document-1"),
   horseId: HORSE_ID,
   eventId: null,
-  category: 'facture',
-  name: 'facture.pdf',
-  mimeType: 'application/pdf',
+  category: "facture",
+  name: "facture.pdf",
+  mimeType: "application/pdf",
   size: 1024,
   issuedAt: null,
   driveFileId: null,

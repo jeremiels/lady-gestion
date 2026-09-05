@@ -1,5 +1,5 @@
-import { db } from './db.ts';
-import { newId } from './ids.ts';
+import { db } from "./db.ts";
+import { newId } from "./ids.ts";
 
 /**
  * Who owns the rows in this database.
@@ -22,14 +22,14 @@ let cachedOwnerId: string | null = null;
 export const initOwnerId = async (): Promise<string> => {
   if (cachedOwnerId) return cachedOwnerId;
 
-  const existing = await db.meta.get('ownerId');
-  if (typeof existing?.value === 'string') {
+  const existing = await db.meta.get("ownerId");
+  if (typeof existing?.value === "string") {
     cachedOwnerId = existing.value;
     return cachedOwnerId;
   }
 
   const ownerId = newId();
-  await db.meta.put({ key: 'ownerId', value: ownerId });
+  await db.meta.put({ key: "ownerId", value: ownerId });
   cachedOwnerId = ownerId;
   return ownerId;
 };
@@ -41,13 +41,15 @@ export const initOwnerId = async (): Promise<string> => {
  */
 export const getOwnerId = (): string => {
   if (!cachedOwnerId) {
-    throw new Error('Owner id not initialised — call initData() before writing records.');
+    throw new Error(
+      "Owner id not initialised — call initData() before writing records.",
+    );
   }
   return cachedOwnerId;
 };
 
 /** Test/restore hook: adopt an owner id read from elsewhere (e.g. a backup file). */
 export const setOwnerId = async (ownerId: string): Promise<void> => {
-  await db.meta.put({ key: 'ownerId', value: ownerId });
+  await db.meta.put({ key: "ownerId", value: ownerId });
   cachedOwnerId = ownerId;
 };

@@ -1,6 +1,6 @@
-import type { ReactiveControllerHost } from 'lit';
-import { LiveQuery } from './live.ts';
-import * as horsesRepo from './repositories/horses.repo.ts';
+import type { ReactiveControllerHost } from "lit";
+import { LiveQuery } from "./live.ts";
+import * as horsesRepo from "./repositories/horses.repo.ts";
 
 /**
  * A `LiveQuery` over something the active horse owns.

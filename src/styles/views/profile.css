@@ -44,7 +44,7 @@
 
   .profile-view__section {
     display: grid;
-    gap: .5rem;
+    gap: 0.5rem;
   }
 
   .profile-view__identity {

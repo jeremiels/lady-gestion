@@ -8,10 +8,10 @@
  * preview`.
  */
 
-import { appHref } from '../commons/base-path.ts';
+import { appHref } from "../commons/base-path.ts";
 
 /** Fired on `window` once a new version is installed and waiting. */
-export const UPDATE_READY_EVENT = 'pwa-update-ready';
+export const UPDATE_READY_EVENT = "pwa-update-ready";
 
 declare global {
   interface WindowEventMap {
@@ -34,11 +34,11 @@ let lastUpdateCheck = 0;
 export function initPwa() {
   void requestPersistentStorage();
 
-  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
+  if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
 
   // Registering after `load` keeps the worker's install — which downloads the
   // whole precache — off the critical path of the first paint.
-  window.addEventListener('load', () => {
+  window.addEventListener("load", () => {
     void registerServiceWorker();
   });
 }
@@ -56,7 +56,7 @@ export function applyUpdate() {
     return;
   }
 
-  waitingWorker.postMessage('SKIP_WAITING');
+  waitingWorker.postMessage("SKIP_WAITING");
 }
 
 async function registerServiceWorker() {
@@ -65,15 +65,18 @@ async function registerServiceWorker() {
     // worker's default scope to its own directory, so on a hosted subpath a
     // root-absolute URL would both 404 and, if it resolved, claim a scope the
     // page is not inside.
-    const registration = await navigator.serviceWorker.register(appHref('/sw.js'), {
-      type: 'classic'
-    });
+    const registration = await navigator.serviceWorker.register(
+      appHref("/sw.js"),
+      {
+        type: "classic",
+      },
+    );
 
     // `register()` has just fetched sw.js; don't immediately re-check.
     lastUpdateCheck = Date.now();
     watchForUpdates(registration);
 
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
       // `controllerchange` also fires on the very first install, when there is
       // nothing to reload into — and reloading again after we already did
       // would loop.
@@ -87,14 +90,17 @@ async function registerServiceWorker() {
       announceUpdate(registration.waiting);
     }
 
-    registration.addEventListener('updatefound', () => {
+    registration.addEventListener("updatefound", () => {
       const installing = registration.installing;
       if (!installing) return;
 
-      installing.addEventListener('statechange', () => {
+      installing.addEventListener("statechange", () => {
         // Without a controller this is the first install: the app is now
         // available offline, but there is nothing for the user to update to.
-        if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+        if (
+          installing.state === "installed" &&
+          navigator.serviceWorker.controller
+        ) {
           announceUpdate(installing);
         }
       });
@@ -102,7 +108,7 @@ async function registerServiceWorker() {
   } catch (error: unknown) {
     // A failed registration costs the offline mode, not the app — the data
     // lives in IndexedDB either way.
-    console.error('Impossible d’installer le service worker', error);
+    console.error("Impossible d’installer le service worker", error);
   }
 }
 
@@ -112,8 +118,8 @@ async function registerServiceWorker() {
  * that is never cold-started — the common case for an installed PWA.
  */
 function watchForUpdates(registration: ServiceWorkerRegistration) {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
 
     const now = Date.now();
     if (now - lastUpdateCheck < UPDATE_CHECK_INTERVAL_MS) return;

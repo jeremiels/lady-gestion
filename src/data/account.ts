@@ -7,7 +7,7 @@
  * `db.ts` or the rest of the data layer.
  */
 export const ACCOUNT = {
-  firstName: 'Léa',
-  lastName: 'Garnier',
-  email: 'lea.garnier44@gmail.com',
+  firstName: "Léa",
+  lastName: "Garnier",
+  email: "lea.garnier44@gmail.com",
 } as const;

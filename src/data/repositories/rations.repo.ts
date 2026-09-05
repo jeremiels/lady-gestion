@@ -1,6 +1,6 @@
-import { db } from '../db.ts';
-import { createRecord, crud, liveOnly, touch } from '../record.ts';
-import type { NewRecord, RationItem, RecordPatch } from '../types.ts';
+import { db } from "../db.ts";
+import { createRecord, crud, liveOnly, touch } from "../record.ts";
+import type { NewRecord, RationItem, RecordPatch } from "../types.ts";
 
 /**
  * The daily feed plan, one row per line.
@@ -12,7 +12,7 @@ import type { NewRecord, RationItem, RecordPatch } from '../types.ts';
 
 export const listByHorse = async (horseId: string): Promise<RationItem[]> => {
   const items = await db.rationItems
-    .where('[horseId+sortOrder]')
+    .where("[horseId+sortOrder]")
     .between([horseId, -Infinity], [horseId, Infinity])
     .toArray();
   return liveOnly(items);
@@ -22,7 +22,7 @@ export const { get, update, remove } = crud<RationItem>(db.rationItems);
 
 /** Appends a line at the end of the horse's plan. */
 export const add = async (
-  fields: Omit<NewRecord<RationItem>, 'sortOrder'> & { sortOrder?: number },
+  fields: Omit<NewRecord<RationItem>, "sortOrder"> & { sortOrder?: number },
 ): Promise<RationItem> => {
   const sortOrder = fields.sortOrder ?? (await nextSortOrder(fields.horseId));
   const item = createRecord<RationItem>({ ...fields, sortOrder });
@@ -44,7 +44,7 @@ export const add = async (
 export const updateMany = async (
   patches: { id: string; patch: RecordPatch<RationItem> }[],
 ): Promise<void> => {
-  await db.transaction('rw', db.rationItems, async () => {
+  await db.transaction("rw", db.rationItems, async () => {
     for (const { id, patch } of patches) {
       const existing = await get(id);
       if (existing) await db.rationItems.put(touch(existing, patch));
@@ -63,7 +63,9 @@ export const updateMany = async (
  * answered.
  */
 export const reorder = (orderedIds: string[]): Promise<void> =>
-  updateMany(orderedIds.map((id, index) => ({ id, patch: { sortOrder: index } })));
+  updateMany(
+    orderedIds.map((id, index) => ({ id, patch: { sortOrder: index } })),
+  );
 
 const nextSortOrder = async (horseId: string): Promise<number> => {
   const items = await listByHorse(horseId);

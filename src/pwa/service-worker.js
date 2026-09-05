@@ -14,7 +14,7 @@
  */
 
 /** Replaced at build time — a content hash of every precached file. */
-const CACHE_NAME = '__CACHE_NAME__';
+const CACHE_NAME = "__CACHE_NAME__";
 
 /**
  * Replaced at build time with `[{ url, revision }]` for every built and public
@@ -32,7 +32,7 @@ const PRECACHE_MANIFEST = __PRECACHE_MANIFEST__;
  * that disagreed with `self.location` would leave it precaching one prefix
  * while controlling another.
  */
-const BASE = new URL('./', self.location.href).pathname;
+const BASE = new URL("./", self.location.href).pathname;
 
 /** Deep links (`/events`, `/horse/…`) are all served by the same shell. */
 const APP_SHELL = BASE;
@@ -74,7 +74,9 @@ const MATCH_OPTIONS = { ignoreVary: true, cacheName: CACHE_NAME };
  * cache is deleted wholesale on activate either way.
  */
 async function reusableEntries() {
-  const wanted = new Map(PRECACHE_MANIFEST.map((entry) => [entry.url, entry.revision]));
+  const wanted = new Map(
+    PRECACHE_MANIFEST.map((entry) => [entry.url, entry.revision]),
+  );
   const reusable = new Map();
 
   for (const name of await caches.keys()) {
@@ -105,7 +107,7 @@ async function reusableEntries() {
   return reusable;
 }
 
-self.addEventListener('install', (event) => {
+self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
@@ -125,20 +127,22 @@ self.addEventListener('install', (event) => {
           // `reload` bypasses the HTTP cache: index.html is not content-hashed,
           // so without it a fresh install can precache the previous deploy's
           // shell.
-          return cache.add(new Request(url, { cache: 'reload' }));
-        })
+          return cache.add(new Request(url, { cache: "reload" }));
+        }),
       );
 
       // `addAll` rejects without naming the entry that failed, and a failed
       // install means no offline mode at all — worth a diagnostic. Adding them
       // individually still fails the install: a partial precache is worse than
       // none, because the shell would boot offline and then 404 on a chunk.
-      const failed = PRECACHE_MANIFEST.filter((_, index) => results[index].status === 'rejected');
+      const failed = PRECACHE_MANIFEST.filter(
+        (_, index) => results[index].status === "rejected",
+      );
 
       if (failed.length > 0) {
         console.error(
-          '[sw] Précache incomplet, installation abandonnée :',
-          failed.map((entry) => entry.url)
+          "[sw] Précache incomplet, installation abandonnée :",
+          failed.map((entry) => entry.url),
         );
         throw new Error(`Precache failed for ${failed.length} file(s)`);
       }
@@ -149,41 +153,45 @@ self.addEventListener('install', (event) => {
       await cache.put(
         MANIFEST_URL,
         new Response(JSON.stringify(PRECACHE_MANIFEST), {
-          headers: { 'Content-Type': 'application/json' }
-        })
+          headers: { "Content-Type": "application/json" },
+        }),
       );
-    })()
+    })(),
   );
   // No skipWaiting() here: the new worker stays parked until the user accepts
   // the update (see `app-update-toast`), so a running session is never swapped
   // out from under itself.
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const names = await caches.keys();
-      await Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name)));
+      await Promise.all(
+        names
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name)),
+      );
       await self.clients.claim();
-    })()
+    })(),
   );
 });
 
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') self.skipWaiting();
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
 
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const request = event.request;
 
-  if (request.method !== 'GET') return;
+  if (request.method !== "GET") return;
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
   // A full page load or a deep link: always answer with the cached shell so
   // the app opens offline, whatever the path.
-  if (request.mode === 'navigate') {
+  if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
         const cached = await caches.match(APP_SHELL, MATCH_OPTIONS);
@@ -195,12 +203,12 @@ self.addEventListener('fetch', (event) => {
           // No cached shell and no network — only reachable before the first
           // install has completed. An explicit response beats a rejected
           // promise, which the browser renders as its own offline error page.
-          return new Response('Application indisponible hors ligne.', {
+          return new Response("Application indisponible hors ligne.", {
             status: 503,
-            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
           });
         }
-      })()
+      })(),
     );
     return;
   }
@@ -215,7 +223,7 @@ self.addEventListener('fetch', (event) => {
 
         // Anything the build did not know about (a lazily added asset) is worth
         // keeping, but only if it actually came back intact.
-        if (response.ok && response.type === 'basic') {
+        if (response.ok && response.type === "basic") {
           const cache = await caches.open(CACHE_NAME);
           cache.put(request, response.clone());
         }
@@ -225,9 +233,13 @@ self.addEventListener('fetch', (event) => {
         // Offline and never precached. Without this the promise rejects
         // unhandled, which surfaces as an opaque failure with no clue as to
         // which resource was missing.
-        console.warn('[sw] Ressource indisponible hors ligne :', request.url, error);
+        console.warn(
+          "[sw] Ressource indisponible hors ligne :",
+          request.url,
+          error,
+        );
         return Response.error();
       }
-    })()
+    })(),
   );
 });

@@ -1,8 +1,8 @@
-import { html } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
-import { LightElement } from '../commons/base-element.ts';
-import { ViewState } from '../commons/controllers/view-state.ts';
+import { html } from "lit";
+import { customElement } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
+import { LightElement } from "../commons/base-element.ts";
+import { ViewState } from "../commons/controllers/view-state.ts";
 import {
   activeHorseQuery,
   eventsRepo,
@@ -12,18 +12,22 @@ import {
   toCalendarEvent,
   todayISO,
   type IsoDate,
-} from '../data/index.ts';
-import type { HorseEvent } from '../data/types.ts';
-import { EVENT_TYPES_BY_LABEL, eventType, type EventTypeKey } from '../types/event.types.ts';
-import type { SegmentedOption } from '../components/app-segmented/app-segmented.ts';
+} from "../data/index.ts";
+import type { HorseEvent } from "../data/types.ts";
+import {
+  EVENT_TYPES_BY_LABEL,
+  eventType,
+  type EventTypeKey,
+} from "../types/event.types.ts";
+import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
 
-import '../components/app-calendar/app-calendar.ts';
-import '../components/app-chip/app-chip.ts';
-import '../components/app-input/app-input.ts';
-import '../components/app-segmented/app-segmented.ts';
-import '../components/event-card/event-card.ts';
+import "../components/app-calendar/app-calendar.ts";
+import "../components/app-chip/app-chip.ts";
+import "../components/app-input/app-input.ts";
+import "../components/app-segmented/app-segmented.ts";
+import "../components/event-card/event-card.ts";
 
-type ViewMode = 'calendar' | 'list';
+type ViewMode = "calendar" | "list";
 
 /**
  * What this page looks like, which is a property of the *visit* rather than of
@@ -40,8 +44,8 @@ type EventsUiState = {
 };
 
 const VIEW_MODES: SegmentedOption[] = [
-  { value: 'calendar', icon: 'date', label: 'Vue calendrier' },
-  { value: 'list', icon: 'list', label: 'Vue liste' },
+  { value: "calendar", icon: "date", label: "Vue calendrier" },
+  { value: "list", icon: "list", label: "Vue liste" },
 ];
 
 /**
@@ -50,16 +54,16 @@ const VIEW_MODES: SegmentedOption[] = [
  */
 const normalize = (value: string) =>
   value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-@customElement('events-view')
+@customElement("events-view")
 export class EventsView extends LightElement {
-  #ui = new ViewState<EventsUiState>(this, 'events', () => ({
-    mode: 'calendar',
+  #ui = new ViewState<EventsUiState>(this, "events", () => ({
+    mode: "calendar",
     selected: todayISO(),
-    query: '',
+    query: "",
     typeFilter: null,
   }));
 
@@ -73,8 +77,11 @@ export class EventsView extends LightElement {
    * size; swap in `eventsRepo.listInRange` with an explicit re-subscribe if the
    * row count ever makes that worthwhile.
    */
-  #events = activeHorseQuery<HorseEvent[]>(this, (horseId) => eventsRepo.listByHorse(horseId), []);
-
+  #events = activeHorseQuery<HorseEvent[]>(
+    this,
+    (horseId) => eventsRepo.listByHorse(horseId),
+    [],
+  );
 
   #onModeChange = (event: CustomEvent<{ value: string }>) => {
     this.#ui.patch({ mode: event.detail.value as ViewMode });
@@ -98,17 +105,17 @@ export class EventsView extends LightElement {
     const needle = normalize(query.trim());
 
     return (this.#events.value ?? []).filter((event) => {
-      if (event.status === 'cancelled') return false;
+      if (event.status === "cancelled") return false;
       if (typeFilter && event.type !== typeFilter) return false;
       if (!needle) return true;
 
       const haystack = [
         event.title,
-        event.notes ?? '',
-        event.providerName ?? '',
-        event.location ?? '',
+        event.notes ?? "",
+        event.providerName ?? "",
+        event.location ?? "",
         eventType.label(event.type),
-      ].join(' ');
+      ].join(" ");
       return normalize(haystack).includes(needle);
     });
   }
@@ -132,7 +139,7 @@ export class EventsView extends LightElement {
         <!-- Tested for the non-default branch, so a mode restored from an older
              build's history entry falls back to the calendar rather than to a
              list nothing asked for. -->
-        ${this.#ui.value.mode === 'list' ? this.#renderList() : this.#renderCalendar()}
+        ${this.#ui.value.mode === "list" ? this.#renderList() : this.#renderCalendar()}
       </section>
     `;
   }
@@ -160,9 +167,13 @@ export class EventsView extends LightElement {
 
       <section class="events-view__day">
         <h2 class="events-view__group-title">${formatDayLong(selected)}</h2>
-        ${dayEvents.length === 0
-          ? html`<p class="events-view__empty">Aucun évènement ce jour-là.</p>`
-          : this.#renderCards(dayEvents)}
+        ${
+          dayEvents.length === 0
+            ? html`<p class="events-view__empty">
+                Aucun évènement ce jour-là.
+              </p>`
+            : this.#renderCards(dayEvents)
+        }
       </section>
     `;
   }
@@ -193,7 +204,11 @@ export class EventsView extends LightElement {
         @input=${this.#onSearch}
       ></app-input>
 
-      <div class="events-view__filters" role="group" aria-label="Filtrer par type">
+      <div
+        class="events-view__filters"
+        role="group"
+        aria-label="Filtrer par type"
+      >
         <app-chip
           label="Tous"
           ?selected=${typeFilter === null}
@@ -210,18 +225,24 @@ export class EventsView extends LightElement {
         )}
       </div>
 
-      ${months.size === 0
-        ? html`<p class="events-view__empty">Aucun évènement ne correspond.</p>`
-        : repeat(
-            months,
-            ([month]) => month,
-            ([month, group]) => html`
-              <section class="events-view__group">
-                <h2 class="events-view__group-title">${formatMonthYear(`${month}-01`)}</h2>
-                ${this.#renderCards(group)}
-              </section>
-            `,
-          )}
+      ${
+        months.size === 0
+          ? html`<p class="events-view__empty">
+              Aucun évènement ne correspond.
+            </p>`
+          : repeat(
+              months,
+              ([month]) => month,
+              ([month, group]) => html`
+                <section class="events-view__group">
+                  <h2 class="events-view__group-title">
+                    ${formatMonthYear(`${month}-01`)}
+                  </h2>
+                  ${this.#renderCards(group)}
+                </section>
+              `,
+            )
+      }
     `;
   }
 

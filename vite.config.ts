@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
-import { iconSprite } from './vite/icon-sprite.ts';
-import { ICON_NAMES } from './src/components/app-icon/icons.ts';
+import { createHash } from "node:crypto";
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
+import { defineConfig, type Plugin } from "vite";
+import { iconSprite } from "./vite/icon-sprite.ts";
+import { ICON_NAMES } from "./src/components/app-icon/icons.ts";
 
 /**
  * Files that ship but are never fetched by the running app, so precaching them
@@ -30,7 +30,9 @@ const PRECACHE_EXCLUDED =
 
 async function filesIn(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true });
-  return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name));
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
 }
 
 /**
@@ -52,17 +54,17 @@ async function filesIn(dir: string): Promise<string[]> {
  * directory sees the manifest and the icons alongside the hashed bundles.
  */
 function serviceWorker(): Plugin {
-  let outDir = 'dist';
+  let outDir = "dist";
   // Always trailing-slashed, `/` or `/lady-gestion/`. The manifest holds the
   // URLs the browser will actually request, so it has to carry the prefix the
   // app is served under — a root-absolute list would miss every entry on a
   // hosted subpath and the worker would re-fetch the whole app on each install.
-  let base = '/';
+  let base = "/";
 
   return {
-    name: 'lady-gestion:service-worker',
-    apply: 'build',
-    enforce: 'post',
+    name: "lady-gestion:service-worker",
+    apply: "build",
+    enforce: "post",
 
     configResolved(config) {
       outDir = resolve(config.root, config.build.outDir);
@@ -79,13 +81,16 @@ function serviceWorker(): Plugin {
       // entry.
       const entries = await Promise.all(
         files.map(async (file) => {
-          const path = `${base}${relative(outDir, file).split(/[\\/]/).join('/')}`;
+          const path = `${base}${relative(outDir, file).split(/[\\/]/).join("/")}`;
           const contents = await readFile(file);
           return {
             url: path === `${base}index.html` ? base : path,
-            revision: createHash('sha256').update(contents).digest('hex').slice(0, 16)
+            revision: createHash("sha256")
+              .update(contents)
+              .digest("hex")
+              .slice(0, 16),
           };
-        })
+        }),
       );
 
       entries.sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
@@ -94,31 +99,38 @@ function serviceWorker(): Plugin {
       // build that only changes it must still produce a different sw.js or the
       // browser sees no update at all. Folding the per-file revisions in gives
       // the same guarantee for one pass over the files instead of two.
-      const cacheHash = createHash('sha256');
-      for (const entry of entries) cacheHash.update(`${entry.url}:${entry.revision}\n`);
+      const cacheHash = createHash("sha256");
+      for (const entry of entries)
+        cacheHash.update(`${entry.url}:${entry.revision}\n`);
 
-      const source = await readFile(new URL('./src/pwa/service-worker.js', import.meta.url), 'utf8');
+      const source = await readFile(
+        new URL("./src/pwa/service-worker.js", import.meta.url),
+        "utf8",
+      );
 
       // `String.replace` silently no-ops on a missing token, which would ship a
       // sw.js containing the literal `__PRECACHE_MANIFEST__` — a syntax error
       // the browser only reports in the service worker console, long after
       // deploy.
-      for (const token of ['__CACHE_NAME__', '__PRECACHE_MANIFEST__']) {
+      for (const token of ["__CACHE_NAME__", "__PRECACHE_MANIFEST__"]) {
         if (!source.includes(token)) {
           throw new Error(
             `[lady-gestion:service-worker] ${token} not found in src/pwa/service-worker.js — ` +
-              'the worker template and this plugin have drifted apart.'
+              "the worker template and this plugin have drifted apart.",
           );
         }
       }
 
       await writeFile(
-        join(outDir, 'sw.js'),
+        join(outDir, "sw.js"),
         source
-          .replace('__CACHE_NAME__', `lady-gestion-${cacheHash.digest('hex').slice(0, 12)}`)
-          .replace('__PRECACHE_MANIFEST__', JSON.stringify(entries, null, 2))
+          .replace(
+            "__CACHE_NAME__",
+            `lady-gestion-${cacheHash.digest("hex").slice(0, 12)}`,
+          )
+          .replace("__PRECACHE_MANIFEST__", JSON.stringify(entries, null, 2)),
       );
-    }
+    },
   };
 }
 
@@ -147,25 +159,25 @@ function serviceWorker(): Plugin {
  * disk when the precache manifest is built.
  */
 function githubPages(): Plugin {
-  let outDir = 'dist';
+  let outDir = "dist";
 
   return {
-    name: 'lady-gestion:github-pages',
-    apply: 'build',
-    enforce: 'post',
+    name: "lady-gestion:github-pages",
+    apply: "build",
+    enforce: "post",
 
     configResolved(config) {
       outDir = resolve(config.root, config.build.outDir);
     },
 
     async closeBundle() {
-      const shell = await readFile(join(outDir, 'index.html'));
+      const shell = await readFile(join(outDir, "index.html"));
 
       await Promise.all([
-        writeFile(join(outDir, '404.html'), shell),
-        writeFile(join(outDir, '.nojekyll'), '')
+        writeFile(join(outDir, "404.html"), shell),
+        writeFile(join(outDir, ".nojekyll"), ""),
       ]);
-    }
+    },
   };
 }
 
@@ -196,9 +208,12 @@ function githubPages(): Plugin {
  * `/budget` dynamic import.
  */
 const vendorChunks = [
-  { name: 'lit', test: /[\\/]node_modules[\\/](lit|lit-html|lit-element|@lit(-labs)?)[\\/]/ },
-  { name: 'dexie', test: /[\\/]node_modules[\\/]dexie[\\/]/ },
-  { name: 'd3', test: /[\\/]node_modules[\\/]d3-[^\\/]+[\\/]/ }
+  {
+    name: "lit",
+    test: /[\\/]node_modules[\\/](lit|lit-html|lit-element|@lit(-labs)?)[\\/]/,
+  },
+  { name: "dexie", test: /[\\/]node_modules[\\/]dexie[\\/]/ },
+  { name: "d3", test: /[\\/]node_modules[\\/]d3-[^\\/]+[\\/]/ },
 ];
 
 export default defineConfig({
@@ -216,15 +231,15 @@ export default defineConfig({
    * suites keep running at the origin root — which is also what `npm run dev`
    * serves, so both exercise the `base === '/'` path through that module.
    */
-  base: '/lady-gestion/',
+  base: "/lady-gestion/",
 
   plugins: [iconSprite({ names: ICON_NAMES }), serviceWorker(), githubPages()],
 
   build: {
     rollupOptions: {
       output: {
-        codeSplitting: { groups: vendorChunks }
-      }
-    }
-  }
+        codeSplitting: { groups: vendorChunks },
+      },
+    },
+  },
 });

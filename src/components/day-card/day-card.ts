@@ -1,9 +1,14 @@
-import { css, html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { dayOfMonth, formatWeekdayShort, todayISO, type IsoDate } from '../../data/dates.ts';
-import { formatWorkActivity, type WorkActivity } from '../../data/events.ts';
+import { css, html, nothing } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import {
+  dayOfMonth,
+  formatWeekdayShort,
+  todayISO,
+  type IsoDate,
+} from "../../data/dates.ts";
+import { formatWorkActivity, type WorkActivity } from "../../data/events.ts";
 
 /**
  * One day of the dashboard's week strip: the weekday, the date, and what the
@@ -22,7 +27,7 @@ import { formatWorkActivity, type WorkActivity } from '../../data/events.ts';
  * `data/index.ts` pulls `db.ts`, which constructs Dexie at module scope, and
  * that would land the whole database in this card's chunk.
  */
-@customElement('day-card')
+@customElement("day-card")
 export class DayCard extends BaseElement {
   /** The day this card stands for, `YYYY-MM-DD`. */
   @property({ type: String }) date: IsoDate = todayISO();
@@ -49,7 +54,7 @@ export class DayCard extends BaseElement {
       background: var(--color-white);
       text-align: center;
       height: 5.75rem;
-      border: 1px solid #F0ECE8;
+      border: 1px solid #f0ece8;
       font-family: var(--font-family-body);
       font-weight: 400;
     }
@@ -69,7 +74,7 @@ export class DayCard extends BaseElement {
     }
 
     .day__number {
-      font-size: 0.750rem;
+      font-size: 0.75rem;
       line-height: 0.938rem;
       font-weight: 500;
       color: var(--color-dark);
@@ -115,7 +120,7 @@ export class DayCard extends BaseElement {
         <time
           class="day__date"
           datetime=${this.date}
-          aria-current=${ifDefined(this.today ? 'date' : undefined)}
+          aria-current=${ifDefined(this.today ? "date" : undefined)}
         >
           <span class="day__weekday">${formatWeekdayShort(this.date)}</span>
           <span class="day__number">${dayOfMonth(this.date)}</span>
@@ -130,6 +135,6 @@ export class DayCard extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'day-card': DayCard;
+    "day-card": DayCard;
   }
 }

@@ -1,6 +1,6 @@
-import { css, html } from 'lit';
-import { customElement } from 'lit/decorators.js';
-import { DialogElement } from '../../commons/dialog-element.ts';
+import { css, html } from "lit";
+import { customElement } from "lit/decorators.js";
+import { DialogElement } from "../../commons/dialog-element.ts";
 
 const DRAG_CLOSE_DISTANCE = 120; // px dragged down before the sheet dismisses itself
 /**
@@ -32,10 +32,10 @@ const rubberBand = (overshoot: number): number =>
  * ::backdrop, focus trap and Esc-to-dismiss come from the platform for free.
  * Drag the handle down (or flick it) to dismiss, like a native sheet.
  */
-@customElement('app-bottom-sheet')
+@customElement("app-bottom-sheet")
 export class AppBottomSheet extends DialogElement {
   constructor() {
-    super('sheet');
+    super("sheet");
   }
 
   /**
@@ -77,7 +77,7 @@ export class AppBottomSheet extends DialogElement {
     this.#sampleTime = performance.now();
     this.#prevSampleY = event.clientY;
     this.#prevSampleTime = this.#sampleTime;
-    this.dialogEl?.classList.add('sheet--dragging');
+    this.dialogEl?.classList.add("sheet--dragging");
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   };
 
@@ -98,7 +98,8 @@ export class AppBottomSheet extends DialogElement {
       this.#sampleTime = now;
     }
 
-    if (this.dialogEl) this.dialogEl.style.transform = `translateY(${this.#dragDistance}px)`;
+    if (this.dialogEl)
+      this.dialogEl.style.transform = `translateY(${this.#dragDistance}px)`;
   };
 
   #onHandlePointerUp = (event: PointerEvent) => {
@@ -143,8 +144,8 @@ export class AppBottomSheet extends DialogElement {
     // Class first, then transform: dropping `sheet--dragging` restores the
     // transition, so clearing the inline transform animates back instead of
     // snapping.
-    this.dialogEl?.classList.remove('sheet--dragging');
-    if (this.dialogEl) this.dialogEl.style.transform = '';
+    this.dialogEl?.classList.remove("sheet--dragging");
+    if (this.dialogEl) this.dialogEl.style.transform = "";
 
     const distance = this.#dragDistance;
     this.#dragDistance = 0;
@@ -210,7 +211,6 @@ export class AppBottomSheet extends DialogElement {
       opacity: 0;
     }
 
-
     .sheet__handle {
       display: flex;
       justify-content: center;
@@ -274,8 +274,8 @@ export class AppBottomSheet extends DialogElement {
 
   render() {
     return this.renderDialog({
-      part: 'sheet',
-      className: 'sheet',
+      part: "sheet",
+      className: "sheet",
       // The one thing a sheet has and a modal does not: a grab handle above the
       // header, which is also the drag target.
       leading: html`
@@ -296,6 +296,6 @@ export class AppBottomSheet extends DialogElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-bottom-sheet': AppBottomSheet;
+    "app-bottom-sheet": AppBottomSheet;
   }
 }

@@ -10,14 +10,14 @@
  *
  *   npm i -D sharp && node scripts/generate-icons.mjs && npm un sharp
  */
-import { mkdir, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
+import { mkdir, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 
-const OUT = fileURLToPath(new URL('../public/icons/', import.meta.url));
+const OUT = fileURLToPath(new URL("../public/icons/", import.meta.url));
 
-const BACKGROUND = '#4A2C17'; // --color-brown-0
-const FOREGROUND = '#F5F1EC'; // --color-brown-8 / --color-page
+const BACKGROUND = "#4A2C17"; // --color-brown-0
+const FOREGROUND = "#F5F1EC"; // --color-brown-8 / --color-page
 
 const SIZE = 512;
 const CENTER = { x: 256, y: 242 };
@@ -47,7 +47,7 @@ function horseshoe() {
       const [x, y] = point(angle);
       return `<circle cx="${round(x)}" cy="${round(y)}" r="11" fill="${BACKGROUND}" />`;
     })
-    .join('\n      ');
+    .join("\n      ");
 
   return `<path d="${arc}" fill="none" stroke="${FOREGROUND}" stroke-width="${BAND}" stroke-linecap="round" />
       ${holes}`;
@@ -90,11 +90,11 @@ const png = (svg, size, name) =>
     .toFile(`${OUT}${name}`);
 
 await Promise.all([
-  png(standard, 192, 'icon-192.png'),
-  png(standard, 512, 'icon-512.png'),
-  png(maskable, 192, 'icon-maskable-192.png'),
-  png(maskable, 512, 'icon-maskable-512.png'),
-  png(appleTouch, 180, 'apple-touch-icon.png')
+  png(standard, 192, "icon-192.png"),
+  png(standard, 512, "icon-512.png"),
+  png(maskable, 192, "icon-maskable-192.png"),
+  png(maskable, 512, "icon-maskable-512.png"),
+  png(appleTouch, 180, "apple-touch-icon.png"),
 ]);
 
 console.log(`Icons written to ${OUT}`);

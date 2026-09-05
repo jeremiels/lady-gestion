@@ -1,6 +1,6 @@
-import { css, html, type PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
+import { css, html, type PropertyValues } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
 
 /**
  * A round initial badge standing in for a profile picture.
@@ -9,9 +9,9 @@ import { BaseElement } from '../../commons/base-element.ts';
  * needed one, linking to `/profile` — sizing it per call site rather than
  * duplicating the markup and its font-size math at each one.
  */
-@customElement('app-avatar')
+@customElement("app-avatar")
 export class AppAvatar extends BaseElement {
-  @property({ type: String }) initial = '';
+  @property({ type: String }) initial = "";
 
   /**
    * Diameter, any CSS length. Sets `--avatar-size` rather than the host's own
@@ -38,10 +38,10 @@ export class AppAvatar extends BaseElement {
   `;
 
   protected willUpdate(changed: PropertyValues<this>) {
-    if (!changed.has('size')) return;
+    if (!changed.has("size")) return;
 
-    if (this.size) this.style.setProperty('--avatar-size', this.size);
-    else this.style.removeProperty('--avatar-size');
+    if (this.size) this.style.setProperty("--avatar-size", this.size);
+    else this.style.removeProperty("--avatar-size");
   }
 
   render() {
@@ -51,6 +51,6 @@ export class AppAvatar extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-avatar': AppAvatar;
+    "app-avatar": AppAvatar;
   }
 }

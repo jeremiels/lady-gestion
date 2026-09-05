@@ -1,8 +1,8 @@
-import { css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { ifDefined } from 'lit/directives/if-defined.js';
-import { live } from 'lit/directives/live.js';
-import { BaseElement } from '../../commons/base-element.ts';
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { live } from "lit/directives/live.js";
+import { BaseElement } from "../../commons/base-element.ts";
 
 let nextId = 0;
 
@@ -28,15 +28,18 @@ let nextId = 0;
  * @fires switch-change - `{ checked: boolean }`. Listen for this, not the
  * native `change`, which is `composed: false` and never leaves the shadow root.
  */
-@customElement('app-switch')
+@customElement("app-switch")
 export class AppSwitch extends BaseElement {
   static formAssociated = true;
 
-  static shadowRootOptions = { ...BaseElement.shadowRootOptions, delegatesFocus: true };
+  static shadowRootOptions = {
+    ...BaseElement.shadowRootOptions,
+    delegatesFocus: true,
+  };
 
-  @property({ type: String }) label = '';
-  @property({ type: String }) name = '';
-  @property({ type: String }) value = 'on';
+  @property({ type: String }) label = "";
+  @property({ type: String }) name = "";
+  @property({ type: String }) value = "on";
   @property({ type: Boolean, reflect: true }) checked = false;
   @property({ type: Boolean, reflect: true }) disabled = false;
 
@@ -69,7 +72,7 @@ export class AppSwitch extends BaseElement {
   }
 
   formStateRestoreCallback(state: string | FormData | null) {
-    this.checked = typeof state === 'string';
+    this.checked = typeof state === "string";
   }
 
   get form(): HTMLFormElement | null {
@@ -88,7 +91,7 @@ export class AppSwitch extends BaseElement {
   #onChange = (event: Event) => {
     this.checked = (event.target as HTMLInputElement).checked;
     this.dispatchEvent(
-      new CustomEvent('switch-change', {
+      new CustomEvent("switch-change", {
         detail: { checked: this.checked },
         bubbles: true,
         composed: true,
@@ -150,7 +153,7 @@ export class AppSwitch extends BaseElement {
        so the mark stays centred in the knob for the whole travel. */
     .switch__track::before,
     .switch__track::after {
-      content: '';
+      content: "";
       position: absolute;
       top: 50%;
       transition:
@@ -227,6 +230,6 @@ export class AppSwitch extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-switch': AppSwitch;
+    "app-switch": AppSwitch;
   }
 }

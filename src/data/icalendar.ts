@@ -1,6 +1,12 @@
-import { addDays, endOfMonth, startOfMonth, startOfWeek, type IsoDate } from './dates.ts';
-import type { EventTypeKey } from '../types/event.types.ts';
-import type { HorseEvent } from './types.ts';
+import {
+  addDays,
+  endOfMonth,
+  startOfMonth,
+  startOfWeek,
+  type IsoDate,
+} from "./dates.ts";
+import type { EventTypeKey } from "../types/event.types.ts";
+import type { HorseEvent } from "./types.ts";
 
 /**
  * The calendar's view of an event, shaped after RFC 5545 (iCalendar) — the
@@ -22,17 +28,17 @@ import type { HorseEvent } from './types.ts';
  * Weekday codes from RFC 5545 §3.3.10, used by `WKST` and `BYDAY`. Ordered so
  * the array index is the `Date#getDay()` number.
  */
-export const WEEK_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'] as const;
+export const WEEK_DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
 export type WeekDay = (typeof WEEK_DAYS)[number];
 
 export const weekDayIndex = (day: WeekDay): number => WEEK_DAYS.indexOf(day);
 
 /** `WKST` defaults to Monday in the RFC, which is also what a French calendar shows. */
-export const DEFAULT_WEEK_START: WeekDay = 'MO';
+export const DEFAULT_WEEK_START: WeekDay = "MO";
 
 /** The `STATUS` values RFC 5545 §3.8.1.11 allows on a `VEVENT`. */
-export type VEventStatus = 'TENTATIVE' | 'CONFIRMED' | 'CANCELLED';
+export type VEventStatus = "TENTATIVE" | "CONFIRMED" | "CANCELLED";
 
 /**
  * `HorseEvent.status` -> `STATUS`.
@@ -41,10 +47,10 @@ export type VEventStatus = 'TENTATIVE' | 'CONFIRMED' | 'CANCELLED';
  * event being in the past, that is just the date. `TENTATIVE` has no source
  * value yet — it is what an "à confirmer" state would map to.
  */
-const V_EVENT_STATUS: Record<HorseEvent['status'], VEventStatus> = {
-  planned: 'CONFIRMED',
-  done: 'CONFIRMED',
-  cancelled: 'CANCELLED',
+const V_EVENT_STATUS: Record<HorseEvent["status"], VEventStatus> = {
+  planned: "CONFIRMED",
+  done: "CONFIRMED",
+  cancelled: "CANCELLED",
 };
 
 export type CalendarEvent = {
@@ -87,7 +93,15 @@ export const toCalendarEvent = (event: HorseEvent): CalendarEvent => ({
  * the week — which is what a range query needs — would otherwise have to assert
  * away two `undefined`s the function can never return.
  */
-export type WeekDates = [IsoDate, IsoDate, IsoDate, IsoDate, IsoDate, IsoDate, IsoDate];
+export type WeekDates = [
+  IsoDate,
+  IsoDate,
+  IsoDate,
+  IsoDate,
+  IsoDate,
+  IsoDate,
+  IsoDate,
+];
 
 const daysFrom = (start: IsoDate): WeekDates =>
   Array.from({ length: 7 }, (_, index) => addDays(start, index)) as WeekDates;
@@ -98,8 +112,10 @@ const daysFrom = (start: IsoDate): WeekDates =>
  * The dashboard's week strip reads this; `monthGrid` below builds its rows from
  * the same helper, so "a week is seven days from the Monday" is stated once.
  */
-export const weekGrid = (date: IsoDate, weekStart: WeekDay = DEFAULT_WEEK_START): WeekDates =>
-  daysFrom(startOfWeek(date, weekDayIndex(weekStart)));
+export const weekGrid = (
+  date: IsoDate,
+  weekStart: WeekDay = DEFAULT_WEEK_START,
+): WeekDates => daysFrom(startOfWeek(date, weekDayIndex(weekStart)));
 
 /**
  * The weeks a month view has to draw: whole weeks, from the one containing the
@@ -109,7 +125,10 @@ export const weekGrid = (date: IsoDate, weekStart: WeekDay = DEFAULT_WEEK_START)
  * than being padded to a fixed 6, so no month shows a full trailing week that
  * belongs to the next one.
  */
-export const monthGrid = (month: IsoDate, weekStart: WeekDay = DEFAULT_WEEK_START): IsoDate[][] => {
+export const monthGrid = (
+  month: IsoDate,
+  weekStart: WeekDay = DEFAULT_WEEK_START,
+): IsoDate[][] => {
   const startIndex = weekDayIndex(weekStart);
   const first = startOfWeek(startOfMonth(month), startIndex);
   const last = addDays(startOfWeek(endOfMonth(month), startIndex), 6);
@@ -156,12 +175,13 @@ export const occurrencesByDate = (
   const byDate = new Map<IsoDate, CalendarEvent[]>();
 
   for (const event of events) {
-    if (event.status === 'CANCELLED') continue;
+    if (event.status === "CANCELLED") continue;
 
     // `end` is exclusive, so an event ending on the 23rd last occupies the
     // 22nd. Never earlier than the start: a zero-duration `DTEND` equal to
     // `DTSTART` is still shown on its day.
-    const exclusiveEnd = event.end === null ? event.start : addDays(event.end, -1);
+    const exclusiveEnd =
+      event.end === null ? event.start : addDays(event.end, -1);
     const lastDay = exclusiveEnd < event.start ? event.start : exclusiveEnd;
 
     let day = event.start < from ? from : event.start;

@@ -1,6 +1,6 @@
-import { css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
 
 /**
  * A filter pill.
@@ -9,9 +9,9 @@ import { BaseElement } from '../../commons/base-element.ts';
  * (retargeted to the host, so `@click` on `<app-chip>` works). Which chips are
  * selected, and whether that is one or several, is the owning view's business.
  */
-@customElement('app-chip')
+@customElement("app-chip")
 export class AppChip extends BaseElement {
-  @property({ type: String }) label = '';
+  @property({ type: String }) label = "";
   @property({ type: Boolean, reflect: true }) selected = false;
 
   static componentStyles = css`
@@ -31,7 +31,9 @@ export class AppChip extends BaseElement {
       line-height: 1.0625rem;
       white-space: nowrap;
       cursor: pointer;
-      transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+      transition:
+        background-color var(--duration-fast) ease,
+        color var(--duration-fast) ease;
     }
 
     :host([selected]) .chip {
@@ -48,7 +50,11 @@ export class AppChip extends BaseElement {
 
   render() {
     return html`
-      <button class="chip" type="button" aria-pressed=${this.selected ? 'true' : 'false'}>
+      <button
+        class="chip"
+        type="button"
+        aria-pressed=${this.selected ? "true" : "false"}
+      >
         ${this.label}
       </button>
     `;
@@ -57,6 +63,6 @@ export class AppChip extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-chip': AppChip;
+    "app-chip": AppChip;
   }
 }

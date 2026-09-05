@@ -1,37 +1,43 @@
-import { html, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
-import { LightElement } from '../commons/base-element.ts';
-import { goBack } from '../commons/navigation.ts';
-import { LiveQuery, downloadBackup, metaRepo, readBackupFile } from '../data/index.ts';
-import { ACCOUNT } from '../data/account.ts';
+import { html, nothing } from "lit";
+import { customElement, query, state } from "lit/decorators.js";
+import { LightElement } from "../commons/base-element.ts";
+import { goBack } from "../commons/navigation.ts";
+import {
+  LiveQuery,
+  downloadBackup,
+  metaRepo,
+  readBackupFile,
+} from "../data/index.ts";
+import { ACCOUNT } from "../data/account.ts";
 
-import '../components/app-icon/app-icon.ts';
-import '../components/app-switch/app-switch.ts';
-import '../components/app-avatar/app-avatar.ts';
+import "../components/app-icon/app-icon.ts";
+import "../components/app-switch/app-switch.ts";
+import "../components/app-avatar/app-avatar.ts";
 
 /** Only ever opened from the dashboard's avatar, so that's the only fallback back needs. */
-const HOME = '/';
+const HOME = "/";
 
 /** Display only — no password is stored anywhere in this app. */
-const PASSWORD_MASK = '*'.repeat(9);
+const PASSWORD_MASK = "*".repeat(9);
 
 /**
  * Until Google Drive backup lands, this screen is the only thing standing
  * between the user and losing everything to a cleared browser storage — so
  * it states plainly how stale the last backup is rather than hiding it.
  */
-@customElement('profile-view')
+@customElement("profile-view")
 export class ProfileView extends LightElement {
-  @state() private status = '';
-  @state() private error = '';
+  @state() private status = "";
+  @state() private error = "";
 
-  @query('#backup-file') private fileInput?: HTMLInputElement;
+  @query("#backup-file") private fileInput?: HTMLInputElement;
 
   #daysSinceBackup = new LiveQuery(this, () => metaRepo.daysSinceBackup());
-  #notifications = new LiveQuery(this, () => metaRepo.getNotificationsEnabled());
+  #notifications = new LiveQuery(this, () =>
+    metaRepo.getNotificationsEnabled(),
+  );
 
   #goBack = () => goBack(HOME);
-
 
   // Written straight to `meta` rather than held in component state: a
   // preference that forgets itself on every navigation is a bug the user sees.
@@ -40,12 +46,13 @@ export class ProfileView extends LightElement {
   };
 
   #onExport = async () => {
-    this.error = '';
+    this.error = "";
     try {
       await downloadBackup();
-      this.status = 'Sauvegarde téléchargée.';
+      this.status = "Sauvegarde téléchargée.";
     } catch (error: unknown) {
-      this.error = error instanceof Error ? error.message : 'Export impossible.';
+      this.error =
+        error instanceof Error ? error.message : "Export impossible.";
     }
   };
 
@@ -56,17 +63,18 @@ export class ProfileView extends LightElement {
     const file = input.files?.[0];
     if (!file) return;
 
-    this.status = '';
-    this.error = '';
+    this.status = "";
+    this.error = "";
 
     try {
       const { imported, skipped } = await readBackupFile(file);
       this.status = `${imported} enregistrement(s) restauré(s), ${skipped} ignoré(s) car déjà à jour.`;
     } catch (error: unknown) {
-      this.error = error instanceof Error ? error.message : 'Import impossible.';
+      this.error =
+        error instanceof Error ? error.message : "Import impossible.";
     } finally {
       // Lets the same file be picked again after a failure.
-      input.value = '';
+      input.value = "";
     }
   };
 
@@ -88,8 +96,9 @@ export class ProfileView extends LightElement {
           </hgroup>
         </header>
 
-        ${this.#renderIdentity()} ${this.#renderPersonalInfo()} ${this.#renderPreferences()}
-        ${this.#renderAccount()} ${this.#renderBackup()}
+        ${this.#renderIdentity()} ${this.#renderPersonalInfo()}
+        ${this.#renderPreferences()} ${this.#renderAccount()}
+        ${this.#renderBackup()}
       </section>
     `;
   }
@@ -98,7 +107,10 @@ export class ProfileView extends LightElement {
     return html`
       <div class="profile-view__identity">
         <!-- Decorative: the name it initialises is spelled out right next to it. -->
-        <app-avatar aria-hidden="true" initial=${ACCOUNT.firstName.charAt(0)}></app-avatar>
+        <app-avatar
+          aria-hidden="true"
+          initial=${ACCOUNT.firstName.charAt(0)}
+        ></app-avatar>
         <div>
           <p class="profile-view__name">${ACCOUNT.firstName}</p>
           <p class="profile-view__email">${ACCOUNT.email}</p>
@@ -113,10 +125,10 @@ export class ProfileView extends LightElement {
         <h2 class="section-title-small">Informations personnelles</h2>
         <div class="container">
           <ul class="meta-list">
-            ${this.#renderMetaItem('Prénom', ACCOUNT.firstName)}
-            ${this.#renderMetaItem('Nom', ACCOUNT.lastName)}
-            ${this.#renderMetaItem('Email', ACCOUNT.email)}
-            ${this.#renderMetaItem('Mot de passe', PASSWORD_MASK)}
+            ${this.#renderMetaItem("Prénom", ACCOUNT.firstName)}
+            ${this.#renderMetaItem("Nom", ACCOUNT.lastName)}
+            ${this.#renderMetaItem("Email", ACCOUNT.email)}
+            ${this.#renderMetaItem("Mot de passe", PASSWORD_MASK)}
           </ul>
         </div>
       </section>
@@ -181,17 +193,31 @@ export class ProfileView extends LightElement {
         <div class="container profile-view__backup">
           <p class="profile-view__hint">${this.#renderBackupAge()}</p>
           <div class="profile-view__actions">
-            <button class="profile-view__button pressable" type="button" @click=${this.#onExport}>
+            <button
+              class="profile-view__button pressable"
+              type="button"
+              @click=${this.#onExport}
+            >
               Exporter les données
             </button>
-            <button class="profile-view__button profile-view__button--ghost pressable" type="button" @click=${this.#onImportClick}>
+            <button
+              class="profile-view__button profile-view__button--ghost pressable"
+              type="button"
+              @click=${this.#onImportClick}
+            >
               Restaurer un fichier
             </button>
           </div>
-          <input id="backup-file" type="file" accept="application/json,.json" hidden @change=${this.#onImportFile} />
+          <input
+            id="backup-file"
+            type="file"
+            accept="application/json,.json"
+            hidden
+            @change=${this.#onImportFile}
+          />
           <p class="profile-view__note">
-            Les fichiers (ordonnances, factures scannées) ne sont pas encore inclus dans l’export —
-            seules leurs fiches le sont.
+            Les fichiers (ordonnances, factures scannées) ne sont pas encore
+            inclus dans l’export — seules leurs fiches le sont.
           </p>
           ${this.status ? html`<p class="profile-view__status">${this.status}</p>` : nothing}
           ${this.error ? html`<p class="profile-view__error">${this.error}</p>` : nothing}
@@ -205,11 +231,11 @@ export class ProfileView extends LightElement {
     // before the first emission. Both read as "no backup yet".
     const days = this.#daysSinceBackup.value;
     if (days === undefined || !Number.isFinite(days)) {
-      return 'Aucune sauvegarde effectuée pour l’instant.';
+      return "Aucune sauvegarde effectuée pour l’instant.";
     }
 
-    if (days <= 0) return 'Dernière sauvegarde : aujourd’hui.';
-    if (days === 1) return 'Dernière sauvegarde : hier.';
+    if (days <= 0) return "Dernière sauvegarde : aujourd’hui.";
+    if (days === 1) return "Dernière sauvegarde : hier.";
     return `Dernière sauvegarde : il y a ${days} jours.`;
   }
 }

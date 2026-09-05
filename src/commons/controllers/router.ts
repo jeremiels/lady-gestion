@@ -1,12 +1,12 @@
-import type { ReactiveController, ReactiveControllerHost } from 'lit';
-import { appHref, toAppPath } from '../base-path.ts';
+import type { ReactiveController, ReactiveControllerHost } from "lit";
+import { appHref, toAppPath } from "../base-path.ts";
 import {
   APP_NAVIGATE,
   type AppNavigateDetail,
   historyIndex,
   pushHistoryEntry,
   stampHistoryIndex,
-} from '../history-fallback.ts';
+} from "../history-fallback.ts";
 
 /** Hooks the host supplies. Both are awaited, so both may be async. */
 export interface RouterOptions {
@@ -49,7 +49,7 @@ export interface RouterOptions {
 }
 
 /** Which way through the history stack a navigation is going. */
-export type NavigationDirection = 'forward' | 'back';
+export type NavigationDirection = "forward" | "back";
 
 /**
  * Whether the browser understands view-transition *types*.
@@ -64,8 +64,8 @@ export type NavigationDirection = 'forward' | 'back';
  * nothing, which is the same outcome as having no types at all.
  */
 const SUPPORTS_TRANSITION_TYPES =
-  typeof CSS !== 'undefined' &&
-  CSS.supports('selector(:active-view-transition-type(forward))');
+  typeof CSS !== "undefined" &&
+  CSS.supports("selector(:active-view-transition-type(forward))");
 
 /** Narrows a `composedPath()` entry to the link that was clicked. */
 const isAnchor = (target: EventTarget): target is HTMLAnchorElement =>
@@ -123,8 +123,8 @@ export class Router implements ReactiveController {
     this.#abort = new AbortController();
     const { signal } = this.#abort;
 
-    if ('navigation' in window && !this.#options.forceHistoryFallback) {
-      navigation.addEventListener('navigate', this.#onNavigate, { signal });
+    if ("navigation" in window && !this.#options.forceHistoryFallback) {
+      navigation.addEventListener("navigate", this.#onNavigate, { signal });
       return;
     }
 
@@ -143,7 +143,7 @@ export class Router implements ReactiveController {
     // view from the same already-loaded assets, which silently breaks both the
     // browser's refresh button and the service worker update flow, where
     // applying an update means reloading into the new build.
-    if (event.navigationType === 'reload') return;
+    if (event.navigationType === "reload") return;
 
     const path = toAppPath(decodeURI(new URL(event.destination.url).pathname));
     const direction = this.#directionOf(event);
@@ -164,14 +164,14 @@ export class Router implements ReactiveController {
    * the user something happened that didn't.
    */
   #directionOf(event: NavigateEvent): NavigationDirection | undefined {
-    if (event.navigationType === 'push') return 'forward';
-    if (event.navigationType !== 'traverse') return undefined;
+    if (event.navigationType === "push") return "forward";
+    if (event.navigationType !== "traverse") return undefined;
 
     const from = navigation.currentEntry?.index;
     const to = event.destination.index;
     if (from === undefined || from < 0 || to < 0) return undefined;
 
-    return to < from ? 'back' : 'forward';
+    return to < from ? "back" : "forward";
   }
 
   // --- The history fallback ---
@@ -197,8 +197,8 @@ export class Router implements ReactiveController {
     this.#index = historyIndex() ?? 0;
     stampHistoryIndex(this.#index);
 
-    document.addEventListener('click', this.#onClick, { signal });
-    window.addEventListener('popstate', this.#onPopState, { signal });
+    document.addEventListener("click", this.#onClick, { signal });
+    window.addEventListener("popstate", this.#onPopState, { signal });
     window.addEventListener(APP_NAVIGATE, this.#onAppNavigate, { signal });
   }
 
@@ -214,15 +214,17 @@ export class Router implements ReactiveController {
   #onClick = (event: MouseEvent) => {
     // `button !== 0` covers middle-click (open in a new tab) as well as right.
     if (event.defaultPrevented || event.button !== 0) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
 
     // `composedPath()`, not `event.target`: every link in this app is rendered
     // inside a component's shadow root, and `target` retargets to the host
     // element — a `closest('a')` from there finds nothing at all.
     const anchor = event.composedPath().find(isAnchor);
     if (!anchor) return;
-    if (anchor.target && anchor.target !== '_self') return;
-    if (anchor.hasAttribute('download') || anchor.relList.contains('external')) return;
+    if (anchor.target && anchor.target !== "_self") return;
+    if (anchor.hasAttribute("download") || anchor.relList.contains("external"))
+      return;
 
     const url = new URL(anchor.href);
     // Cross-origin, and also `mailto:`/`tel:`, whose origin is never ours.
@@ -256,7 +258,7 @@ export class Router implements ReactiveController {
     const from = this.#index;
     this.#index = to;
 
-    void this.#commit(path, to < from ? 'back' : 'forward');
+    void this.#commit(path, to < from ? "back" : "forward");
   };
 
   /** A programmatic `navigateTo`, which is a push like any other. */
@@ -279,7 +281,7 @@ export class Router implements ReactiveController {
     this.#index += 1;
     pushHistoryEntry(this.#index, href);
     // A click is always a new entry, and `#directionOf` calls a push forward.
-    await this.#commit(path, 'forward');
+    await this.#commit(path, "forward");
   }
 
   async #commit(path: string, direction?: NavigationDirection) {
@@ -294,12 +296,16 @@ export class Router implements ReactiveController {
       // Rejecting the handler would leave the user on the old page with a URL
       // that says otherwise, so hand the navigation back to the browser: a real
       // page load boots the shell fresh and resolves the route from there.
-      console.error('[router] Navigation impossible, rechargement complet :', path, error);
+      console.error(
+        "[router] Navigation impossible, rechargement complet :",
+        path,
+        error,
+      );
       location.href = appHref(path);
       return;
     }
 
-    if (!('startViewTransition' in document)) {
+    if (!("startViewTransition" in document)) {
       this.#apply(path);
       await this.#host.updateComplete;
     } else {
@@ -314,7 +320,10 @@ export class Router implements ReactiveController {
       // browser that only has the callback form — this stays exactly the
       // transition it was before.
       const types = direction
-        ? [direction, ...(this.#options.extraTransitionTypes?.(previousPath, path) ?? [])]
+        ? [
+            direction,
+            ...(this.#options.extraTransitionTypes?.(previousPath, path) ?? []),
+          ]
         : undefined;
 
       const transition =

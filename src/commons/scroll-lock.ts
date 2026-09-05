@@ -24,7 +24,7 @@
 
 const holders = new Set<object>();
 
-const LOCKED_CLASS = 'scroll-locked';
+const LOCKED_CLASS = "scroll-locked";
 
 /**
  * Takes the lock on behalf of `holder`.
@@ -42,5 +42,6 @@ export const lockScroll = (holder: object): void => {
 /** Releases `holder`'s claim, lifting the lock once nothing else holds it. */
 export const unlockScroll = (holder: object): void => {
   if (!holders.delete(holder)) return;
-  if (holders.size === 0) document.documentElement.classList.remove(LOCKED_CLASS);
+  if (holders.size === 0)
+    document.documentElement.classList.remove(LOCKED_CLASS);
 };

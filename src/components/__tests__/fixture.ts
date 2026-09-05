@@ -1,7 +1,7 @@
-import { render, type TemplateResult } from 'lit';
-import type { LitElement } from 'lit';
-import { afterEach } from 'vitest';
-import { clearViewState } from '../../commons/controllers/view-state.ts';
+import { render, type TemplateResult } from "lit";
+import type { LitElement } from "lit";
+import { afterEach } from "vitest";
+import { clearViewState } from "../../commons/controllers/view-state.ts";
 
 const containers = new Set<HTMLElement>();
 
@@ -15,8 +15,10 @@ const containers = new Set<HTMLElement>();
  * in a rendered tree. A fixture that skipped the document would be testing
  * something the app never does.
  */
-export async function fixture<T extends Element>(template: TemplateResult): Promise<T> {
-  const container = document.createElement('div');
+export async function fixture<T extends Element>(
+  template: TemplateResult,
+): Promise<T> {
+  const container = document.createElement("div");
   document.body.append(container);
   containers.add(container);
 
@@ -47,7 +49,9 @@ export async function settled(element: Element): Promise<void> {
   for (let i = 0; i < 20; i++) {
     if (await host.updateComplete) return;
   }
-  throw new Error(`${element.localName} never settled — updateComplete kept resolving false`);
+  throw new Error(
+    `${element.localName} never settled — updateComplete kept resolving false`,
+  );
 }
 
 /**
@@ -59,12 +63,15 @@ export async function settled(element: Element): Promise<void> {
  * predicate that never turns true is a bug the suite should fail on, not
  * hang on.
  */
-export async function waitFor(element: Element, predicate: () => boolean): Promise<void> {
+export async function waitFor(
+  element: Element,
+  predicate: () => boolean,
+): Promise<void> {
   for (let i = 0; i < 20 && !predicate(); i++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
     await settled(element);
   }
-  if (!predicate()) throw new Error('waitFor: condition never became true');
+  if (!predicate()) throw new Error("waitFor: condition never became true");
 }
 
 afterEach(() => {

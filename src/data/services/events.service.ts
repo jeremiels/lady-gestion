@@ -1,15 +1,19 @@
-import type { IsoDate } from '../dates.ts';
+import type { IsoDate } from "../dates.ts";
 import {
   formatWorkActivity,
   parseFollowUpValue,
   statusForDate,
   type WorkActivity,
   type WorkSession,
-} from '../events.ts';
-import { DEFAULT_CURRENCY } from '../money.ts';
-import * as eventsRepo from '../repositories/events.repo.ts';
-import type { HorseEvent, NewRecord } from '../types.ts';
-import { eventFormSpec, type CounterpartyField, type EventTypeKey } from '../../types/event.types.ts';
+} from "../events.ts";
+import { DEFAULT_CURRENCY } from "../money.ts";
+import * as eventsRepo from "../repositories/events.repo.ts";
+import type { HorseEvent, NewRecord } from "../types.ts";
+import {
+  eventFormSpec,
+  type CounterpartyField,
+  type EventTypeKey,
+} from "../../types/event.types.ts";
 
 /**
  * Composing and writing an event record.
@@ -84,7 +88,7 @@ export type SaveEventCommand = {
  * `HorseEvent` is a type error here — in the one function that has to decide
  * what to put in it — rather than a field silently left `undefined`.
  */
-type EventFields = Omit<NewRecord<HorseEvent>, 'horseId' | 'id'>;
+type EventFields = Omit<NewRecord<HorseEvent>, "horseId" | "id">;
 
 /**
  * Creates or updates the event, whichever `existing` calls for.
@@ -158,7 +162,10 @@ export const setDayActivity = ({
   }
 
   const renamed = existing.title === formatWorkActivity(existing.activity);
-  return eventsRepo.update(existing.id, renamed ? { activity, title } : { activity });
+  return eventsRepo.update(
+    existing.id,
+    renamed ? { activity, title } : { activity },
+  );
 };
 
 /**
@@ -169,8 +176,12 @@ export const setDayActivity = ({
  * added to `HorseEvent` fails to compile here instead of arriving `undefined`
  * on every event the strip writes.
  */
-const dayActivityFields = (date: IsoDate, activity: WorkActivity, title: string): EventFields => ({
-  type: 'travail',
+const dayActivityFields = (
+  date: IsoDate,
+  activity: WorkActivity,
+  title: string,
+): EventFields => ({
+  type: "travail",
   title,
   date,
   time: null,
@@ -193,7 +204,10 @@ const dayActivityFields = (date: IsoDate, activity: WorkActivity, title: string)
  * exactly this half without the write, and exporting it then is one line —
  * `db.ts` states the rule this follows: add it back with its caller, not before.
  */
-const eventFields = (input: EventInput, existing: HorseEvent | null): EventFields => {
+const eventFields = (
+  input: EventInput,
+  existing: HorseEvent | null,
+): EventFields => {
   // Read from the type being *saved*, not from whichever layout the form was
   // last showing. The record's own type is what decides its columns, which is
   // the rule `EventDetailView` already reads its Informations rows by and the
@@ -204,7 +218,7 @@ const eventFields = (input: EventInput, existing: HorseEvent | null): EventField
   // Written from the layout rather than from whatever the form still holds, so
   // a field this layout does not draw can never reach the record — and only
   // ever one of the two, because a layout has at most one counterparty.
-  const columns: Record<CounterpartyField['column'], string | null> = {
+  const columns: Record<CounterpartyField["column"], string | null> = {
     providerName: null,
     vendor: null,
   };
@@ -221,7 +235,10 @@ const eventFields = (input: EventInput, existing: HorseEvent | null): EventField
     // Derived rather than asked for: the date already says which is meant. A
     // cancelled event is the exception — re-deriving would quietly bring it
     // back to life on any edit that touches nothing else.
-    status: existing?.status === 'cancelled' ? existing.status : statusForDate(input.date),
+    status:
+      existing?.status === "cancelled"
+        ? existing.status
+        : statusForDate(input.date),
     amountCents: input.amountCents,
     currency: existing?.currency ?? DEFAULT_CURRENCY,
     ...columns,
@@ -232,7 +249,9 @@ const eventFields = (input: EventInput, existing: HorseEvent | null): EventField
     // being edited, so an event saved under a type whose layout has no
     // follow-up field at all can still arrive here with it ticked.
     followUpInterval:
-      spec.followUp && input.planFollowUp ? parseFollowUpValue(input.followUpInterval) : null,
+      spec.followUp && input.planFollowUp
+        ? parseFollowUpValue(input.followUpInterval)
+        : null,
     // Same rule as the columns above, and the same reason: a layout that does
     // not ask what was done must not carry an answer left over from the type
     // the user picked before.

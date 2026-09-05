@@ -1,11 +1,17 @@
-import { RECORD_TABLES, SCHEMA_VERSION, db, type BackupTables, type RecordTableName } from '../db.ts';
-import { nowISO, type IsoTimestamp } from '../dates.ts';
-import { newerOf } from '../record.ts';
-import { getOwnerId, setOwnerId } from '../owner.ts';
-import { seasonFromLegacyFlag } from '../seasons.ts';
-import * as metaRepo from '../repositories/meta.repo.ts';
-import { clearUntouchedSeedData } from '../seed.ts';
-import type { BaseRecord, RationItem } from '../types.ts';
+import {
+  RECORD_TABLES,
+  SCHEMA_VERSION,
+  db,
+  type BackupTables,
+  type RecordTableName,
+} from "../db.ts";
+import { nowISO, type IsoTimestamp } from "../dates.ts";
+import { newerOf } from "../record.ts";
+import { getOwnerId, setOwnerId } from "../owner.ts";
+import { seasonFromLegacyFlag } from "../seasons.ts";
+import * as metaRepo from "../repositories/meta.repo.ts";
+import { clearUntouchedSeedData } from "../seed.ts";
+import type { BaseRecord, RationItem } from "../types.ts";
 
 /**
  * Whole-database snapshot, used today for manual file export/import and
@@ -22,7 +28,7 @@ import type { BaseRecord, RationItem } from '../types.ts';
  */
 
 export type BackupSnapshot = {
-  app: 'lady-gestion';
+  app: "lady-gestion";
   schemaVersion: number;
   exportedAt: IsoTimestamp;
   ownerId: string;
@@ -40,10 +46,12 @@ export type ImportResult = {
 
 /** Reads every table, including soft-deleted rows — tombstones must survive. */
 export const exportBackup = async (): Promise<BackupSnapshot> => {
-  const rows = await Promise.all(TABLE_NAMES.map((name) => RECORD_TABLES[name].toArray()));
+  const rows = await Promise.all(
+    TABLE_NAMES.map((name) => RECORD_TABLES[name].toArray()),
+  );
 
   return {
-    app: 'lady-gestion',
+    app: "lady-gestion",
     schemaVersion: SCHEMA_VERSION,
     exportedAt: nowISO(),
     ownerId: getOwnerId(),
@@ -60,7 +68,9 @@ export const exportBackup = async (): Promise<BackupSnapshot> => {
  * each incoming row is only written when its `updatedAt` is newer than the
  * local copy's. That also makes import safe to run twice.
  */
-export const importBackup = async (snapshot: unknown): Promise<ImportResult> => {
+export const importBackup = async (
+  snapshot: unknown,
+): Promise<ImportResult> => {
   const backup = migrateSnapshot(assertSnapshot(snapshot));
 
   // A restore almost always happens on a fresh install, where the first-run
@@ -72,14 +82,17 @@ export const importBackup = async (snapshot: unknown): Promise<ImportResult> => 
   // retry a transaction, and outer-scope counters would keep the tally from
   // the abandoned attempt on top of the successful one.
   const result = await db.transaction(
-    'rw',
+    "rw",
     TABLE_NAMES.map((name) => RECORD_TABLES[name]),
     async () => {
       let imported = 0;
       let skipped = 0;
 
       const merge = async <T extends BaseRecord>(
-        table: { get(id: string): Promise<T | undefined>; put(row: T): Promise<unknown> },
+        table: {
+          get(id: string): Promise<T | undefined>;
+          put(row: T): Promise<unknown>;
+        },
         rows: T[],
       ) => {
         for (const row of rows) {
@@ -136,7 +149,9 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     tables = {
       ...tables,
       rationItems: tables.rationItems.map((row) => {
-        const { seasonal, ...rest } = row as RationItem & { seasonal?: boolean };
+        const { seasonal, ...rest } = row as RationItem & {
+          seasonal?: boolean;
+        };
         return { ...rest, season: seasonFromLegacyFlag(seasonal) };
       }),
     };
@@ -161,7 +176,10 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
   if (backup.schemaVersion < 4) {
     tables = {
       ...tables,
-      events: tables.events.map((row) => ({ ...row, activity: row.activity ?? null })),
+      events: tables.events.map((row) => ({
+        ...row,
+        activity: row.activity ?? null,
+      })),
     };
   }
 
@@ -188,12 +206,14 @@ const REVOKE_DELAY_MS = 1_000;
 /** Triggers a file download of the current snapshot. */
 export const downloadBackup = async (): Promise<void> => {
   const snapshot = await exportBackup();
-  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
 
   // The anchor has to be in the document: Firefox ignores `click()` on a
   // detached one, so the export appears to do nothing at all.
-  const link = document.createElement('a');
+  const link = document.createElement("a");
   link.href = url;
   const exportedAt = new Date(snapshot.exportedAt);
   const timestamp = [
@@ -204,8 +224,8 @@ export const downloadBackup = async (): Promise<void> => {
     exportedAt.getMinutes(),
     exportedAt.getSeconds(),
   ]
-    .map((part) => `${part}`.padStart(2, '0'))
-    .join('-');
+    .map((part) => `${part}`.padStart(2, "0"))
+    .join("-");
   link.download = `lady-gestion-${timestamp}.json`;
   link.hidden = true;
   document.body.append(link);
@@ -225,20 +245,20 @@ export const readBackupFile = async (file: File): Promise<ImportResult> =>
  * written to IndexedDB as an unaddressable or unresolvable record.
  */
 const isMergeableRow = (row: unknown): boolean =>
-  typeof row === 'object' &&
+  typeof row === "object" &&
   row !== null &&
-  typeof (row as Partial<BaseRecord>).id === 'string' &&
-  typeof (row as Partial<BaseRecord>).updatedAt === 'string';
+  typeof (row as Partial<BaseRecord>).id === "string" &&
+  typeof (row as Partial<BaseRecord>).updatedAt === "string";
 
 const assertSnapshot = (value: unknown): BackupSnapshot => {
   const snapshot = value as Partial<BackupSnapshot> | null;
 
-  if (!snapshot || snapshot.app !== 'lady-gestion') {
+  if (!snapshot || snapshot.app !== "lady-gestion") {
     throw new Error("Ce fichier n'est pas une sauvegarde Ladympala.cc.");
   }
 
-  if (typeof snapshot.schemaVersion !== 'number' || !snapshot.tables) {
-    throw new Error('Sauvegarde illisible : en-tête manquant.');
+  if (typeof snapshot.schemaVersion !== "number" || !snapshot.tables) {
+    throw new Error("Sauvegarde illisible : en-tête manquant.");
   }
 
   // A newer file may contain fields this build does not understand; writing
@@ -266,7 +286,9 @@ const assertSnapshot = (value: unknown): BackupSnapshot => {
     if (rows === undefined && snapshot.schemaVersion < SCHEMA_VERSION) continue;
 
     if (!Array.isArray(rows)) {
-      throw new Error(`Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`);
+      throw new Error(
+        `Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`,
+      );
     }
 
     if (!rows.every(isMergeableRow)) {

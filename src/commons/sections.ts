@@ -1,4 +1,4 @@
-import type { IconName } from '../components/app-icon/icons.ts';
+import type { IconName } from "../components/app-icon/icons.ts";
 
 /**
  * The bottom nav, and the app's only definition of what a section contains.
@@ -24,7 +24,7 @@ import type { IconName } from '../components/app-icon/icons.ts';
  * reuse the exact same check rather than drifting out of sync with it.
  */
 export const isHorsePath = (path: string): boolean =>
-  path === '/horse' || path.startsWith('/horse/');
+  path === "/horse" || path.startsWith("/horse/");
 
 /** One of the four destinations the bottom nav offers. */
 export type Section = {
@@ -55,38 +55,38 @@ export type Section = {
 
 export const SECTIONS: Section[] = [
   {
-    id: 'home',
-    root: '/',
-    label: 'Accueil',
-    icon: 'home',
+    id: "home",
+    root: "/",
+    label: "Accueil",
+    icon: "home",
     // The horse's page is a drill-down from the dashboard, not a section of its
     // own — an unlit bar there would say otherwise. `/budget` used to be listed
     // here for the same reason and is not any more: it has had its own nav item
     // since it was added to the bar, and leaving it claimed here lit two items
     // at once and made Accueil↔Budget look like a drill-down to `isLateral`.
-    matches: (path) => path === '/' || isHorsePath(path),
+    matches: (path) => path === "/" || isHorsePath(path),
   },
   {
-    id: 'events',
-    root: '/events',
-    label: 'Activités',
-    icon: 'date',
+    id: "events",
+    root: "/events",
+    label: "Activités",
+    icon: "date",
     // A prefix match: an event's own page is still the Calendrier section.
-    matches: (path) => path.startsWith('/events'),
+    matches: (path) => path.startsWith("/events"),
   },
   {
-    id: 'budget',
-    root: '/budget',
-    label: 'Budget',
-    icon: 'currencyEur',
-    matches: (path) => path === '/budget',
+    id: "budget",
+    root: "/budget",
+    label: "Budget",
+    icon: "currencyEur",
+    matches: (path) => path === "/budget",
   },
   {
-    id: 'documents',
-    root: '/documents',
-    label: 'Documents',
-    icon: 'folder',
-    matches: (path) => path === '/documents',
+    id: "documents",
+    root: "/documents",
+    label: "Documents",
+    icon: "folder",
+    matches: (path) => path === "/documents",
   },
 ];
 

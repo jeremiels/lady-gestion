@@ -1,15 +1,15 @@
-import { css, html, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { appHref } from '../../commons/base-path.ts';
-import { formatDate, formatTime } from '../../data/dates.ts';
-import { formatCents } from '../../data/money.ts';
-import type { HorseEvent } from '../../data/types.ts';
-import { eventType } from '../../types/event.types.ts';
+import { css, html, nothing } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { styleMap } from "lit/directives/style-map.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { appHref } from "../../commons/base-path.ts";
+import { formatDate, formatTime } from "../../data/dates.ts";
+import { formatCents } from "../../data/money.ts";
+import type { HorseEvent } from "../../data/types.ts";
+import { eventType } from "../../types/event.types.ts";
 
-import { iconStyle } from '../app-icon/app-icon.ts';
-import { tagStyle } from '../app-tag/app-tag.ts';
+import { iconStyle } from "../app-icon/app-icon.ts";
+import { tagStyle } from "../app-tag/app-tag.ts";
 
 /**
  * Which of the card's optional parts are shown. The record is the same in every
@@ -21,7 +21,7 @@ import { tagStyle } from '../app-tag/app-tag.ts';
  * - `budget` — the price leaves the meta line for its own right-aligned cell,
  *   and the notes go, because a ledger is read down the amounts column.
  */
-export type EventCardLayout = 'default' | 'dashboard' | 'budget';
+export type EventCardLayout = "default" | "dashboard" | "budget";
 
 /**
  * One event in a list: category icon, title, date and price, its type as a tag
@@ -29,12 +29,13 @@ export type EventCardLayout = 'default' | 'dashboard' | 'budget';
  *
  * Presentational — the owning view holds the query and passes the record down.
  */
-@customElement('event-card')
+@customElement("event-card")
 export class EventCard extends BaseElement {
   @property({ attribute: false }) event: HorseEvent | null = null;
 
   /** Reflected so the styles below can key off it. */
-  @property({ type: String, reflect: true }) layout: EventCardLayout = 'default';
+  @property({ type: String, reflect: true }) layout: EventCardLayout =
+    "default";
 
   static componentStyles = css`
     :host {
@@ -216,15 +217,21 @@ export class EventCard extends BaseElement {
     // domain-free, so the view that knows what an event *is* supplies the glyph,
     // the wording and the colours.
     const theme = eventType.theme(event.type);
-    const price = event.amountCents === null ? null : formatCents(event.amountCents, event.currency);
-    const trailingAmount = this.layout === 'budget';
-    const showNotes = this.layout === 'default' && event.notes;
+    const price =
+      event.amountCents === null
+        ? null
+        : formatCents(event.amountCents, event.currency);
+    const trailingAmount = this.layout === "budget";
+    const showNotes = this.layout === "default" && event.notes;
 
     // An anchor rather than a click handler: the Navigation API intercepts it
     // for free, and where that API is missing this still works as a real page
     // load — the service worker answers any path with the cached shell.
     return html`
-      <a class="event-card__link pressable" href="${appHref(`/events/${event.id}`)}">
+      <a
+        class="event-card__link pressable"
+        href="${appHref(`/events/${event.id}`)}"
+      >
         <article class="event-card">
           <app-icon
             class="event-card__icon"
@@ -247,10 +254,11 @@ export class EventCard extends BaseElement {
 
           <!-- U+2212, not a hyphen: it is the same width as the digits beside
                it, so a column of amounts stays aligned. -->
-          ${price && trailingAmount
-            ? html`<span class="event-card__amount">−&nbsp;${price}</span>`
-            : nothing}
-
+          ${
+            price && trailingAmount
+              ? html`<span class="event-card__amount">−&nbsp;${price}</span>`
+              : nothing
+          }
           ${showNotes ? html`<p class="event-card__notes">${event.notes}</p>` : nothing}
         </article>
       </a>
@@ -260,6 +268,6 @@ export class EventCard extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'event-card': EventCard;
+    "event-card": EventCard;
   }
 }

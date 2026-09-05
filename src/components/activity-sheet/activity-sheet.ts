@@ -1,6 +1,6 @@
-import { css, html, nothing } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
+import { css, html, nothing } from "lit";
+import { customElement, property, query, state } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
 import {
   activeHorseQuery,
   activitiesRepo,
@@ -17,13 +17,13 @@ import {
   type IsoDate,
   type WorkActivity,
   type WorkSession,
-} from '../../data/index.ts';
-import type { ActivityItem } from '../../data/types.ts';
+} from "../../data/index.ts";
+import type { ActivityItem } from "../../data/types.ts";
 
-import '../app-bottom-sheet/app-bottom-sheet.ts';
-import '../app-chip/app-chip.ts';
-import '../app-icon/app-icon.ts';
-import '../app-input/app-input.ts';
+import "../app-bottom-sheet/app-bottom-sheet.ts";
+import "../app-chip/app-chip.ts";
+import "../app-icon/app-icon.ts";
+import "../app-input/app-input.ts";
 
 /** Long enough for "Balade à pied", short enough to stay on one chip. */
 const MAX_LABEL = 40;
@@ -51,7 +51,7 @@ const LABEL_SCHEMA = { label: text({ required: true, maxLength: MAX_LABEL }) };
  * @fires sheet-close - No detail. Fired on dismissal and after a save; the
  * owner clears `open` in response.
  */
-@customElement('activity-sheet')
+@customElement("activity-sheet")
 export class ActivitySheet extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
 
@@ -61,9 +61,9 @@ export class ActivitySheet extends BaseElement {
   /** The day's session, or `null` for a day with none. */
   @property({ attribute: false }) existing: WorkSession | null = null;
 
-  @state() private error = '';
+  @state() private error = "";
 
-  @query('form') private formEl?: HTMLFormElement;
+  @query("form") private formEl?: HTMLFormElement;
 
   #activities = activeHorseQuery<ActivityItem[]>(
     this,
@@ -138,7 +138,9 @@ export class ActivitySheet extends BaseElement {
 
   /** The chips to offer: the built-ins, then the horse's own. */
   get #choices(): WorkActivity[] {
-    return activityChoices((this.#activities.value ?? []).map((item) => item.label));
+    return activityChoices(
+      (this.#activities.value ?? []).map((item) => item.label),
+    );
   }
 
   /**
@@ -161,10 +163,12 @@ export class ActivitySheet extends BaseElement {
     event?.stopPropagation();
     if (!this.open) return;
 
-    this.error = '';
+    this.error = "";
     this.formEl?.reset();
     this.open = false;
-    this.dispatchEvent(new CustomEvent('sheet-close', { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent("sheet-close", { bubbles: true, composed: true }),
+    );
   };
 
   /**
@@ -191,12 +195,13 @@ export class ActivitySheet extends BaseElement {
   #apply = async (activity: WorkActivity, add: string | null = null) => {
     const horse = await horsesRepo.getActive();
     if (!horse) {
-      this.error = 'Aucun cheval sélectionné.';
+      this.error = "Aucun cheval sélectionné.";
       return;
     }
 
     try {
-      if (add !== null) await activitiesRepo.add({ horseId: horse.id, label: add });
+      if (add !== null)
+        await activitiesRepo.add({ horseId: horse.id, label: add });
 
       await eventsService.setDayActivity({
         horseId: horse.id,
@@ -205,7 +210,8 @@ export class ActivitySheet extends BaseElement {
         existing: this.existing,
       });
     } catch (error: unknown) {
-      this.error = error instanceof Error ? error.message : 'Enregistrement impossible.';
+      this.error =
+        error instanceof Error ? error.message : "Enregistrement impossible.";
       return;
     }
 
@@ -225,7 +231,8 @@ export class ActivitySheet extends BaseElement {
     try {
       await eventsRepo.remove(this.existing.id);
     } catch (error: unknown) {
-      this.error = error instanceof Error ? error.message : 'Suppression impossible.';
+      this.error =
+        error instanceof Error ? error.message : "Suppression impossible.";
       return;
     }
 
@@ -239,7 +246,9 @@ export class ActivitySheet extends BaseElement {
    * already on screen.
    */
   #onChipClick = (activity: WorkActivity) => () =>
-    void (activity === (this.existing?.activity ?? null) ? this.#remove() : this.#apply(activity));
+    void (activity === (this.existing?.activity ?? null)
+      ? this.#remove()
+      : this.#apply(activity));
 
   /**
    * Adds a typed activity to the catalogue, then applies it to the day.
@@ -253,9 +262,12 @@ export class ActivitySheet extends BaseElement {
   #onSubmit = async (submitEvent: SubmitEvent) => {
     submitEvent.preventDefault();
 
-    const result = readForm(submitEvent.target as HTMLFormElement, LABEL_SCHEMA);
+    const result = readForm(
+      submitEvent.target as HTMLFormElement,
+      LABEL_SCHEMA,
+    );
     if (!result.ok) {
-      this.error = result.errors.label ?? '';
+      this.error = result.errors.label ?? "";
       return;
     }
 
@@ -298,12 +310,19 @@ export class ActivitySheet extends BaseElement {
             maxlength=${MAX_LABEL}
             placeholder="Autre activité…"
           ></app-input>
-          <button class="activity-sheet__submit pressable pressable--small" type="submit">
+          <button
+            class="activity-sheet__submit pressable pressable--small"
+            type="submit"
+          >
             <app-icon icon="check" aria-label="Ajouter l’activité"></app-icon>
           </button>
         </form>
 
-        <div class="activity-sheet__error-region" role="alert" aria-live="assertive">
+        <div
+          class="activity-sheet__error-region"
+          role="alert"
+          aria-live="assertive"
+        >
           ${this.error ? html`<p class="activity-sheet__error">${this.error}</p>` : nothing}
         </div>
       </app-bottom-sheet>
@@ -313,6 +332,6 @@ export class ActivitySheet extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'activity-sheet': ActivitySheet;
+    "activity-sheet": ActivitySheet;
   }
 }

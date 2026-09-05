@@ -5,7 +5,7 @@
  * somewhere as the result of an action — a back button, or landing somewhere
  * sensible after deleting the record the page was showing.
  */
-import { historyIndex, requestNavigate } from './history-fallback.ts';
+import { historyIndex, requestNavigate } from "./history-fallback.ts";
 
 /**
  * Navigates to `path`.
@@ -19,7 +19,7 @@ import { historyIndex, requestNavigate } from './history-fallback.ts';
  * rather than failing.
  */
 export const navigateTo = (path: string): void => {
-  if ('navigation' in window) navigation.navigate(path);
+  if ("navigation" in window) navigation.navigate(path);
   else if (!requestNavigate(path)) location.href = path;
 };
 
@@ -49,7 +49,7 @@ export const navigateTo = (path: string): void => {
  * from reading the code — the second hand-written copy is where it gets lost.
  */
 export const goBack = (fallback: string): void => {
-  const hasNavigation = 'navigation' in window;
+  const hasNavigation = "navigation" in window;
   const index = hasNavigation ? navigation.currentEntry?.index : historyIndex();
 
   if (index === undefined) {

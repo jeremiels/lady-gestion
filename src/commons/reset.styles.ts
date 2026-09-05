@@ -1,6 +1,6 @@
-import { css, unsafeCSS } from 'lit';
-import componentResetCSSText from '../styles/layers/component-reset.css?inline';
-import componentUtilitiesCSSText from '../styles/layers/component-utilities.css?inline';
+import { css, unsafeCSS } from "lit";
+import componentResetCSSText from "../styles/layers/component-reset.css?inline";
+import componentUtilitiesCSSText from "../styles/layers/component-utilities.css?inline";
 
 /**
  * The shared reset every `BaseElement` prepends to its own styles.
@@ -13,7 +13,9 @@ import componentUtilitiesCSSText from '../styles/layers/component-utilities.css?
  * `css` caches the `CSSResult`, so this is one `CSSStyleSheet` adopted by
  * reference into every shadow root rather than a copy per component.
  */
-export const resetStyles = css`${unsafeCSS(componentResetCSSText)}`;
+export const resetStyles = css`
+  ${unsafeCSS(componentResetCSSText)}
+`;
 
 /**
  * The shared utilities every `BaseElement` appends *after* its own styles.
@@ -22,4 +24,6 @@ export const resetStyles = css`${unsafeCSS(componentResetCSSText)}`;
  * sides of a component's own rules — merging them would break the ordering that
  * makes a utility win inside a shadow root.
  */
-export const utilityStyles = css`${unsafeCSS(componentUtilitiesCSSText)}`;
+export const utilityStyles = css`
+  ${unsafeCSS(componentUtilitiesCSSText)}
+`;

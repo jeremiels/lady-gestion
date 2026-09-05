@@ -1,7 +1,7 @@
-import type { EventTypeKey } from '../types/event.types.ts';
-import type { DocumentCategory } from '../types/document.types.ts';
-import type { RationSeason } from './seasons.ts';
-import type { FollowUpInterval, WorkActivity } from './events.ts';
+import type { EventTypeKey } from "../types/event.types.ts";
+import type { DocumentCategory } from "../types/document.types.ts";
+import type { RationSeason } from "./seasons.ts";
+import type { FollowUpInterval, WorkActivity } from "./events.ts";
 
 /**
  * Fields shared by every persisted entity.
@@ -29,12 +29,15 @@ export type BaseRecord = {
 };
 
 /** A record as accepted by a repository's `create` — the base is filled in for you. */
-export type NewRecord<T extends BaseRecord> = Omit<T, keyof BaseRecord> & Partial<Pick<T, 'id'>>;
+export type NewRecord<T extends BaseRecord> = Omit<T, keyof BaseRecord> &
+  Partial<Pick<T, "id">>;
 
 /** The mutable half of a record — everything except identity and bookkeeping. */
-export type RecordPatch<T extends BaseRecord> = Partial<Omit<T, keyof BaseRecord>>;
+export type RecordPatch<T extends BaseRecord> = Partial<
+  Omit<T, keyof BaseRecord>
+>;
 
-export type HorseSex = 'jument' | 'hongre' | 'etalon';
+export type HorseSex = "jument" | "hongre" | "etalon";
 
 export type Horse = BaseRecord & {
   name: string;
@@ -60,7 +63,7 @@ export type Horse = BaseRecord & {
   archivedAt: string | null;
 };
 
-export type EventStatus = 'planned' | 'done' | 'cancelled';
+export type EventStatus = "planned" | "done" | "cancelled";
 
 /**
  * The core record: one dated thing that happened (or will happen) to a horse.
@@ -184,7 +187,7 @@ export type DocumentBlob = {
   blob: Blob;
 };
 
-export type RationUnit = 'kg' | 'g' | 'L' | 'mL' | 'dose' | 'mesure';
+export type RationUnit = "kg" | "g" | "L" | "mL" | "dose" | "mesure";
 
 /**
  * One line of the daily feed plan.
@@ -217,11 +220,11 @@ export type MetaEntry = {
 };
 
 export type MetaKey =
-  | 'ownerId'
-  | 'activeHorseId'
-  | 'lastBackupAt'
-  | 'driveFolderId'
-  | 'googleAccount'
-  | 'notificationsEnabled'
-  | 'seededAt'
-  | 'seedRecordIds';
+  | "ownerId"
+  | "activeHorseId"
+  | "lastBackupAt"
+  | "driveFolderId"
+  | "googleAccount"
+  | "notificationsEnabled"
+  | "seededAt"
+  | "seedRecordIds";

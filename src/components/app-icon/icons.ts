@@ -6,7 +6,7 @@
  * One constant, referenced from both sides, so the file that is written and the
  * URL that is fetched cannot disagree.
  */
-export const SPRITE_PATH = '/icons.svg';
+export const SPRITE_PATH = "/icons.svg";
 
 /**
  * Every icon the app can draw, camelCased from its file name in
@@ -23,39 +23,39 @@ export const SPRITE_PATH = '/icons.svg';
  * disagree in either direction — a file with no name, or a name with no file.
  */
 export const ICON_NAMES = [
-  'home',
-  'homeFilled',
-  'date',
-  'dateFilled',
-  'folder',
-  'folderFilled',
-  'user',
-  'userFilled',
-  'search',
-  'firstAidKit',
-  'footprints',
-  'tooth',
-  'pawPrint',
-  'cowboyHat',
-  'carrot',
-  'shoppingCart',
-  'farm',
-  'plus',
-  'chevronLeft',
-  'chevronRight',
-  'close',
-  'check',
-  'list',
-  'signOut',
-  'trash',
-  'edit',
-  'info',
-  'download',
-  'share',
-  'file',
-  'currencyEur',
-  'currencyEurFilled',
-  'cactus'
+  "home",
+  "homeFilled",
+  "date",
+  "dateFilled",
+  "folder",
+  "folderFilled",
+  "user",
+  "userFilled",
+  "search",
+  "firstAidKit",
+  "footprints",
+  "tooth",
+  "pawPrint",
+  "cowboyHat",
+  "carrot",
+  "shoppingCart",
+  "farm",
+  "plus",
+  "chevronLeft",
+  "chevronRight",
+  "close",
+  "check",
+  "list",
+  "signOut",
+  "trash",
+  "edit",
+  "info",
+  "download",
+  "share",
+  "file",
+  "currencyEur",
+  "currencyEurFilled",
+  "cactus",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -66,4 +66,5 @@ const NAMES: ReadonlySet<string> = new Set(ICON_NAMES);
  * Runtime check, because `icon` is an attribute: a typo arrives as a string
  * whatever the property type says.
  */
-export const isIconName = (value: string): value is IconName => NAMES.has(value);
+export const isIconName = (value: string): value is IconName =>
+  NAMES.has(value);

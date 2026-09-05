@@ -1,7 +1,7 @@
-import { css, html, nothing } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { UPDATE_READY_EVENT, applyUpdate } from '../../pwa/index.ts';
+import { css, html, nothing } from "lit";
+import { customElement, query, state } from "lit/decorators.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { UPDATE_READY_EVENT, applyUpdate } from "../../pwa/index.ts";
 
 /**
  * Once a service worker caches the app, a new deploy is invisible until the
@@ -21,11 +21,11 @@ import { UPDATE_READY_EVENT, applyUpdate } from '../../pwa/index.ts';
  * click, and a stray tap should not throw away the only notice the user gets
  * that they are running an old build.
  */
-@customElement('app-update-toast')
+@customElement("app-update-toast")
 export class AppUpdateToast extends BaseElement {
   @state() private visible = false;
 
-  @query('.toast') private toastEl?: HTMLElement;
+  @query(".toast") private toastEl?: HTMLElement;
 
   static componentStyles = css`
     :host {
@@ -52,7 +52,10 @@ export class AppUpdateToast extends BaseElement {
       overflow: visible;
 
       position: fixed;
-      bottom: calc(var(--nav-bar-height) + var(--spacing-12) + env(safe-area-inset-bottom, 0px));
+      bottom: calc(
+        var(--nav-bar-height) + var(--spacing-12) +
+          env(safe-area-inset-bottom, 0px)
+      );
       left: var(--spacing-16);
       right: var(--spacing-16);
 
@@ -146,7 +149,7 @@ export class AppUpdateToast extends BaseElement {
     // A popover is inert until something opens it, and the element only exists
     // on the tick `visible` turned true — so this is the open call, not a sync.
     const toast = this.toastEl;
-    if (toast && !toast.matches(':popover-open')) toast.showPopover();
+    if (toast && !toast.matches(":popover-open")) toast.showPopover();
   }
 
   render() {
@@ -163,22 +166,32 @@ export class AppUpdateToast extends BaseElement {
     // whose only job is to delay a removal nobody is waiting to see.
     return html`
       <div class="toast-region" role="status">
-        ${this.visible
-          ? html`
-              <div class="toast" popover="manual">
-                <span class="toast__text">Une nouvelle version est disponible.</span>
-                <button class="toast__button" type="button" @click=${applyUpdate}>Actualiser</button>
-                <button
-                  class="toast__dismiss"
-                  type="button"
-                  aria-label="Ignorer"
-                  @click=${() => (this.visible = false)}
-                >
-                  ✕
-                </button>
-              </div>
-            `
-          : nothing}
+        ${
+          this.visible
+            ? html`
+                <div class="toast" popover="manual">
+                  <span class="toast__text"
+                    >Une nouvelle version est disponible.</span
+                  >
+                  <button
+                    class="toast__button"
+                    type="button"
+                    @click=${applyUpdate}
+                  >
+                    Actualiser
+                  </button>
+                  <button
+                    class="toast__dismiss"
+                    type="button"
+                    aria-label="Ignorer"
+                    @click=${() => (this.visible = false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              `
+            : nothing
+        }
       </div>
     `;
   }
@@ -186,6 +199,6 @@ export class AppUpdateToast extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'app-update-toast': AppUpdateToast;
+    "app-update-toast": AppUpdateToast;
   }
 }

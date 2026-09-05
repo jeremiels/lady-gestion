@@ -1,10 +1,10 @@
-import { css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
-import { classMap } from 'lit/directives/class-map.js';
-import { BaseElement } from '../../commons/base-element.ts';
-import { isIconName, type IconName } from '../app-icon/icons.ts';
+import { css, html } from "lit";
+import { customElement, property } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+import { BaseElement } from "../../commons/base-element.ts";
+import { isIconName, type IconName } from "../app-icon/icons.ts";
 
-import '../app-icon/app-icon.ts';
+import "../app-icon/app-icon.ts";
 
 /**
  * One destination in the bottom nav: an icon over a label, lit while active.
@@ -15,11 +15,11 @@ import '../app-icon/app-icon.ts';
  * a drill-down like `/budget` has no nav item of its own and must not unlight
  * the one it was opened from.
  */
-@customElement('nav-item')
+@customElement("nav-item")
 export class NavItem extends BaseElement {
-  @property({ type: String }) href = '';
-  @property({ type: String }) label = '';
-  @property({ type: String }) icon: IconName | '' = '';
+  @property({ type: String }) href = "";
+  @property({ type: String }) label = "";
+  @property({ type: String }) icon: IconName | "" = "";
   @property({ type: Boolean, reflect: true }) active = false;
 
   static componentStyles = css`
@@ -61,7 +61,7 @@ export class NavItem extends BaseElement {
    * `IconName` without a cast, which is what lets `icon` stay typed as
    * `IconName` rather than widening to `string`.
    */
-  #resolvedIcon(): IconName | '' {
+  #resolvedIcon(): IconName | "" {
     if (!this.active || !this.icon) return this.icon;
 
     const filled = `${this.icon}Filled`;
@@ -72,15 +72,18 @@ export class NavItem extends BaseElement {
     return html`
       <a
         class=${classMap({
-          'nav-item': true,
+          "nav-item": true,
           pressable: true,
-          'pressable--small': true,
-          'is-active': this.active,
+          "pressable--small": true,
+          "is-active": this.active,
         })}
         href=${this.href}
-        aria-current=${this.active ? 'page' : 'false'}
+        aria-current=${this.active ? "page" : "false"}
       >
-        <app-icon class="nav-item__icon" icon=${this.#resolvedIcon()}></app-icon>
+        <app-icon
+          class="nav-item__icon"
+          icon=${this.#resolvedIcon()}
+        ></app-icon>
         <div class="nav-item__label">${this.label}</div>
       </a>
     `;
@@ -89,6 +92,6 @@ export class NavItem extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'nav-item': NavItem;
+    "nav-item": NavItem;
   }
 }
