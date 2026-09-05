@@ -180,12 +180,21 @@ describe('formatWorkActivity', () => {
 });
 
 describe('activityChoices', () => {
-  it('offers the six built-ins first, in table order', () => {
-    expect(activityChoices([])).toEqual(['balade', 'longe', 'tap', 'liberte', 'plat', 'trotting']);
+  it('offers the six built-ins alphabetically by their French labels', () => {
+    expect(activityChoices([])).toEqual(['balade', 'liberte', 'longe', 'plat', 'tap', 'trotting']);
   });
 
-  it('appends the user’s own in the order they were added', () => {
-    expect(activityChoices(['Carrière', 'Repos']).slice(-2)).toEqual(['Carrière', 'Repos']);
+  it('slots the user’s own in alphabetically among the built-ins', () => {
+    expect(activityChoices(['Carrière', 'Repos'])).toEqual([
+      'balade',
+      'Carrière',
+      'liberte',
+      'longe',
+      'plat',
+      'Repos',
+      'tap',
+      'trotting',
+    ]);
   });
 
   it('drops a label that only repeats a built-in’s wording', () => {
@@ -197,8 +206,13 @@ describe('activityChoices', () => {
 
   it('ignores case, surrounding space and accents when comparing', () => {
     expect(activityChoices(['  liberte ', 'LIBERTÉ', 'Carrière', 'carriere'])).toEqual([
-      ...activityChoices([]),
+      'balade',
       'Carrière',
+      'liberte',
+      'longe',
+      'plat',
+      'tap',
+      'trotting',
     ]);
   });
 

@@ -61,26 +61,34 @@ describe('activity-sheet', () => {
     expect(el.renderRoot.querySelector('app-bottom-sheet')?.description).toBe('Activité du jour');
   });
 
-  it('offers the six built-in activities by their French labels', async () => {
+  it('offers the six built-in activities, alphabetically by their French labels', async () => {
     const el = await ready(await mount());
 
     expect(labelsOf(el)).toEqual([
       'Balade à pied',
-      'Longe',
-      'TAP',
       'Liberté',
+      'Longe',
       'Plat',
+      'TAP',
       'Trotting',
     ]);
   });
 
-  it('offers the horse’s own activities after the built-ins', async () => {
+  it('slots the horse’s own activities in alphabetically among the built-ins', async () => {
     await activitiesRepo.add({ horseId: HORSE_ID, label: 'Carrière' });
 
     const el = await mount();
     await waitFor(el, () => labelsOf(el).includes('Carrière'));
 
-    expect(labelsOf(el).at(-1)).toBe('Carrière');
+    expect(labelsOf(el)).toEqual([
+      'Balade à pied',
+      'Carrière',
+      'Liberté',
+      'Longe',
+      'Plat',
+      'TAP',
+      'Trotting',
+    ]);
   });
 
   it('marks the chip the day already carries', async () => {

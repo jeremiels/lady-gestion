@@ -156,8 +156,10 @@ const activityKey = (label: string): string =>
     .toLocaleLowerCase('fr-FR');
 
 /**
- * The chips the day sheet offers: the six built-ins in table order, then the
- * user's own in the order they were added.
+ * The chips the day sheet offers: the six built-ins and the user's own,
+ * alphabetically by their displayed label — so a custom activity takes its
+ * place among the built-ins rather than always trailing them, and the list
+ * stays scannable as it grows.
  *
  * Deduplicated on what each choice *reads as* rather than on what it stores, so
  * a user who types "Trotting" gets the built-in `trotting` back instead of a
@@ -174,7 +176,9 @@ export const activityChoices = (custom: string[]): WorkActivity[] => {
     choices.push(label);
   }
 
-  return choices;
+  return choices.sort((a, b) =>
+    formatWorkActivity(a).localeCompare(formatWorkActivity(b), 'fr-FR'),
+  );
 };
 
 /**
