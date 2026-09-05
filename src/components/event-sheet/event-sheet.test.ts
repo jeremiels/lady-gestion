@@ -1,7 +1,8 @@
 import { html } from 'lit';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../../data/db.ts';
-import { makeHorse, resetDb } from '../../data/__tests__/factories.ts';
+import { HORSE_ID, makeHorse, resetDb } from '../../data/__tests__/factories.ts';
+import * as activitiesRepo from '../../data/repositories/activities.repo.ts';
 import { fixture, settled } from '../__tests__/fixture.ts';
 import type { AppInput } from '../app-input/app-input.ts';
 import type { AppSelect } from '../app-select/app-select.ts';
@@ -239,6 +240,16 @@ describe('event-sheet — the travail layout', () => {
     await submit(el);
 
     expect(await savedEvent()).toMatchObject({ type: 'travail', activity: 'longe' });
+  });
+
+  it('does not offer a custom activity from the day sheet’s catalogue', async () => {
+    await activitiesRepo.add({ horseId: HORSE_ID, label: 'Carrière' });
+
+    const el = await openSheet();
+    await pick(el, 'type', 'travail');
+
+    const select = fieldNamed<AppSelect>(el.renderRoot.querySelector('form')!, 'activity');
+    expect(select.options.map((option) => option.label)).not.toContain('Carrière');
   });
 
   it('drops the activity when the type is changed away from Travail', async () => {

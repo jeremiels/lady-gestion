@@ -5,6 +5,7 @@ import {
   activeHorseQuery,
   activitiesRepo,
   activityChoices,
+  eventsRepo,
   eventsService,
   formatDayShortMonth,
   formatWorkActivity,
@@ -212,6 +213,35 @@ export class ActivitySheet extends BaseElement {
   };
 
   /**
+   * Clears the day back to no activity — the other half of the chip gesture.
+   *
+   * A soft delete of the whole row, the same one `EventDetailView`'s own
+   * delete does, not a second write path: the day sheet's model is one row
+   * per day, so retracting the activity retracts the session.
+   */
+  #remove = async () => {
+    if (!this.existing) return;
+
+    try {
+      await eventsRepo.remove(this.existing.id);
+    } catch (error: unknown) {
+      this.error = error instanceof Error ? error.message : 'Suppression impossible.';
+      return;
+    }
+
+    this.#close();
+  };
+
+  /**
+   * A tap on a chip: applies that activity, unless it is already the day's —
+   * in which case the same tap retracts it. The gesture that lets a chip
+   * double as an undo, so clearing a day needs nothing beyond the chip
+   * already on screen.
+   */
+  #onChipClick = (activity: WorkActivity) => () =>
+    void (activity === (this.existing?.activity ?? null) ? this.#remove() : this.#apply(activity));
+
+  /**
    * Adds a typed activity to the catalogue, then applies it to the day.
    *
    * A label that already reads like a chip on screen selects that chip instead
@@ -252,7 +282,7 @@ export class ActivitySheet extends BaseElement {
                 <app-chip
                   label=${formatWorkActivity(activity)}
                   ?selected=${activity === selected}
-                  @click=${() => void this.#apply(activity)}
+                  @click=${this.#onChipClick(activity)}
                 ></app-chip>
               </li>
             `,

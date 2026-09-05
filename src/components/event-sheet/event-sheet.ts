@@ -7,9 +7,7 @@ import {
   type FieldParser,
   LiveQuery,
   type WorkActivity,
-  activeHorseQuery,
-  activitiesRepo,
-  activityChoices,
+  WORK_ACTIVITIES,
   bool,
   cents,
   eventsService,
@@ -24,7 +22,7 @@ import {
   text,
   todayISO,
 } from '../../data/index.ts';
-import type { ActivityItem, HorseEvent } from '../../data/types.ts';
+import type { HorseEvent } from '../../data/types.ts';
 import {
   EVENT_TYPES,
   EVENT_TYPES_BY_LABEL,
@@ -146,22 +144,20 @@ export class EventSheet extends BaseElement {
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
-  #activities = activeHorseQuery<ActivityItem[]>(
-    this,
-    (horseId) => activitiesRepo.listByHorse(horseId),
-    [],
-  );
-
   /**
-   * The activities the select may offer — built-ins, the horse's own, and the
-   * one on the record being edited.
+   * The activities the select may offer — the built-ins, and the one on the
+   * record being edited.
    *
-   * That last case is the one that bites: an activity whose catalogue row has
-   * since been retired is still on the event, and without it here the select
-   * would open blank on a session that plainly has one, then refuse to save.
+   * Deliberately not the horse's custom catalogue: that list belongs to the
+   * week strip's quick day sheet (see `activities.repo.ts`), and a label typed
+   * there should not start appearing as a full-form choice. The fallback below
+   * is the one case that still bites: an activity whose catalogue row has
+   * since been retired, or was never in the catalogue at all, is still on the
+   * event, and without it here the select would open blank on a session that
+   * plainly has one, then refuse to save.
    */
   get #activityChoices(): WorkActivity[] {
-    const choices = activityChoices((this.#activities.value ?? []).map((item) => item.label));
+    const choices: WorkActivity[] = WORK_ACTIVITIES;
     const current = this.event?.activity ?? null;
     return current !== null && !choices.includes(current) ? [...choices, current] : choices;
   }

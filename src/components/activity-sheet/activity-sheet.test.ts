@@ -113,6 +113,27 @@ describe('activity-sheet', () => {
     expect(await sessionOn(DATE)).toMatchObject({ activity: 'tap' });
   });
 
+  it('retracts the day’s activity on a second tap of the same chip', async () => {
+    await db.events.add(makeEvent({ id: 'work', type: 'travail', date: DATE, activity: 'longe' }));
+    const el = await ready(await mount({ existing: (await sessionOn(DATE))! }));
+
+    chipNamed(el, 'Longe').click();
+    await waitFor(el, () => el.open === false);
+
+    expect(await sessionOn(DATE)).toBeNull();
+    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+  });
+
+  it('applies rather than retracts when a different chip is tapped', async () => {
+    await db.events.add(makeEvent({ id: 'work', type: 'travail', date: DATE, activity: 'longe' }));
+    const el = await ready(await mount({ existing: (await sessionOn(DATE))! }));
+
+    chipNamed(el, 'TAP').click();
+    await waitFor(el, () => el.open === false);
+
+    expect(await sessionOn(DATE)).toMatchObject({ activity: 'tap' });
+  });
+
   it('adds a typed activity to the catalogue and applies it at once', async () => {
     const el = await ready(await mount());
 
