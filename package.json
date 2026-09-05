@@ -1,11 +1,11 @@
 {
   "name": "lady-gestion",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run typecheck && npm run lint && vite build",
+    "build": "npm run typecheck && npm run lint && npm run fmt && vite build",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -13,26 +13,29 @@
     "test:components": "vitest run --project components",
     "preview": "vite preview",
     "icons": "node scripts/generate-icons.mjs",
-    "lint": "oxlint"
-  },
-  "engines": {
-    "node": ">=20.12"
+    "lint": "oxlint",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check"
   },
   "dependencies": {
     "d3-shape": "^3.2.0",
-    "dexie": "^4.4.4",
+    "dexie": "^4.4.5",
     "lit": "^3.3.3"
   },
   "devDependencies": {
-    "@types/d3-shape": "^3.1.8",
-    "@types/node": "^26.2.0",
-    "@vitest/browser": "^4.1.10",
-    "@vitest/browser-playwright": "^4.1.10",
+    "@types/d3-shape": "^3.2.0",
+    "@types/node": "^26.4.1",
+    "@vitest/browser": "^5.0.0",
+    "@vitest/browser-playwright": "^5.0.0",
     "fake-indexeddb": "^6.2.5",
-    "oxlint": "^1.78.0",
-    "playwright": "^1.62.1",
-    "typescript": "~6.0.2",
-    "vite": "^8.2.0",
-    "vitest": "^4.1.10"
+    "oxfmt": "0.66.0",
+    "oxlint": "^1.81.0",
+    "playwright": "^1.63.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.12"
   }
 }
