@@ -446,6 +446,58 @@ nothing, with a zero-size bounding box and no error anywhere. `app-donut-chart`
 hit exactly this. Only markup written inline inside the same `html` template as
 its `<svg>` is safe.
 
+## Backend migration readiness
+
+Persistence is local-only today: Dexie/IndexedDB, offline-first, no network
+calls anywhere in the app. The data layer was nonetheless built so that
+swapping it for a hosted backend later is a bounded change, not a rewrite.
+What's already in place:
+
+- **The repository boundary is real and enforced.** `dexie` is imported only
+  inside `src/data/`; views and components go through the `src/data/index.ts`
+  barrel and only ever see plain domain objects. Nothing outside `src/data/`
+  references `db`, `dexie`, or `Table`.
+- **IDs are UUID v4** (`ids.ts`), not Dexie auto-increment integers, so
+  foreign keys (`horseId`, `eventId`, …) survive a move to server-assigned
+  records.
+- **`BaseRecord` already carries `ownerId`, `createdAt`/`updatedAt`, and a
+  soft-delete `deletedAt`** (`types.ts`) — put there so adopting a real
+  account id later is a data update, not a schema migration.
+- **The backup format doubles as a future sync payload.** `BackupSnapshot`
+  (`backup/snapshot.ts`) is versioned JSON that merges idempotently,
+  last-write-wins by `updatedAt`. A comment there says it's meant to become
+  the payload pushed to Google Drive's hidden appDataFolder. `meta`'s
+  `googleAccount`/`driveFolderId` and `StoredDocument`'s
+  `driveFileId`/`driveSyncedAt` are unused placeholders for that path.
+- **Reads and writes already flow through a narrow set of seams**: reads via
+  `LiveQuery`/`activeHorseQuery` (`live.ts`, `active-horse.ts`), multi-table
+  writes via `*.service.ts` rather than raw repo calls. Presentational leaf
+  components (`horse-card`, `event-card`, `day-card`, `budget-card`) never
+  touch data at all — it arrives as properties.
+
+Watch these before an actual swap — none are bugs at IndexedDB latency, all
+would surface under real network latency:
+
+- **`LiveQuery` leans on Dexie's automatic table-dependency tracking**
+  (`live.ts`) — a query re-runs only when a table it read was written. A
+  REST-polling or WebSocket backend has no such thing for free and would need
+  to reimplement it. The swap is at least contained: no consumer calls
+  `liveQuery` directly, only `LiveQuery`.
+- **Loading almost always collapses into empty.** Most consumers do
+  `.value ?? []`/`?? {}` instead of branching on `LiveQuery.loading` (only
+  `EventDetailView` and `HorseView` do). Fine when reads are near-instant;
+  would flash false-empty state otherwise.
+- **`LiveQuery.error` is never read** past the initial `initData()` failure
+  in `app-root.ts`. A read that fails after startup has no UI path today.
+- **No pending/disabled state on writes.** `event-sheet.ts` and
+  `activity-sheet.ts` await their service call without disabling the submit
+  control, so double-submit risk grows with latency.
+- **`ProfileView`'s `metaRepo.setNotificationsEnabled` call is `void`**
+  fire-and-forget and ignores rejection.
+- **`activity-sheet.ts`'s add-activity + apply-to-day is two independent
+  writes, not one transaction** (documented at the call site) — would need
+  real atomicity or compensation against a networked backend.
+
 ## Component conventions
 
 - Extend `BaseElement` (`src/commons/base-element.ts`), and declare
