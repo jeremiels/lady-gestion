@@ -7,7 +7,9 @@ import {
   type FieldParser,
   LiveQuery,
   type WorkActivity,
-  WORK_ACTIVITIES,
+  activeHorseQuery,
+  activitiesRepo,
+  activityChoices,
   bool,
   cents,
   eventsService,
@@ -17,12 +19,13 @@ import {
   fromCents,
   horsesRepo,
   isoDate,
+  matchActivity,
   oneOf,
   readForm,
   text,
   todayISO,
 } from "../../data/index.ts";
-import type { HorseEvent } from "../../data/types.ts";
+import type { ActivityItem, HorseEvent } from "../../data/types.ts";
 import {
   EVENT_TYPES,
   EVENT_TYPES_BY_LABEL,
@@ -32,9 +35,11 @@ import {
   eventType,
   type EventTypeKey,
 } from "../../types/event.types.ts";
+import type { AppComboboxOption } from "../app-combobox/app-combobox.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
+import "../app-combobox/app-combobox.ts";
 import "../app-input/app-input.ts";
 import "../app-select/app-select.ts";
 import "../app-checkbox/app-checkbox.ts";
@@ -52,7 +57,7 @@ const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
 );
 
 /**
- * The Activité parser, required only on the layout that draws the field.
+ * The activity parser, required only on the layout that draws the field.
  *
  * A function rather than two schema entries, or a check after `readForm`: the
  * "Ce champ est requis." wording belongs to `forms.ts` and copying it here is
@@ -60,17 +65,30 @@ const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
  * looser of the two overloads so the schema's shape — and with it
  * `EventFieldName` — stays the same whichever layout is showing.
  *
- * It takes the activities rather than reading a module-scope list, because the
- * list is no longer fixed: the week strip lets the user add their own, and a
- * parser that only accepted the six built-ins would reject the session that
- * opened this sheet. Same array as the select's options, deliberately — two
- * lists here would mean an option the form refuses to submit.
+ * Plain `text`, not `oneOf`: the combobox that draws this field lets the user
+ * type an activity that is in neither the built-ins nor the horse's
+ * catalogue, and a closed-list parser would refuse to submit the very session
+ * that combobox exists to let them name.
  */
-const activityParser = (
-  choices: readonly WorkActivity[],
-  required: boolean,
-): FieldParser<WorkActivity | null> =>
-  required ? oneOf(choices, { required: true }) : oneOf(choices);
+const activityParser = (required: boolean): FieldParser<WorkActivity | null> =>
+  required ? text({ required: true }) : text();
+
+/**
+ * The Nom parser — required and free text on every layout but `work`, whose
+ * Nom field is the activity combobox above rather than a text field of its
+ * own (`#renderTitle` / `#renderActivity`). There it is absent from the DOM
+ * entirely, so the parser must not require it; `eventFields` in
+ * `events.service.ts` derives the record's title from the activity instead of
+ * reading one back from this field.
+ *
+ * Same shape as `activityParser`, and the same reason for it: the two swap
+ * which one is required depending on the layout, so both need a declared
+ * return type loose enough to cover either branch.
+ */
+const titleParser = (required: boolean): FieldParser<string | null> =>
+  required
+    ? text({ required: true, maxLength: 120 })
+    : text({ maxLength: 120 });
 
 /**
  * Every field the form can submit, and how each is parsed.
@@ -93,12 +111,12 @@ const activityParser = (
  */
 const EVENT_SCHEMA = {
   type: oneOf(EVENT_TYPES, { required: true }),
-  title: text({ required: true, maxLength: 120 }),
+  title: titleParser(true),
   date: isoDate({ required: true }),
   amountCents: cents(),
   notes: text({ maxLength: 500 }),
   counterparty: text({ maxLength: 120 }),
-  activity: activityParser([], false),
+  activity: activityParser(false),
   planFollowUp: bool(),
   followUpInterval: text(),
 };
@@ -147,19 +165,30 @@ export class EventSheet extends BaseElement {
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
   /**
-   * The activities the select may offer — the built-ins, and the one on the
-   * record being edited.
+   * The horse's own activities — same catalogue the week strip's quick day
+   * sheet reads and writes (`activity-sheet.ts`), so a label typed in either
+   * place shows up as a suggestion in the other.
+   */
+  #customActivities = activeHorseQuery<ActivityItem[]>(
+    this,
+    (horseId) => activitiesRepo.listByHorse(horseId),
+    [],
+  );
+
+  /**
+   * The activities the combobox suggests — the six built-ins, the horse's
+   * catalogue, and the one on the record being edited.
    *
-   * Deliberately not the horse's custom catalogue: that list belongs to the
-   * week strip's quick day sheet (see `activities.repo.ts`), and a label typed
-   * there should not start appearing as a full-form choice. The fallback below
-   * is the one case that still bites: an activity whose catalogue row has
-   * since been retired, or was never in the catalogue at all, is still on the
-   * event, and without it here the select would open blank on a session that
-   * plainly has one, then refuse to save.
+   * The last is the one case that still bites: an activity whose catalogue
+   * row has since been retired, or was never in the catalogue at all, is
+   * still on the event, and without it here the field would open blank on a
+   * session that plainly has one.
    */
   get #activityChoices(): WorkActivity[] {
-    const choices: WorkActivity[] = WORK_ACTIVITIES;
+    const custom = (this.#customActivities.value ?? []).map(
+      (item) => item.label,
+    );
+    const choices = activityChoices(custom);
     const current = this.event?.activity ?? null;
     return current !== null && !choices.includes(current)
       ? [...choices, current]
@@ -181,6 +210,7 @@ export class EventSheet extends BaseElement {
       --app-input-background: var(--color-brown-light-bg);
       --app-select-background: var(--color-brown-light-bg);
       --app-select-border-color: transparent;
+      --app-combobox-background: var(--color-brown-light-bg);
     }
 
     /* Height, deliberately, and it is the one place in this codebase that
@@ -330,8 +360,9 @@ export class EventSheet extends BaseElement {
    * The reading is variant-independent — `EVENT_SCHEMA` covers every field any
    * layout can render, and one the current layout omits arrives absent, which
    * each parser already reads as blank. `spec` is consulted for one thing here,
-   * and only because it cannot be deferred: Activité is required on the layout
-   * that draws it, so the parser has to be chosen before the type is read back.
+   * and only because it cannot be deferred: on the `work` layout the activity
+   * is required and Nom is not — the one layout where that pair is reversed —
+   * so both parsers have to be chosen before the type is read back.
    *
    * Everything the variant decides on the way *out* — which column a
    * counterparty lands in, whether a follow-up or an activity may be written at
@@ -350,9 +381,12 @@ export class EventSheet extends BaseElement {
     }
 
     const spec = this.#spec;
+    const isWork = spec?.activity ?? false;
+    const priorChoices = this.#activityChoices;
     const result = readForm(submitEvent.target as HTMLFormElement, {
       ...EVENT_SCHEMA,
-      activity: activityParser(this.#activityChoices, spec?.activity ?? false),
+      title: titleParser(!isWork),
+      activity: activityParser(isWork),
     });
 
     if (!result.ok) {
@@ -367,6 +401,15 @@ export class EventSheet extends BaseElement {
         existing: this.event,
         input: result.value,
       });
+
+      // A freshly typed activity — one `priorChoices` didn't already know —
+      // joins the horse's catalogue, so it shows up as a suggestion next time
+      // here and as a chip on the week strip, exactly as if it had been added
+      // from there instead.
+      const activity = result.value.activity;
+      if (activity !== null && !matchActivity(activity, priorChoices)) {
+        await activitiesRepo.add({ horseId: horse.id, label: activity });
+      }
     } catch (error: unknown) {
       this.saveError =
         error instanceof Error ? error.message : "Enregistrement impossible.";
@@ -455,16 +498,7 @@ export class EventSheet extends BaseElement {
             @select-change=${this.#onTypeChange}
           ></app-select>
 
-          ${this.#spec?.activity ? this.#renderActivity() : nothing}
-
-          <app-input
-            flat
-            label="Nom"
-            name="title"
-            .value=${event?.title ?? ""}
-            .error=${this.errors.title ?? ""}
-            required
-          ></app-input>
+          ${this.#spec?.activity ? this.#renderActivity() : this.#renderTitle()}
 
           <app-input
             flat
@@ -481,19 +515,7 @@ export class EventSheet extends BaseElement {
               ? this.#renderCounterparty(counterparty)
               : nothing
           }
-
-          <app-input
-            flat
-            label="Budget"
-            name="amountCents"
-            type="text"
-            inputmode="decimal"
-            pattern="[0-9]+([.,][0-9]{1,2})?"
-            suffix="€"
-            .value=${event?.amountCents == null ? "" : String(fromCents(event.amountCents))}
-            .error=${this.errors.amountCents ?? ""}
-          ></app-input>
-
+          ${this.#spec?.amount !== false ? this.#renderBudget() : nothing}
           ${
             counterparty?.position === "after-amount"
               ? this.#renderCounterparty(counterparty)
@@ -544,12 +566,57 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-   * What was done in the session. Its own control rather than a relabelled
-   * shared one — unlike the practitioner/merchant field, no other layout has
-   * anything to relabel it to.
+   * The record's display title — its own free-text control on every layout
+   * but `work`, whose Nom is `#renderActivity` instead.
+   */
+  #renderTitle() {
+    return html`
+      <app-input
+        flat
+        label="Nom"
+        name="title"
+        .value=${this.event?.title ?? ""}
+        .error=${this.errors.title ?? ""}
+        required
+      ></app-input>
+    `;
+  }
+
+  /**
+   * Budget. Every layout but `work` — a schooling session has no cost of its
+   * own, and the field it would otherwise occupy the row after is the Nom
+   * combobox instead.
+   */
+  #renderBudget() {
+    const event = this.event;
+    return html`
+      <app-input
+        flat
+        label="Budget"
+        name="amountCents"
+        type="text"
+        inputmode="decimal"
+        pattern="[0-9]+([.,][0-9]{1,2})?"
+        suffix="€"
+        .value=${event?.amountCents == null ? "" : String(fromCents(event.amountCents))}
+        .error=${this.errors.amountCents ?? ""}
+      ></app-input>
+    `;
+  }
+
+  /**
+   * `work`'s Nom field — what was done in the session, which doubles as the
+   * record's title (`eventFields` in `events.service.ts` derives one from the
+   * other). Rendered in the same template slot `#renderTitle` occupies on
+   * every other layout, not beside it: a travail session has one name, not
+   * two fields that both claim to hold it.
+   *
+   * A combobox rather than `app-select`: the six built-ins and the horse's
+   * catalogue are suggestions, not a closed list, so typing one the horse has
+   * never done before has to work exactly like picking an existing one does.
    */
   #renderActivity() {
-    const options: AppSelectOption[] = this.#activityChoices.map(
+    const options: AppComboboxOption[] = this.#activityChoices.map(
       (activity) => ({
         value: activity,
         label: formatWorkActivity(activity),
@@ -557,15 +624,16 @@ export class EventSheet extends BaseElement {
     );
 
     return html`
-      <app-select
-        label="Activité"
+      <app-combobox
+        flat
+        label="Nom"
         name="activity"
-        placeholder="Choisir une activité"
+        placeholder="Choisir ou ajouter une activité"
         .options=${options}
         .value=${this.event?.activity ?? ""}
         .error=${this.errors.activity ?? ""}
         required
-      ></app-select>
+      ></app-combobox>
     `;
   }
 

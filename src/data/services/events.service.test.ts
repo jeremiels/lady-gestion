@@ -125,6 +125,71 @@ describe("activity", () => {
   });
 });
 
+describe("travail title", () => {
+  // The sheet's Nom field on this layout is the Activité combobox
+  // (`#renderActivity` in `event-sheet.ts`), not a text field of its own, so
+  // whatever `title` the form happened to submit must not reach the record —
+  // only what the combobox held should.
+
+  it("mirrors a built-in activity's label, not the submitted title", async () => {
+    const event = await create({
+      type: "travail",
+      activity: "longe",
+      title: "peu importe",
+    });
+
+    expect(event.title).toBe("Longe");
+  });
+
+  it("mirrors a custom activity verbatim", async () => {
+    const event = await create({
+      type: "travail",
+      activity: "Carrière",
+      title: "peu importe",
+    });
+
+    expect(event.title).toBe("Carrière");
+  });
+
+  it("leaves the submitted title alone on every other layout", async () => {
+    const event = await create({ type: "veto", title: "Visite annuelle" });
+
+    expect(event.title).toBe("Visite annuelle");
+  });
+});
+
+describe("amount", () => {
+  it("drops it on the work layout, which has no Budget field", async () => {
+    const event = await create({
+      type: "travail",
+      activity: "longe",
+      amountCents: 4500,
+    });
+
+    expect(event.amountCents).toBeNull();
+  });
+
+  it("keeps it on every other layout", async () => {
+    const event = await create({ type: "veto", amountCents: 4500 });
+
+    expect(event.amountCents).toBe(4500);
+  });
+
+  it("clears a budget entered before a travail event was retyped from another type", async () => {
+    // Same reasoning as the counterparty and activity columns above: an edit
+    // must not carry over a value the current layout has nowhere to show.
+    const purchase = await create({ type: "achat", amountCents: 4500 });
+
+    const edited = await saveEvent({
+      horseId: HORSE_ID,
+      existing: purchase,
+      input: input({ type: "travail", activity: "longe", amountCents: 4500 }),
+    });
+
+    expect(edited?.amountCents).toBeNull();
+  });
+});
+
 describe("status", () => {
   it("is planned for a future date and done for today", async () => {
     const future = await create({ date: addDays(todayISO(), 1) });

@@ -8,6 +8,7 @@ import {
 } from "../../data/__tests__/factories.ts";
 import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
 import { fixture, settled } from "../__tests__/fixture.ts";
+import type { AppCombobox } from "../app-combobox/app-combobox.ts";
 import type { AppInput } from "../app-input/app-input.ts";
 import type { AppSelect } from "../app-select/app-select.ts";
 import "./event-sheet.ts";
@@ -86,6 +87,28 @@ const fill = async (el: EventSheet, name: string, value: string) => {
 };
 
 /**
+ * Types a suggestion's label into the Nom combobox and leaves the field, the
+ * way a user picks one without reaching for the mouse. Blurring is what
+ * resolves the typed label back to the option's stored value — see
+ * `AppCombobox#commit` — so a built-in's French label ends up submitting its
+ * key, exactly as clicking the suggestion would.
+ */
+const pickActivity = async (el: EventSheet, label: string) => {
+  const field = fieldNamed<AppCombobox>(
+    el.renderRoot.querySelector("form")!,
+    "activity",
+  );
+  const input = field.renderRoot.querySelector("input")!;
+  input.value = label;
+  input.dispatchEvent(
+    new InputEvent("input", { bubbles: true, composed: true }),
+  );
+  await settled(field);
+  input.dispatchEvent(new Event("blur"));
+  await settled(field);
+};
+
+/**
  * The saved row, once the repository write has landed — `fixture`'s `waitFor`
  * takes a synchronous predicate and this condition has to await the database.
  */
@@ -98,7 +121,7 @@ const savedEvent = async () => {
 };
 
 /** What the user can actually read under a field, or `''` if nothing is shown. */
-const errorTextOf = (field: AppInput | AppSelect) => {
+const errorTextOf = (field: AppCombobox | AppInput | AppSelect) => {
   const node = field.renderRoot.querySelector('[part="error"]');
   return node?.hasAttribute("hidden") ? "" : (node?.textContent?.trim() ?? "");
 };
@@ -226,78 +249,85 @@ describe("event-sheet submit", () => {
 });
 
 /**
- * The `work` layout — the one whose extra field is required rather than
- * optional, and whose value has to be dropped again on the way out when the
- * user changes their mind about the type.
+ * The `work` layout — the one whose Nom field is a combobox over the
+ * activity rather than free text, whose Budget field is dropped entirely, and
+ * whose activity (and the title derived from it) has to be dropped again on
+ * the way out when the user changes their mind about the type.
  */
 describe("event-sheet — the travail layout", () => {
-  it("shows the activity select for Travail and nothing else’s extra fields", async () => {
+  it("shows the Nom combobox and hides Nom’s text field and Budget for Travail", async () => {
     const el = await openSheet();
     await pick(el, "type", "travail");
 
     const form = el.renderRoot.querySelector("form")!;
-    expect(form.querySelector('[name="activity"]')).not.toBeNull();
+    const activity = fieldNamed<AppCombobox>(form, "activity");
+    expect(activity).not.toBeNull();
+    expect(activity.label).toBe("Nom");
+    expect(form.querySelector('[name="title"]')).toBeNull();
+    expect(form.querySelector('[name="amountCents"]')).toBeNull();
     expect(form.querySelector('[name="counterparty"]')).toBeNull();
     expect(form.querySelector('[name="planFollowUp"]')).toBeNull();
 
-    // And it leaves with the layout: a care event has no activity to record.
+    // And it leaves with the layout: a care event has its own Nom field and a
+    // Budget again, and no more activity to record.
     await pick(el, "type", "veto");
-    expect(
-      el.renderRoot.querySelector("form")!.querySelector('[name="activity"]'),
-    ).toBeNull();
+    const restored = el.renderRoot.querySelector("form")!;
+    expect(restored.querySelector('[name="activity"]')).toBeNull();
+    expect(restored.querySelector('[name="title"]')).not.toBeNull();
+    expect(restored.querySelector('[name="amountCents"]')).not.toBeNull();
   });
 
-  it("refuses to save a Travail with no activity picked", async () => {
+  it("refuses to save a Travail with no name picked", async () => {
     const el = await openSheet();
     await pick(el, "type", "travail");
-    await fill(el, "title", "Séance du matin");
 
     const form = await submit(el);
 
     // The message comes from `forms.ts`, not from a copy in the sheet — the
     // parser is simply the required overload on this layout.
-    expect(errorTextOf(fieldNamed<AppSelect>(form, "activity"))).not.toBe("");
+    expect(errorTextOf(fieldNamed<AppCombobox>(form, "activity"))).not.toBe("");
     expect(await db.events.count()).toBe(0);
   });
 
-  it("stores the activity key, not its label", async () => {
+  it("stores the activity key and derives the record’s Nom from its label", async () => {
     const el = await openSheet();
     await pick(el, "type", "travail");
-    await fill(el, "title", "Séance du matin");
-    await pick(el, "activity", "longe");
+    await pickActivity(el, "Longe");
 
     await submit(el);
 
     expect(await savedEvent()).toMatchObject({
       type: "travail",
       activity: "longe",
+      title: "Longe",
     });
   });
 
-  it("does not offer a custom activity from the day sheet’s catalogue", async () => {
+  it("offers a custom activity from the day sheet’s catalogue alongside the built-ins", async () => {
     await activitiesRepo.add({ horseId: HORSE_ID, label: "Carrière" });
 
     const el = await openSheet();
     await pick(el, "type", "travail");
 
-    const select = fieldNamed<AppSelect>(
+    const combobox = fieldNamed<AppCombobox>(
       el.renderRoot.querySelector("form")!,
       "activity",
     );
-    expect(select.options.map((option) => option.label)).not.toContain(
+    expect(combobox.options.map((option) => option.label)).toContain(
       "Carrière",
     );
   });
 
-  it("drops the activity when the type is changed away from Travail", async () => {
+  it("drops the activity and its derived title when the type is changed away from Travail", async () => {
     const el = await openSheet();
     await pick(el, "type", "travail");
-    await fill(el, "title", "Séance du matin");
-    await pick(el, "activity", "longe");
+    await pickActivity(el, "Longe");
 
     // Changing the type takes the field off screen, but a value the layout no
-    // longer shows must not reach the record either.
+    // longer shows must not reach the record either — and it brings back the
+    // Nom text field, which a create now has to fill in from scratch.
     await pick(el, "type", "cours");
+    await fill(el, "title", "Séance du matin");
 
     await submit(el);
 

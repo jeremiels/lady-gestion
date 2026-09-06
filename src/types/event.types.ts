@@ -110,14 +110,22 @@ export type EventFormSpec = {
   /** Whether this layout offers the repeat-appointment checkbox. */
   followUp: boolean;
   /**
-   * Whether this layout asks which kind of work was done — the "Activité"
-   * select, stored in `HorseEvent.activity`.
+   * Whether this layout asks which kind of work was done — the "Nom"
+   * combobox on the `work` layout, stored in `HorseEvent.activity`.
    *
    * A flag rather than a descriptor like `counterparty`: the label and the
    * column never vary, so there is nothing for a table to say that the column's
    * own name doesn't.
    */
   activity: boolean;
+  /**
+   * Whether this layout offers the "Budget" field, stored in
+   * `HorseEvent.amountCents`.
+   *
+   * `work` is the one layout without it — a schooling session has no cost of
+   * its own to record.
+   */
+  amount: boolean;
 };
 
 /**
@@ -138,21 +146,25 @@ export const EVENT_FORM_SPEC: Record<EventFormVariant, EventFormSpec> = {
     },
     followUp: true,
     activity: false,
+    amount: true,
   },
   plain: {
     counterparty: null,
     followUp: false,
     activity: false,
+    amount: true,
   },
   purchase: {
     counterparty: { label: "Site", column: "vendor", position: "after-amount" },
     followUp: false,
     activity: false,
+    amount: true,
   },
   work: {
     counterparty: null,
     followUp: false,
     activity: true,
+    amount: false,
   },
 };
 

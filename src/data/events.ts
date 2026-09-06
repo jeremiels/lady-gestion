@@ -91,8 +91,8 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
 ];
 
 /**
- * What was done in a schooling session — the "Activité" field on a `travail`
- * event.
+ * What was done in a schooling session — the entry form's Nom field on a
+ * `travail` event (`#renderActivity` in `event-sheet.ts`).
  *
  * Six built-in keys, short and stable in storage with French labels on screen:
  * the same split `EventTypeKey` makes, where the wording is presentation and may

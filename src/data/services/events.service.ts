@@ -58,7 +58,12 @@ import {
  */
 export type EventInput = {
   type: EventTypeKey;
-  title: string;
+  /**
+   * `null` on the `work` layout, whose Nom field is the Activité combobox
+   * (`activity` below) rather than a text field of its own — `eventFields`
+   * derives the record's title from that instead of reading one back here.
+   */
+  title: string | null;
   date: IsoDate;
   amountCents: number | null;
   notes: string | null;
@@ -226,7 +231,15 @@ const eventFields = (
 
   return {
     type: input.type,
-    title: input.title,
+    // On the `work` layout the Nom field is the Activité combobox
+    // (`#renderActivity` in `event-sheet.ts`), not a text field of its own, so
+    // the title comes from what it holds — formatted the same way
+    // `dayActivityFields` derives one from a week-strip tap, so a session
+    // reads the same whichever entry point wrote it.
+    title:
+      spec.activity && input.activity !== null
+        ? formatWorkActivity(input.activity)
+        : (input.title ?? ""),
     date: input.date,
     // No layout has a time control, so a new event is all-day. An edit keeps
     // whatever time the record already had rather than discarding it through a
@@ -239,7 +252,10 @@ const eventFields = (
       existing?.status === "cancelled"
         ? existing.status
         : statusForDate(input.date),
-    amountCents: input.amountCents,
+    // Same rule as `activity` below: `work` is the one layout with no Budget
+    // field, so an edit must not carry over a value entered under a
+    // different type — or, now, one saved before `work` stopped asking.
+    amountCents: spec.amount ? input.amountCents : null,
     currency: existing?.currency ?? DEFAULT_CURRENCY,
     ...columns,
     location: existing?.location ?? null,

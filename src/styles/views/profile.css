@@ -102,13 +102,13 @@
 
   .profile-view__actions {
     display: flex;
+    flex-direction: column;
     flex-wrap: wrap;
     gap: var(--spacing-8);
   }
 
   .profile-view__button {
     appearance: none;
-    flex: 1 1 10rem;
     background: var(--color-brown-dark);
     color: var(--color-white);
     border: none;

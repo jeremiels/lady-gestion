@@ -116,8 +116,8 @@ export type HorseEvent = BaseRecord & {
    */
   followUpInterval: FollowUpInterval | null;
   /**
-   * What was done in a schooling session — the "Activité" field on a `travail`
-   * event.
+   * What was done in a schooling session — the entry form's Nom field on a
+   * `travail` event.
    *
    * Its own column rather than folded into `title` or `notes`: it is the field
    * that says what the session *was*, which is what lets it be filtered and
