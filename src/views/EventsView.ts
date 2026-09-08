@@ -5,20 +5,19 @@ import { LightElement } from "../commons/base-element.ts";
 import { ViewState } from "../commons/controllers/view-state.ts";
 import {
   activeHorseQuery,
+  byLabel,
   eventsRepo,
+  eventTypesRepo,
+  findEventType,
   formatDayLong,
   formatMonthYear,
+  LiveQuery,
   occurrencesByDate,
   toCalendarEvent,
   todayISO,
   type IsoDate,
 } from "../data/index.ts";
-import type { HorseEvent } from "../data/types.ts";
-import {
-  EVENT_TYPES_BY_LABEL,
-  eventType,
-  type EventTypeKey,
-} from "../types/event.types.ts";
+import type { EventTypeDef, HorseEvent } from "../data/types.ts";
 import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
 
 import "../components/app-calendar/app-calendar.ts";
@@ -40,7 +39,7 @@ type EventsUiState = {
   selected: IsoDate;
   query: string;
   /** `null` is the "Tous" chip. */
-  typeFilter: EventTypeKey | null;
+  typeFilter: string | null;
 };
 
 const VIEW_MODES: SegmentedOption[] = [
@@ -83,6 +82,10 @@ export class EventsView extends LightElement {
     [],
   );
 
+  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
+    eventTypesRepo.listAll(),
+  );
+
   #onModeChange = (event: CustomEvent<{ value: string }>) => {
     this.#ui.patch({ mode: event.detail.value as ViewMode });
   };
@@ -95,12 +98,12 @@ export class EventsView extends LightElement {
     this.#ui.patch({ query: (event.target as HTMLInputElement).value });
   };
 
-  #onFilter = (type: EventTypeKey | null) => () => {
+  #onFilter = (type: string | null) => () => {
     this.#ui.patch({ typeFilter: type });
   };
 
   /** Cancelled events are hidden here for the same reason the calendar hides them. */
-  #visibleEvents(): HorseEvent[] {
+  #visibleEvents(types: EventTypeDef[]): HorseEvent[] {
     const { query, typeFilter } = this.#ui.value;
     const needle = normalize(query.trim());
 
@@ -112,15 +115,19 @@ export class EventsView extends LightElement {
       const haystack = [
         event.title,
         event.notes ?? "",
-        event.providerName ?? "",
+        typeof event.customFields.counterparty === "string"
+          ? event.customFields.counterparty
+          : "",
         event.location ?? "",
-        eventType.label(event.type),
+        findEventType(types, event.type)?.label ?? "",
       ].join(" ");
       return normalize(haystack).includes(needle);
     });
   }
 
   render() {
+    const types = this.#eventTypes.value ?? [];
+
     return html`
       <section class="events-view">
         <header class="events-view__header">
@@ -139,12 +146,16 @@ export class EventsView extends LightElement {
         <!-- Tested for the non-default branch, so a mode restored from an older
              build's history entry falls back to the calendar rather than to a
              list nothing asked for. -->
-        ${this.#ui.value.mode === "list" ? this.#renderList() : this.#renderCalendar()}
+        ${
+          this.#ui.value.mode === "list"
+            ? this.#renderList(types)
+            : this.#renderCalendar(types)
+        }
       </section>
     `;
   }
 
-  #renderCalendar() {
+  #renderCalendar(types: EventTypeDef[]) {
     const { selected } = this.#ui.value;
     const events = this.#events.value ?? [];
     const calendarEvents = events.map(toCalendarEvent);
@@ -172,15 +183,15 @@ export class EventsView extends LightElement {
             ? html`<p class="events-view__empty">
                 Aucun évènement ce jour-là.
               </p>`
-            : this.#renderCards(dayEvents)
+            : this.#renderCards(dayEvents, types)
         }
       </section>
     `;
   }
 
-  #renderList() {
+  #renderList(types: EventTypeDef[]) {
     const { query, typeFilter } = this.#ui.value;
-    const events = this.#visibleEvents();
+    const events = this.#visibleEvents(types);
 
     // `listByHorse` already returns newest first, so grouping in order gives
     // months descending and, inside each, days descending.
@@ -214,12 +225,12 @@ export class EventsView extends LightElement {
           ?selected=${typeFilter === null}
           @click=${this.#onFilter(null)}
         ></app-chip>
-        ${EVENT_TYPES_BY_LABEL.map(
+        ${byLabel(types).map(
           (type) => html`
             <app-chip
-              label=${eventType.label(type)}
-              ?selected=${typeFilter === type}
-              @click=${this.#onFilter(type)}
+              label=${type.label}
+              ?selected=${typeFilter === type.key}
+              @click=${this.#onFilter(type.key)}
             ></app-chip>
           `,
         )}
@@ -238,7 +249,7 @@ export class EventsView extends LightElement {
                   <h2 class="events-view__group-title">
                     ${formatMonthYear(`${month}-01`)}
                   </h2>
-                  ${this.#renderCards(group)}
+                  ${this.#renderCards(group, types)}
                 </section>
               `,
             )
@@ -255,7 +266,7 @@ export class EventsView extends LightElement {
    * record and re-renders all of them, rather than dropping the handful that
    * stopped matching. `repeat()` moves the DOM instead.
    */
-  #renderCards(events: HorseEvent[]) {
+  #renderCards(events: HorseEvent[], types: EventTypeDef[]) {
     return html`
       <ul class="events-view__list">
         ${repeat(
@@ -263,7 +274,10 @@ export class EventsView extends LightElement {
           (event) => event.id,
           (event) => html`
             <li>
-              <event-card .event=${event}></event-card>
+              <event-card
+                .event=${event}
+                .type=${findEventType(types, event.type) ?? null}
+              ></event-card>
             </li>
           `,
         )}

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db.ts";
 import { addDays, todayISO } from "../dates.ts";
-import { HORSE_ID, makeEvent, resetDb } from "../__tests__/factories.ts";
+import {
+  BUILT_IN_EVENT_TYPE_ROWS,
+  HORSE_ID,
+  makeEvent,
+  resetDb,
+} from "../__tests__/factories.ts";
 import * as eventsRepo from "./events.repo.ts";
 
 /**
@@ -12,6 +17,10 @@ import * as eventsRepo from "./events.repo.ts";
  */
 
 beforeEach(resetDb);
+
+/** The real 13 built-ins — what `listUpcoming`/`totalSpentByType` filter and
+ * group against. */
+const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
 const seedEvents = (events: Parameters<typeof makeEvent>[0][]) =>
   db.events.bulkAdd(events.map((over) => makeEvent(over)));
@@ -90,7 +99,7 @@ describe("listUpcoming", () => {
       { id: "tomorrow", date: addDays(today, 1) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
 
     expect(events.map((event) => event.id)).toEqual(["today", "tomorrow"]);
   });
@@ -102,7 +111,7 @@ describe("listUpcoming", () => {
       { id: "near", date: addDays(today, 2) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
 
     expect(events.map((event) => event.id)).toEqual(["near", "far"]);
   });
@@ -115,7 +124,7 @@ describe("listUpcoming", () => {
       { id: "cancelled", date: addDays(today, 3), status: "cancelled" },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
 
     expect(events.map((event) => event.id)).toEqual(["planned"]);
   });
@@ -136,7 +145,7 @@ describe("listUpcoming", () => {
       { id: "osteo", date: addDays(today, 9), type: "osteo" },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
 
     expect(events.map((event) => event.id)).toEqual([
       "veto",
@@ -158,7 +167,7 @@ describe("listUpcoming", () => {
       { id: "b", date: addDays(today, 4) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID, 2);
+    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES, 2);
 
     expect(events.map((event) => event.id)).toEqual(["a", "b"]);
   });
@@ -167,25 +176,25 @@ describe("listUpcoming", () => {
 describe("listBudget", () => {
   it("keeps only rows that cost something", async () => {
     await seedEvents([
-      { id: "free", date: "2026-05-01", amountCents: null },
-      { id: "paid", date: "2026-05-02", amountCents: 9000 },
-      { id: "zero", date: "2026-05-03", amountCents: 0 },
+      { id: "free", date: "2026-05-01", customFields: {} },
+      { id: "paid", date: "2026-05-02", customFields: { amountCents: 9000 } },
+      { id: "zero", date: "2026-05-03", customFields: { amountCents: 0 } },
     ]);
 
     const budget = await eventsRepo.listBudget(HORSE_ID);
 
     // A zero-cost row is still an budget: it was recorded deliberately, and
-    // `null` is the value that means "costs nothing".
+    // the field's *absence* is what means "costs nothing".
     expect(budget.map((event) => event.id).sort()).toEqual(["paid", "zero"]);
   });
 
   it("drops cancelled rows — a cancelled visit was never paid for", async () => {
     await seedEvents([
-      { id: "kept", date: "2026-05-01", amountCents: 5000 },
+      { id: "kept", date: "2026-05-01", customFields: { amountCents: 5000 } },
       {
         id: "cancelled",
         date: "2026-05-02",
-        amountCents: 5000,
+        customFields: { amountCents: 5000 },
         status: "cancelled",
       },
     ]);
@@ -199,9 +208,9 @@ describe("listBudget", () => {
 describe("totalSpent", () => {
   it("sums cents as integers", async () => {
     await seedEvents([
-      { id: "a", date: "2026-05-01", amountCents: 9000 },
-      { id: "b", date: "2026-05-02", amountCents: 35000 },
-      { id: "c", date: "2026-05-03", amountCents: 7500 },
+      { id: "a", date: "2026-05-01", customFields: { amountCents: 9000 } },
+      { id: "b", date: "2026-05-02", customFields: { amountCents: 35000 } },
+      { id: "c", date: "2026-05-03", customFields: { amountCents: 7500 } },
     ]);
 
     expect(await eventsRepo.totalSpent(HORSE_ID)).toBe(51500);
@@ -210,8 +219,8 @@ describe("totalSpent", () => {
   it("sums amounts that would drift as floats", async () => {
     // 0.1 + 0.2 in euros; the whole reason amounts are stored in cents.
     await seedEvents([
-      { id: "a", date: "2026-05-01", amountCents: 10 },
-      { id: "b", date: "2026-05-02", amountCents: 20 },
+      { id: "a", date: "2026-05-01", customFields: { amountCents: 10 } },
+      { id: "b", date: "2026-05-02", customFields: { amountCents: 20 } },
     ]);
 
     expect(await eventsRepo.totalSpent(HORSE_ID)).toBe(30);
@@ -219,8 +228,16 @@ describe("totalSpent", () => {
 
   it("honours the date range", async () => {
     await seedEvents([
-      { id: "inside", date: "2026-06-15", amountCents: 1000 },
-      { id: "outside", date: "2026-07-15", amountCents: 9999 },
+      {
+        id: "inside",
+        date: "2026-06-15",
+        customFields: { amountCents: 1000 },
+      },
+      {
+        id: "outside",
+        date: "2026-07-15",
+        customFields: { amountCents: 9999 },
+      },
     ]);
 
     expect(
@@ -236,12 +253,27 @@ describe("totalSpent", () => {
 describe("totalSpentByType", () => {
   it("groups cents by category and omits types with no spend", async () => {
     await seedEvents([
-      { id: "a", date: "2026-05-01", type: "marechal", amountCents: 9000 },
-      { id: "b", date: "2026-05-02", type: "marechal", amountCents: 1000 },
-      { id: "c", date: "2026-05-03", type: "pension", amountCents: 35000 },
+      {
+        id: "a",
+        date: "2026-05-01",
+        type: "marechal",
+        customFields: { amountCents: 9000 },
+      },
+      {
+        id: "b",
+        date: "2026-05-02",
+        type: "marechal",
+        customFields: { amountCents: 1000 },
+      },
+      {
+        id: "c",
+        date: "2026-05-03",
+        type: "pension",
+        customFields: { amountCents: 35000 },
+      },
     ]);
 
-    expect(await eventsRepo.totalSpentByType(HORSE_ID)).toEqual({
+    expect(await eventsRepo.totalSpentByType(HORSE_ID, TYPES)).toEqual({
       marechal: 10000,
       pension: 35000,
     });
@@ -257,15 +289,11 @@ describe("write path", () => {
       date: "2026-09-01",
       time: "09:30",
       status: "planned",
-      amountCents: null,
       currency: "EUR",
-      providerName: null,
-      vendor: null,
       location: null,
       notes: null,
       recurrenceId: null,
-      followUpInterval: null,
-      activity: null,
+      customFields: {},
     });
 
     expect(created.id).toMatch(/^[0-9a-f-]{36}$/);

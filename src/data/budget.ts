@@ -1,7 +1,7 @@
 import { todayISO, type IsoDate } from "./dates.ts";
+import { byOrder } from "./event-types.ts";
 import { formatMonthLong, formatMonthShort, monthOf } from "./seasons.ts";
-import { EVENT_TYPES, type EventTypeKey } from "../types/event.types.ts";
-import type { HorseEvent } from "./types.ts";
+import type { EventTypeDef, HorseEvent } from "./types.ts";
 
 /**
  * The arithmetic behind the budget view.
@@ -24,7 +24,7 @@ export type BudgetGranularity = "month" | "year";
 export type BudgetPeriod = { granularity: BudgetGranularity; key: string };
 
 /** One wedge of the donut: a category and what was spent on it. */
-export type BudgetSlice = { type: EventTypeKey; cents: number };
+export type BudgetSlice = { type: string; cents: number };
 
 const PERIOD_KEY_LENGTH: Record<BudgetGranularity, number> = {
   month: 7,
@@ -47,26 +47,33 @@ export const inPeriod = (
 ): HorseEvent[] => events.filter((event) => event.date.startsWith(period.key));
 
 /**
- * Spend per category, in `EVENT_TYPES` order, categories with nothing spent on
- * them dropped.
+ * Spend per category, in the type catalogue's `order`, categories with
+ * nothing spent on them dropped.
  *
- * The fixed order matters more than it looks: it is what keeps a category — and
+ * That order matters more than it looks: it is what keeps a category — and
  * therefore its colour and its neighbours — in the same place in the ring from
- * one month to the next. Sorting by amount would reshuffle the whole donut every
- * time a single budget was added.
+ * one month to the next. Sorting by amount would reshuffle the whole donut
+ * every time a single budget was added.
+ *
+ * Reads `customFields.amountCents` rather than a fixed `amountCents` column —
+ * schema v6 moved it there, present only for a type whose `fields` carry an
+ * amount at all. A missing or non-numeric entry (the field simply not offered,
+ * or left blank) contributes nothing, the same as a `null` column used to.
  */
-export const sumByType = (events: HorseEvent[]): BudgetSlice[] => {
-  const totals = new Map<EventTypeKey, number>();
+export const sumByType = (
+  events: HorseEvent[],
+  types: EventTypeDef[],
+): BudgetSlice[] => {
+  const totals = new Map<string, number>();
   for (const event of events) {
-    totals.set(
-      event.type,
-      (totals.get(event.type) ?? 0) + (event.amountCents ?? 0),
-    );
+    const amount = event.customFields.amountCents;
+    if (typeof amount !== "number") continue;
+    totals.set(event.type, (totals.get(event.type) ?? 0) + amount);
   }
 
-  return EVENT_TYPES.flatMap((type) => {
-    const cents = totals.get(type) ?? 0;
-    return cents === 0 ? [] : [{ type, cents }];
+  return byOrder(types).flatMap((type) => {
+    const cents = totals.get(type.key) ?? 0;
+    return cents === 0 ? [] : [{ type: type.key, cents }];
   });
 };
 

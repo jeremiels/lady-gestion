@@ -10,11 +10,14 @@ import {
   activeHorseQuery,
   byDateDescending,
   eventsRepo,
+  eventTypesRepo,
+  findEventType,
   formatCents,
   formatPeriod,
   formatPeriodHeading,
   formatPeriodNote,
   inPeriod,
+  LiveQuery,
   periodOf,
   periodOptions,
   sumByType,
@@ -23,8 +26,8 @@ import {
   type BudgetPeriod,
   type BudgetSlice,
 } from "../data/index.ts";
-import type { HorseEvent } from "../data/types.ts";
-import { eventType, type EventTypeKey } from "../types/event.types.ts";
+import type { EventTypeDef, HorseEvent } from "../data/types.ts";
+import { THEME_META } from "../theme/theme.ts";
 import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
 import type { DonutSlice } from "../components/app-donut-chart/app-donut-chart.ts";
 
@@ -60,7 +63,7 @@ type BudgetUiState = {
   granularity: BudgetGranularity;
   monthKey: string;
   yearKey: string;
-  hidden: EventTypeKey[];
+  hidden: string[];
 };
 
 @customElement("budget-view")
@@ -88,6 +91,10 @@ export class BudgetView extends LightElement {
     this,
     (horseId) => eventsRepo.listBudget(horseId),
     [],
+  );
+
+  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
+    eventTypesRepo.listAll(),
   );
 
   #reducedMotion = new MediaQuery(this, "(prefers-reduced-motion: reduce)");
@@ -142,7 +149,7 @@ export class BudgetView extends LightElement {
    * here would take `includes` down inside `render()`. An array holding a key
    * that is no longer a category needs no guard: it simply never matches one.
    */
-  get #hidden(): EventTypeKey[] {
+  get #hidden(): string[] {
     const { hidden } = this.#ui.value;
     return Array.isArray(hidden) ? hidden : [];
   }
@@ -151,7 +158,7 @@ export class BudgetView extends LightElement {
    * Curried so the type travels with the handler, the way `EventsView` binds
    * its type chips.
    */
-  #onLegendToggle = (type: EventTypeKey) => () => {
+  #onLegendToggle = (type: string) => () => {
     const hidden = this.#hidden;
     this.#ui.patch({
       hidden: hidden.includes(type)
@@ -250,10 +257,11 @@ export class BudgetView extends LightElement {
 
   render() {
     const all = this.#budget.value ?? [];
+    const types = this.#eventTypes.value ?? [];
     const period = this.#period;
     const { granularity } = period;
     const events = inPeriod(all, period).sort(byDateDescending);
-    const slices = sumByType(events);
+    const slices = sumByType(events, types);
 
     return html`
       <section class="budget-view">
@@ -285,7 +293,7 @@ export class BudgetView extends LightElement {
           <app-donut-chart
             caption="Total"
             note=${formatPeriodNote(period)}
-            .slices=${this.#donutSlices(slices)}
+            .slices=${this.#donutSlices(slices, types)}
             .hiddenIds=${this.#hidden}
             .formatValue=${this.#formatTotal}
           ></app-donut-chart>
@@ -295,19 +303,27 @@ export class BudgetView extends LightElement {
               ? html`<p class="budget-view__empty">
                   Aucune dépense sur cette période.
                 </p>`
-              : this.#renderLegend(slices)
+              : this.#renderLegend(slices, types)
           }
         </div>
 
         <!-- Dropped whole rather than shown with an empty message: the card
              above already says there is nothing, and a second notice under a
              heading with no rows says it twice. -->
-        ${events.length === 0 ? nothing : this.#renderLedger(events, granularity)}
+        ${
+          events.length === 0
+            ? nothing
+            : this.#renderLedger(events, types, granularity)
+        }
       </section>
     `;
   }
 
-  #renderLedger(events: HorseEvent[], granularity: BudgetGranularity) {
+  #renderLedger(
+    events: HorseEvent[],
+    types: EventTypeDef[],
+    granularity: BudgetGranularity,
+  ) {
     return html`
       <section class="budget-view__ledger">
         <h2 class="budget-view__group-title">
@@ -322,7 +338,11 @@ export class BudgetView extends LightElement {
             (event) => event.id,
             (event) => html`
               <li>
-                <event-card layout="budget" .event=${event}></event-card>
+                <event-card
+                  layout="budget"
+                  .event=${event}
+                  .type=${findEventType(types, event.type) ?? null}
+                ></event-card>
               </li>
             `,
           )}
@@ -339,13 +359,16 @@ export class BudgetView extends LightElement {
    * legend beside it carries the meaning, so nothing rests on telling two
    * similar pastels apart.
    */
-  #donutSlices(slices: BudgetSlice[]): DonutSlice[] {
-    return slices.map((slice) => ({
-      id: slice.type,
-      label: eventType.label(slice.type),
-      value: slice.cents,
-      color: eventType.theme(slice.type).backgroundColor,
-    }));
+  #donutSlices(slices: BudgetSlice[], types: EventTypeDef[]): DonutSlice[] {
+    return slices.map((slice) => {
+      const type = findEventType(types, slice.type);
+      return {
+        id: slice.type,
+        label: type?.label ?? "",
+        value: slice.cents,
+        color: type ? THEME_META[type.theme].backgroundColor : "",
+      };
+    });
   }
 
   /**
@@ -372,7 +395,7 @@ export class BudgetView extends LightElement {
    * The row survives being switched off — that is the only way back on — so the
    * amount stays readable and only the text is muted.
    */
-  #renderLegend(slices: BudgetSlice[]) {
+  #renderLegend(slices: BudgetSlice[], types: EventTypeDef[]) {
     const hidden = this.#hidden;
 
     return html`
@@ -382,6 +405,7 @@ export class BudgetView extends LightElement {
           (slice) => slice.type,
           (slice) => {
             const off = hidden.includes(slice.type);
+            const type = findEventType(types, slice.type);
 
             return html`
               <li>
@@ -398,13 +422,14 @@ export class BudgetView extends LightElement {
                   <span
                     class="budget-view__legend-dot"
                     style=${styleMap({
-                      backgroundColor: eventType.theme(slice.type)
-                        .backgroundColor,
+                      backgroundColor: type
+                        ? THEME_META[type.theme].backgroundColor
+                        : "",
                     })}
                     aria-hidden="true"
                   ></span>
                   <span class="budget-view__legend-label"
-                    >${eventType.label(slice.type)}</span
+                    >${type?.label ?? ""}</span
                   >
                   <span class="budget-view__legend-value"
                     >${formatCents(slice.cents)}</span

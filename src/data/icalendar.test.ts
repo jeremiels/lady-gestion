@@ -22,15 +22,11 @@ const horseEvent = (fields: Partial<HorseEvent> = {}): HorseEvent => ({
   date: "2026-01-22",
   time: "14:00",
   status: "planned",
-  amountCents: null,
   currency: "EUR",
-  providerName: null,
-  vendor: null,
   location: null,
   notes: null,
   recurrenceId: null,
-  followUpInterval: null,
-  activity: null,
+  customFields: {},
   ...fields,
 });
 

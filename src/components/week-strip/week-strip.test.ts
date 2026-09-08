@@ -63,7 +63,7 @@ describe("week-strip", () => {
         id: "work",
         type: "travail",
         date: wednesday,
-        activity: "trotting",
+        customFields: { activity: "trotting" },
       }),
       // Same day, not a session: the strip is about work, not the whole agenda.
       makeEvent({ id: "care", type: "veto", date: wednesday }),
@@ -72,7 +72,7 @@ describe("week-strip", () => {
         id: "next-week",
         type: "travail",
         date: addDays(monday, 7),
-        activity: "liberte",
+        customFields: { activity: "liberte" },
       }),
     ]);
 
@@ -93,7 +93,7 @@ describe("week-strip", () => {
         id: "work",
         type: "travail",
         date: wednesday,
-        activity: "Carrière",
+        customFields: { activity: "Carrière" },
       }),
     );
 
@@ -131,7 +131,7 @@ describe("week-strip", () => {
         id: "work",
         type: "travail",
         date: wednesday,
-        activity: "trotting",
+        customFields: { activity: "trotting" },
       }),
     );
 

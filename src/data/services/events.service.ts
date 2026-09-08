@@ -1,5 +1,7 @@
 import type { IsoDate } from "../dates.ts";
+import { fieldOfKind } from "../event-types.ts";
 import {
+  followUpValue,
   formatWorkActivity,
   parseFollowUpValue,
   statusForDate,
@@ -8,12 +10,7 @@ import {
 } from "../events.ts";
 import { DEFAULT_CURRENCY } from "../money.ts";
 import * as eventsRepo from "../repositories/events.repo.ts";
-import type { HorseEvent, NewRecord } from "../types.ts";
-import {
-  eventFormSpec,
-  type CounterpartyField,
-  type EventTypeKey,
-} from "../../types/event.types.ts";
+import type { EventTypeDef, HorseEvent, NewRecord } from "../types.ts";
 
 /**
  * Composing and writing an event record.
@@ -57,17 +54,19 @@ import {
  * instead of in every caller.
  */
 export type EventInput = {
-  type: EventTypeKey;
+  /** The type's `key` — validated against the live catalogue by `EVENT_SCHEMA`
+   * in `event-sheet.ts`, not restated here as a closed union. */
+  type: string;
   /**
-   * `null` on the `work` layout, whose Nom field is the Activité combobox
-   * (`activity` below) rather than a text field of its own — `eventFields`
-   * derives the record's title from that instead of reading one back here.
+   * `null` on a layout whose Nom field is the Activité combobox (`activity`
+   * below) rather than a text field of its own — `eventFields` derives the
+   * record's title from that instead of reading one back here.
    */
   title: string | null;
   date: IsoDate;
   amountCents: number | null;
   notes: string | null;
-  /** Practitioner or merchant — the layout decides which, and whether either. */
+  /** Practitioner or merchant — the type decides which, and whether either. */
   counterparty: string | null;
   activity: WorkActivity | null;
   planFollowUp: boolean;
@@ -83,6 +82,13 @@ export type SaveEventCommand = {
   horseId: string;
   /** The record being edited, or `null`/absent to create one. */
   existing?: HorseEvent | null;
+  /**
+   * The type `input.type` names, already resolved. Reading it back out of the
+   * live catalogue is not this service's job — see the file's own rule above,
+   * "No state": the sheet already holds the catalogue in a `LiveQuery` to
+   * render the type picker, so it is the one place that resolution belongs.
+   */
+  type: EventTypeDef;
   input: EventInput;
 };
 
@@ -106,9 +112,10 @@ type EventFields = Omit<NewRecord<HorseEvent>, "horseId" | "id">;
 export const saveEvent = async ({
   horseId,
   existing = null,
+  type,
   input,
 }: SaveEventCommand): Promise<HorseEvent | undefined> => {
-  const fields = eventFields(input, existing);
+  const fields = eventFields(type, input, existing);
   return existing
     ? eventsRepo.update(existing.id, fields)
     : eventsRepo.create({ horseId, ...fields });
@@ -117,6 +124,9 @@ export const saveEvent = async ({
 export type SetDayActivityCommand = {
   horseId: string;
   date: IsoDate;
+  /** The `tracksWork` type this session belongs to — resolved by the caller,
+   * the same way `SaveEventCommand.type` is. */
+  type: EventTypeDef;
   activity: WorkActivity;
   /**
    * The day's session, or `null`/absent when it has none.
@@ -154,22 +164,29 @@ export type SetDayActivityCommand = {
 export const setDayActivity = ({
   horseId,
   date,
+  type,
   activity,
   existing = null,
 }: SetDayActivityCommand): Promise<HorseEvent | undefined> => {
   const title = formatWorkActivity(activity);
+  // Guaranteed by `type.tracksWork` being true, by construction: a
+  // `tracksWork` type always carries exactly one `workActivity` field.
+  const fieldId = fieldOfKind(type, "workActivity")?.id ?? "activity";
 
   if (!existing) {
     return eventsRepo.create({
       horseId,
-      ...dayActivityFields(date, activity, title),
+      ...dayActivityFields(type, fieldId, date, activity, title),
     });
   }
 
   const renamed = existing.title === formatWorkActivity(existing.activity);
+  // Merged rather than replaced: `existing.customFields` may hold other keys
+  // in principle, and a plain overwrite would drop them.
+  const customFields = { ...existing.customFields, [fieldId]: activity };
   return eventsRepo.update(
     existing.id,
-    renamed ? { activity, title } : { activity },
+    renamed ? { customFields, title } : { customFields },
   );
 };
 
@@ -182,24 +199,22 @@ export const setDayActivity = ({
  * on every event the strip writes.
  */
 const dayActivityFields = (
+  type: EventTypeDef,
+  fieldId: string,
   date: IsoDate,
   activity: WorkActivity,
   title: string,
 ): EventFields => ({
-  type: "travail",
+  type: type.key,
   title,
   date,
   time: null,
   status: statusForDate(date),
-  amountCents: null,
   currency: DEFAULT_CURRENCY,
-  providerName: null,
-  vendor: null,
   location: null,
   notes: null,
   recurrenceId: null,
-  followUpInterval: null,
-  activity,
+  customFields: { [fieldId]: activity },
 });
 
 /**
@@ -210,38 +225,60 @@ const dayActivityFields = (
  * `db.ts` states the rule this follows: add it back with its caller, not before.
  */
 const eventFields = (
+  type: EventTypeDef,
   input: EventInput,
   existing: HorseEvent | null,
 ): EventFields => {
-  // Read from the type being *saved*, not from whichever layout the form was
-  // last showing. The record's own type is what decides its columns, which is
-  // the rule `EventDetailView` already reads its Informations rows by and the
-  // sheet reads its prefill by — so the column a value was written to and the
-  // column it is read back from cannot disagree.
-  const spec = eventFormSpec(input.type);
+  // Read from the type being *saved*, not from whichever the form was last
+  // showing. The record's own type is what decides its fields, which is the
+  // rule `EventDetailView` already reads its Informations rows by and the
+  // sheet reads its prefill by — so the field a value was written to and the
+  // field it is read back from cannot disagree.
+  const counterpartyField = fieldOfKind(type, "text");
+  const amountField = fieldOfKind(type, "cents");
+  const followUpField = fieldOfKind(type, "followUp");
+  const activityField = fieldOfKind(type, "workActivity");
 
-  // Written from the layout rather than from whatever the form still holds, so
-  // a field this layout does not draw can never reach the record — and only
-  // ever one of the two, because a layout has at most one counterparty.
-  const columns: Record<CounterpartyField["column"], string | null> = {
-    providerName: null,
-    vendor: null,
-  };
-  if (spec.counterparty) columns[spec.counterparty.column] = input.counterparty;
+  // Written per field the type actually has, rather than from whatever the
+  // form still holds, so a field this type does not draw can never reach the
+  // record — the same rule the old per-layout columns followed.
+  const customFields: HorseEvent["customFields"] = {};
+  if (counterpartyField) {
+    customFields[counterpartyField.id] = input.counterparty;
+  }
+  if (amountField) customFields[amountField.id] = input.amountCents;
+  if (followUpField) {
+    // The checkbox is not proof on its own. The sheet seeds it from the record
+    // being edited, so an event saved under a type with no follow-up field at
+    // all can still arrive here with it ticked. Re-validated through
+    // `parseFollowUpValue` rather than stored as whatever string arrived, so
+    // an unrecognised encoding is `null` rather than a guess.
+    const interval =
+      input.planFollowUp && input.followUpInterval
+        ? parseFollowUpValue(input.followUpInterval)
+        : null;
+    customFields[followUpField.id] = interval ? followUpValue(interval) : null;
+  }
+  if (activityField) {
+    // Same rule as the fields above, and the same reason: a type that does not
+    // ask what was done must not carry an answer left over from the type the
+    // user picked before.
+    customFields[activityField.id] = input.activity;
+  }
 
   return {
-    type: input.type,
-    // On the `work` layout the Nom field is the Activité combobox
+    type: type.key,
+    // On a `workActivity` type the Nom field is the Activité combobox
     // (`#renderActivity` in `event-sheet.ts`), not a text field of its own, so
     // the title comes from what it holds — formatted the same way
     // `dayActivityFields` derives one from a week-strip tap, so a session
     // reads the same whichever entry point wrote it.
     title:
-      spec.activity && input.activity !== null
+      activityField && input.activity !== null
         ? formatWorkActivity(input.activity)
         : (input.title ?? ""),
     date: input.date,
-    // No layout has a time control, so a new event is all-day. An edit keeps
+    // No type has a time control, so a new event is all-day. An edit keeps
     // whatever time the record already had rather than discarding it through a
     // form that cannot show it.
     time: existing?.time ?? null,
@@ -252,25 +289,10 @@ const eventFields = (
       existing?.status === "cancelled"
         ? existing.status
         : statusForDate(input.date),
-    // Same rule as `activity` below: `work` is the one layout with no Budget
-    // field, so an edit must not carry over a value entered under a
-    // different type — or, now, one saved before `work` stopped asking.
-    amountCents: spec.amount ? input.amountCents : null,
     currency: existing?.currency ?? DEFAULT_CURRENCY,
-    ...columns,
     location: existing?.location ?? null,
     notes: input.notes,
     recurrenceId: existing?.recurrenceId ?? null,
-    // The checkbox is not proof on its own. The sheet seeds it from the record
-    // being edited, so an event saved under a type whose layout has no
-    // follow-up field at all can still arrive here with it ticked.
-    followUpInterval:
-      spec.followUp && input.planFollowUp
-        ? parseFollowUpValue(input.followUpInterval)
-        : null,
-    // Same rule as the columns above, and the same reason: a layout that does
-    // not ask what was done must not carry an answer left over from the type
-    // the user picked before.
-    activity: spec.activity ? input.activity : null,
+    customFields,
   };
 };

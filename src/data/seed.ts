@@ -1,5 +1,8 @@
 import { RECORD_TABLES, db, type RecordTableName } from "./db.ts";
-import { todayISO, toIsoDate } from "./dates.ts";
+import { todayISO, toIsoDate, nowISO } from "./dates.ts";
+import { seedEventTypeDefs } from "./event-types.ts";
+import { followUpValue } from "./events.ts";
+import { getOwnerId } from "./owner.ts";
 import * as horsesRepo from "./repositories/horses.repo.ts";
 import * as rationsRepo from "./repositories/rations.repo.ts";
 import * as eventsRepo from "./repositories/events.repo.ts";
@@ -12,14 +15,35 @@ import type { HorseEvent, RationUnit } from "./types.ts";
 const REPORT_EVENT_TITLE = "Contrôle œil";
 
 /**
+ * Seeds the 13 built-in event types the first time the database has none.
+ *
+ * A brand-new install never runs `db.ts`'s v6 `.upgrade()` — Dexie only fires
+ * an upgrade transaction when a database already exists at an older version,
+ * and a fresh `IndexedDB` is created directly at the current schema with no
+ * rows in any table. `seedIfEmpty` is the only code path a first run reaches,
+ * so this is the other half of seeding the catalogue, independent of the
+ * `db.horses` gate below: a device that has deleted every horse but still has
+ * its types must not have them re-seeded a second time, so this checks the
+ * `eventTypes` table's own emptiness rather than piggy-backing on that check.
+ */
+const seedEventTypesIfEmpty = async (): Promise<void> => {
+  if ((await db.eventTypes.count()) > 0) return;
+  await db.eventTypes.bulkAdd(seedEventTypeDefs(getOwnerId(), nowISO()));
+};
+
+/**
  * First-run bootstrap: the values that were hardcoded in the views, turned
  * into real rows so there is something to look at before anything has been
  * entered by hand.
  *
- * Runs only when the database holds no horse at all, so it can never
- * overwrite real data or reappear after the user deletes it.
+ * The demo horse/rations/events/document are gated on the database holding no
+ * horse at all, so they can never overwrite real data or reappear after the
+ * user deletes it. The event-type catalogue has its own gate — see
+ * `seedEventTypesIfEmpty`.
  */
 export const seedIfEmpty = async (): Promise<void> => {
+  await seedEventTypesIfEmpty();
+
   const count = await db.horses.count();
   if (count > 0) return;
 
@@ -149,108 +173,88 @@ const sampleEvents = (horseId: string) => {
   return [
     {
       horseId,
-      type: "marechal" as const,
+      type: "marechal",
       title: "Ferrure",
       date: inDays(6),
       time: "14:00",
       status: "planned" as const,
-      amountCents: null,
       currency: "EUR",
-      providerName: null,
-      vendor: null,
       location: null,
       notes: null,
       recurrenceId: null,
-      followUpInterval: null,
-      activity: null,
+      customFields: {},
     },
     {
       horseId,
-      type: "veto" as const,
+      type: "veto",
       title: "Rappel vaccins",
       date: inDays(19),
       time: "09:30",
       status: "planned" as const,
-      amountCents: null,
       currency: "EUR",
-      providerName: null,
-      vendor: null,
       location: null,
       notes: null,
       recurrenceId: null,
-      followUpInterval: null,
-      activity: null,
+      customFields: {},
     },
     {
       horseId,
-      type: "marechal" as const,
+      type: "marechal",
       title: "Ferrure",
       date: inDays(-34),
       time: "14:00",
       status: "done" as const,
-      amountCents: 9000,
       currency: "EUR",
-      providerName: null,
-      vendor: null,
       location: null,
       notes: null,
       recurrenceId: null,
-      followUpInterval: null,
-      activity: null,
+      customFields: { amountCents: 9000 },
     },
     {
       horseId,
-      type: "pension" as const,
+      type: "pension",
       title: "Pension mensuelle",
       date: inDays(-11),
       time: null,
       status: "done" as const,
-      amountCents: 35000,
       currency: "EUR",
-      providerName: null,
-      vendor: null,
       location: null,
       notes: null,
       recurrenceId: null,
-      followUpInterval: null,
-      activity: null,
+      customFields: { amountCents: 35000 },
     },
     {
       horseId,
-      type: "osteo" as const,
+      type: "osteo",
       title: "Séance ostéopathie",
       date: inDays(-52),
       time: "11:00",
       status: "done" as const,
-      amountCents: 7500,
       currency: "EUR",
-      providerName: null,
-      vendor: null,
       location: null,
       notes: null,
       recurrenceId: null,
-      followUpInterval: null,
-      activity: null,
+      customFields: { amountCents: 7500 },
     },
-    // The one fully populated row: every optional column is set, so the detail
+    // The one fully populated row: every optional field is set, so the detail
     // page renders each of its Informations rows at least once without anything
     // having to be entered by hand first. Also the document's anchor.
     {
       horseId,
-      type: "veto" as const,
+      type: "veto",
       title: REPORT_EVENT_TITLE,
       date: inDays(-26),
       time: null,
       status: "done" as const,
-      amountCents: 10_000,
       currency: "EUR",
-      providerName: "Dr. Orange",
-      vendor: null,
       location: null,
       notes: "Bilan annuel ophtalmologique. Pas d’anomalie détectée.",
       recurrenceId: null,
-      followUpInterval: { amount: 6, unit: "week" as const },
-      activity: null,
+      customFields: {
+        amountCents: 10_000,
+        counterparty: "Dr. Orange",
+        followUp: followUpValue({ amount: 6, unit: "week" }),
+      },
     },
   ];
 };

@@ -1,6 +1,5 @@
 import { todayISO, type IsoDate } from "./dates.ts";
-import type { EventTypeKey } from "../types/event.types.ts";
-import type { EventStatus, HorseEvent } from "./types.ts";
+import type { EventStatus, EventTypeDef, HorseEvent } from "./types.ts";
 
 /**
  * Event rules that are neither persistence nor iCalendar.
@@ -22,30 +21,6 @@ export const statusForDate = (
   date: IsoDate,
   on: IsoDate = todayISO(),
 ): EventStatus => (date > on ? "planned" : "done");
-
-/**
- * The types the dashboard's "Rendez-vous à venir" list is about.
- *
- * A rendez-vous is booked with someone — the vet, the farrier, the dentist, the
- * osteopath. The other five types are either logged after the fact (a purchase,
- * a feed order, the boarding bill) or happen without one being taken (a lesson,
- * a schooling session), and a future row of any of them used to push a real
- * visit out of the dashboard's top three.
- *
- * Listed rather than derived from `eventFormSpec(type).followUp`, which picks
- * out the same four today: that flag says which layout draws the follow-up
- * checkbox, and what counts as a rendez-vous should not change because a form
- * grew or lost a field.
- */
-const APPOINTMENT_TYPES = new Set<EventTypeKey>([
-  "veto",
-  "marechal",
-  "dentiste",
-  "osteo",
-]);
-
-export const isAppointmentType = (type: EventTypeKey): boolean =>
-  APPOINTMENT_TYPES.has(type);
 
 /**
  * How long until a care event should be repeated — a six-week farrier cycle, a
@@ -238,7 +213,12 @@ const compareSessions = (a: HorseEvent, b: HorseEvent): number => {
   return a.time.localeCompare(b.time);
 };
 
-/** A `travail` row that actually says what was done — what the strip draws. */
+/**
+ * A `travail`-like row that actually says what was done — what the strip
+ * draws. `activity` is a real property here, populated by `workSessionByDate`
+ * from whichever `customFields` key the row's own type uses for it — not a
+ * passthrough of a fixed column, since schema v6 stopped events having one.
+ */
 export type WorkSession = HorseEvent & { activity: WorkActivity };
 
 /**
@@ -253,19 +233,40 @@ export type WorkSession = HorseEvent & { activity: WorkActivity };
  * what the strip shows: tapping a chip on a day that already has a session has
  * to update that row, not add a second one no view would ever draw.
  *
- * Pure, over rows the caller already fetched — the shape `budget.ts` uses, and
- * what puts this under the data-layer test rule rather than a component suite.
+ * `types` says which type(s) track work (`tracksWork`) and which
+ * `customFields` key each uses for the activity — generic over the type
+ * rather than hardcoded to `"travail"`, so a second `tracksWork` type a future
+ * builder UI creates is picked up here for free. Pure, over rows and types the
+ * caller already fetched — the shape `budget.ts` uses, and what puts this
+ * under the data-layer test rule rather than a component suite.
  */
 export const workSessionByDate = (
   events: HorseEvent[],
+  types: EventTypeDef[],
 ): Map<IsoDate, WorkSession> => {
+  const activityFieldIdByType = new Map(
+    types
+      .filter((type) => type.tracksWork)
+      .map(
+        (type) =>
+          [
+            type.key,
+            type.fields.find((field) => field.kind === "workActivity")?.id,
+          ] as const,
+      )
+      .filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+
   const sessions = events
-    .filter(
-      (event): event is WorkSession =>
-        event.type === "travail" &&
-        event.status !== "cancelled" &&
-        event.activity !== null,
-    )
+    .flatMap((event) => {
+      const fieldId = activityFieldIdByType.get(event.type);
+      if (!fieldId || event.status === "cancelled") return [];
+
+      const activity = event.customFields[fieldId];
+      if (typeof activity !== "string" || activity === "") return [];
+
+      return [{ ...event, activity } satisfies WorkSession];
+    })
     .sort(compareSessions);
 
   const byDate = new Map<IsoDate, WorkSession>();
@@ -283,9 +284,10 @@ export const workSessionByDate = (
  */
 export const workActivityByDate = (
   events: HorseEvent[],
+  types: EventTypeDef[],
 ): Map<IsoDate, WorkActivity> =>
   new Map(
-    [...workSessionByDate(events)].map(([date, session]) => [
+    [...workSessionByDate(events, types)].map(([date, session]) => [
       date,
       session.activity,
     ]),
@@ -335,4 +337,60 @@ export const formatFollowUpInterval = (interval: FollowUpInterval): string => {
 
   if (interval.unit === "month") return `${interval.amount} mois`;
   return interval.amount === 1 ? "1 semaine" : `${interval.amount} semaines`;
+};
+
+/**
+ * A pre-v6 event's fixed columns — `providerName`, `vendor`,
+ * `followUpInterval`, `activity`, `amountCents` — before they folded into
+ * `customFields`. Read by both halves of the schema v6 migration; see
+ * `migrateEventToCustomFields` below.
+ */
+export type LegacyEventColumns = {
+  providerName: string | null;
+  vendor: string | null;
+  followUpInterval: FollowUpInterval | null;
+  activity: string | null;
+  amountCents: number | null;
+};
+
+/**
+ * Folds a pre-v6 event's fixed columns into a `customFields` bag, and
+ * corrects the one built-in type whose key changed shape in the same
+ * migration (`coucours` → `concours`, see `event-types.ts`).
+ *
+ * Takes and returns only the columns that change — `type` and the bag — so
+ * `db.ts`'s live upgrade can assign the result onto a row it is mutating in
+ * place, and `backup/snapshot.ts` onto a row it is rebuilding wholesale,
+ * without either having to agree on the rest of the record's exact shape.
+ * Shared by both for the reason `db.ts`'s own comment gives for why the two
+ * migrations "must agree": a database upgraded on the device and a backup
+ * file restored from an older build have to fold identically.
+ *
+ * `types` is the *target* schema's type list, with `BaseRecord` fields already
+ * filled in (`seedEventTypeDefs` in `event-types.ts`): whether `amountCents`
+ * survives depends on whether the row's type still has an amount field, which
+ * only the new schema can say — the old one had no such concept.
+ */
+export const migrateEventToCustomFields = (
+  row: { type: string } & LegacyEventColumns,
+  types: EventTypeDef[],
+): { type: string; customFields: HorseEvent["customFields"] } => {
+  const type = row.type === "coucours" ? "concours" : row.type;
+  const def = types.find((candidate) => candidate.key === type);
+  const has = (fieldId: string) =>
+    def?.fields.some((field) => field.id === fieldId) ?? false;
+
+  const customFields: HorseEvent["customFields"] = {};
+  if (has("counterparty")) {
+    customFields.counterparty = row.providerName ?? row.vendor ?? null;
+  }
+  if (has("followUp")) {
+    customFields.followUp = row.followUpInterval
+      ? followUpValue(row.followUpInterval)
+      : null;
+  }
+  if (has("activity")) customFields.activity = row.activity;
+  if (has("amountCents")) customFields.amountCents = row.amountCents;
+
+  return { type, customFields };
 };

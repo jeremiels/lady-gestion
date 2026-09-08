@@ -2,11 +2,22 @@ import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
 import { addMonths, todayISO } from "../data/index.ts";
-import { makeEvent, makeHorse, resetDb } from "../data/__tests__/factories.ts";
+import {
+  BUILT_IN_EVENT_TYPE_ROWS,
+  makeEvent,
+  makeHorse,
+  resetDb,
+} from "../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
-import { eventType } from "../types/event.types.ts";
 import "./EventsView.ts";
 import type { EventsView } from "./EventsView.ts";
+
+/** Label lookup for the real 13 built-ins, standing in for `eventType.label`
+ * now that a type's label is data rather than a compile-time table. */
+const LABEL_OF = new Map(
+  BUILT_IN_EVENT_TYPE_ROWS.map((type) => [type.key, type.label]),
+);
+const labelOf = (key: string): string => LABEL_OF.get(key) ?? "";
 
 const mount = () => fixture<EventsView>(html`<events-view></events-view>`);
 
@@ -95,9 +106,14 @@ describe("events-view", () => {
 
     const el = await mount();
     await switchToList(el);
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("app-chip").length > 1,
+    );
 
-    chipLabeled(el, eventType.label("marechal")).click();
+    chipLabeled(el, labelOf("marechal")).click();
     await settled(el);
     expect(cardIds(el)).toEqual(["shoeing"]);
 
@@ -139,20 +155,29 @@ describe("events-view", () => {
 
     const el = await mount();
     await switchToList(el);
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
-    chipLabeled(el, eventType.label("veto")).click();
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("app-chip").length > 1,
+    );
+    chipLabeled(el, labelOf("veto")).click();
     await settled(el);
     await search(el, "controle");
     expect(cardIds(el)).toEqual(["checkup"]);
 
     const reopened = await mount();
+    // The type chips come from a second, independent `LiveQuery` over the
+    // type catalogue — waits for `event-card` alone can resolve first.
     await waitFor(
       reopened,
-      () => reopened.querySelector("event-card") !== null,
+      () =>
+        reopened.querySelector("event-card") !== null &&
+        reopened.querySelectorAll("app-chip").length > 1,
     );
 
     expect(reopened.querySelector("app-calendar")).toBeNull();
-    expect(chipLabeled(reopened, eventType.label("veto")).selected).toBe(true);
+    expect(chipLabeled(reopened, labelOf("veto")).selected).toBe(true);
     expect(chipLabeled(reopened, "Tous").selected).toBe(false);
     expect(cardIds(reopened)).toEqual(["checkup"]);
   });
@@ -223,7 +248,12 @@ describe("events-view", () => {
 
     const el = await mount();
     await switchToList(el);
-    await waitFor(el, () => el.querySelectorAll("event-card").length === 3);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length === 3 &&
+        el.querySelectorAll("app-chip").length > 1,
+    );
 
     const rowFor = (id: string) =>
       [...el.querySelectorAll(".events-view__list > li")].find(
@@ -234,7 +264,7 @@ describe("events-view", () => {
 
     // Drops `middle` from between the two survivors — the case that would force
     // a move if the list were ordered any other way.
-    chipLabeled(el, eventType.label("veto")).click();
+    chipLabeled(el, labelOf("veto")).click();
     await settled(el);
 
     // `toBe`, not `toEqual`: these have to be the *same nodes* in the same

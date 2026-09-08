@@ -1,7 +1,7 @@
-import type { EventTypeKey } from "../types/event.types.ts";
+import type { IconName } from "../components/app-icon/icons.ts";
 import type { DocumentCategory } from "../types/document.types.ts";
+import type { ThemeKey } from "../theme/theme.types.ts";
 import type { RationSeason } from "./seasons.ts";
-import type { FollowUpInterval, WorkActivity } from "./events.ts";
 
 /**
  * Fields shared by every persisted entity.
@@ -79,7 +79,8 @@ export type EventStatus = "planned" | "done" | "cancelled";
  */
 export type HorseEvent = BaseRecord & {
   horseId: string;
-  type: EventTypeKey;
+  /** Slug into `EventTypeDef.key` below — see `event-types.ts`. */
+  type: string;
   /** Short user-facing label, e.g. "Ferrure". */
   title: string;
   /** Calendar date, `YYYY-MM-DD`. Local, timezone-free, sorts lexicographically. */
@@ -87,50 +88,98 @@ export type HorseEvent = BaseRecord & {
   /** `HH:mm`, or `null` for an all-day entry. */
   time: string | null;
   status: EventStatus;
-  /** Integer cents — never a float. `null` means the entry costs nothing. */
-  amountCents: number | null;
-  /** ISO 4217 code. */
+  /** ISO 4217 code. Only meaningful for a type whose `fields` carry an amount. */
   currency: string;
-  /** Vet, farrier, instructor… — the "Practicien" field on a care event. */
-  providerName: string | null;
-  /**
-   * Where a purchase was made — a shop name or a website. The "Site" field on a
-   * purchase event.
-   *
-   * Its own column rather than reusing `providerName` or `location`: a merchant
-   * is neither a practitioner nor a place, and folding it into either would make
-   * "who provided this" mean two different things depending on the event type.
-   * Added in schema v3.
-   */
-  vendor: string | null;
   location: string | null;
   notes: string | null;
   /** Groups instances generated from one recurring charge, e.g. monthly pension. */
   recurrenceId: string | null;
   /**
-   * How long until this should be repeated — a six-week farrier cycle. Set when
-   * "Planifier un rendez-vous" is ticked on a care event.
+   * Everything the event's *type* decides it needs: a practitioner or a
+   * merchant, a follow-up interval, what was done in a schooling session, a
+   * budget. Keyed by `CustomFieldDef.id` (`event-types.ts`).
    *
-   * Recording the interval does **not** create a second event; nothing derives a
-   * date from this yet. See `events.ts`. Added in schema v3.
+   * Replaces what used to be fixed columns — `providerName`, `vendor`,
+   * `followUpInterval`, `activity`, `amountCents` — added in schema v6 when
+   * event types stopped being a closed, compile-time union (see
+   * `EventTypeDef` below). Which of these a given event carries is now a
+   * property of its type's `fields`, not of the record's own shape, so a field
+   * one type needs no longer widens every event of every other type.
+   *
+   * Scalar values only: a structured one (the follow-up interval) is encoded
+   * the same way the entry form already hands it over to the record
+   * (`followUpValue`/`parseFollowUpValue` in `events.ts`), so the bag never
+   * holds anything a plain object literal couldn't survive a JSON round trip
+   * as — which is what lets it travel through a backup file unchanged.
    */
-  followUpInterval: FollowUpInterval | null;
+  customFields: Record<string, string | number | boolean | null>;
+};
+
+/**
+ * The shapes a custom field can take.
+ *
+ * `text`, `cents` and `bool` are general-purpose. `followUp` and `workActivity`
+ * are not: `followUp` pairs a checkbox with the interval `FOLLOW_UP_INTERVALS`
+ * offers (`events.ts`), and `workActivity` is the `travail` layout's Nom
+ * combobox, backed by the activities catalogue (`ActivityItem` below) rather
+ * than free text. Both exist because the built-in types already need them, not
+ * because a generic field could reproduce what they do.
+ */
+export type CustomFieldKind =
+  | "text"
+  | "cents"
+  | "bool"
+  | "followUp"
+  | "workActivity";
+
+/** One field a type's entry form draws, beyond the fixed base fields above. */
+export type CustomFieldDef = {
+  /** Stable key into `HorseEvent.customFields`. Immutable once created. */
+  id: string;
+  kind: CustomFieldKind;
+  label: string;
+  required: boolean;
+  /** Reserved for a `choice`-kind field a future field-builder UI may add. */
+  options?: string[];
   /**
-   * What was done in a schooling session — the entry form's Nom field on a
-   * `travail` event.
-   *
-   * Its own column rather than folded into `title` or `notes`: it is the field
-   * that says what the session *was*, which is what lets it be filtered and
-   * counted later, and a free-text `title` that happens to read "Longe" is
-   * neither. `null` on every other event type — the entry form writes it from
-   * the layout, never from whatever the DOM still holds. Added in schema v4.
-   *
-   * One of six built-in keys, or a label the user added, stored **verbatim**
-   * rather than as an id into `ActivityItem` below. `WorkActivity` in
-   * `events.ts` has the whole reasoning; the short of it is that a session must
-   * stay readable after its chip has been retired from the catalogue.
+   * Prefilled when creating a new event of this type. Never overrides an
+   * edit — a record's own value always wins over a type's default.
    */
-  activity: WorkActivity | null;
+  defaultValue?: string | number | boolean | null;
+};
+
+/**
+ * What an event type is: its presentation, and the fields its entry form shows.
+ *
+ * Was a closed TypeScript union (`EventTypeKey`, `types/event.types.ts`) with a
+ * compile-time label/icon/theme table and a four-layout form-spec table beside
+ * it — the one taxonomy in this app users could not extend without a release.
+ * This is what it became in schema v6: a row, so a type can be added,
+ * relabelled, or given a different field list, from data.
+ *
+ * The nine types the app shipped with, plus four more finished in the same
+ * migration, are seeded with `isBuiltIn: true` — informative only, it does not
+ * block editing. `ActivityItem` below is code for its six built-ins for the
+ * opposite reason: that is a closed vocabulary nothing there ever edits: this
+ * one is the opposite from day one.
+ */
+export type EventTypeDef = BaseRecord & {
+  /** Stable slug — what `HorseEvent.type` stores. Immutable once created. */
+  key: string;
+  label: string;
+  icon: IconName;
+  theme: ThemeKey;
+  /** True for the seeded rows. Informative only — it does not block editing. */
+  isBuiltIn: boolean;
+  /** Drives the dashboard's "Rendez-vous à venir" list — see `event-types.ts`. */
+  isAppointment: boolean;
+  /** Drives the week strip's day-activity tracking — see `event-types.ts`. */
+  tracksWork: boolean;
+  /** Soft-hide from pickers; still resolves for historical events. */
+  archived: boolean;
+  /** Explicit, stable order — drives the budget donut/legend order. */
+  order: number;
+  fields: CustomFieldDef[];
 };
 
 /**
@@ -142,10 +191,11 @@ export type HorseEvent = BaseRecord & {
  * and leaves every session that used it saying exactly what it always said.
  * That is what lets the list be edited freely without a cascade.
  *
- * The app's first user-editable taxonomy. Every other closed list here — event
- * types, document categories, ration units — is a TypeScript union with a
- * hardcoded label table, because the wording is a design decision. What the
- * horse worked on is not. Added in schema v5.
+ * The app's first user-editable taxonomy — `EventTypeDef` above is the second,
+ * added a schema version later. Every other closed list here — document
+ * categories, ration units — is a TypeScript union with a hardcoded label
+ * table, because the wording is a design decision. What the horse worked on
+ * is not. Added in schema v5.
  */
 export type ActivityItem = BaseRecord & {
   horseId: string;

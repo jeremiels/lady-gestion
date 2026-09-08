@@ -6,12 +6,17 @@ import {
   type RecordTableName,
 } from "../db.ts";
 import { nowISO, type IsoTimestamp } from "../dates.ts";
+import { seedEventTypeDefs } from "../event-types.ts";
+import {
+  migrateEventToCustomFields,
+  type LegacyEventColumns,
+} from "../events.ts";
 import { newerOf } from "../record.ts";
 import { getOwnerId, setOwnerId } from "../owner.ts";
 import { seasonFromLegacyFlag } from "../seasons.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
 import { clearUntouchedSeedData } from "../seed.ts";
-import type { BaseRecord, RationItem } from "../types.ts";
+import type { BaseRecord, HorseEvent, RationItem } from "../types.ts";
 
 /**
  * Whole-database snapshot, used today for manual file export/import and
@@ -127,6 +132,27 @@ export const importBackup = async (
 };
 
 /**
+ * An event row while a migration below is still in progress.
+ *
+ * Every column any step touches, all optional: a step earlier than the one
+ * that reads a given column has not written it yet (`customFields`, before the
+ * v5→v6 step below runs), and a step later than the one that drops a column
+ * has already removed it (`vendor`, once that same step has run). Declared
+ * once and used by every step that reads or writes one of these, rather than a
+ * cast repeated at each — the same reason `LegacyHorseEvent`/`LegacyWorkEvent`
+ * exist in `db.ts`: a shape used only mid-migration, never the real shape a
+ * snapshot or a store holds before or after.
+ */
+type MigratingEventRow = Omit<HorseEvent, "customFields"> &
+  Partial<LegacyEventColumns> & {
+    customFields?: HorseEvent["customFields"];
+  };
+
+type MigratingTables = Omit<BackupTables, "events"> & {
+  events: MigratingEventRow[];
+};
+
+/**
  * Brings an older snapshot up to the current schema, in place of the database
  * upgrade an old *file* never goes through.
  *
@@ -142,7 +168,13 @@ export const importBackup = async (
 export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
   if (backup.schemaVersion >= SCHEMA_VERSION) return backup;
 
-  let tables = backup.tables;
+  // Loosened to `MigratingTables` for the run of this function: an event row
+  // genuinely does not have the final `HorseEvent` shape (`customFields`
+  // filled in, the legacy columns gone) until every step below has run, and
+  // `BackupTables` — the type `backup.tables` already satisfies, and the one
+  // this function returns — states the *finished* shape, not the shape a
+  // half-migrated file is in partway through this function's own body.
+  let tables: MigratingTables = backup.tables;
 
   // v1 -> v2: `seasonal: boolean` becomes a `season` window.
   if (backup.schemaVersion < 2) {
@@ -192,7 +224,50 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     tables = { ...tables, activities: tables.activities ?? [] };
   }
 
-  return { ...backup, schemaVersion: SCHEMA_VERSION, tables };
+  // v5 -> v6: event types stop being a closed, compile-time union. Every
+  // event's fixed `providerName`/`vendor`/`followUpInterval`/`activity`/
+  // `amountCents` columns fold into a `customFields` bag — the exact
+  // transform `db.ts`'s live upgrade applies, shared as
+  // `migrateEventToCustomFields` so the two cannot disagree — and the type
+  // catalogue itself, absent from a pre-v6 file the same way `activities` was
+  // absent from a pre-v5 one, is supplied with the same built-in rows a fresh
+  // device seeds.
+  if (backup.schemaVersion < 6) {
+    const types =
+      tables.eventTypes ?? seedEventTypeDefs(backup.ownerId, nowISO());
+    tables = {
+      ...tables,
+      eventTypes: types,
+      events: tables.events.map((row) => {
+        const { type, customFields } = migrateEventToCustomFields(
+          {
+            type: row.type,
+            providerName: row.providerName ?? null,
+            vendor: row.vendor ?? null,
+            followUpInterval: row.followUpInterval ?? null,
+            activity: row.activity ?? null,
+            amountCents: row.amountCents ?? null,
+          },
+          types,
+        );
+        const {
+          providerName: _providerName,
+          vendor: _vendor,
+          followUpInterval: _followUpInterval,
+          activity: _activity,
+          amountCents: _amountCents,
+          ...rest
+        } = row;
+        return { ...rest, type, customFields };
+      }),
+    };
+  }
+
+  return {
+    ...backup,
+    schemaVersion: SCHEMA_VERSION,
+    tables: tables as BackupTables,
+  };
 };
 
 /**

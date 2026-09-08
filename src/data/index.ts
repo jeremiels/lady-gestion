@@ -44,6 +44,7 @@ export * as eventsRepo from "./repositories/events.repo.ts";
 export * as documentsRepo from "./repositories/documents.repo.ts";
 export * as rationsRepo from "./repositories/rations.repo.ts";
 export * as activitiesRepo from "./repositories/activities.repo.ts";
+export * as eventTypesRepo from "./repositories/event-types.repo.ts";
 export * as metaRepo from "./repositories/meta.repo.ts";
 
 export * as eventsService from "./services/events.service.ts";
@@ -59,6 +60,7 @@ export * from "./dates.ts";
 export * from "./icalendar.ts";
 export * from "./seasons.ts";
 export * from "./events.ts";
+export * from "./event-types.ts";
 export * from "./files.ts";
 export * from "./budget.ts";
 export * from "./forms.ts";

@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db, SCHEMA_VERSION, type BackupTables } from "../db.ts";
+import { BUILT_IN_EVENT_TYPES } from "../event-types.ts";
+import { followUpValue } from "../events.ts";
 import { getOwnerId, setOwnerId } from "../owner.ts";
 import { DEFAULT_SEASON } from "../seasons.ts";
-import type { Horse, HorseEvent, RationItem } from "../types.ts";
+import type { EventTypeDef, Horse, HorseEvent, RationItem } from "../types.ts";
 import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
 
 const LOCAL_OWNER = "owner-local";
@@ -54,17 +56,25 @@ const event = (over: Partial<HorseEvent> = {}): HorseEvent => ({
   date: "2026-06-15",
   time: null,
   status: "planned",
-  amountCents: null,
   currency: "EUR",
-  providerName: null,
-  vendor: null,
   location: null,
   notes: null,
   recurrenceId: null,
-  followUpInterval: null,
-  activity: null,
+  customFields: {},
   ...over,
 });
+
+const STAMP = "2026-01-01T00:00:00.000Z";
+
+/** The 13 built-in types, stamped — what a current-schema snapshot carries. */
+const eventTypeRows: EventTypeDef[] = BUILT_IN_EVENT_TYPES.map((def) => ({
+  ...def,
+  id: `type-${def.key}`,
+  ownerId: REMOTE_OWNER,
+  createdAt: STAMP,
+  updatedAt: STAMP,
+  deletedAt: null,
+}));
 
 /**
  * A well-formed snapshot, overridden where a test cares.
@@ -90,6 +100,7 @@ const snapshot = (
     documents: [],
     rationItems: [],
     activities: [],
+    eventTypes: [],
     ...over.tables,
   },
 });
@@ -103,6 +114,7 @@ beforeEach(async () => {
     db.documentBlobs.clear(),
     db.rationItems.clear(),
     db.activities.clear(),
+    db.eventTypes.clear(),
     db.meta.clear(),
   ]);
   await setOwnerId(LOCAL_OWNER);
@@ -118,9 +130,12 @@ describe("exportBackup", () => {
     // Spelled out rather than derived from `RECORD_TABLES`: this is the
     // assertion that a table added to the schema is actually exported, and one
     // that reads its expectation from the same constant asserts nothing.
+    // `Array#sort()` is case-sensitive ASCII order — "eventTypes" (uppercase
+    // T) sorts before "events" (lowercase s).
     expect(Object.keys(backup.tables).sort()).toEqual([
       "activities",
       "documents",
+      "eventTypes",
       "events",
       "horses",
       "rationItems",
@@ -326,39 +341,54 @@ describe("importBackup — rejects bad input", () => {
     expect((await db.rationItems.get("ration-1"))?.season).toBe(null);
   });
 
-  it("fills a pre-v3 event’s new columns with null", async () => {
-    // A v2 export has no `vendor` and no `followUpInterval` at all.
-    const { vendor: _vendor, followUpInterval: _interval, ...legacy } = event();
+  it("folds a pre-v3 event's absent vendor/followUpInterval into customFields as null", async () => {
+    // A v2 export has no `vendor` and no `followUpInterval` at all, and
+    // neither is observable on its own after `importBackup` returns — the
+    // v5 -> v6 step below runs in the same call and absorbs both into
+    // `customFields`. `event().type` is `veto`, which has both fields.
+    //
+    // `eventTypes` is omitted entirely, not defaulted to `[]`: a genuinely
+    // old file has no such key at all, and `[]` would (wrongly) tell the fold
+    // "no built-ins to seed" instead of "none of this file's own".
+    const { eventTypes: _eventTypes, ...tables } = snapshot().tables;
+    const legacy = event();
 
     await importBackup({
       ...snapshot(),
       schemaVersion: 2,
-      tables: { ...snapshot().tables, events: [legacy] },
+      tables: { ...tables, events: [legacy] },
     });
 
     const stored = await db.events.get("event-1");
-    expect(stored).toHaveProperty("vendor", null);
-    expect(stored).toHaveProperty("followUpInterval", null);
+    expect(stored?.customFields).toHaveProperty("counterparty", null);
+    expect(stored?.customFields).toHaveProperty("followUp", null);
   });
 
-  it("fills a pre-v4 event’s activity with null", async () => {
-    // A v3 export has the two v3 columns but no `activity` at all.
-    const { activity: _activity, ...legacy } = event();
+  it("folds a pre-v4 event's absent activity into customFields as null", async () => {
+    // A v3 export has no `activity` at all. `travail` is the type that keeps
+    // it, unlike `event()`'s default `veto`.
+    const { eventTypes: _eventTypes, ...tables } = snapshot().tables;
+    const legacy = event({ type: "travail" });
 
     await importBackup({
       ...snapshot(),
       schemaVersion: 3,
-      tables: { ...snapshot().tables, events: [legacy] },
+      tables: { ...tables, events: [legacy] },
     });
 
-    expect(await db.events.get("event-1")).toHaveProperty("activity", null);
+    expect(await db.events.get("event-1")).toHaveProperty(
+      "customFields.activity",
+      null,
+    );
   });
 
-  it("keeps the values a current-version snapshot carries", async () => {
+  it("keeps the customFields values a current-version snapshot carries", async () => {
     const current = event({
-      vendor: "google",
-      followUpInterval: { amount: 6, unit: "week" },
-      activity: "longe",
+      customFields: {
+        counterparty: "google",
+        followUp: followUpValue({ amount: 6, unit: "week" }),
+        activity: "longe",
+      },
     });
 
     await importBackup({
@@ -367,9 +397,9 @@ describe("importBackup — rejects bad input", () => {
     });
 
     const stored = await db.events.get("event-1");
-    expect(stored?.vendor).toBe("google");
-    expect(stored?.followUpInterval).toEqual({ amount: 6, unit: "week" });
-    expect(stored?.activity).toBe("longe");
+    expect(stored?.customFields.counterparty).toBe("google");
+    expect(stored?.customFields.followUp).toBe("6w");
+    expect(stored?.customFields.activity).toBe("longe");
   });
 
   it("leaves a current-version snapshot untouched", async () => {
@@ -386,12 +416,16 @@ describe("importBackup — rejects bad input", () => {
     });
   });
 
-  it("accepts a pre-v5 file that predates the activities table", async () => {
+  it("accepts a pre-v5 file that predates the activities and eventTypes tables", async () => {
     // Regression, and the expensive kind: `assertSnapshot` requires every table
     // in `RECORD_TABLES` to be present, so adding one made every backup ever
     // exported unrestorable — on the one feature that exists to stop data being
-    // lost. A v4 file simply has no such key.
-    const { activities: _activities, ...v4Tables } = snapshot().tables;
+    // lost. A v4 file simply has neither key.
+    const {
+      activities: _activities,
+      eventTypes: _eventTypes,
+      ...v4Tables
+    } = snapshot().tables;
 
     const result = await importBackup({
       ...snapshot(),
@@ -399,8 +433,11 @@ describe("importBackup — rejects bad input", () => {
       tables: { ...v4Tables, horses: [horse()] },
     });
 
-    expect(result).toEqual({ imported: 1, skipped: 0 });
+    // The horse, plus the 13 built-in types the v5 -> v6 step seeds in the
+    // same call — a v4 file has neither activities nor a type catalogue.
+    expect(result).toEqual({ imported: 14, skipped: 0 });
     expect(await db.activities.count()).toBe(0);
+    expect(await db.eventTypes.count()).toBe(13);
   });
 
   it("still rejects a table missing from a current-version file", async () => {
@@ -411,6 +448,16 @@ describe("importBackup — rejects bad input", () => {
     await expect(
       importBackup({ ...snapshot(), tables: incomplete }),
     ).rejects.toThrow(/la table « activities » est absente/);
+  });
+
+  it("carries a current-version file's own eventTypes rows through untouched", async () => {
+    const result = await importBackup({
+      ...snapshot(),
+      tables: { ...snapshot().tables, eventTypes: eventTypeRows },
+    });
+
+    expect(result).toEqual({ imported: 13, skipped: 0 });
+    expect(await db.eventTypes.count()).toBe(13);
   });
 
   it("writes nothing at all when validation fails", async () => {

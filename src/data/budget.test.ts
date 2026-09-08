@@ -11,20 +11,29 @@ import {
   sumSlices,
   type BudgetPeriod,
 } from "./budget.ts";
-import { makeEvent } from "./__tests__/factories.ts";
+import { BUILT_IN_EVENT_TYPE_ROWS, makeEvent } from "./__tests__/factories.ts";
 import type { HorseEvent } from "./types.ts";
 
 /**
  * These are pure functions over records the caller fetched, so the fixtures are
- * built straight from the factory — no database, no `resetDb`.
+ * built straight from the factory — no database, no `resetDb`. `TYPES` is the
+ * real 13 built-ins, in their real `order` — the sequence `sumByType` sorts by.
  */
+const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+
 const budget = (
   date: string,
   type: HorseEvent["type"],
   amountCents: number,
   over: Partial<HorseEvent> = {},
 ): HorseEvent =>
-  makeEvent({ id: `${date}-${type}`, date, type, amountCents, ...over });
+  makeEvent({
+    id: `${date}-${type}`,
+    date,
+    type,
+    customFields: { amountCents },
+    ...over,
+  });
 
 const MONTH = (key: string): BudgetPeriod => ({ granularity: "month", key });
 const YEAR = (key: string): BudgetPeriod => ({ granularity: "year", key });
@@ -73,60 +82,72 @@ describe("inPeriod", () => {
 
 describe("sumByType", () => {
   it("adds up several events of the same category", () => {
-    const slices = sumByType([
-      budget("2026-01-05", "veto", 10_000),
-      budget("2026-01-20", "veto", 2500),
-    ]);
+    const slices = sumByType(
+      [
+        budget("2026-01-05", "veto", 10_000),
+        budget("2026-01-20", "veto", 2500),
+      ],
+      TYPES,
+    );
     expect(slices).toEqual([{ type: "veto", cents: 12_500 }]);
   });
 
   it("omits categories with nothing spent on them", () => {
-    const slices = sumByType([budget("2026-01-05", "veto", 10_000)]);
+    const slices = sumByType([budget("2026-01-05", "veto", 10_000)], TYPES);
     expect(slices).toHaveLength(1);
     expect(slices.map((slice) => slice.type)).not.toContain("pension");
   });
 
   it("omits a category whose events cancel out to zero", () => {
-    const slices = sumByType([
-      budget("2026-01-05", "achat", 5000),
-      budget("2026-01-06", "achat", -5000, { id: "refund" }),
-      budget("2026-01-07", "veto", 1000),
-    ]);
+    const slices = sumByType(
+      [
+        budget("2026-01-05", "achat", 5000),
+        budget("2026-01-06", "achat", -5000, { id: "refund" }),
+        budget("2026-01-07", "veto", 1000),
+      ],
+      TYPES,
+    );
     expect(slices).toEqual([{ type: "veto", cents: 1000 }]);
   });
 
-  it("orders by EVENT_TYPES, not by amount, so the ring never reshuffles", () => {
-    // `pension` comes after `veto` in EVENT_TYPES and is the bigger of the two here.
-    const slices = sumByType([
-      budget("2026-01-05", "pension", 35_000),
-      budget("2026-01-06", "veto", 100),
-    ]);
+  it("orders by the type catalogue's order, not by amount, so the ring never reshuffles", () => {
+    // `pension` comes after `veto` in the seeded order and is the bigger of the two here.
+    const slices = sumByType(
+      [
+        budget("2026-01-05", "pension", 35_000),
+        budget("2026-01-06", "veto", 100),
+      ],
+      TYPES,
+    );
     expect(slices.map((slice) => slice.type)).toEqual(["veto", "pension"]);
   });
 
-  it("treats a null amount as nothing rather than NaN", () => {
-    const slices = sumByType([
-      budget("2026-01-05", "veto", 1000),
-      makeEvent({
-        id: "no-amount",
-        date: "2026-01-06",
-        type: "veto",
-        amountCents: null,
-      }),
-    ]);
+  it("treats a missing or non-numeric amount as nothing rather than NaN", () => {
+    const slices = sumByType(
+      [
+        budget("2026-01-05", "veto", 1000),
+        makeEvent({
+          id: "no-amount",
+          date: "2026-01-06",
+          type: "veto",
+          customFields: {},
+        }),
+      ],
+      TYPES,
+    );
     expect(slices).toEqual([{ type: "veto", cents: 1000 }]);
   });
 
   it("returns nothing for no events", () => {
-    expect(sumByType([])).toEqual([]);
+    expect(sumByType([], TYPES)).toEqual([]);
   });
 });
 
 describe("sumSlices", () => {
   it("totals the slices, and reads 0 for none", () => {
-    expect(sumSlices(sumByType([budget("2026-01-05", "veto", 10_000)]))).toBe(
-      10_000,
-    );
+    expect(
+      sumSlices(sumByType([budget("2026-01-05", "veto", 10_000)], TYPES)),
+    ).toBe(10_000);
     expect(sumSlices([])).toBe(0);
   });
 });

@@ -3,13 +3,15 @@ import { customElement, state } from "lit/decorators.js";
 import {
   activeHorseQuery,
   eventsRepo,
+  eventTypesRepo,
   formatDayLong,
+  LiveQuery,
   todayISO,
   weekGrid,
   workSessionByDate,
   type IsoDate,
 } from "../../data/index.ts";
-import type { HorseEvent } from "../../data/types.ts";
+import type { EventTypeDef, HorseEvent } from "../../data/types.ts";
 import { BaseElement } from "../../commons/base-element.ts";
 
 import "../day-card/day-card.ts";
@@ -60,6 +62,17 @@ export class WeekStrip extends BaseElement {
     },
     [],
   );
+
+  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
+    eventTypesRepo.listAll(),
+  );
+
+  /** The type the day sheet writes to — the one type flagged `tracksWork`. */
+  get #workType(): EventTypeDef | null {
+    return (
+      (this.#eventTypes.value ?? []).find((type) => type.tracksWork) ?? null
+    );
+  }
 
   static componentStyles = css`
     :host {
@@ -130,7 +143,10 @@ export class WeekStrip extends BaseElement {
     // cannot draw a week that disagrees with the day it highlights.
     const today = todayISO();
     const days = weekGrid(today);
-    const sessions = workSessionByDate(this.#week.value ?? []);
+    const sessions = workSessionByDate(
+      this.#week.value ?? [],
+      this.#eventTypes.value ?? [],
+    );
     const { selected, sheetOpen } = this;
 
     return html`
@@ -170,6 +186,7 @@ export class WeekStrip extends BaseElement {
               <activity-sheet
                 .open=${sheetOpen}
                 .date=${selected}
+                .type=${this.#workType}
                 .existing=${sessions.get(selected) ?? null}
                 @sheet-close=${this.#close}
               ></activity-sheet>

@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { HORSE_ID, makeEvent, resetDb } from "../__tests__/factories.ts";
+import {
+  BUILT_IN_EVENT_TYPE_ROWS,
+  HORSE_ID,
+  makeEvent,
+  resetDb,
+} from "../__tests__/factories.ts";
 import { addDays, todayISO } from "../dates.ts";
 import { db } from "../db.ts";
 import * as eventsRepo from "../repositories/events.repo.ts";
 import { workSessionByDate, type WorkSession } from "../events.ts";
+import type { EventTypeDef } from "../types.ts";
 import {
   saveEvent,
   setDayActivity,
@@ -24,6 +30,15 @@ import {
 
 beforeEach(resetDb);
 
+/** The real 13 built-ins, resolved by key — the shape `event-sheet.ts` already
+ * hands `saveEvent`/`setDayActivity`, so these tests do the same resolution. */
+const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+const typeFor = (key: string): EventTypeDef => {
+  const type = TYPES.find((candidate) => candidate.key === key);
+  if (!type) throw new Error(`No built-in type named "${key}" in fixtures`);
+  return type;
+};
+
 /** Every field filled in, so each test can state only the one it is about. */
 const input = (over: Partial<EventInput> = {}): EventInput => ({
   type: "veto",
@@ -39,75 +54,77 @@ const input = (over: Partial<EventInput> = {}): EventInput => ({
 });
 
 const create = async (over: Partial<EventInput> = {}) => {
-  const saved = await saveEvent({ horseId: HORSE_ID, input: input(over) });
+  const merged = input(over);
+  const saved = await saveEvent({
+    horseId: HORSE_ID,
+    type: typeFor(merged.type),
+    input: merged,
+  });
   return saved!;
 };
 
-describe("counterparty column", () => {
-  it("writes a care event’s counterparty to providerName", async () => {
+describe("counterparty field", () => {
+  it("writes a care event's counterparty into customFields", async () => {
     const event = await create({ type: "veto" });
 
-    expect(event.providerName).toBe("Dr Martin");
-    expect(event.vendor).toBeNull();
+    expect(event.customFields.counterparty).toBe("Dr Martin");
   });
 
-  it("writes a purchase’s counterparty to vendor", async () => {
+  it("writes a purchase's counterparty into the same customFields key", async () => {
     const event = await create({ type: "achat" });
 
-    expect(event.vendor).toBe("Dr Martin");
-    expect(event.providerName).toBeNull();
+    expect(event.customFields.counterparty).toBe("Dr Martin");
   });
 
-  it("drops it entirely on a layout that asks for neither", async () => {
+  it("drops it entirely on a type that asks for neither", async () => {
     // `cours` and `pension` draw no counterparty field at all, so a value here
     // can only be one the user typed under a different type.
     const event = await create({ type: "cours" });
 
-    expect(event.providerName).toBeNull();
-    expect(event.vendor).toBeNull();
+    expect(event.customFields.counterparty).toBeUndefined();
   });
 
   it("follows the type being saved, not the one the record had", async () => {
-    // Retyping a purchase as a vet visit has to move the value across, or the
-    // detail view — which reads the column from the record's own type — shows
-    // an empty row over data that is still there.
+    // Retyping a purchase as a vet visit has to keep the value, or the detail
+    // view — which reads `customFields` off the record's own type — shows an
+    // empty row over data that is still there.
     const purchase = await create({ type: "achat", counterparty: "Horze" });
     const edited = await saveEvent({
       horseId: HORSE_ID,
       existing: purchase,
+      type: typeFor("veto"),
       input: input({ type: "veto", counterparty: "Horze" }),
     });
 
-    expect(edited?.providerName).toBe("Horze");
-    expect(edited?.vendor).toBeNull();
+    expect(edited?.customFields.counterparty).toBe("Horze");
   });
 });
 
 describe("follow-up interval", () => {
-  it("records it on a care event that asked for one", async () => {
+  it("records it, encoded, on a care event that asked for one", async () => {
     const event = await create({ type: "marechal" });
 
-    expect(event.followUpInterval).toEqual({ amount: 6, unit: "week" });
+    expect(event.customFields.followUp).toBe("6w");
   });
 
-  it("drops it on a layout with no follow-up field, ticked or not", async () => {
+  it("drops it entirely on a type with no follow-up field, ticked or not", async () => {
     // The sheet seeds `planFollowUp` from the record being edited, so a care
     // event retyped as a purchase arrives here still ticked.
     const event = await create({ type: "achat", planFollowUp: true });
 
-    expect(event.followUpInterval).toBeNull();
+    expect(event.customFields.followUp).toBeUndefined();
   });
 
-  it("drops it when the box is unticked", async () => {
+  it("is null, not dropped, when the box is unticked on a type that has the field", async () => {
     const event = await create({ type: "veto", planFollowUp: false });
 
-    expect(event.followUpInterval).toBeNull();
+    expect(event.customFields.followUp).toBeNull();
   });
 
   it("is null rather than a guess when the encoding is unrecognised", async () => {
     const event = await create({ type: "veto", followUpInterval: "six-weeks" });
 
-    expect(event.followUpInterval).toBeNull();
+    expect(event.customFields.followUp).toBeNull();
   });
 });
 
@@ -115,13 +132,13 @@ describe("activity", () => {
   it("is kept on a travail session", async () => {
     const event = await create({ type: "travail", activity: "longe" });
 
-    expect(event.activity).toBe("longe");
+    expect(event.customFields.activity).toBe("longe");
   });
 
   it("is dropped on every other type", async () => {
     const event = await create({ type: "veto", activity: "longe" });
 
-    expect(event.activity).toBeNull();
+    expect(event.customFields.activity).toBeUndefined();
   });
 });
 
@@ -166,27 +183,28 @@ describe("amount", () => {
       amountCents: 4500,
     });
 
-    expect(event.amountCents).toBeNull();
+    expect(event.customFields.amountCents).toBeUndefined();
   });
 
   it("keeps it on every other layout", async () => {
     const event = await create({ type: "veto", amountCents: 4500 });
 
-    expect(event.amountCents).toBe(4500);
+    expect(event.customFields.amountCents).toBe(4500);
   });
 
   it("clears a budget entered before a travail event was retyped from another type", async () => {
-    // Same reasoning as the counterparty and activity columns above: an edit
-    // must not carry over a value the current layout has nowhere to show.
+    // Same reasoning as the counterparty and activity fields above: an edit
+    // must not carry over a value the current type has nowhere to show.
     const purchase = await create({ type: "achat", amountCents: 4500 });
 
     const edited = await saveEvent({
       horseId: HORSE_ID,
       existing: purchase,
+      type: typeFor("travail"),
       input: input({ type: "travail", activity: "longe", amountCents: 4500 }),
     });
 
-    expect(edited?.amountCents).toBeNull();
+    expect(edited?.customFields.amountCents).toBeUndefined();
   });
 });
 
@@ -210,6 +228,7 @@ describe("status", () => {
     const edited = await saveEvent({
       horseId: HORSE_ID,
       existing,
+      type: typeFor("veto"),
       input: input({ title: "Reporté" }),
     });
 
@@ -219,7 +238,7 @@ describe("status", () => {
 });
 
 describe("editing", () => {
-  it("keeps the fields no layout can show", async () => {
+  it("keeps the fields no type can show", async () => {
     // Nothing in the sheet draws a time, a location or a recurrence, so an edit
     // must carry them rather than blank them.
     await db.events.add(
@@ -236,6 +255,7 @@ describe("editing", () => {
     const edited = await saveEvent({
       horseId: HORSE_ID,
       existing,
+      type: typeFor("veto"),
       input: input(),
     });
 
@@ -253,6 +273,7 @@ describe("editing", () => {
     await saveEvent({
       horseId: HORSE_ID,
       existing: created,
+      type: typeFor("veto"),
       input: input({ title: "Rappel" }),
     });
 
@@ -267,6 +288,7 @@ describe("editing", () => {
     const edited = await saveEvent({
       horseId: "horse-2",
       existing: created,
+      type: typeFor("veto"),
       input: input(),
     });
 
@@ -278,14 +300,19 @@ describe("editing", () => {
     await eventsRepo.remove(created.id);
 
     expect(
-      await saveEvent({ horseId: HORSE_ID, existing: created, input: input() }),
+      await saveEvent({
+        horseId: HORSE_ID,
+        existing: created,
+        type: typeFor("veto"),
+        input: input(),
+      }),
     ).toBeUndefined();
     expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
   });
 });
 
 describe("creating", () => {
-  it("defaults the fields no layout can show", async () => {
+  it("defaults the fields no type can show", async () => {
     const event = await create();
 
     expect(event).toMatchObject({
@@ -299,14 +326,19 @@ describe("creating", () => {
 });
 
 describe("setDayActivity", () => {
+  const TRAVAIL = typeFor("travail");
+
   /** The row the week strip would hand over, resolved the way the strip does. */
   const sessionOn = async (date: string): Promise<WorkSession | null> =>
-    workSessionByDate(await eventsRepo.listByHorse(HORSE_ID)).get(date) ?? null;
+    workSessionByDate(await eventsRepo.listByHorse(HORSE_ID), TYPES).get(
+      date,
+    ) ?? null;
 
   it("creates a session titled after the activity", async () => {
     const event = await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "longe",
     });
 
@@ -314,33 +346,36 @@ describe("setDayActivity", () => {
       type: "travail",
       title: "Longe",
       date: "2026-06-15",
-      activity: "longe",
-      amountCents: null,
-      providerName: null,
-      vendor: null,
-      followUpInterval: null,
+      customFields: { activity: "longe" },
     });
+    expect(event?.customFields.amountCents).toBeUndefined();
   });
 
   it("titles a user’s own activity with the label it stores", async () => {
     const event = await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "Carrière",
     });
 
-    expect(event).toMatchObject({ title: "Carrière", activity: "Carrière" });
+    expect(event).toMatchObject({
+      title: "Carrière",
+      customFields: { activity: "Carrière" },
+    });
   });
 
   it("derives status from the date, like every other entry point", async () => {
     const past = await setDayActivity({
       horseId: HORSE_ID,
       date: "2020-01-01",
+      type: TRAVAIL,
       activity: "plat",
     });
     const future = await setDayActivity({
       horseId: HORSE_ID,
       date: addDays(todayISO(), 3),
+      type: TRAVAIL,
       activity: "plat",
     });
 
@@ -352,6 +387,7 @@ describe("setDayActivity", () => {
     await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "longe",
     });
     const existing = await sessionOn("2026-06-15");
@@ -359,13 +395,17 @@ describe("setDayActivity", () => {
     await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "tap",
       existing,
     });
 
     const rows = await eventsRepo.listByHorse(HORSE_ID);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ activity: "tap", title: "TAP" });
+    expect(rows[0]).toMatchObject({
+      title: "TAP",
+      customFields: { activity: "tap" },
+    });
   });
 
   it("keeps a title the user wrote themselves", async () => {
@@ -376,7 +416,7 @@ describe("setDayActivity", () => {
         id: "renamed",
         type: "travail",
         date: "2026-06-15",
-        activity: "longe",
+        customFields: { activity: "longe" },
         title: "Séance dressage",
       }),
     );
@@ -384,12 +424,13 @@ describe("setDayActivity", () => {
     await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "tap",
       existing: await sessionOn("2026-06-15"),
     });
 
     expect(await eventsRepo.get("renamed")).toMatchObject({
-      activity: "tap",
+      customFields: { activity: "tap" },
       title: "Séance dressage",
     });
   });
@@ -402,7 +443,7 @@ describe("setDayActivity", () => {
         id: "cancelled",
         type: "travail",
         date: "2026-06-15",
-        activity: "longe",
+        customFields: { activity: "longe" },
         status: "cancelled",
       }),
     );
@@ -410,6 +451,7 @@ describe("setDayActivity", () => {
     await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "tap",
       existing: await sessionOn("2026-06-15"),
     });
@@ -417,7 +459,7 @@ describe("setDayActivity", () => {
     expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
     expect(await eventsRepo.get("cancelled")).toMatchObject({
       status: "cancelled",
-      activity: "longe",
+      customFields: { activity: "longe" },
     });
   });
 
@@ -425,6 +467,7 @@ describe("setDayActivity", () => {
     await setDayActivity({
       horseId: HORSE_ID,
       date: "2026-06-15",
+      type: TRAVAIL,
       activity: "longe",
     });
     const existing = await sessionOn("2026-06-15");
@@ -434,6 +477,7 @@ describe("setDayActivity", () => {
       await setDayActivity({
         horseId: HORSE_ID,
         date: "2026-06-15",
+        type: TRAVAIL,
         activity: "tap",
         existing,
       }),

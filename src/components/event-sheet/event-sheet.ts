@@ -4,6 +4,8 @@ import { BaseElement } from "../../commons/base-element.ts";
 import {
   DEFAULT_FOLLOW_UP,
   FOLLOW_UP_INTERVALS,
+  type CustomFieldDef,
+  type EventTypeDef,
   type FieldParser,
   LiveQuery,
   type WorkActivity,
@@ -11,8 +13,12 @@ import {
   activitiesRepo,
   activityChoices,
   bool,
+  byLabel,
   cents,
   eventsService,
+  eventTypesRepo,
+  fieldOfKind,
+  findEventType,
   followUpValue,
   formatFollowUpInterval,
   formatWorkActivity,
@@ -21,20 +27,12 @@ import {
   isoDate,
   matchActivity,
   oneOf,
+  parseFollowUpValue,
   readForm,
   text,
   todayISO,
 } from "../../data/index.ts";
 import type { ActivityItem, HorseEvent } from "../../data/types.ts";
-import {
-  EVENT_TYPES,
-  EVENT_TYPES_BY_LABEL,
-  type CounterpartyField,
-  type EventFormSpec,
-  eventFormSpec,
-  eventType,
-  type EventTypeKey,
-} from "../../types/event.types.ts";
 import type { AppComboboxOption } from "../app-combobox/app-combobox.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
 
@@ -43,11 +41,6 @@ import "../app-combobox/app-combobox.ts";
 import "../app-input/app-input.ts";
 import "../app-select/app-select.ts";
 import "../app-checkbox/app-checkbox.ts";
-
-const TYPE_OPTIONS: AppSelectOption[] = EVENT_TYPES_BY_LABEL.map((type) => ({
-  value: type,
-  label: eventType.label(type),
-}));
 
 const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
   (interval) => ({
@@ -109,8 +102,15 @@ const titleParser = (required: boolean): FieldParser<string | null> =>
  * layout that draws it and absent everywhere else, so `#onSubmit` swaps in the
  * required parser for that layout alone. The *shape* is unchanged either way.
  */
+/**
+ * `type`'s parser is a placeholder — `[]` accepts nothing — because the real
+ * whitelist depends on the live catalogue, which does not exist at module
+ * scope. `#onSubmit` swaps in the real one the same way it already swaps
+ * `title`/`activity` in per layout; declaring the key here at all is what
+ * gives `EventFieldName` below a real member for it.
+ */
 const EVENT_SCHEMA = {
-  type: oneOf(EVENT_TYPES, { required: true }),
+  type: oneOf<string>([], { required: true }),
   title: titleParser(true),
   date: isoDate({ required: true }),
   amountCents: cents(),
@@ -126,16 +126,18 @@ type EventFieldName = keyof typeof EVENT_SCHEMA;
 /**
  * Creating and editing an event.
  *
- * One sheet, four field layouts chosen by the type select at the top: a care
- * appointment (vet, farrier, dentist, osteopath) has a practitioner and can
- * record a repeat interval; a purchase has a merchant; a schooling session has
- * the kind of work that was done; lessons and boarding need none of it. The
- * variant mapping lives in `event.types.ts` so the taxonomy and its form stay
- * together.
+ * One sheet, whose fields come from the picked type's own `fields` list — a
+ * care appointment (vet, farrier, dentist, osteopath) has a practitioner and
+ * can record a repeat interval; a purchase has a merchant; a `workActivity`
+ * type has the kind of work that was done; a type with none of those needs
+ * none of it. Schema v6 moved this from a compile-time table in
+ * `event.types.ts` to the `EventTypeDef` rows `#eventTypes` reads live, so a
+ * type's shape and its label/icon/theme stay one row rather than two tables
+ * that could drift.
  *
- * Setting `event` switches it to edit: same layouts, same reader, prefilled
+ * Setting `event` switches it to edit: same fields, same reader, prefilled
  * from the record and saved with `update` instead of `create`. A second form
- * would have been a second place for the variant rules to drift.
+ * would have been a second place for the per-type rules to drift.
  *
  * @fires sheet-close - No detail. Fired on dismissal and after a successful
  * save; the owner clears `open` in response.
@@ -148,7 +150,7 @@ export class EventSheet extends BaseElement {
   @property({ attribute: false }) event: HorseEvent | null = null;
 
   /** `''` until a type is picked; the select is `required`, so submit is blocked. */
-  @state() private type: EventTypeKey | "" = "";
+  @state() private type: string = "";
   @state() private planFollowUp = false;
   /**
    * Keyed by schema field name; absent means that field is fine.
@@ -164,6 +166,13 @@ export class EventSheet extends BaseElement {
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
+  /** The event-type catalogue — the type picker and every field's presence,
+   * label and requiredness now come from here rather than a compile-time
+   * table. */
+  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
+    eventTypesRepo.listAll(),
+  );
+
   /**
    * The horse's own activities — same catalogue the week strip's quick day
    * sheet reads and writes (`activity-sheet.ts`), so a label typed in either
@@ -174,6 +183,22 @@ export class EventSheet extends BaseElement {
     (horseId) => activitiesRepo.listByHorse(horseId),
     [],
   );
+
+  /**
+   * The `customFields` key the *record's own* type uses for its activity —
+   * not the currently selected type, so switching type mid-edit does not
+   * change which value `#activityChoices`/`#renderActivity` reads back.
+   * Falls back to `"activity"`, the id every seeded `tracksWork` type uses,
+   * on the tick before the catalogue's `LiveQuery` settles.
+   */
+  get #recordActivityFieldId(): string {
+    const recordType =
+      this.event &&
+      findEventType(this.#eventTypes.value ?? [], this.event.type);
+    return (
+      (recordType && fieldOfKind(recordType, "workActivity")?.id) ?? "activity"
+    );
+  }
 
   /**
    * The activities the combobox suggests — the six built-ins, the horse's
@@ -189,7 +214,8 @@ export class EventSheet extends BaseElement {
       (item) => item.label,
     );
     const choices = activityChoices(custom);
-    const current = this.event?.activity ?? null;
+    const stored = this.event?.customFields[this.#recordActivityFieldId];
+    const current = typeof stored === "string" ? stored : null;
     return current !== null && !choices.includes(current)
       ? [...choices, current]
       : choices;
@@ -281,9 +307,12 @@ export class EventSheet extends BaseElement {
     }
   `;
 
-  /** The layout the picked type calls for, or `null` before one is picked. */
-  get #spec(): EventFormSpec | null {
-    return this.type ? eventFormSpec(this.type) : null;
+  /** The picked type, resolved from the live catalogue — `null` before one is
+   * picked, or for the tick before the catalogue's `LiveQuery` settles. */
+  get #type(): EventTypeDef | null {
+    return this.type
+      ? (findEventType(this.#eventTypes.value ?? [], this.type) ?? null)
+      : null;
   }
 
   /**
@@ -307,30 +336,40 @@ export class EventSheet extends BaseElement {
    */
   #seedFromEvent() {
     this.type = this.event?.type ?? "";
-    this.planFollowUp = this.event?.followUpInterval != null;
+
+    const recordType =
+      this.event &&
+      findEventType(this.#eventTypes.value ?? [], this.event.type);
+    const followUpField = recordType && fieldOfKind(recordType, "followUp");
+    this.planFollowUp = !!(
+      followUpField && this.event?.customFields[followUpField.id] != null
+    );
     this.errors = {};
     this.saveError = "";
   }
 
   /**
-   * Practitioner or merchant, read from whichever column the *record's* own
-   * layout stores it in — not the layout currently picked in the select, so
-   * switching type mid-edit still shows what was captured.
+   * Practitioner or merchant, read from whichever `customFields` key the
+   * *record's* own type stores it in — not the type currently picked in the
+   * select, so switching type mid-edit still shows what was captured.
    */
   get #counterparty(): string {
     const event = this.event;
     if (!event) return "";
-    const column = eventFormSpec(event.type).counterparty?.column;
-    return (column ? event[column] : null) ?? "";
+    const recordType = findEventType(this.#eventTypes.value ?? [], event.type);
+    const field = recordType && fieldOfKind(recordType, "text");
+    const value = field && event.customFields[field.id];
+    return typeof value === "string" ? value : "";
   }
 
   // `select-change` / `checkbox-change`, not the native `change`: that one is
   // `composed: false` and never leaves the field's shadow root.
   #onTypeChange = (event: CustomEvent<{ value: string }>) => {
-    this.type = event.detail.value as EventTypeKey | "";
-    // Leaving a layout that offers a follow-up takes it with it, so a hidden
-    // checkbox can't smuggle an interval onto a purchase.
-    if (!this.#spec?.followUp) this.planFollowUp = false;
+    this.type = event.detail.value;
+    // Leaving a type that offers a follow-up takes it with it, so a hidden
+    // checkbox can't smuggle an interval onto another type.
+    const type = this.#type;
+    if (!type || !fieldOfKind(type, "followUp")) this.planFollowUp = false;
   };
 
   #onFollowUpToggle = (event: CustomEvent<{ checked: boolean }>) => {
@@ -357,19 +396,21 @@ export class EventSheet extends BaseElement {
   /**
    * Reads the form and hands the answers to `eventsService.saveEvent`.
    *
-   * The reading is variant-independent — `EVENT_SCHEMA` covers every field any
-   * layout can render, and one the current layout omits arrives absent, which
-   * each parser already reads as blank. `spec` is consulted for one thing here,
-   * and only because it cannot be deferred: on the `work` layout the activity
-   * is required and Nom is not — the one layout where that pair is reversed —
-   * so both parsers have to be chosen before the type is read back.
+   * The reading is type-independent — `EVENT_SCHEMA` covers every field any
+   * type's fields can call for, and one the current type omits arrives absent,
+   * which each parser already reads as blank. The picked type is consulted for
+   * two things here, and only because they cannot be deferred: `type`'s
+   * whitelist depends on the live catalogue, which does not exist at module
+   * scope, and on a `workActivity` type the activity is required and Nom is
+   * not — the one case where that pair is reversed — so both parsers have to
+   * be chosen before the type is read back.
    *
-   * Everything the variant decides on the way *out* — which column a
-   * counterparty lands in, whether a follow-up or an activity may be written at
-   * all, what an edit carries over — is the service's, and it re-derives the
-   * layout from the type actually being saved. This component composed the
-   * record itself until then, which put ~50 lines of what an event *is* inside
-   * a dialog and left them reachable only from a browser suite.
+   * Everything the type decides on the way *out* — which field a counterparty
+   * lands in, whether a follow-up or an activity may be written at all, what
+   * an edit carries over — is the service's, and it re-derives the fields from
+   * the type actually being saved. This component composed the record itself
+   * until then, which put ~50 lines of what an event *is* inside a dialog and
+   * left them reachable only from a browser suite.
    */
   #onSubmit = async (submitEvent: SubmitEvent) => {
     submitEvent.preventDefault();
@@ -380,11 +421,16 @@ export class EventSheet extends BaseElement {
       return;
     }
 
-    const spec = this.#spec;
-    const isWork = spec?.activity ?? false;
+    const types = this.#eventTypes.value ?? [];
+    const type = this.#type;
+    const isWork = !!(type && fieldOfKind(type, "workActivity"));
     const priorChoices = this.#activityChoices;
     const result = readForm(submitEvent.target as HTMLFormElement, {
       ...EVENT_SCHEMA,
+      type: oneOf(
+        types.map((candidate) => candidate.key),
+        { required: true },
+      ),
       title: titleParser(!isWork),
       activity: activityParser(isWork),
     });
@@ -395,10 +441,14 @@ export class EventSheet extends BaseElement {
       return;
     }
 
+    // `oneOf` above already guarantees `result.value.type` names a live type.
+    const resolvedType = findEventType(types, result.value.type)!;
+
     try {
       await eventsService.saveEvent({
         horseId: horse.id,
         existing: this.event,
+        type: resolvedType,
         input: result.value,
       });
 
@@ -444,8 +494,8 @@ export class EventSheet extends BaseElement {
 
     // Document order, which is the only order that means anything here: the
     // keys of `errors` come out in schema order, and the schema does not match
-    // the layout — `counterparty` is declared after `amountCents` but rendered
-    // above it in the care variant. `querySelector` answers with the first
+    // the layout — `counterparty` is declared after `amountCents` but always
+    // rendered above it. `querySelector` answers with the first
     // match in tree order, so the DOM settles the question for free and the two
     // orders can never drift again. `delegatesFocus` lands on the native
     // control inside the field's shadow root.
@@ -456,7 +506,11 @@ export class EventSheet extends BaseElement {
   }
 
   render() {
-    const counterparty = this.#spec?.counterparty ?? null;
+    const type = this.#type;
+    const counterparty = type ? fieldOfKind(type, "text") : null;
+    const options: AppSelectOption[] = byLabel(
+      this.#eventTypes.value ?? [],
+    ).map((candidate) => ({ value: candidate.key, label: candidate.label }));
     const event = this.event;
 
     // `.event-form__error-region` is mounted with the form and never hidden —
@@ -491,14 +545,18 @@ export class EventSheet extends BaseElement {
             label="Type"
             name="type"
             placeholder="Choisir un type"
-            .options=${TYPE_OPTIONS}
+            .options=${options}
             .value=${this.type}
             .error=${this.errors.type ?? ""}
             required
             @select-change=${this.#onTypeChange}
           ></app-select>
 
-          ${this.#spec?.activity ? this.#renderActivity() : this.#renderTitle()}
+          ${
+            type && fieldOfKind(type, "workActivity")
+              ? this.#renderActivity()
+              : this.#renderTitle()
+          }
 
           <app-input
             flat
@@ -510,18 +568,13 @@ export class EventSheet extends BaseElement {
             required
           ></app-input>
 
+          ${counterparty ? this.#renderCounterparty(counterparty) : nothing}
+          ${type && fieldOfKind(type, "cents") ? this.#renderBudget() : nothing}
           ${
-            counterparty?.position === "before-amount"
-              ? this.#renderCounterparty(counterparty)
+            type && fieldOfKind(type, "followUp")
+              ? this.#renderFollowUp()
               : nothing
           }
-          ${this.#spec?.amount !== false ? this.#renderBudget() : nothing}
-          ${
-            counterparty?.position === "after-amount"
-              ? this.#renderCounterparty(counterparty)
-              : nothing
-          }
-          ${this.#spec?.followUp ? this.#renderFollowUp() : nothing}
 
           <app-input
             flat
@@ -550,10 +603,11 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-   * Practitioner or merchant — the same column-per-layout field, relabelled.
-   * One control, so the value can never be carried across a layout change.
+   * Practitioner or merchant — the same field-per-type slot, relabelled from
+   * the type's own definition. One control, so the value can never be carried
+   * across a type change.
    */
-  #renderCounterparty(field: CounterpartyField) {
+  #renderCounterparty(field: CustomFieldDef) {
     return html`
       <app-input
         flat
@@ -583,12 +637,13 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-   * Budget. Every layout but `work` — a schooling session has no cost of its
-   * own, and the field it would otherwise occupy the row after is the Nom
-   * combobox instead.
+   * Budget. Every type but a `workActivity` one — a schooling session has no
+   * cost of its own, and the field it would otherwise occupy the row after is
+   * the Nom combobox instead. Prefilled from `customFields.amountCents`,
+   * absent (rendered blank) for a record whose own type never asked for one.
    */
   #renderBudget() {
-    const event = this.event;
+    const amount = this.event?.customFields.amountCents;
     return html`
       <app-input
         flat
@@ -598,18 +653,18 @@ export class EventSheet extends BaseElement {
         inputmode="decimal"
         pattern="[0-9]+([.,][0-9]{1,2})?"
         suffix="€"
-        .value=${event?.amountCents == null ? "" : String(fromCents(event.amountCents))}
+        .value=${typeof amount === "number" ? String(fromCents(amount)) : ""}
         .error=${this.errors.amountCents ?? ""}
       ></app-input>
     `;
   }
 
   /**
-   * `work`'s Nom field — what was done in the session, which doubles as the
-   * record's title (`eventFields` in `events.service.ts` derives one from the
-   * other). Rendered in the same template slot `#renderTitle` occupies on
-   * every other layout, not beside it: a travail session has one name, not
-   * two fields that both claim to hold it.
+   * A `workActivity` type's Nom field — what was done in the session, which
+   * doubles as the record's title (`eventFields` in `events.service.ts`
+   * derives one from the other). Rendered in the same template slot
+   * `#renderTitle` occupies on every other type, not beside it: a travail
+   * session has one name, not two fields that both claim to hold it.
    *
    * A combobox rather than `app-select`: the six built-ins and the horse's
    * catalogue are suggestions, not a closed list, so typing one the horse has
@@ -622,6 +677,7 @@ export class EventSheet extends BaseElement {
         label: formatWorkActivity(activity),
       }),
     );
+    const stored = this.event?.customFields[this.#recordActivityFieldId];
 
     return html`
       <app-combobox
@@ -630,7 +686,7 @@ export class EventSheet extends BaseElement {
         name="activity"
         placeholder="Choisir ou ajouter une activité"
         .options=${options}
-        .value=${this.event?.activity ?? ""}
+        .value=${typeof stored === "string" ? stored : ""}
         .error=${this.errors.activity ?? ""}
         required
       ></app-combobox>
@@ -654,7 +710,7 @@ export class EventSheet extends BaseElement {
                   label="Prochain rendez-vous à planifier"
                   name="followUpInterval"
                   .options=${FOLLOW_UP_OPTIONS}
-                  .value=${followUpValue(this.event?.followUpInterval ?? DEFAULT_FOLLOW_UP)}
+                  .value=${followUpValue(this.#recordFollowUp ?? DEFAULT_FOLLOW_UP)}
                   required
                 ></app-select>
               `
@@ -662,6 +718,20 @@ export class EventSheet extends BaseElement {
         }
       </div>
     `;
+  }
+
+  /**
+   * The record's own follow-up interval, decoded — read from whichever
+   * `customFields` key the *record's own* type uses, the same rule
+   * `#counterparty` follows. `null` when there is none to prefill from.
+   */
+  get #recordFollowUp() {
+    const event = this.event;
+    if (!event) return null;
+    const recordType = findEventType(this.#eventTypes.value ?? [], event.type);
+    const field = recordType && fieldOfKind(recordType, "followUp");
+    const stored = field && event.customFields[field.id];
+    return typeof stored === "string" ? parseFollowUpValue(stored) : null;
   }
 }
 

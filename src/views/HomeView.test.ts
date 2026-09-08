@@ -47,17 +47,25 @@ describe("home-view", () => {
 
   it("does not count next month into this month card, or a cancelled visit into either", async () => {
     await db.events.bulkAdd([
-      makeEvent({ id: "in-month-1", date: todayISO(), amountCents: 1000 }),
-      makeEvent({ id: "in-month-2", date: todayISO(), amountCents: 500 }),
+      makeEvent({
+        id: "in-month-1",
+        date: todayISO(),
+        customFields: { amountCents: 1000 },
+      }),
+      makeEvent({
+        id: "in-month-2",
+        date: todayISO(),
+        customFields: { amountCents: 500 },
+      }),
       makeEvent({
         id: "last-month",
         date: addMonths(todayISO(), -1),
-        amountCents: 20_000,
+        customFields: { amountCents: 20_000 },
       }),
       makeEvent({
         id: "cancelled",
         date: todayISO(),
-        amountCents: 999,
+        customFields: { amountCents: 999 },
         status: "cancelled",
       }),
     ]);

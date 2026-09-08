@@ -12,7 +12,10 @@ import {
   workActivityByDate,
   workSessionByDate,
 } from "./events.ts";
-import { makeEvent } from "./__tests__/factories.ts";
+import { BUILT_IN_EVENT_TYPE_ROWS, makeEvent } from "./__tests__/factories.ts";
+
+/** The real 13 built-ins — `travail` is the one `tracksWork` type. */
+const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
 describe("statusForDate", () => {
   const TODAY = "2026-08-12";
@@ -107,79 +110,91 @@ describe("formatFollowUpInterval", () => {
 
 describe("workActivityByDate", () => {
   it("answers with the activity of a day that has a session", () => {
-    const byDate = workActivityByDate([
-      makeEvent({
-        id: "a",
-        type: "travail",
-        date: "2026-08-10",
-        activity: "longe",
-      }),
-    ]);
+    const byDate = workActivityByDate(
+      [
+        makeEvent({
+          id: "a",
+          type: "travail",
+          date: "2026-08-10",
+          customFields: { activity: "longe" },
+        }),
+      ],
+      TYPES,
+    );
 
     expect(byDate.get("2026-08-10")).toBe("longe");
   });
 
   it("ignores everything that is not a live work session", () => {
-    const byDate = workActivityByDate([
-      makeEvent({ id: "care", type: "veto", date: "2026-08-10" }),
-      // A `travail` row with no activity cannot exist through the form, but a
-      // restored backup predating schema v4 carries exactly that.
-      makeEvent({
-        id: "blank",
-        type: "travail",
-        date: "2026-08-11",
-        activity: null,
-      }),
-      makeEvent({
-        id: "cancelled",
-        type: "travail",
-        date: "2026-08-12",
-        activity: "plat",
-        status: "cancelled",
-      }),
-    ]);
+    const byDate = workActivityByDate(
+      [
+        makeEvent({ id: "care", type: "veto", date: "2026-08-10" }),
+        // A `travail` row with no activity cannot exist through the form, but a
+        // restored backup predating schema v4 carries exactly that.
+        makeEvent({
+          id: "blank",
+          type: "travail",
+          date: "2026-08-11",
+          customFields: { activity: null },
+        }),
+        makeEvent({
+          id: "cancelled",
+          type: "travail",
+          date: "2026-08-12",
+          customFields: { activity: "plat" },
+          status: "cancelled",
+        }),
+      ],
+      TYPES,
+    );
 
     expect(byDate.size).toBe(0);
   });
 
   it("keeps the first session of a day: all-day before timed", () => {
-    const byDate = workActivityByDate([
-      makeEvent({
-        id: "timed",
-        type: "travail",
-        date: "2026-08-10",
-        time: "09:00",
-        activity: "plat",
-      }),
-      makeEvent({
-        id: "all-day",
-        type: "travail",
-        date: "2026-08-10",
-        time: null,
-        activity: "longe",
-      }),
-    ]);
+    const byDate = workActivityByDate(
+      [
+        makeEvent({
+          id: "timed",
+          type: "travail",
+          date: "2026-08-10",
+          time: "09:00",
+          customFields: { activity: "plat" },
+        }),
+        makeEvent({
+          id: "all-day",
+          type: "travail",
+          date: "2026-08-10",
+          time: null,
+          customFields: { activity: "longe" },
+        }),
+      ],
+      TYPES,
+    );
 
     expect(byDate.get("2026-08-10")).toBe("longe");
   });
 
   it("then keeps the earlier of two timed sessions, whatever order they arrive in", () => {
-    const byDate = workActivityByDate([
-      makeEvent({
-        id: "late",
-        type: "travail",
-        date: "2026-08-10",
-        time: "17:30",
-        activity: "plat",
-      }),
-      makeEvent({
-        id: "early",
-        type: "travail",
-        date: "2026-08-10",
-        time: "08:15",
-        activity: "tap",
-      }),
-    ]);
+    const byDate = workActivityByDate(
+      [
+        makeEvent({
+          id: "late",
+          type: "travail",
+          date: "2026-08-10",
+          time: "17:30",
+          customFields: { activity: "plat" },
+        }),
+        makeEvent({
+          id: "early",
+          type: "travail",
+          date: "2026-08-10",
+          time: "08:15",
+          customFields: { activity: "tap" },
+        }),
+      ],
+      TYPES,
+    );
 
     expect(byDate.get("2026-08-10")).toBe("tap");
   });
@@ -191,10 +206,10 @@ describe("workSessionByDate", () => {
       id: "a",
       type: "travail",
       date: "2026-08-10",
-      activity: "longe",
+      customFields: { activity: "longe" },
     });
 
-    expect(workSessionByDate([session]).get("2026-08-10")?.id).toBe("a");
+    expect(workSessionByDate([session], TYPES).get("2026-08-10")?.id).toBe("a");
   });
 
   it("picks the same session the activity map reports", () => {
@@ -206,20 +221,20 @@ describe("workSessionByDate", () => {
         type: "travail",
         date: "2026-08-10",
         time: "09:00",
-        activity: "plat",
+        customFields: { activity: "plat" },
       }),
       makeEvent({
         id: "all-day",
         type: "travail",
         date: "2026-08-10",
-        activity: "longe",
+        customFields: { activity: "longe" },
       }),
     ];
 
-    const session = workSessionByDate(events).get("2026-08-10");
+    const session = workSessionByDate(events, TYPES).get("2026-08-10");
     expect(session?.id).toBe("all-day");
     expect(session?.activity).toBe(
-      workActivityByDate(events).get("2026-08-10"),
+      workActivityByDate(events, TYPES).get("2026-08-10"),
     );
   });
 });

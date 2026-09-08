@@ -5,16 +5,13 @@ import { THEME_META, type ThemeKey, type ThemeMeta } from "../theme/theme.ts";
  * How a category presents itself: what to call it, what to draw for it, and
  * which palette entry colours it.
  *
- * Two taxonomies in this app have exactly this shape — `EventTypeKey` in
- * `event.types.ts` and `DocumentCategory` in `document.types.ts` — and they had
- * a field-for-field copy of it each, with a comment on the second saying it
- * mirrored the first. That is the kind of agreement worth having the compiler
- * keep: a third field added here reaches both, and neither can quietly grow one
- * the other lacks.
- *
- * The *keys* stay separate on purpose. An event type and a document category
- * are different vocabularies that happen to be described the same way; merging
- * them would let a `'facture'` reach a function expecting a `'veto'`.
+ * `DocumentCategory` (`document.types.ts`) is a closed, compile-time taxonomy
+ * with exactly this shape. Event types used to be the same — a
+ * `Record<EventTypeKey, TaxonomyMeta>` in `event.types.ts` — until schema v6
+ * turned them into user-visible data (`EventTypeDef` in `data/types.ts`,
+ * which restates `label`/`icon`/`theme` as real columns rather than reading
+ * this shared type, since a `taxonomy()` table only makes sense over a closed,
+ * compile-time key set).
  */
 export type TaxonomyMeta = {
   label: string;

@@ -77,6 +77,32 @@ const preV4Event = (id: string) => ({
 /** An event row as v4 wrote it: complete, with a session on it. */
 const v4Event = (id: string) => ({ ...preV4Event(id), activity: "longe" });
 
+/**
+ * An event row as v5 wrote it — every legacy column present, none folded into
+ * `customFields` yet. `type` defaults to `veto` but is overridable, since which
+ * columns the v6 fold keeps depends on the seeded type's own fields.
+ */
+const preV6Event = (id: string, type = "veto") => ({
+  ...preV4Event(id),
+  type,
+  activity: null,
+});
+
+/** The stores a real v5 device's IndexedDB actually has — `LEGACY_STORES`
+ * plus the `activities` table v5 introduced. */
+const V5_STORES = { ...LEGACY_STORES, activities: "id, horseId, updatedAt" };
+
+/** Writes a database already at v5, then closes it so `db` can upgrade it
+ * straight to v6 — the one migration `writeLegacyDatabase` cannot exercise,
+ * since its fixed `LEGACY_STORES` predates the `activities` table. */
+const writeV5Database = async (rows: { events?: unknown[] }) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(5).stores(V5_STORES);
+  await legacy.open();
+  if (rows.events?.length) await legacy.table("events").bulkAdd(rows.events);
+  legacy.close();
+};
+
 /** Writes a database at `version`, then closes it so `db` can upgrade it. */
 const writeLegacyDatabase = async (
   version: number,
@@ -162,16 +188,19 @@ describe("v1 -> v2: seasonal flag becomes a window", () => {
 });
 
 describe("v2 -> v3: events gain vendor and followUpInterval", () => {
-  it("fills both columns with null rather than leaving them absent", async () => {
+  // The two columns this version adds are no longer visible on their own by
+  // the time `db.open()` returns — v6's fold (below) absorbs them into
+  // `customFields` in the same upgrade chain — so what is left to pin here is
+  // that an absent-not-`undefined` value survives all the way through rather
+  // than the fold seeing an actual `undefined` and choking on it.
+  it("folds an absent vendor/followUpInterval into customFields as null, not undefined", async () => {
     await writeLegacyDatabase(2, { events: [preV3Event("event-1")] });
 
     await db.open();
 
     const event = await db.events.get("event-1");
-    // `undefined` would contradict the declared type *and* be dropped entirely
-    // by JSON.stringify when the row is exported to a backup.
-    expect(event).toHaveProperty("vendor", null);
-    expect(event).toHaveProperty("followUpInterval", null);
+    expect(event?.customFields).toHaveProperty("counterparty", null);
+    expect(event?.customFields).toHaveProperty("followUp", null);
   });
 
   it("migrates every event", async () => {
@@ -182,8 +211,9 @@ describe("v2 -> v3: events gain vendor and followUpInterval", () => {
     await db.open();
 
     const events = await db.events.orderBy("id").toArray();
-    expect(events.every((event) => event.vendor === null)).toBe(true);
-    expect(events.every((event) => event.followUpInterval === null)).toBe(true);
+    expect(
+      events.every((event) => event.customFields.counterparty === null),
+    ).toBe(true);
   });
 
   it("leaves the rest of the row untouched", async () => {
@@ -201,23 +231,38 @@ describe("v2 -> v3: events gain vendor and followUpInterval", () => {
 });
 
 describe("v3 -> v4: events gain activity", () => {
-  it("fills the column with null rather than leaving it absent", async () => {
-    await writeLegacyDatabase(3, { events: [preV4Event("event-1")] });
+  // Same caveat as v2 -> v3 above: `activity` itself is not observable after
+  // `db.open()`, only its fold into `customFields.activity` — and only for a
+  // `tracksWork` type, which `veto` (the other fixtures' type) is not, so
+  // these use `travail` instead.
+  it("folds an absent activity into customFields as null, not undefined", async () => {
+    await writeLegacyDatabase(3, {
+      events: [{ ...preV4Event("event-1"), type: "travail" }],
+    });
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toHaveProperty("activity", null);
+    expect(await db.events.get("event-1")).toHaveProperty(
+      "customFields.activity",
+      null,
+    );
   });
 
   it("migrates every event", async () => {
     await writeLegacyDatabase(3, {
-      events: [preV4Event("a"), preV4Event("b"), preV4Event("c")],
+      events: [
+        { ...preV4Event("a"), type: "travail" },
+        { ...preV4Event("b"), type: "travail" },
+        { ...preV4Event("c"), type: "travail" },
+      ],
     });
 
     await db.open();
 
     const events = await db.events.orderBy("id").toArray();
-    expect(events.every((event) => event.activity === null)).toBe(true);
+    expect(events.every((event) => event.customFields.activity === null)).toBe(
+      true,
+    );
   });
 
   it("leaves the rest of the row untouched", async () => {
@@ -246,17 +291,143 @@ describe("v4 -> v5: the activities table appears", () => {
   });
 
   it("leaves the existing rows alone", async () => {
-    await writeLegacyDatabase(4, { events: [v4Event("event-1")] });
+    // `travail` is the type that keeps `activity` after v6's fold — `veto`,
+    // `v4Event`'s default, has no `workActivity` field.
+    await writeLegacyDatabase(4, {
+      events: [{ ...v4Event("event-1"), type: "travail" }],
+    });
 
     await db.open();
 
     // A new store means no rows to rewrite, and so no `.upgrade()` — which is
-    // exactly what could silently drop data if one were added later.
+    // exactly what could silently drop data if one were added later. `activity`
+    // has since folded into `customFields` by v6, run in the same chain.
     expect(await db.events.get("event-1")).toMatchObject({
       title: "event-1",
       date: "2026-06-15",
-      activity: "longe",
+      customFields: { activity: "longe" },
     });
+  });
+});
+
+describe("v5 -> v6: event types become data, events fold into customFields", () => {
+  it("seeds the 13 built-in types", async () => {
+    await writeV5Database({});
+
+    await db.open();
+
+    expect(await db.eventTypes.count()).toBe(13);
+  });
+
+  it("gives a seeded type the fields the app already offered under that type", async () => {
+    await writeV5Database({});
+
+    await db.open();
+
+    const veto = await db.eventTypes.where("key").equals("veto").first();
+    expect(veto).toMatchObject({
+      label: "Vétérinaire",
+      isBuiltIn: true,
+      isAppointment: true,
+      tracksWork: false,
+    });
+    expect(veto?.fields.map((field) => field.kind).sort()).toEqual([
+      "cents",
+      "followUp",
+      "text",
+    ]);
+  });
+
+  it("finishes wiring up the four previously-broken types, correcting coucours to concours", async () => {
+    await writeV5Database({});
+
+    await db.open();
+
+    const keys = (await db.eventTypes.toArray()).map((type) => type.key).sort();
+    expect(keys).toEqual([
+      "achat",
+      "alimentation",
+      "concours",
+      "cours",
+      "cures",
+      "dentiste",
+      "marechal",
+      "osteo",
+      "pension",
+      "soins",
+      "traitement",
+      "travail",
+      "veto",
+    ]);
+  });
+
+  it("folds a care event's practitioner and follow-up into customFields", async () => {
+    await writeV5Database({
+      events: [
+        {
+          ...preV6Event("event-1", "veto"),
+          providerName: "Dr Martin",
+          followUpInterval: { amount: 6, unit: "week" },
+        },
+      ],
+    });
+
+    await db.open();
+
+    const event = await db.events.get("event-1");
+    expect(event?.customFields.counterparty).toBe("Dr Martin");
+    expect(event?.customFields.followUp).toBe("6w");
+  });
+
+  it("folds a purchase's vendor into the same counterparty key a care event uses", async () => {
+    await writeV5Database({
+      events: [{ ...preV6Event("event-1", "achat"), vendor: "Décathlon" }],
+    });
+
+    await db.open();
+
+    expect((await db.events.get("event-1"))?.customFields.counterparty).toBe(
+      "Décathlon",
+    );
+  });
+
+  it("drops amountCents entirely for a type with no amount field", async () => {
+    await writeV5Database({
+      events: [
+        {
+          ...preV6Event("event-1", "travail"),
+          activity: "longe",
+          amountCents: 4500,
+        },
+      ],
+    });
+
+    await db.open();
+
+    const event = await db.events.get("event-1");
+    expect(event?.customFields).not.toHaveProperty("amountCents");
+    expect(event?.customFields.activity).toBe("longe");
+  });
+
+  it("renames a coucours-typed event to concours", async () => {
+    await writeV5Database({ events: [preV6Event("event-1", "coucours")] });
+
+    await db.open();
+
+    expect((await db.events.get("event-1"))?.type).toBe("concours");
+  });
+
+  it("removes the legacy columns from every migrated row", async () => {
+    await writeV5Database({ events: [preV6Event("event-1", "veto")] });
+
+    await db.open();
+
+    const event = await db.events.get("event-1");
+    expect(event).not.toHaveProperty("providerName");
+    expect(event).not.toHaveProperty("vendor");
+    expect(event).not.toHaveProperty("followUpInterval");
+    expect(event).not.toHaveProperty("activity");
+    expect(event).not.toHaveProperty("amountCents");
   });
 });
 
@@ -272,9 +443,12 @@ describe("a v1 database upgrading all the way", () => {
     expect((await db.rationItems.get("ration-1"))?.season).toEqual(
       DEFAULT_SEASON,
     );
-    expect(await db.events.get("event-1")).toHaveProperty("vendor", null);
-    expect(await db.events.get("event-1")).toHaveProperty("activity", null);
+    expect(await db.events.get("event-1")).toHaveProperty(
+      "customFields.counterparty",
+      null,
+    );
     expect(await db.activities.count()).toBe(0);
+    expect(await db.eventTypes.count()).toBe(13);
   });
 
   it("opens at the version the backup envelope advertises", async () => {

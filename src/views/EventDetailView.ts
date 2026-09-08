@@ -5,6 +5,9 @@ import { styleMap } from "lit/directives/style-map.js";
 import { LightElement } from "../commons/base-element.ts";
 import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
+  eventTypesRepo,
+  fieldOfKind,
+  findEventType,
   LiveQuery,
   documentsRepo,
   eventsRepo,
@@ -15,9 +18,14 @@ import {
   formatFollowUpInterval,
   formatTime,
   formatWorkActivity,
+  parseFollowUpValue,
 } from "../data/index.ts";
-import type { HorseEvent, StoredDocument } from "../data/types.ts";
-import { eventFormSpec, eventType } from "../types/event.types.ts";
+import type {
+  EventTypeDef,
+  HorseEvent,
+  StoredDocument,
+} from "../data/types.ts";
+import { THEME_META } from "../theme/theme.ts";
 import type { IconName } from "../components/app-icon/icons.ts";
 import { documentCategory } from "../types/document.types.ts";
 
@@ -49,6 +57,9 @@ export class EventDetailView extends LightElement {
   #documents = new LiveQuery<StoredDocument[]>(this, () =>
     documentsRepo.listByEvent(this.eventId),
   );
+  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
+    eventTypesRepo.listAll(),
+  );
 
   /** Back to the calendar or the list, whichever this was opened from. */
   #goBack = () => goBack(EVENTS_LIST);
@@ -62,6 +73,7 @@ export class EventDetailView extends LightElement {
 
     const event = this.#event.value;
     if (!event) return this.#renderNotFound();
+    const type = findEventType(this.#eventTypes.value ?? [], event.type);
 
     return html`
       <section class="event-detail">
@@ -84,7 +96,7 @@ export class EventDetailView extends LightElement {
                putting both on one element silently drops the card's inset. -->
           <div class="container">
             <ul class="meta-list">
-              ${this.#infoRows(event).map(
+              ${this.#infoRows(event, type).map(
                 (row) => html`
                   <li class="meta-item">
                     <span class="meta-label">${row.label}</span>
@@ -102,7 +114,7 @@ export class EventDetailView extends LightElement {
           <h2 class="section-title-small">Actions</h2>
           <div class="container">
             <ul class="event-detail__actions">
-              ${this.#renderActions(event)}
+              ${this.#renderActions(event, type)}
             </ul>
           </div>
           <!--
@@ -148,20 +160,25 @@ export class EventDetailView extends LightElement {
   /**
    * The rows of the Informations card, in the order the design draws them.
    *
-   * The practitioner/merchant row reads its label *and* its column straight off
-   * `eventFormSpec` — the very table the entry form writes from — so what is
-   * shown here and what was captured there cannot drift apart. Empty rows are
-   * dropped rather than rendered with a dash: a card of blanks reads as broken.
+   * The practitioner/merchant row reads its label *and* its `customFields` key
+   * straight off the record's own type — the very definition the entry form
+   * writes from — so what is shown here and what was captured there cannot
+   * drift apart. Empty rows are dropped rather than rendered with a dash: a
+   * card of blanks reads as broken.
+   *
+   * `type` is `undefined` for the tick before the type catalogue's `LiveQuery`
+   * settles, or a type since deleted — every row but Nom/Date is guarded on a
+   * field actually being found, so the card degrades to its bare minimum
+   * rather than throwing.
    */
-  #infoRows(event: HorseEvent): InfoRow[] {
-    const counterparty = eventFormSpec(event.type).counterparty;
+  #infoRows(event: HorseEvent, type: EventTypeDef | undefined): InfoRow[] {
     const rows: InfoRow[] = [
       // `app-tag` resolves both the label and the colours from the type alone.
       {
         label: "Type",
         value: html`<app-tag
-          label=${eventType.label(event.type)}
-          style=${styleMap(tagStyle(eventType.theme(event.type)))}
+          label=${type?.label ?? ""}
+          style=${styleMap(type ? tagStyle(THEME_META[type.theme]) : {})}
         ></app-tag>`,
       },
       { label: "Nom", value: event.title },
@@ -173,32 +190,49 @@ export class EventDetailView extends LightElement {
       },
     ];
 
-    // Guarded by the value alone, like the rows below it: the column has one
-    // meaning whatever the type, and the entry form nulls it on any layout that
-    // does not ask for it — so there is nothing here for the spec to settle.
-    if (event.activity) {
+    const activityField = type && fieldOfKind(type, "workActivity");
+    const activityValue = activityField && event.customFields[activityField.id];
+    if (typeof activityValue === "string" && activityValue) {
       rows.push({
         label: "Activité",
-        value: formatWorkActivity(event.activity),
+        value: formatWorkActivity(activityValue),
       });
     }
 
-    const counterpartyValue = counterparty && event[counterparty.column];
-    if (counterparty && counterpartyValue) {
-      rows.push({ label: counterparty.label, value: counterpartyValue });
+    const counterpartyField = type && fieldOfKind(type, "text");
+    const counterpartyValue =
+      counterpartyField && event.customFields[counterpartyField.id];
+    if (
+      counterpartyField &&
+      typeof counterpartyValue === "string" &&
+      counterpartyValue
+    ) {
+      rows.push({ label: counterpartyField.label, value: counterpartyValue });
     }
-    if (event.amountCents !== null) {
+
+    const amountField = type && fieldOfKind(type, "cents");
+    const amountValue = amountField && event.customFields[amountField.id];
+    if (typeof amountValue === "number") {
       rows.push({
         label: "Budget",
-        value: formatCents(event.amountCents, event.currency),
+        value: formatCents(amountValue, event.currency),
       });
     }
-    if (event.followUpInterval) {
+
+    const followUpField = type && fieldOfKind(type, "followUp");
+    const followUpValueRaw =
+      followUpField && event.customFields[followUpField.id];
+    const interval =
+      typeof followUpValueRaw === "string"
+        ? parseFollowUpValue(followUpValueRaw)
+        : null;
+    if (interval) {
       rows.push({
         label: "Prochain rendez-vous",
-        value: formatFollowUpInterval(event.followUpInterval),
+        value: formatFollowUpInterval(interval),
       });
     }
+
     if (event.location) rows.push({ label: "Lieu", value: event.location });
     if (event.notes) rows.push({ label: "Note", value: event.notes });
 
@@ -242,7 +276,7 @@ export class EventDetailView extends LightElement {
     `;
   }
 
-  #renderActions(event: HorseEvent) {
+  #renderActions(event: HorseEvent, type: EventTypeDef | undefined) {
     const doc = this.#documents.value?.[0] ?? null;
 
     return html`
@@ -268,7 +302,7 @@ export class EventDetailView extends LightElement {
           ? this.#renderAction({
               icon: "share",
               label: "Partager",
-              onClick: () => void this.#share(event, doc),
+              onClick: () => void this.#share(event, type, doc),
             })
           : nothing
       }
@@ -376,16 +410,21 @@ export class EventDetailView extends LightElement {
    * summary when it can't — a vet report shared without the actual PDF is the
    * less useful half, but it beats an action that silently does nothing.
    */
-  async #share(event: HorseEvent, doc: StoredDocument | null) {
+  async #share(
+    event: HorseEvent,
+    type: EventTypeDef | undefined,
+    doc: StoredDocument | null,
+  ) {
     this.actionError = "";
 
+    const amount = event.customFields.amountCents;
     const summary = [
-      eventType.label(event.type),
+      type?.label ?? "",
       formatDateMedium(event.date),
-      event.providerName ?? event.vendor ?? "",
-      event.amountCents === null
-        ? ""
-        : formatCents(event.amountCents, event.currency),
+      typeof event.customFields.counterparty === "string"
+        ? event.customFields.counterparty
+        : "",
+      typeof amount === "number" ? formatCents(amount, event.currency) : "",
     ]
       .filter(Boolean)
       .join(" · ");

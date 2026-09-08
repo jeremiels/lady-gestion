@@ -1,11 +1,10 @@
 import { db } from "../db.ts";
 import { todayISO, type IsoDate } from "../dates.ts";
 import { sumByType } from "../budget.ts";
-import { isAppointmentType } from "../events.ts";
+import { isAppointmentType } from "../event-types.ts";
 import { sumCents } from "../money.ts";
 import { createRecord, crud, liveOnly } from "../record.ts";
-import type { EventTypeKey } from "../../types/event.types.ts";
-import type { HorseEvent, NewRecord } from "../types.ts";
+import type { EventTypeDef, HorseEvent, NewRecord } from "../types.ts";
 
 /**
  * Queries over the unified events table.
@@ -48,19 +47,37 @@ export const listInRange = async (
  * `isAppointmentType`. A planned purchase or lesson is a future event, not a
  * rendez-vous, and filtering it here rather than in the view is what keeps the
  * limit honest: the caller asks for three and gets three appointments.
+ *
+ * `types` is passed in rather than read here, the same way `sumByType` takes
+ * it: this repository stays on the `events` table alone, and the caller
+ * (`HomeView`) already holds the catalogue in its own `LiveQuery`. That query
+ * is gated on writes to `events`, not to `eventTypes` — a type's
+ * `isAppointment` flag changing after this ran would not retroactively
+ * re-filter until the next write to `events` itself, an edge case with no
+ * built-in UI to trigger it yet.
  */
 export const listUpcoming = async (
   horseId: string,
+  types: EventTypeDef[],
   limit?: number,
 ): Promise<HorseEvent[]> => {
   const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
   const upcoming = liveOnly(events).filter(
-    (event) => event.status === "planned" && isAppointmentType(event.type),
+    (event) =>
+      event.status === "planned" && isAppointmentType(types, event.type),
   );
   return limit === undefined ? upcoming : upcoming.slice(0, limit);
 };
 
-/** Events that cost something — i.e. the budget ledger. */
+/**
+ * Events that cost something — i.e. the budget ledger.
+ *
+ * Reads `customFields.amountCents`, schema v6's replacement for the fixed
+ * `amountCents` column — present, and a number, only for a type whose fields
+ * carry an amount at all. A zero-cost row still counts: it was recorded
+ * deliberately, and it is the *absence* of the field that means "this type
+ * has no budget".
+ */
 export const listBudget = async (
   horseId: string,
   from: IsoDate = MIN_DATE,
@@ -68,7 +85,9 @@ export const listBudget = async (
 ): Promise<HorseEvent[]> => {
   const events = await listInRange(horseId, from, to);
   return events.filter(
-    (event) => event.amountCents !== null && event.status !== "cancelled",
+    (event) =>
+      typeof event.customFields.amountCents === "number" &&
+      event.status !== "cancelled",
   );
 };
 
@@ -79,7 +98,12 @@ export const totalSpent = async (
   to: IsoDate = MAX_DATE,
 ): Promise<number> => {
   const budget = await listBudget(horseId, from, to);
-  return sumCents(budget.map((event) => event.amountCents));
+  return sumCents(
+    budget.map((event) => {
+      const amount = event.customFields.amountCents;
+      return typeof amount === "number" ? amount : null;
+    }),
+  );
 };
 
 /**
@@ -93,10 +117,11 @@ export const totalSpent = async (
  */
 export const totalSpentByType = async (
   horseId: string,
+  types: EventTypeDef[],
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
-): Promise<Partial<Record<EventTypeKey, number>>> => {
-  const slices = sumByType(await listBudget(horseId, from, to));
+): Promise<Partial<Record<string, number>>> => {
+  const slices = sumByType(await listBudget(horseId, from, to), types);
   return Object.fromEntries(slices.map((slice) => [slice.type, slice.cents]));
 };
 

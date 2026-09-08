@@ -2,11 +2,22 @@ import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
 import { addMonths, todayISO } from "../data/index.ts";
-import { makeEvent, makeHorse, resetDb } from "../data/__tests__/factories.ts";
+import {
+  BUILT_IN_EVENT_TYPE_ROWS,
+  makeEvent,
+  makeHorse,
+  resetDb,
+} from "../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
-import { eventType, type EventTypeKey } from "../types/event.types.ts";
 import "./BudgetView.ts";
 import type { BudgetView } from "./BudgetView.ts";
+
+/** Label lookup for the real 13 built-ins, standing in for `eventType.label`
+ * now that a type's label is data rather than a compile-time table. */
+const LABEL_OF = new Map(
+  BUILT_IN_EVENT_TYPE_ROWS.map((type) => [type.key, type.label]),
+);
+const labelOf = (key: string): string => LABEL_OF.get(key) ?? "";
 
 const mount = () => fixture<BudgetView>(html`<budget-view></budget-view>`);
 
@@ -26,17 +37,17 @@ const setGranularity = async (el: BudgetView, value: "month" | "year") => {
 
 const switchToYear = (el: BudgetView) => setGranularity(el, "year");
 
-const legendFor = (el: BudgetView, type: EventTypeKey) =>
+const legendFor = (el: BudgetView, type: string) =>
   [...el.querySelectorAll<HTMLButtonElement>(".budget-view__legend-item")].find(
     (item) =>
       item.querySelector(".budget-view__legend-label")?.textContent?.trim() ===
-      eventType.label(type),
+      labelOf(type),
   )!;
 
 const hiddenInChart = (el: BudgetView) =>
   el.querySelector("app-donut-chart")!.hiddenIds;
 
-const toggleLegend = async (el: BudgetView, type: EventTypeKey) => {
+const toggleLegend = async (el: BudgetView, type: string) => {
   legendFor(el, type).click();
   await settled(el);
 };
@@ -64,31 +75,36 @@ describe("budget-view", () => {
         id: "this-month-veto",
         type: "veto",
         date: todayISO(),
-        amountCents: 4000,
+        customFields: { amountCents: 4000 },
       }),
       makeEvent({
         id: "this-month-marechal",
         type: "marechal",
         date: todayISO(),
-        amountCents: 6000,
+        customFields: { amountCents: 6000 },
       }),
       makeEvent({
         id: "last-month",
         type: "veto",
         date: addMonths(todayISO(), -1),
-        amountCents: 9999,
+        customFields: { amountCents: 9999 },
       }),
       makeEvent({
         id: "cancelled",
         type: "veto",
         date: todayISO(),
-        amountCents: 1000,
+        customFields: { amountCents: 1000 },
         status: "cancelled",
       }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
 
     expect(ledgerIds(el)).toEqual(["this-month-marechal", "this-month-veto"]);
 
@@ -96,32 +112,38 @@ describe("budget-view", () => {
       ...el.querySelectorAll(".budget-view__legend-label"),
     ].map((node) => node.textContent?.trim());
     expect(legendLabels).toEqual(
-      expect.arrayContaining([
-        eventType.label("veto"),
-        eventType.label("marechal"),
-      ]),
+      expect.arrayContaining([labelOf("veto"), labelOf("marechal")]),
     );
   });
 
   it("switching to year widens the period without reaching into last year", async () => {
     await db.events.bulkAdd([
-      makeEvent({ id: "this-month", date: todayISO(), amountCents: 1000 }),
+      makeEvent({
+        id: "this-month",
+        date: todayISO(),
+        customFields: { amountCents: 1000 },
+      }),
       makeEvent({
         id: "last-month",
         date: addMonths(todayISO(), -1),
-        amountCents: 2000,
+        customFields: { amountCents: 2000 },
       }),
       // 13 months back always lands outside the current year, whatever month
       // this test happens to run in.
       makeEvent({
         id: "last-year",
         date: addMonths(todayISO(), -13),
-        amountCents: 3000,
+        customFields: { amountCents: 3000 },
       }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
     expect(ledgerIds(el)).toEqual(["this-month"]);
 
     await switchToYear(el);
@@ -139,12 +161,25 @@ describe("budget-view", () => {
   it("reopens on the period the visit was left on, month and year still held apart", async () => {
     const lastYear = addMonths(todayISO(), -13);
     await db.events.bulkAdd([
-      makeEvent({ id: "this-month", date: todayISO(), amountCents: 1000 }),
-      makeEvent({ id: "back-then", date: lastYear, amountCents: 3000 }),
+      makeEvent({
+        id: "this-month",
+        date: todayISO(),
+        customFields: { amountCents: 1000 },
+      }),
+      makeEvent({
+        id: "back-then",
+        date: lastYear,
+        customFields: { amountCents: 3000 },
+      }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
     await switchToYear(el);
     await pickPeriod(el, lastYear.slice(0, 4));
     expect(ledgerIds(el)).toEqual(["back-then"]);
@@ -178,16 +213,25 @@ describe("budget-view", () => {
    */
   it("keeps surviving rows as the same nodes, in order, when switching Mois to Année", async () => {
     await db.events.bulkAdd([
-      makeEvent({ id: "this-month", date: todayISO(), amountCents: 1000 }),
+      makeEvent({
+        id: "this-month",
+        date: todayISO(),
+        customFields: { amountCents: 1000 },
+      }),
       makeEvent({
         id: "last-month",
         date: addMonths(todayISO(), -1),
-        amountCents: 2000,
+        customFields: { amountCents: 2000 },
       }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
 
     const rowFor = (id: string) =>
       [...el.querySelectorAll(".budget-view__list > li")].find(
@@ -219,18 +263,23 @@ describe("budget-view", () => {
         id: "veto",
         type: "veto",
         date: todayISO(),
-        amountCents: 4000,
+        customFields: { amountCents: 4000 },
       }),
       makeEvent({
         id: "marechal",
         type: "marechal",
         date: todayISO(),
-        amountCents: 6000,
+        customFields: { amountCents: 6000 },
       }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
     expect(legendFor(el, "veto").getAttribute("aria-pressed")).toBe("true");
 
     await toggleLegend(el, "veto");
@@ -252,18 +301,23 @@ describe("budget-view", () => {
         id: "veto",
         type: "veto",
         date: todayISO(),
-        amountCents: 4000,
+        customFields: { amountCents: 4000 },
       }),
       makeEvent({
         id: "marechal",
         type: "marechal",
         date: todayISO(),
-        amountCents: 6000,
+        customFields: { amountCents: 6000 },
       }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
 
     await toggleLegend(el, "veto");
     await toggleLegend(el, "veto");
@@ -285,24 +339,29 @@ describe("budget-view", () => {
         id: "this-month",
         type: "veto",
         date: todayISO(),
-        amountCents: 4000,
+        customFields: { amountCents: 4000 },
       }),
       makeEvent({
         id: "last-month",
         type: "veto",
         date: addMonths(todayISO(), -1),
-        amountCents: 5000,
+        customFields: { amountCents: 5000 },
       }),
       makeEvent({
         id: "marechal",
         type: "marechal",
         date: todayISO(),
-        amountCents: 6000,
+        customFields: { amountCents: 6000 },
       }),
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(
+      el,
+      () =>
+        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll(".budget-view__legend-item").length > 0,
+    );
     await toggleLegend(el, "veto");
 
     await switchToYear(el);
@@ -311,7 +370,9 @@ describe("budget-view", () => {
     const reopened = await mount();
     await waitFor(
       reopened,
-      () => reopened.querySelectorAll("event-card").length > 0,
+      () =>
+        reopened.querySelectorAll("event-card").length > 0 &&
+        reopened.querySelectorAll(".budget-view__legend-item").length > 0,
     );
     expect(hiddenInChart(reopened)).toEqual(["veto"]);
     expect(legendFor(reopened, "veto").getAttribute("aria-pressed")).toBe(

@@ -5,7 +5,6 @@ import {
   startOfWeek,
   type IsoDate,
 } from "./dates.ts";
-import type { EventTypeKey } from "../types/event.types.ts";
 import type { HorseEvent } from "./types.ts";
 
 /**
@@ -72,7 +71,7 @@ export type CalendarEvent = {
   /** `SUMMARY` §3.8.1.12. */
   summary: string;
   /** `CATEGORIES` §3.8.1.2 — the app's event type doubles as the category. */
-  categories: EventTypeKey[];
+  categories: string[];
 };
 
 export const toCalendarEvent = (event: HorseEvent): CalendarEvent => ({

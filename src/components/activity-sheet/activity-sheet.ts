@@ -18,7 +18,7 @@ import {
   type WorkActivity,
   type WorkSession,
 } from "../../data/index.ts";
-import type { ActivityItem } from "../../data/types.ts";
+import type { ActivityItem, EventTypeDef } from "../../data/types.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-chip/app-chip.ts";
@@ -57,6 +57,10 @@ export class ActivitySheet extends BaseElement {
 
   /** The day the sheet is about, `YYYY-MM-DD`. */
   @property({ type: String }) date: IsoDate = todayISO();
+
+  /** The `tracksWork` type a tap writes to — resolved by the strip, the same
+   * way `existing` is. `null` for the tick before its `LiveQuery` settles. */
+  @property({ attribute: false }) type: EventTypeDef | null = null;
 
   /** The day's session, or `null` for a day with none. */
   @property({ attribute: false }) existing: WorkSession | null = null;
@@ -199,6 +203,12 @@ export class ActivitySheet extends BaseElement {
       return;
     }
 
+    const type = this.type;
+    if (!type) {
+      this.error = "Type d’évènement introuvable.";
+      return;
+    }
+
     try {
       if (add !== null)
         await activitiesRepo.add({ horseId: horse.id, label: add });
@@ -206,6 +216,7 @@ export class ActivitySheet extends BaseElement {
       await eventsService.setDayActivity({
         horseId: horse.id,
         date: this.date,
+        type,
         activity,
         existing: this.existing,
       });

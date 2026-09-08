@@ -24,6 +24,11 @@ dist-ssr
 .env.*
 !.env.example
 
+# Real user backup files (e.g. lady-gestion-<timestamp>.json) used locally to
+# test the schema migration against real data. Never commit these — this repo
+# is deployed publicly via GitHub Pages.
+/backup/
+
 # Per-machine Claude Code settings.
 .claude/settings.local.json
 

@@ -5,8 +5,8 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { appHref } from "../../commons/base-path.ts";
 import { formatDate, formatTime } from "../../data/dates.ts";
 import { formatCents } from "../../data/money.ts";
-import type { HorseEvent } from "../../data/types.ts";
-import { eventType } from "../../types/event.types.ts";
+import type { EventTypeDef, HorseEvent } from "../../data/types.ts";
+import { THEME_META } from "../../theme/theme.ts";
 
 import { iconStyle } from "../app-icon/app-icon.ts";
 import { tagStyle } from "../app-tag/app-tag.ts";
@@ -32,6 +32,15 @@ export type EventCardLayout = "default" | "dashboard" | "budget";
 @customElement("event-card")
 export class EventCard extends BaseElement {
   @property({ attribute: false }) event: HorseEvent | null = null;
+
+  /**
+   * The event's own type, already resolved — the owning view holds the type
+   * catalogue in a `LiveQuery` alongside its events, the same way it already
+   * holds the query for `event`'s own list. `null` for the tick before that
+   * query settles, or if the type has since been deleted; the card renders a
+   * neutral placeholder rather than nothing so the row does not jump.
+   */
+  @property({ attribute: false }) type: EventTypeDef | null = null;
 
   /** Reflected so the styles below can key off it. */
   @property({ type: String, reflect: true }) layout: EventCardLayout =
@@ -216,11 +225,13 @@ export class EventCard extends BaseElement {
     // Resolved here rather than inside app-icon/app-tag: those two are
     // domain-free, so the view that knows what an event *is* supplies the glyph,
     // the wording and the colours.
-    const theme = eventType.theme(event.type);
+    const type = this.type;
+    const theme = type ? THEME_META[type.theme] : null;
+    // `amountCents` moved into `customFields` in schema v6 — present only for
+    // a type whose fields carry an amount at all.
+    const amount = event.customFields.amountCents;
     const price =
-      event.amountCents === null
-        ? null
-        : formatCents(event.amountCents, event.currency);
+      typeof amount === "number" ? formatCents(amount, event.currency) : null;
     const trailingAmount = this.layout === "budget";
     const showNotes = this.layout === "default" && event.notes;
 
@@ -235,15 +246,15 @@ export class EventCard extends BaseElement {
         <article class="event-card">
           <app-icon
             class="event-card__icon"
-            .icon=${eventType.icon(event.type)}
-            style=${styleMap(iconStyle(theme))}
+            .icon=${type?.icon ?? "info"}
+            style=${styleMap(theme ? iconStyle(theme) : {})}
           ></app-icon>
 
           <h3 class="event-card__title">${event.title}</h3>
           <app-tag
             class="event-card__tag"
-            label=${eventType.label(event.type)}
-            style=${styleMap(tagStyle(theme))}
+            label=${type?.label ?? ""}
+            style=${styleMap(theme ? tagStyle(theme) : {})}
           ></app-tag>
 
           <p class="event-card__meta">

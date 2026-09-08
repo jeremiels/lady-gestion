@@ -1,9 +1,18 @@
 import Dexie, { liveQuery, type Table } from "dexie";
+import { nowISO } from "./dates.ts";
+import { seedEventTypeDefs } from "./event-types.ts";
+import {
+  migrateEventToCustomFields,
+  type FollowUpInterval,
+  type LegacyEventColumns,
+  type WorkActivity,
+} from "./events.ts";
+import { newId } from "./ids.ts";
 import { seasonFromLegacyFlag, type RationSeason } from "./seasons.ts";
-import type { FollowUpInterval, WorkActivity } from "./events.ts";
 import type {
   ActivityItem,
   DocumentBlob,
+  EventTypeDef,
   Horse,
   HorseEvent,
   MetaEntry,
@@ -33,8 +42,12 @@ import type {
  * - v3 — `HorseEvent` gains `vendor` and `followUpInterval`, both nullable.
  * - v4 — `HorseEvent` gains `activity`, nullable.
  * - v5 — new `activities` table: the work activities the user added themselves.
+ * - v6 — new `eventTypes` table: event types stop being a closed, compile-time
+ *   union and become user-visible data. `HorseEvent` loses `providerName`,
+ *   `vendor`, `followUpInterval`, `activity` and `amountCents` in favour of a
+ *   generic `customFields` bag, keyed by the winning type's field ids.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -71,6 +84,20 @@ const STORES = {
  */
 const STORES_V5 = { ...STORES, activities: "id, horseId, updatedAt" } as const;
 
+/**
+ * v6 adds the event-type catalogue, spread from `STORES_V5` for the same
+ * reason that one was spread from `STORES`.
+ *
+ * `key` and `order` are indexed: `key` is what `HorseEvent.type` joins
+ * against, and `order` is what the budget donut sorts by — both read often
+ * enough, over what will stay a small table, to be worth a dedicated index
+ * rather than an in-memory sort every time.
+ */
+const STORES_V6 = {
+  ...STORES_V5,
+  eventTypes: "id, key, order, archived, updatedAt",
+} as const;
+
 /** A v1 ration row, mid-upgrade: the old flag is still there, the window is not. */
 type LegacyRationItem = {
   seasonal?: boolean;
@@ -88,6 +115,17 @@ type LegacyWorkEvent = {
   activity?: WorkActivity | null;
 };
 
+/**
+ * A pre-v6 event row, mid-upgrade: the five columns `customFields` replaces
+ * are still there, and `type` is loosened to a bare `string` because a row may
+ * still carry the misspelled `"coucours"` key `migrateEventToCustomFields`
+ * corrects. `customFields` itself is declared optional purely so this type can
+ * be assigned it during the upgrade — a pre-v6 row has no such key at all.
+ */
+type LegacyEventRow = { type: string } & Partial<LegacyEventColumns> & {
+    customFields?: HorseEvent["customFields"];
+  };
+
 export class LadyGestionDb extends Dexie {
   horses!: Table<Horse, string>;
   events!: Table<HorseEvent, string>;
@@ -95,6 +133,7 @@ export class LadyGestionDb extends Dexie {
   documentBlobs!: Table<DocumentBlob, string>;
   rationItems!: Table<RationItem, string>;
   activities!: Table<ActivityItem, string>;
+  eventTypes!: Table<EventTypeDef, string>;
   meta!: Table<MetaEntry, string>;
 
   constructor() {
@@ -154,6 +193,58 @@ export class LadyGestionDb extends Dexie {
     // Nothing seeds it either: the six built-in activities are code, not rows,
     // and this table holds only what the user adds on top of them.
     this.version(5).stores(STORES_V5);
+
+    // Unlike v5, this store *is* seeded — a type an event's `type` can point
+    // at has to exist before that event can be read meaningfully, so an empty
+    // table here is not an option the way it was for `activities`.
+    this.version(6)
+      .stores(STORES_V6)
+      .upgrade(async (transaction) => {
+        // A fresh install runs every version up to this one in the same
+        // `db.open()`, before `initOwnerId()` (`owner.ts`) has ever run — so
+        // the owner id cannot be read through its usual cache and is resolved
+        // here exactly the way that function would, against the same `meta`
+        // row, so whichever runs first (this upgrade, or a later
+        // `initOwnerId()` on an existing device) leaves the other a no-op.
+        const metaTable = transaction.table<{ key: string; value: unknown }>(
+          "meta",
+        );
+        const existingOwner = await metaTable.get("ownerId");
+        const ownerId =
+          typeof existingOwner?.value === "string"
+            ? existingOwner.value
+            : newId();
+        if (!existingOwner) {
+          await metaTable.put({ key: "ownerId", value: ownerId });
+        }
+
+        const types = seedEventTypeDefs(ownerId, nowISO());
+        await transaction.table<EventTypeDef>("eventTypes").bulkAdd(types);
+
+        await transaction
+          .table<LegacyEventRow>("events")
+          .toCollection()
+          .modify((event) => {
+            const { type, customFields } = migrateEventToCustomFields(
+              {
+                type: event.type,
+                providerName: event.providerName ?? null,
+                vendor: event.vendor ?? null,
+                followUpInterval: event.followUpInterval ?? null,
+                activity: event.activity ?? null,
+                amountCents: event.amountCents ?? null,
+              },
+              types,
+            );
+            event.type = type;
+            event.customFields = customFields;
+            delete event.providerName;
+            delete event.vendor;
+            delete event.followUpInterval;
+            delete event.activity;
+            delete event.amountCents;
+          });
+      });
   }
 }
 
@@ -186,6 +277,7 @@ export const RECORD_TABLES = {
   documents: db.documents,
   rationItems: db.rationItems,
   activities: db.activities,
+  eventTypes: db.eventTypes,
 } as const;
 
 export type RecordTableName = keyof typeof RECORD_TABLES;

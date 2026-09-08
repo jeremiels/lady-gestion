@@ -298,7 +298,7 @@ describe("event-sheet — the travail layout", () => {
 
     expect(await savedEvent()).toMatchObject({
       type: "travail",
-      activity: "longe",
+      customFields: { activity: "longe" },
       title: "Longe",
     });
   });
@@ -308,6 +308,22 @@ describe("event-sheet — the travail layout", () => {
 
     const el = await openSheet();
     await pick(el, "type", "travail");
+
+    // The horse's own catalogue is a second, independent `LiveQuery` —
+    // `openSheet` only waits for the horse itself, so this one may still be
+    // settling right after `pick`.
+    for (
+      let i = 0;
+      i < 20 &&
+      !fieldNamed<AppCombobox>(
+        el.renderRoot.querySelector("form")!,
+        "activity",
+      ).options.some((option) => option.label === "Carrière");
+      i++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await settled(el);
+    }
 
     const combobox = fieldNamed<AppCombobox>(
       el.renderRoot.querySelector("form")!,
@@ -331,6 +347,11 @@ describe("event-sheet — the travail layout", () => {
 
     await submit(el);
 
-    expect(await savedEvent()).toMatchObject({ type: "cours", activity: null });
+    const saved = await savedEvent();
+    expect(saved).toMatchObject({ type: "cours" });
+    // `cours` has no `workActivity` field at all, so the key is absent rather
+    // than present-and-null — `veto` (with a field but nothing entered) would
+    // be the `null` case instead.
+    expect(saved?.customFields.activity).toBeUndefined();
   });
 });

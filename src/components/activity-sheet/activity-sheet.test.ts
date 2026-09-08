@@ -5,6 +5,7 @@ import { workSessionByDate } from "../../data/events.ts";
 import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
 import * as eventsRepo from "../../data/repositories/events.repo.ts";
 import {
+  BUILT_IN_EVENT_TYPE_ROWS,
   HORSE_ID,
   makeEvent,
   makeHorse,
@@ -19,11 +20,15 @@ import type { AppInput } from "../app-input/app-input.ts";
 /** A day with no session on it unless a test puts one there. */
 const DATE = "2026-06-15";
 
+const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+const TRAVAIL = TYPES.find((type) => type.key === "travail")!;
+
 const mount = (over: { existing?: ReturnType<typeof makeEvent> } = {}) =>
   fixture<ActivitySheet>(
     html`<activity-sheet
       open
       .date=${DATE}
+      .type=${TRAVAIL}
       .existing=${(over.existing as never) ?? null}
     ></activity-sheet>`,
   );
@@ -58,7 +63,8 @@ const submitLabel = async (el: ActivitySheet, value: string) => {
 };
 
 const sessionOn = async (date: string) =>
-  workSessionByDate(await eventsRepo.listByHorse(HORSE_ID)).get(date) ?? null;
+  workSessionByDate(await eventsRepo.listByHorse(HORSE_ID), TYPES).get(date) ??
+  null;
 
 beforeEach(async () => {
   await resetDb();
@@ -108,9 +114,19 @@ describe("activity-sheet", () => {
   });
 
   it("marks the chip the day already carries", async () => {
+    // `.existing` is a `WorkSession` — `activity` is a real top-level
+    // property there (`workSessionByDate` populates it), not read out of
+    // `customFields` the way the underlying record stores it.
     const el = await ready(
       await mount({
-        existing: makeEvent({ type: "travail", date: DATE, activity: "longe" }),
+        existing: {
+          ...makeEvent({
+            type: "travail",
+            date: DATE,
+            customFields: { activity: "longe" },
+          }),
+          activity: "longe",
+        } as ReturnType<typeof makeEvent>,
       }),
     );
 
@@ -135,7 +151,12 @@ describe("activity-sheet", () => {
 
   it("replaces the day’s session rather than adding a second", async () => {
     await db.events.add(
-      makeEvent({ id: "work", type: "travail", date: DATE, activity: "longe" }),
+      makeEvent({
+        id: "work",
+        type: "travail",
+        date: DATE,
+        customFields: { activity: "longe" },
+      }),
     );
     const el = await ready(await mount({ existing: (await sessionOn(DATE))! }));
 
@@ -143,12 +164,19 @@ describe("activity-sheet", () => {
     await waitFor(el, () => el.open === false);
 
     expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
-    expect(await sessionOn(DATE)).toMatchObject({ activity: "tap" });
+    expect(await sessionOn(DATE)).toMatchObject({
+      customFields: { activity: "tap" },
+    });
   });
 
   it("retracts the day’s activity on a second tap of the same chip", async () => {
     await db.events.add(
-      makeEvent({ id: "work", type: "travail", date: DATE, activity: "longe" }),
+      makeEvent({
+        id: "work",
+        type: "travail",
+        date: DATE,
+        customFields: { activity: "longe" },
+      }),
     );
     const el = await ready(await mount({ existing: (await sessionOn(DATE))! }));
 
@@ -161,14 +189,21 @@ describe("activity-sheet", () => {
 
   it("applies rather than retracts when a different chip is tapped", async () => {
     await db.events.add(
-      makeEvent({ id: "work", type: "travail", date: DATE, activity: "longe" }),
+      makeEvent({
+        id: "work",
+        type: "travail",
+        date: DATE,
+        customFields: { activity: "longe" },
+      }),
     );
     const el = await ready(await mount({ existing: (await sessionOn(DATE))! }));
 
     chipNamed(el, "TAP").click();
     await waitFor(el, () => el.open === false);
 
-    expect(await sessionOn(DATE)).toMatchObject({ activity: "tap" });
+    expect(await sessionOn(DATE)).toMatchObject({
+      customFields: { activity: "tap" },
+    });
   });
 
   it("adds a typed activity to the catalogue and applies it at once", async () => {
@@ -202,7 +237,9 @@ describe("activity-sheet", () => {
 
     // The built-in key, not the typed word, and no catalogue row for it.
     expect(await activitiesRepo.listByHorse(HORSE_ID)).toHaveLength(0);
-    expect(await sessionOn(DATE)).toMatchObject({ activity: "trotting" });
+    expect(await sessionOn(DATE)).toMatchObject({
+      customFields: { activity: "trotting" },
+    });
   });
 
   it("reuses an activity already added rather than duplicating it", async () => {
@@ -213,7 +250,9 @@ describe("activity-sheet", () => {
     await submitLabel(el, "carriere");
 
     expect(await activitiesRepo.listByHorse(HORSE_ID)).toHaveLength(1);
-    expect(await sessionOn(DATE)).toMatchObject({ activity: "Carrière" });
+    expect(await sessionOn(DATE)).toMatchObject({
+      customFields: { activity: "Carrière" },
+    });
   });
 
   it("refuses a blank label instead of writing an unnamed activity", async () => {

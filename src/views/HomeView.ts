@@ -8,11 +8,13 @@ import {
   LiveQuery,
   endOfMonth,
   eventsRepo,
+  eventTypesRepo,
+  findEventType,
   horsesRepo,
   startOfMonth,
   todayISO,
 } from "../data/index.ts";
-import type { HorseEvent } from "../data/types.ts";
+import type { EventTypeDef, HorseEvent } from "../data/types.ts";
 import { ACCOUNT } from "../data/account.ts";
 import "../components/horse-card/horse-card.ts";
 import "../components/budget-card/budget-card.ts";
@@ -27,10 +29,19 @@ const UPCOMING_LIMIT = 3;
 export class HomeView extends LightElement {
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
+  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
+    eventTypesRepo.listAll(),
+  );
+
   // Already filtered to still-to-happen `planned` events, soonest first.
   #upcoming = activeHorseQuery<HorseEvent[]>(
     this,
-    (horseId) => eventsRepo.listUpcoming(horseId, UPCOMING_LIMIT),
+    (horseId) =>
+      eventsRepo.listUpcoming(
+        horseId,
+        this.#eventTypes.value ?? [],
+        UPCOMING_LIMIT,
+      ),
     [],
   );
 
@@ -56,6 +67,7 @@ export class HomeView extends LightElement {
 
   render() {
     const upcoming = this.#upcoming.value ?? [];
+    const types = this.#eventTypes.value ?? [];
 
     return html`
       <section class="home-view">
@@ -100,6 +112,7 @@ export class HomeView extends LightElement {
                           <event-card
                             layout="dashboard"
                             .event=${event}
+                            .type=${findEventType(types, event.type) ?? null}
                           ></event-card>
                         </li>
                       `,

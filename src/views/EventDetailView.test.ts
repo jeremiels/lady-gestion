@@ -75,14 +75,12 @@ describe("event-detail-view", () => {
       makeEvent({
         id: "care-1",
         type: "veto",
-        providerName: "Dr. Dupont",
-        amountCents: 4500,
+        customFields: { counterparty: "Dr. Dupont", amountCents: 4500 },
       }),
       makeEvent({
         id: "purchase-1",
         type: "achat",
-        vendor: "Décathlon",
-        amountCents: 2000,
+        customFields: { counterparty: "Décathlon", amountCents: 2000 },
       }),
     ]);
 
@@ -99,8 +97,16 @@ describe("event-detail-view", () => {
 
   it("shows a travail event’s activity by its label, not its stored key", async () => {
     await db.events.bulkAdd([
-      makeEvent({ id: "work-1", type: "travail", activity: "longe" }),
-      makeEvent({ id: "care-2", type: "veto", providerName: "Dr. Dupont" }),
+      makeEvent({
+        id: "work-1",
+        type: "travail",
+        customFields: { activity: "longe" },
+      }),
+      makeEvent({
+        id: "care-2",
+        type: "veto",
+        customFields: { counterparty: "Dr. Dupont" },
+      }),
     ]);
 
     const work = await mount("work-1");
