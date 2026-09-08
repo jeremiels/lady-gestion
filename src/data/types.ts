@@ -139,13 +139,6 @@ export type CustomFieldDef = {
   kind: CustomFieldKind;
   label: string;
   required: boolean;
-  /** Reserved for a `choice`-kind field a future field-builder UI may add. */
-  options?: string[];
-  /**
-   * Prefilled when creating a new event of this type. Never overrides an
-   * edit — a record's own value always wins over a type's default.
-   */
-  defaultValue?: string | number | boolean | null;
 };
 
 /**

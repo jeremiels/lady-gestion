@@ -1,7 +1,6 @@
 import { db } from "../db.ts";
 import { todayISO, type IsoDate } from "../dates.ts";
 import { sumByType } from "../budget.ts";
-import { isAppointmentType } from "../event-types.ts";
 import { sumCents } from "../money.ts";
 import { createRecord, crud, liveOnly } from "../record.ts";
 import type { EventTypeDef, HorseEvent, NewRecord } from "../types.ts";
@@ -41,32 +40,20 @@ export const listInRange = async (
   liveOnly(await byHorseAndDateRange(horseId, from, to));
 
 /**
- * Still-to-happen appointments, soonest first.
+ * Still-to-happen events, soonest first.
  *
- * Narrowed to the types that are actually *taken* rather than logged — see
- * `isAppointmentType`. A planned purchase or lesson is a future event, not a
- * rendez-vous, and filtering it here rather than in the view is what keeps the
- * limit honest: the caller asks for three and gets three appointments.
- *
- * `types` is passed in rather than read here, the same way `sumByType` takes
- * it: this repository stays on the `events` table alone, and the caller
- * (`HomeView`) already holds the catalogue in its own `LiveQuery`. That query
- * is gated on writes to `events`, not to `eventTypes` — a type's
- * `isAppointment` flag changing after this ran would not retroactively
- * re-filter until the next write to `events` itself, an edge case with no
- * built-in UI to trigger it yet.
+ * Not narrowed to appointments here — that used to filter on the type
+ * catalogue inside this query, but a Dexie `liveQuery` only re-runs for
+ * tables its own query function reads, and a catalogue received as a plain
+ * argument is invisible to that tracking. Narrowing to appointments, and
+ * capping to a limit, is `upcomingAppointments` (`event-types.ts`)'s job
+ * instead — the caller (`HomeView`) joins this against its own `eventTypes`
+ * `LiveQuery` in `render()`, the same way `BudgetView`/`EventsView` already
+ * join events against types, so either one updating re-renders correctly.
  */
-export const listUpcoming = async (
-  horseId: string,
-  types: EventTypeDef[],
-  limit?: number,
-): Promise<HorseEvent[]> => {
+export const listUpcoming = async (horseId: string): Promise<HorseEvent[]> => {
   const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
-  const upcoming = liveOnly(events).filter(
-    (event) =>
-      event.status === "planned" && isAppointmentType(types, event.type),
-  );
-  return limit === undefined ? upcoming : upcoming.slice(0, limit);
+  return liveOnly(events).filter((event) => event.status === "planned");
 };
 
 /**

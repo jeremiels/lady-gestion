@@ -13,6 +13,7 @@ import {
   horsesRepo,
   startOfMonth,
   todayISO,
+  upcomingAppointments,
 } from "../data/index.ts";
 import type { EventTypeDef, HorseEvent } from "../data/types.ts";
 import { ACCOUNT } from "../data/account.ts";
@@ -33,15 +34,14 @@ export class HomeView extends LightElement {
     eventTypesRepo.listAll(),
   );
 
-  // Already filtered to still-to-happen `planned` events, soonest first.
+  // Already filtered to still-to-happen `planned` events, soonest first — not
+  // yet narrowed to appointments or capped to `UPCOMING_LIMIT`; `render()`
+  // does both, joined against `#eventTypes` fresh on every render. See
+  // `upcomingAppointments`'s doc comment for why that join cannot live inside
+  // this query instead.
   #upcoming = activeHorseQuery<HorseEvent[]>(
     this,
-    (horseId) =>
-      eventsRepo.listUpcoming(
-        horseId,
-        this.#eventTypes.value ?? [],
-        UPCOMING_LIMIT,
-      ),
+    (horseId) => eventsRepo.listUpcoming(horseId),
     [],
   );
 
@@ -66,8 +66,12 @@ export class HomeView extends LightElement {
   );
 
   render() {
-    const upcoming = this.#upcoming.value ?? [];
     const types = this.#eventTypes.value ?? [];
+    const upcoming = upcomingAppointments(
+      this.#upcoming.value ?? [],
+      types,
+      UPCOMING_LIMIT,
+    );
 
     return html`
       <section class="home-view">

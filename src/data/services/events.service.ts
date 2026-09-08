@@ -1,5 +1,5 @@
 import type { IsoDate } from "../dates.ts";
-import { fieldOfKind } from "../event-types.ts";
+import { fieldById, fieldOfKind } from "../event-types.ts";
 import {
   followUpValue,
   formatWorkActivity,
@@ -234,8 +234,8 @@ const eventFields = (
   // rule `EventDetailView` already reads its Informations rows by and the
   // sheet reads its prefill by — so the field a value was written to and the
   // field it is read back from cannot disagree.
-  const counterpartyField = fieldOfKind(type, "text");
-  const amountField = fieldOfKind(type, "cents");
+  const counterpartyField = fieldById(type, "counterparty");
+  const amountField = fieldById(type, "amountCents");
   const followUpField = fieldOfKind(type, "followUp");
   const activityField = fieldOfKind(type, "workActivity");
 

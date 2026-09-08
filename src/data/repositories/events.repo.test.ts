@@ -18,8 +18,7 @@ import * as eventsRepo from "./events.repo.ts";
 
 beforeEach(resetDb);
 
-/** The real 13 built-ins — what `listUpcoming`/`totalSpentByType` filter and
- * group against. */
+/** The real 13 built-ins — what `totalSpentByType` groups against. */
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
 const seedEvents = (events: Parameters<typeof makeEvent>[0][]) =>
@@ -99,7 +98,7 @@ describe("listUpcoming", () => {
       { id: "tomorrow", date: addDays(today, 1) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
+    const events = await eventsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["today", "tomorrow"]);
   });
@@ -111,7 +110,7 @@ describe("listUpcoming", () => {
       { id: "near", date: addDays(today, 2) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
+    const events = await eventsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["near", "far"]);
   });
@@ -124,53 +123,14 @@ describe("listUpcoming", () => {
       { id: "cancelled", date: addDays(today, 3), status: "cancelled" },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
+    const events = await eventsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["planned"]);
   });
 
-  it("keeps only types you take an appointment for", async () => {
-    // The dashboard's list is "Rendez-vous à venir", not "everything ahead":
-    // a planned purchase or lesson is logged, not booked.
-    const today = todayISO();
-    await seedEvents([
-      { id: "veto", date: addDays(today, 1), type: "veto" },
-      { id: "achat", date: addDays(today, 2), type: "achat" },
-      { id: "cours", date: addDays(today, 3), type: "cours" },
-      { id: "travail", date: addDays(today, 4), type: "travail" },
-      { id: "alimentation", date: addDays(today, 5), type: "alimentation" },
-      { id: "pension", date: addDays(today, 6), type: "pension" },
-      { id: "marechal", date: addDays(today, 7), type: "marechal" },
-      { id: "dentiste", date: addDays(today, 8), type: "dentiste" },
-      { id: "osteo", date: addDays(today, 9), type: "osteo" },
-    ]);
-
-    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES);
-
-    expect(events.map((event) => event.id)).toEqual([
-      "veto",
-      "marechal",
-      "dentiste",
-      "osteo",
-    ]);
-  });
-
-  it("applies the limit after filtering, not before", async () => {
-    // A `done` event or a non-appointment type sitting first must not consume
-    // one of the limit's slots — the dashboard would then show fewer
-    // appointments than it asked for.
-    const today = todayISO();
-    await seedEvents([
-      { id: "done", date: addDays(today, 1), status: "done" },
-      { id: "achat", date: addDays(today, 2), type: "achat" },
-      { id: "a", date: addDays(today, 3) },
-      { id: "b", date: addDays(today, 4) },
-    ]);
-
-    const events = await eventsRepo.listUpcoming(HORSE_ID, TYPES, 2);
-
-    expect(events.map((event) => event.id)).toEqual(["a", "b"]);
-  });
+  // Narrowing to appointment types and capping to a limit is
+  // `upcomingAppointments` (`event-types.test.ts`)'s job, not this query's —
+  // see that function's doc comment for why the join moved out of here.
 });
 
 describe("listBudget", () => {

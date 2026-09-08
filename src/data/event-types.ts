@@ -1,5 +1,10 @@
 import type { IsoTimestamp } from "./dates.ts";
-import type { CustomFieldDef, CustomFieldKind, EventTypeDef } from "./types.ts";
+import type {
+  CustomFieldDef,
+  CustomFieldKind,
+  EventTypeDef,
+  HorseEvent,
+} from "./types.ts";
 
 /**
  * Pure functions over the event-type catalogue, and its built-in seed data.
@@ -294,12 +299,34 @@ export const byLabel = (types: EventTypeDef[]): EventTypeDef[] =>
 export const byOrder = (types: EventTypeDef[]): EventTypeDef[] =>
   [...types].sort((a, b) => a.order - b.order);
 
-/** The one field of a given kind on a type, if it has one — a type has at most one. */
+/**
+ * The one field of a given *kind* on a type, if it has one.
+ *
+ * Only safe for `followUp` and `workActivity`: those two are not
+ * general-purpose (see `CustomFieldKind`'s doc comment) — a type gets one or
+ * none, by construction, and nothing a field-builder UI adds can create a
+ * second. `text`/`cents`/`bool` **are** general-purpose, so a type could one
+ * day carry more than one of a kind; for the fixed slots built from those
+ * kinds (counterparty, budget), use `fieldById` below instead — looking those
+ * up by kind would silently resolve to whichever field happens to be first.
+ */
 export const fieldOfKind = (
   type: EventTypeDef,
   kind: CustomFieldKind,
 ): CustomFieldDef | undefined =>
   type.fields.find((field) => field.kind === kind);
+
+/**
+ * The field with this stable `id`, if the type has one.
+ *
+ * The right lookup for a fixed slot built from a general-purpose kind —
+ * `"counterparty"`, `"amountCents"` — where `fieldOfKind` would risk matching
+ * a *different* field of the same kind once a type can carry more than one.
+ */
+export const fieldById = (
+  type: EventTypeDef,
+  id: string,
+): CustomFieldDef | undefined => type.fields.find((field) => field.id === id);
 
 /**
  * The types the dashboard's "Rendez-vous à venir" list is about.
@@ -313,3 +340,25 @@ export const isAppointmentType = (
   types: EventTypeDef[],
   key: string,
 ): boolean => findEventType(types, key)?.isAppointment ?? false;
+
+/**
+ * Narrows a list of events to the ones that are actually *appointments* — see
+ * `isAppointmentType` — capped to `limit`.
+ *
+ * Pure, over events and types the caller already fetched: `HomeView` holds
+ * both in their own `LiveQuery`, and joining them here rather than inside
+ * `eventsRepo.listUpcoming`'s own query is what keeps the dashboard reactive
+ * to a type's `isAppointment` flag changing — a Dexie `liveQuery` only re-runs
+ * for tables its own query function reads, and `eventTypes` is not one of
+ * them for a query that receives the catalogue as a plain argument instead.
+ */
+export const upcomingAppointments = (
+  events: HorseEvent[],
+  types: EventTypeDef[],
+  limit?: number,
+): HorseEvent[] => {
+  const appointments = events.filter((event) =>
+    isAppointmentType(types, event.type),
+  );
+  return limit === undefined ? appointments : appointments.slice(0, limit);
+};

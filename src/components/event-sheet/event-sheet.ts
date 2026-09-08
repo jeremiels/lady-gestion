@@ -17,6 +17,7 @@ import {
   cents,
   eventsService,
   eventTypesRepo,
+  fieldById,
   fieldOfKind,
   findEventType,
   followUpValue,
@@ -357,7 +358,7 @@ export class EventSheet extends BaseElement {
     const event = this.event;
     if (!event) return "";
     const recordType = findEventType(this.#eventTypes.value ?? [], event.type);
-    const field = recordType && fieldOfKind(recordType, "text");
+    const field = recordType && fieldById(recordType, "counterparty");
     const value = field && event.customFields[field.id];
     return typeof value === "string" ? value : "";
   }
@@ -507,7 +508,7 @@ export class EventSheet extends BaseElement {
 
   render() {
     const type = this.#type;
-    const counterparty = type ? fieldOfKind(type, "text") : null;
+    const counterparty = type ? fieldById(type, "counterparty") : null;
     const options: AppSelectOption[] = byLabel(
       this.#eventTypes.value ?? [],
     ).map((candidate) => ({ value: candidate.key, label: candidate.label }));
@@ -569,7 +570,7 @@ export class EventSheet extends BaseElement {
           ></app-input>
 
           ${counterparty ? this.#renderCounterparty(counterparty) : nothing}
-          ${type && fieldOfKind(type, "cents") ? this.#renderBudget() : nothing}
+          ${type && fieldById(type, "amountCents") ? this.#renderBudget() : nothing}
           ${
             type && fieldOfKind(type, "followUp")
               ? this.#renderFollowUp()

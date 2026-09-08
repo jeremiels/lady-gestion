@@ -6,6 +6,7 @@ import { LightElement } from "../commons/base-element.ts";
 import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
   eventTypesRepo,
+  fieldById,
   fieldOfKind,
   findEventType,
   LiveQuery,
@@ -199,7 +200,7 @@ export class EventDetailView extends LightElement {
       });
     }
 
-    const counterpartyField = type && fieldOfKind(type, "text");
+    const counterpartyField = type && fieldById(type, "counterparty");
     const counterpartyValue =
       counterpartyField && event.customFields[counterpartyField.id];
     if (
@@ -210,7 +211,7 @@ export class EventDetailView extends LightElement {
       rows.push({ label: counterpartyField.label, value: counterpartyValue });
     }
 
-    const amountField = type && fieldOfKind(type, "cents");
+    const amountField = type && fieldById(type, "amountCents");
     const amountValue = amountField && event.customFields[amountField.id];
     if (typeof amountValue === "number") {
       rows.push({
