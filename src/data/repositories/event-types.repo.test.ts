@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db.ts";
 import { makeEventType, resetDb } from "../__tests__/factories.ts";
+import { BUILT_IN_EVENT_TYPES } from "../event-types.ts";
 import * as eventTypesRepo from "./event-types.repo.ts";
 
 /**
@@ -55,32 +56,36 @@ describe("listResolved", () => {
         .sort(),
     ).toEqual(["cures", "massage", "osteo", "traitement"]);
 
-    // Both carry `null` for icon and theme, so what comes back is entirely
-    // their parent's — Alimentation's, then Vétérinaire's.
-    expect(types.find((type) => type.key === "cures")).toMatchObject({
-      icon: "carrot",
-      theme: "yellow",
-    });
-    expect(types.find((type) => type.key === "traitement")).toMatchObject({
-      icon: "firstAidKit",
-      theme: "pink",
-    });
+    // What a nested type resolves to is asserted against its *parent's* own
+    // row rather than a copy of the palette: these four carry `null` for the
+    // values they inherit, and stating the literal here would mean every
+    // re-theming or re-iconing of a built-in breaks a test that is not about
+    // either. The relationship is the rule; the colours are a design decision.
+    const shipped = (key: string) =>
+      BUILT_IN_EVENT_TYPES.find((type) => type.key === key)!;
+    const resolved = (key: string) => types.find((type) => type.key === key)!;
 
-    // `osteo` keeps its own icon as an override; `massage` inherits — the
-    // asymmetry `SCHEMA_V10_NESTINGS`'s comment explains.
-    expect(types.find((type) => type.key === "osteo")).toMatchObject({
-      icon: "pawPrint",
-      theme: "pink",
-    });
-    expect(types.find((type) => type.key === "massage")).toMatchObject({
-      icon: "firstAidKit",
-      theme: "pink",
-    });
+    const inherits = (childKey: string, parentKey: string) => {
+      const child = shipped(childKey);
+      const parent = shipped(parentKey);
+      expect(resolved(childKey)).toMatchObject({
+        // A child's own icon wins when it has one — `osteo` keeps `pawPrint`
+        // — and falls back to its parent's when it is `null`. Theme is always
+        // the parent's: a group reads as one colour in the budget ring.
+        icon: child.icon ?? parent.icon,
+        theme: parent.theme,
+      });
+    };
+
+    inherits("cures", "alimentation");
+    inherits("traitement", "veto");
+    inherits("osteo", "soins");
+    inherits("massage", "soins");
 
     // A root still answers with its own.
-    expect(types.find((type) => type.key === "travail")).toMatchObject({
-      icon: "cowboyHat",
-      theme: "fuchsia",
+    expect(resolved("travail")).toMatchObject({
+      icon: shipped("travail").icon,
+      theme: shipped("travail").theme,
     });
   });
 });

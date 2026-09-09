@@ -1,18 +1,19 @@
-import type { IsoDate } from "../dates.ts";
-import { fieldById, fieldOfKind } from "../event-types.ts";
+import { todayISO, type IsoDate } from "../dates.ts";
+import { BASE_FIELD_IDS, fieldWithRole } from "../event-types.ts";
 import {
-  followUpValue,
-  formatQuantity,
   formatWorkActivity,
-  parseFollowUpValue,
   statusForDate,
-  type QuantityUnit,
   type WorkActivity,
   type WorkSession,
 } from "../events.ts";
 import { DEFAULT_CURRENCY } from "../money.ts";
 import * as eventsRepo from "../repositories/events.repo.ts";
-import type { EventTypeDef, HorseEvent, NewRecord } from "../types.ts";
+import type {
+  CustomFieldDef,
+  EventTypeDef,
+  HorseEvent,
+  NewRecord,
+} from "../types.ts";
 
 /**
  * Composing and writing an event record.
@@ -56,28 +57,17 @@ import type { EventTypeDef, HorseEvent, NewRecord } from "../types.ts";
  * instead of in every caller.
  */
 export type EventInput = {
-  /** The type's `key` — validated against the live catalogue by `EVENT_SCHEMA`
-   * in `event-sheet.ts`, not restated here as a closed union. */
+  /** The type's `key` — validated against the live catalogue by the sheet. */
   type: string;
   /**
-   * `null` on a layout whose Nom field is the Activité combobox (`activity`
-   * below) rather than a text field of its own — `eventFields` derives the
-   * record's title from that instead of reading one back here.
+   * Every field's answer, keyed by `CustomFieldDef.id`, in one bag.
+   *
+   * The type's `fields` array describes the whole form — Nom, Date and Note
+   * included — so there is nothing left for this type to name individually.
+   * Which of these lands on a `HorseEvent` column and which in `customFields`
+   * is decided below, by `BASE_FIELD_IDS`, not by the form.
    */
-  title: string | null;
-  date: IsoDate;
-  amountCents: number | null;
-  notes: string | null;
-  /** Practitioner or merchant — the type decides which, and whether either. */
-  counterparty: string | null;
-  activity: WorkActivity | null;
-  planFollowUp: boolean;
-  /** `followUpValue()`'s encoding, e.g. `6w`. Parsed below. */
-  followUpInterval: string | null;
-  /** The `quantity` field's amount and unit — required together, enforced by
-   * `quantityPairErrors` before this reaches the service. */
-  quantityAmount: number | null;
-  quantityUnit: QuantityUnit | null;
+  values: Record<string, string | number | boolean | null>;
 };
 
 export type SaveEventCommand = {
@@ -177,7 +167,7 @@ export const setDayActivity = ({
   const title = formatWorkActivity(activity);
   // Guaranteed by `type.tracksWork` being true, by construction: a
   // `tracksWork` type always carries exactly one `workActivity` field.
-  const fieldId = fieldOfKind(type, "workActivity")?.id ?? "activity";
+  const fieldId = fieldWithRole(type, "workActivity")?.id ?? "activity";
 
   if (!existing) {
     return eventsRepo.create({
@@ -230,72 +220,55 @@ const dayActivityFields = (
  * exactly this half without the write, and exporting it then is one line —
  * `db.ts` states the rule this follows: add it back with its caller, not before.
  */
+/**
+ * A work session's title, taken from the activity it recorded.
+ *
+ * On a `workActivity` type the Nom field is the Activité combobox rather than
+ * a text field of its own, so the record's title comes from what it holds —
+ * formatted the same way `dayActivityFields` derives one from a week-strip
+ * tap, so a session reads the same whichever entry point wrote it. `null` when
+ * the type has no such field, or the field was left blank.
+ */
+const workTitle = (
+  activityField: CustomFieldDef | undefined,
+  customFields: HorseEvent["customFields"],
+): string | null => {
+  if (!activityField) return null;
+  const value = customFields[activityField.id];
+  return typeof value === "string" && value !== ""
+    ? formatWorkActivity(value)
+    : null;
+};
+
 const eventFields = (
   type: EventTypeDef,
   input: EventInput,
   existing: HorseEvent | null,
 ): EventFields => {
-  // Read from the type being *saved*, not from whichever the form was last
-  // showing. The record's own type is what decides its fields, which is the
-  // rule `EventDetailView` already reads its Informations rows by and the
-  // sheet reads its prefill by — so the field a value was written to and the
-  // field it is read back from cannot disagree.
-  const counterpartyField = fieldById(type, "counterparty");
-  const amountField = fieldById(type, "amountCents");
-  const followUpField = fieldOfKind(type, "followUp");
-  const activityField = fieldOfKind(type, "workActivity");
-  const quantityField = fieldById(type, "quantity");
+  const activityField = fieldWithRole(type, "workActivity");
+  const text = (id: string): string | null => {
+    const value = input.values[id];
+    return typeof value === "string" && value !== "" ? value : null;
+  };
 
-  // Written per field the type actually has, rather than from whatever the
-  // form still holds, so a field this type does not draw can never reach the
-  // record — the same rule the old per-layout columns followed.
+  // Driven by the type's own field list: a value for a field this type does
+  // not declare can never reach the record, and a field it does declare is
+  // always written — as `null` when left blank — so a row never carries a key
+  // its type has no answer for.
   const customFields: HorseEvent["customFields"] = {};
-  if (counterpartyField) {
-    customFields[counterpartyField.id] = input.counterparty;
-  }
-  if (amountField) customFields[amountField.id] = input.amountCents;
-  if (followUpField) {
-    // The checkbox is not proof on its own. The sheet seeds it from the record
-    // being edited, so an event saved under a type with no follow-up field at
-    // all can still arrive here with it ticked. Re-validated through
-    // `parseFollowUpValue` rather than stored as whatever string arrived, so
-    // an unrecognised encoding is `null` rather than a guess.
-    const interval =
-      input.planFollowUp && input.followUpInterval
-        ? parseFollowUpValue(input.followUpInterval)
-        : null;
-    customFields[followUpField.id] = interval ? followUpValue(interval) : null;
-  }
-  if (activityField) {
-    // Same rule as the fields above, and the same reason: a type that does not
-    // ask what was done must not carry an answer left over from the type the
-    // user picked before.
-    customFields[activityField.id] = input.activity;
-  }
-  if (quantityField) {
-    // Both or neither by the time this runs — `event-sheet.ts` already ran
-    // `quantityPairErrors` and blocked submission otherwise.
-    customFields[quantityField.id] =
-      input.quantityAmount !== null && input.quantityUnit !== null
-        ? formatQuantity(input.quantityAmount, input.quantityUnit)
-        : null;
+  for (const field of type.fields) {
+    if (BASE_FIELD_IDS.has(field.id)) continue;
+    customFields[field.id] = input.values[field.id] ?? null;
   }
 
   return {
     type: type.key,
-    // On a `workActivity` type the Nom field is the Activité combobox
-    // (`#renderActivity` in `event-sheet.ts`), not a text field of its own, so
-    // the title comes from what it holds — formatted the same way
-    // `dayActivityFields` derives one from a week-strip tap, so a session
-    // reads the same whichever entry point wrote it.
-    title:
-      activityField && input.activity !== null
-        ? formatWorkActivity(input.activity)
-        : (input.title ?? ""),
-    date: input.date,
+    // A `workActivity` field doubles as the record's title, so a type that has
+    // one lists no Nom row at all.
+    title: workTitle(activityField, customFields) ?? text("title") ?? "",
+    date: (text("date") ?? existing?.date ?? todayISO()) as IsoDate,
     // No type has a time control, so a new event is all-day. An edit keeps
-    // whatever time the record already had rather than discarding it through a
-    // form that cannot show it.
+    // whatever time the record already had.
     time: existing?.time ?? null,
     // Derived rather than asked for: the date already says which is meant. A
     // cancelled event is the exception — re-deriving would quietly bring it
@@ -303,10 +276,12 @@ const eventFields = (
     status:
       existing?.status === "cancelled"
         ? existing.status
-        : statusForDate(input.date),
+        : statusForDate(
+            (text("date") ?? existing?.date ?? todayISO()) as IsoDate,
+          ),
     currency: existing?.currency ?? DEFAULT_CURRENCY,
     location: existing?.location ?? null,
-    notes: input.notes,
+    notes: text("notes"),
     recurrenceId: existing?.recurrenceId ?? null,
     customFields,
   };

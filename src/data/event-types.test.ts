@@ -9,7 +9,7 @@ import {
   canBeParentOf,
   childrenOf,
   fieldById,
-  fieldOfKind,
+  fieldWithRole,
   isAppointmentType,
   resolveCatalogue,
   rootOf,
@@ -26,15 +26,15 @@ import {
 
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
-describe("fieldOfKind", () => {
+describe("fieldWithRole", () => {
   it("finds the one field of a kind a type has", () => {
     const veto = TYPES.find((type) => type.key === "veto")!;
-    expect(fieldOfKind(veto, "followUp")?.id).toBe("followUp");
+    expect(fieldWithRole(veto, "followUp")?.id).toBe("followUp");
   });
 
   it("is undefined for a kind the type has no field of", () => {
     const cours = TYPES.find((type) => type.key === "cours")!;
-    expect(fieldOfKind(cours, "followUp")).toBeUndefined();
+    expect(fieldWithRole(cours, "followUp")).toBeUndefined();
   });
 });
 
@@ -50,15 +50,15 @@ describe("fieldById", () => {
   });
 
   it("still resolves the right field once a type carries two of the same kind", () => {
-    // The scenario `fieldOfKind` cannot handle: a future field-builder UI
+    // The scenario `fieldWithRole` cannot handle: a future field-builder UI
     // could add a second `text` field to a type. `fieldById` must still find
     // "counterparty" specifically, not whichever `text` field comes first.
     const type = makeEventType({
       fields: [
-        { id: "other", kind: "text", label: "Autre", required: false },
+        { id: "other", control: "text", label: "Autre", required: false },
         {
           id: "counterparty",
-          kind: "text",
+          control: "text",
           label: "Practicien",
           required: false,
         },

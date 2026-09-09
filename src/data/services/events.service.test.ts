@@ -8,8 +8,15 @@ import {
 import { addDays, todayISO } from "../dates.ts";
 import { db } from "../db.ts";
 import * as eventsRepo from "../repositories/events.repo.ts";
-import { workSessionByDate, type WorkSession } from "../events.ts";
-import type { EventTypeDef } from "../types.ts";
+import {
+  workSessionByDate,
+  type QuantityUnit,
+  type WorkActivity,
+  type WorkSession,
+} from "../events.ts";
+import { unitNameOf, valueOf } from "../event-form.ts";
+import type { IsoDate } from "../dates.ts";
+import type { EventTypeDef, HorseEvent } from "../types.ts";
 import {
   saveEvent,
   setDayActivity,
@@ -39,23 +46,103 @@ const typeFor = (key: string): EventTypeDef => {
   return type;
 };
 
-/** Every field filled in, so each test can state only the one it is about. */
-const input = (over: Partial<EventInput> = {}): EventInput => ({
+/**
+ * The form's answers, still stated flat — one member per control the built-in
+ * kinds draw, which is what lets each test name only the value it is about.
+ */
+type FormAnswers = {
+  type: string;
+  title: string | null;
+  date: IsoDate;
+  notes: string | null;
+  amountCents: number | null;
+  counterparty: string | null;
+  activity: WorkActivity | null;
+  planFollowUp: boolean;
+  followUpInterval: string | null;
+  quantityAmount: number | null;
+  quantityUnit: QuantityUnit | null;
+};
+
+const ANSWERS: FormAnswers = {
   type: "veto",
   title: "Visite",
   date: "2026-06-15",
-  amountCents: 4500,
   notes: null,
+  amountCents: 4500,
   counterparty: "Dr Martin",
   activity: "balade",
   planFollowUp: true,
   followUpInterval: "6w",
   quantityAmount: null,
   quantityUnit: null,
-  ...over,
-});
+};
 
-const create = async (over: Partial<EventInput> = {}) => {
+/**
+ * Every distinct field the built-ins declare, by id.
+ *
+ * `input` below encodes a value for **all** of them, whatever type is being
+ * saved — which is the point: deciding that a value has no business on this
+ * type is the service's job, and it is what most of these tests assert. Gating
+ * here instead would leave them asserting the helper.
+ */
+const FIELDS = new Map(
+  TYPES.flatMap((type) => type.fields).map((field) => [field.id, field]),
+);
+
+/** The control values, named by `fieldControls` so no name is spelled twice. */
+const controlsFor = (answers: FormAnswers): Record<string, unknown> => {
+  const controls: Record<string, unknown> = {};
+
+  for (const field of FIELDS.values()) {
+    if (field.role === "followUp") {
+      controls[field.id] = answers.planFollowUp;
+      for (const child of field.reveals ?? []) {
+        controls[child.id] = answers.followUpInterval;
+      }
+    } else if (field.role === "workActivity") {
+      controls[field.id] = answers.activity;
+    } else if (field.units) {
+      controls[field.id] = answers.quantityAmount;
+      controls[unitNameOf(field)] = answers.quantityUnit;
+    } else if (field.control === "money") {
+      controls[field.id] = answers.amountCents;
+    } else {
+      controls[field.id] = answers.counterparty;
+    }
+  }
+
+  return controls;
+};
+
+/**
+ * Every field filled in, so each test can state only the one it is about.
+ *
+ * Folded through the real `fieldValue` rather than a second encoder written
+ * here — the follow-up's "unrecognised encoding becomes null" rule below is
+ * that function's, and a copy of it in this file is exactly the drift these
+ * tests exist to catch.
+ */
+const input = (over: Partial<FormAnswers> = {}): EventInput => {
+  const answers = { ...ANSWERS, ...over };
+  const controls = controlsFor(answers);
+
+  const customFields: HorseEvent["customFields"] = {};
+  for (const [id, field] of FIELDS) {
+    customFields[id] = valueOf(field, controls);
+  }
+
+  // The base rows are fields like any other now, so they travel in the same bag.
+  const base = {
+    title: answers.title,
+    date: answers.date,
+    notes: answers.notes,
+  };
+
+  return { type: answers.type, values: { ...customFields, ...base } };
+};
+
+const create = async (over: Partial<FormAnswers> = {}) => {
   const merged = input(over);
   const saved = await saveEvent({
     horseId: HORSE_ID,

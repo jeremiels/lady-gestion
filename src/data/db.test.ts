@@ -546,9 +546,12 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
       isAppointment: true,
       tracksWork: false,
     });
-    expect(veto?.fields.map((field) => field.kind).sort()).toEqual([
-      "cents",
-      "followUp",
+    expect(veto?.fields.map((field) => field.control).sort()).toEqual([
+      "checkbox",
+      "date",
+      "money",
+      "text",
+      "text",
       "text",
     ]);
   });

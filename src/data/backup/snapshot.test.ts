@@ -180,7 +180,10 @@ describe("migrateSnapshot", () => {
     expect(alimentation.fields.map((field) => field.id).sort()).toEqual([
       "amountCents",
       "counterparty",
+      "date",
+      "notes",
       "quantity",
+      "title",
     ]);
   });
 
@@ -268,7 +271,7 @@ describe("migrateSnapshot", () => {
     expect(byId.get("type-alimentation")).toMatchObject({
       parentId: null,
       icon: "carrot",
-      theme: "yellow",
+      theme: "coral",
     });
   });
 
@@ -331,10 +334,14 @@ describe("migrateSnapshot", () => {
       icon: "pawPrint",
       theme: null,
     });
+    // Read off the shipped row: the parent gained a child, not a parent, so
+    // what matters is that v10 left its presentation alone — not which colour
+    // that presentation happens to be this week.
+    const soins = eventTypeRows.find((type) => type.key === "soins")!;
     expect(byId.get("type-soins")).toMatchObject({
       parentId: null,
-      icon: "firstAidKit",
-      theme: "pink",
+      icon: soins.icon,
+      theme: soins.theme,
     });
   });
 

@@ -7,7 +7,7 @@ import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
   eventTypesRepo,
   fieldById,
-  fieldOfKind,
+  fieldWithRole,
   findEventType,
   LiveQuery,
   documentsRepo,
@@ -188,7 +188,7 @@ export class EventDetailView extends LightElement {
       },
     ];
 
-    const activityField = type && fieldOfKind(type, "workActivity");
+    const activityField = type && fieldWithRole(type, "workActivity");
     const activityValue = activityField && event.customFields[activityField.id];
     if (typeof activityValue === "string" && activityValue) {
       rows.push({
@@ -225,7 +225,7 @@ export class EventDetailView extends LightElement {
       rows.push({ label: quantityField.label, value: quantityValue });
     }
 
-    const followUpField = type && fieldOfKind(type, "followUp");
+    const followUpField = type && fieldWithRole(type, "followUp");
     const followUpValueRaw =
       followUpField && event.customFields[followUpField.id];
     const interval =

@@ -63,6 +63,7 @@ export * from "./events.ts";
 export * from "./event-types.ts";
 export * from "./files.ts";
 export * from "./budget.ts";
+export * from "./event-form.ts";
 export * from "./forms.ts";
 
 let ready: Promise<void> | undefined;

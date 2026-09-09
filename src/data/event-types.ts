@@ -4,7 +4,7 @@ import type { ThemeKey } from "../theme/theme.types.ts";
 import type { IsoTimestamp } from "./dates.ts";
 import type {
   CustomFieldDef,
-  CustomFieldKind,
+  FieldOption,
   EventTypeDef,
   HorseEvent,
 } from "./types.ts";
@@ -21,32 +21,93 @@ import type {
  * the two would be circular the moment the other reaches back.
  */
 
+/**
+ * The follow-up intervals, and the units a quantity is measured in.
+ *
+ * Restated here rather than imported from `events.ts`: this module
+ * deliberately does not depend on that one (see the file's own note), and
+ * these are seed data — the whole point of the descriptor is that a type's
+ * options live in its row rather than in the code that draws it.
+ */
+const FOLLOW_UP_OPTIONS: FieldOption[] = [
+  { value: "2w", label: "2 semaines" },
+  { value: "4w", label: "4 semaines" },
+  { value: "6w", label: "6 semaines" },
+  { value: "8w", label: "8 semaines" },
+  { value: "3m", label: "3 mois" },
+  { value: "6m", label: "6 mois" },
+  { value: "12m", label: "1 an" },
+];
+
+const QUANTITY_UNIT_NAMES = ["mL", "kg", "L"] as const;
+
+/**
+ * The three fields that land on a `HorseEvent` column rather than in
+ * `customFields`. A type lists them in its own `fields` like any other row —
+ * that is what makes the array the whole form and not just its variable part.
+ */
+export const BASE_FIELD_IDS = new Set(["title", "date", "notes"]);
+
+const titleField = (): CustomFieldDef => ({
+  id: "title",
+  control: "text",
+  label: "Nom",
+  required: true,
+});
+
+const dateField = (): CustomFieldDef => ({
+  id: "date",
+  control: "date",
+  label: "Date",
+  required: true,
+});
+
+const notesField = (): CustomFieldDef => ({
+  id: "notes",
+  control: "text",
+  label: "Note",
+  required: false,
+});
+
 const counterpartyField = (label: string): CustomFieldDef => ({
   id: "counterparty",
-  kind: "text",
+  control: "text",
   label,
   required: false,
 });
 
 const amountField = (): CustomFieldDef => ({
   id: "amountCents",
-  kind: "cents",
+  control: "money",
   label: "Budget",
+  suffix: "€",
   required: false,
 });
 
 const followUpField = (): CustomFieldDef => ({
   id: "followUp",
-  kind: "followUp",
+  control: "checkbox",
   label: "Planifier un rendez-vous",
   required: false,
+  role: "followUp",
+  reveals: [
+    {
+      id: "followUp-interval",
+      control: "select",
+      label: "Prochain rendez-vous à planifier",
+      required: true,
+      options: FOLLOW_UP_OPTIONS,
+    },
+  ],
 });
 
 const activityField = (): CustomFieldDef => ({
   id: "activity",
-  kind: "workActivity",
+  control: "combobox",
   label: "Nom",
   required: true,
+  role: "workActivity",
+  suggestions: "activities",
 });
 
 /**
@@ -57,16 +118,20 @@ const activityField = (): CustomFieldDef => ({
  */
 export const quantityField = (): CustomFieldDef => ({
   id: "quantity",
-  kind: "quantity",
+  control: "number",
   label: "Quantité du produit",
   required: false,
+  units: QUANTITY_UNIT_NAMES,
 });
 
 /** A care appointment's fields: practitioner, follow-up, budget. */
 const careFields = (): CustomFieldDef[] => [
+  titleField(),
+  dateField(),
   counterpartyField("Practicien"),
-  followUpField(),
   amountField(),
+  followUpField(),
+  notesField(),
 ];
 
 /**
@@ -123,7 +188,13 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 0,
-    fields: [counterpartyField("Site"), amountField()],
+    fields: [
+      titleField(),
+      dateField(),
+      amountField(),
+      counterpartyField("Site"),
+      notesField(),
+    ],
   },
   {
     key: "alimentation",
@@ -136,7 +207,14 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 1,
-    fields: [counterpartyField("Site"), amountField(), quantityField()],
+    fields: [
+      titleField(),
+      dateField(),
+      counterpartyField("Site"),
+      amountField(),
+      quantityField(),
+      notesField(),
+    ],
   },
   {
     key: "travail",
@@ -149,7 +227,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: true,
     archived: false,
     order: 2,
-    fields: [activityField()],
+    fields: [dateField(), activityField(), notesField()],
   },
   {
     key: "cours",
@@ -162,7 +240,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 3,
-    fields: [amountField()],
+    fields: [titleField(), dateField(), amountField(), notesField()],
   },
   {
     key: "dentiste",
@@ -235,7 +313,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 8,
-    fields: [amountField()],
+    fields: [titleField(), dateField(), amountField(), notesField()],
   },
   {
     key: "concours",
@@ -251,7 +329,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 9,
-    fields: [amountField()],
+    fields: [titleField(), dateField(), amountField(), notesField()],
   },
   {
     key: "soins",
@@ -288,7 +366,13 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     archived: false,
     order: 11,
     // No follow-up: a cure is a defined course, not a recurring visit.
-    fields: [counterpartyField("Practicien"), amountField()],
+    fields: [
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien"),
+      amountField(),
+      notesField(),
+    ],
   },
   {
     key: "traitement",
@@ -610,11 +694,11 @@ export const byOrder = <T extends EventTypeDef>(types: T[]): T[] =>
  * kinds (counterparty, budget), use `fieldById` below instead — looking those
  * up by kind would silently resolve to whichever field happens to be first.
  */
-export const fieldOfKind = (
+export const fieldWithRole = (
   type: EventTypeDef,
-  kind: CustomFieldKind,
+  role: NonNullable<CustomFieldDef["role"]>,
 ): CustomFieldDef | undefined =>
-  type.fields.find((field) => field.kind === kind);
+  type.fields.find((field) => field.role === role);
 
 /**
  * The field with this stable `id`, if the type has one.

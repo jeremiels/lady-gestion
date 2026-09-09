@@ -253,7 +253,7 @@ export const workSessionByDate = (
         (type) =>
           [
             type.key,
-            type.fields.find((field) => field.kind === "workActivity")?.id,
+            type.fields.find((field) => field.role === "workActivity")?.id,
           ] as const,
       )
       .filter((entry): entry is [string, string] => entry[1] !== undefined),

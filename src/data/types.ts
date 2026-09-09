@@ -116,33 +116,68 @@ export type HorseEvent = BaseRecord & {
 };
 
 /**
- * The shapes a custom field can take.
+ * The control a field draws. Presentation only — none of these names means
+ * anything to the app beyond which widget to render and how to parse it back.
  *
- * `text`, `cents` and `bool` are general-purpose. `followUp`, `workActivity`
- * and `quantity` are not: `followUp` pairs a checkbox with the interval
- * `FOLLOW_UP_INTERVALS` offers (`events.ts`), `workActivity` is the `travail`
- * layout's Nom combobox, backed by the activities catalogue (`ActivityItem`
- * below) rather than free text, and `quantity` pairs a decimal amount with one
- * of `QUANTITY_UNITS` (`events.ts`), stored as the two concatenated
- * (`formatQuantity`) — a scalar, like every other custom field's value has to
- * be. All three exist because a built-in type already needs them, not because
- * a generic field could reproduce what they do.
+ * Was a list of *semantic* kinds (`followUp`, `workActivity`, `quantity`),
+ * which meant the form could only ever draw the five shapes the built-ins
+ * happened to need: `kind` picked a hardcoded block in the sheet's template,
+ * so a type could not declare an input the code had not anticipated. What made
+ * those three special is now expressed by the modifiers below — `reveals`,
+ * `suggestions`, `units` — which any field may use.
  */
-export type CustomFieldKind =
+export type FieldControl =
   | "text"
-  | "cents"
-  | "bool"
-  | "followUp"
-  | "workActivity"
-  | "quantity";
+  | "number"
+  | "money"
+  | "checkbox"
+  | "select"
+  | "combobox"
+  | "date";
+
+/** One option in a `select` or `combobox`. */
+export type FieldOption = { value: string; label: string };
 
 /** One field a type's entry form draws, beyond the fixed base fields above. */
 export type CustomFieldDef = {
   /** Stable key into `HorseEvent.customFields`. Immutable once created. */
   id: string;
-  kind: CustomFieldKind;
   label: string;
   required: boolean;
+  control: FieldControl;
+  /** Fixed choices, for `select` and `combobox`. */
+  options?: FieldOption[];
+  /**
+   * A `combobox` also draws suggestions from a named catalogue, on top of
+   * `options` — today only the horse's own work activities. A name rather than
+   * the rows themselves, because the catalogue is live data this module has no
+   * business holding.
+   */
+  suggestions?: "activities";
+  /** Shown inside the control, e.g. `€`. Presentation only. */
+  suffix?: string;
+  /**
+   * A unit picker beside the control. The pair stores as one scalar, the
+   * amount and the unit concatenated — `customFields` values have to survive a
+   * JSON round trip through a backup file.
+   */
+  units?: readonly string[];
+  /**
+   * Fields revealed while a `checkbox` is ticked.
+   *
+   * The checkbox itself stores nothing: what lands in `customFields` under
+   * *its* id is the revealed field's value, or `null` when it is unticked.
+   * That is exactly the follow-up's old bespoke encoding, stated as a rule any
+   * field can use.
+   */
+  reveals?: CustomFieldDef[];
+  /**
+   * The two behaviours the app keys off a field rather than a type: the
+   * session name that doubles as the record's title, and the follow-up the
+   * detail view offers to schedule. Presentation stays in `control` above —
+   * this is only how non-form code finds the field it means.
+   */
+  role?: "workActivity" | "followUp";
 };
 
 /**

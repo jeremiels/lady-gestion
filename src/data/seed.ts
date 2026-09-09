@@ -15,20 +15,73 @@ import type { HorseEvent, RationUnit } from "./types.ts";
 const REPORT_EVENT_TITLE = "Contrôle œil";
 
 /**
- * Seeds the 14 built-in event types the first time the database has none.
+ * Brings the built-in event types on this device up to what the app ships.
  *
- * A brand-new install never runs `db.ts`'s v6 `.upgrade()` — Dexie only fires
- * an upgrade transaction when a database already exists at an older version,
- * and a fresh `IndexedDB` is created directly at the current schema with no
- * rows in any table. `seedIfEmpty` is the only code path a first run reaches,
- * so this is the other half of seeding the catalogue, independent of the
- * `db.horses` gate below: a device that has deleted every horse but still has
- * its types must not have them re-seeded a second time, so this checks the
- * `eventTypes` table's own emptiness rather than piggy-backing on that check.
+ * Inserting only when the table is empty — which is all this did — meant a
+ * device seeded once never saw another edit to `BUILT_IN_EVENT_TYPES` again:
+ * adding a type, relabelling one, recolouring one or changing the fields its
+ * form draws all reached a fresh install and nothing else. That is what forced
+ * schema versions v7, v9 and v10, none of which changed a table's shape; it is
+ * also why a stale row whose `fields` predate a change to their shape renders
+ * an empty form rather than a wrong one.
+ *
+ * So this reconciles instead: every shipped built-in is written back over the
+ * row carrying its `key`, and one with no row yet is inserted. Adding or
+ * editing a built-in is now an edit to that array and nothing else.
+ *
+ * Three things are deliberately left alone:
+ *
+ * - **A row the user made themselves** (`isBuiltIn: false`) — it is not ours.
+ * - **A deleted one.** `remove` is a soft delete, so the row is still here
+ *   with `deletedAt` set; matching on it is what stops a built-in the user
+ *   threw away coming back on the next launch.
+ * - **`id`, `ownerId`, `createdAt` and `updatedAt`.** The first three are the
+ *   row's identity; `updatedAt` is what a backup restore arbitrates
+ *   last-write-wins by, and shipping a new build is not an edit that should
+ *   win that argument — the same rule `db.ts`'s migrations follow.
+ *
+ * Once the type editor exists, this is the one place that has to learn the
+ * difference between a built-in the user has customised and one they have not.
  */
-const seedEventTypesIfEmpty = async (): Promise<void> => {
-  if ((await db.eventTypes.count()) > 0) return;
-  await db.eventTypes.bulkAdd(seedEventTypeDefs(getOwnerId(), nowISO()));
+const reconcileEventTypes = async (): Promise<void> => {
+  const shipped = seedEventTypeDefs(getOwnerId(), nowISO());
+  const existing = await db.eventTypes.toArray();
+
+  if (existing.length === 0) {
+    await db.eventTypes.bulkAdd(shipped);
+    return;
+  }
+
+  const byKey = new Map(existing.map((type) => [type.key, type]));
+  const idFor = (key: string | null) =>
+    key === null ? null : (byKey.get(key)?.id ?? null);
+
+  const writes = shipped.flatMap((type) => {
+    const current = byKey.get(type.key);
+
+    // `seedEventTypeDefs` stamps `parentId` with the literal key the array is
+    // written with, which only resolves because a freshly seeded row's `id`
+    // *is* its key. Against rows already on the device that does not hold, so
+    // the parent is looked up — the same resolution `db.ts`'s v9 and v10
+    // upgrades do, and for the same reason.
+    const parentId = idFor(type.parentId);
+
+    if (!current) return [{ ...type, parentId }];
+    if (!current.isBuiltIn || current.deletedAt !== null) return [];
+
+    return [
+      {
+        ...type,
+        parentId,
+        id: current.id,
+        ownerId: current.ownerId,
+        createdAt: current.createdAt,
+        updatedAt: current.updatedAt,
+      },
+    ];
+  });
+
+  if (writes.length > 0) await db.eventTypes.bulkPut(writes);
 };
 
 /**
@@ -39,10 +92,10 @@ const seedEventTypesIfEmpty = async (): Promise<void> => {
  * The demo horse/rations/events/document are gated on the database holding no
  * horse at all, so they can never overwrite real data or reappear after the
  * user deletes it. The event-type catalogue has its own gate — see
- * `seedEventTypesIfEmpty`.
+ * `reconcileEventTypes`.
  */
 export const seedIfEmpty = async (): Promise<void> => {
-  await seedEventTypesIfEmpty();
+  await reconcileEventTypes();
 
   const count = await db.horses.count();
   if (count > 0) return;

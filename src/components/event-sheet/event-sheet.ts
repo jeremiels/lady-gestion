@@ -2,47 +2,36 @@ import { css, html, nothing, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import {
-  DEFAULT_FOLLOW_UP,
-  FOLLOW_UP_INTERVALS,
-  QUANTITY_UNITS,
   type CustomFieldDef,
-  type FieldParser,
+  fieldSchema,
+  valueOf,
+  pairErrorsOf,
+  splitUnitValue,
+  unitNameOf,
+  type FormSchema,
   LiveQuery,
   type WorkActivity,
   activeHorseQuery,
   activitiesRepo,
   activityChoices,
-  bool,
   byLabel,
-  cents,
   childrenOf,
-  decimal,
   eventsService,
   eventTypesRepo,
-  fieldById,
-  fieldOfKind,
+  fieldWithRole,
   findEventType,
-  followUpValue,
-  formatFollowUpInterval,
   formatWorkActivity,
+  todayISO,
   fromCents,
   horsesRepo,
-  isoDate,
   matchActivity,
   oneOf,
-  parseFollowUpValue,
-  parseQuantity,
-  quantityPairErrors,
   readForm,
   rootsOf,
-  text,
-  todayISO,
   type ResolvedEventType,
 } from "../../data/index.ts";
 import type { ActivityItem, HorseEvent } from "../../data/types.ts";
-import type { AppComboboxOption } from "../app-combobox/app-combobox.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
-import type { UnitOption } from "../app-unit-select/app-unit-select.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-combobox/app-combobox.ts";
@@ -50,95 +39,6 @@ import "../app-input/app-input.ts";
 import "../app-select/app-select.ts";
 import "../app-checkbox/app-checkbox.ts";
 import "../app-unit-select/app-unit-select.ts";
-
-const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
-  (interval) => ({
-    value: followUpValue(interval),
-    label: formatFollowUpInterval(interval),
-  }),
-);
-
-/** mL/kg/L read the same as their own value, so there is nothing to translate. */
-const QUANTITY_UNIT_OPTIONS: UnitOption[] = QUANTITY_UNITS.map((unit) => ({
-  value: unit,
-  label: unit,
-}));
-
-/**
- * The activity parser, required only on the layout that draws the field.
- *
- * A function rather than two schema entries, or a check after `readForm`: the
- * "Ce champ est requis." wording belongs to `forms.ts` and copying it here is
- * exactly the drift a schema exists to stop. The declared return type is the
- * looser of the two overloads so the schema's shape — and with it
- * `EventFieldName` — stays the same whichever layout is showing.
- *
- * Plain `text`, not `oneOf`: the combobox that draws this field lets the user
- * type an activity that is in neither the built-ins nor the horse's
- * catalogue, and a closed-list parser would refuse to submit the very session
- * that combobox exists to let them name.
- */
-const activityParser = (required: boolean): FieldParser<WorkActivity | null> =>
-  required ? text({ required: true }) : text();
-
-/**
- * The Nom parser — required and free text on every layout but `work`, whose
- * Nom field is the activity combobox above rather than a text field of its
- * own (`#renderTitle` / `#renderActivity`). There it is absent from the DOM
- * entirely, so the parser must not require it; `eventFields` in
- * `events.service.ts` derives the record's title from the activity instead of
- * reading one back from this field.
- *
- * Same shape as `activityParser`, and the same reason for it: the two swap
- * which one is required depending on the layout, so both need a declared
- * return type loose enough to cover either branch.
- */
-const titleParser = (required: boolean): FieldParser<string | null> =>
-  required
-    ? text({ required: true, maxLength: 120 })
-    : text({ maxLength: 120 });
-
-/**
- * Every field the form can submit, and how each is parsed.
- *
- * At module scope rather than built inside the submit handler, for the type as
- * much as the allocation: `keyof typeof EVENT_SCHEMA` is what gives `errors`
- * below a real key union instead of a bare `string`, so a mistyped
- * `this.errors.titel` is a compile error rather than a message that silently
- * never appears.
- *
- * One schema for all four layouts, deliberately. The variant decides which
- * fields are *rendered* and which column each value is *written* to (see
- * `#onSubmit`); it does not change how a submitted field is read, and a field
- * the current layout does not show simply arrives absent — which every parser
- * here already treats as blank.
- *
- * `activity` is the one exception, and a narrow one: it is required on the
- * layout that draws it and absent everywhere else, so `#onSubmit` swaps in the
- * required parser for that layout alone. The *shape* is unchanged either way.
- */
-/**
- * `type`'s parser is a placeholder — `[]` accepts nothing — because the real
- * whitelist depends on the live catalogue, which does not exist at module
- * scope. `#onSubmit` swaps in the real one the same way it already swaps
- * `title`/`activity` in per layout; declaring the key here at all is what
- * gives `EventFieldName` below a real member for it.
- */
-const EVENT_SCHEMA = {
-  type: oneOf<string>([], { required: true }),
-  title: titleParser(true),
-  date: isoDate({ required: true }),
-  amountCents: cents(),
-  notes: text({ maxLength: 500 }),
-  counterparty: text({ maxLength: 120 }),
-  activity: activityParser(false),
-  planFollowUp: bool(),
-  followUpInterval: text(),
-  quantityAmount: decimal({ min: 0 }),
-  quantityUnit: oneOf(QUANTITY_UNITS),
-};
-
-type EventFieldName = keyof typeof EVENT_SCHEMA;
 
 /**
  * Creating and editing an event.
@@ -168,15 +68,18 @@ export class EventSheet extends BaseElement {
 
   /** `''` until a type is picked; the select is `required`, so submit is blocked. */
   @state() private type: string = "";
-  @state() private planFollowUp = false;
+  /** Which `reveals` checkboxes are ticked, by field id. */
+  @state() private revealed: Record<string, boolean> = {};
   /**
-   * Keyed by schema field name; absent means that field is fine.
+   * Keyed by control name; absent means that field is fine.
    *
-   * `Partial` because that is what `readForm` returns and what every read site
-   * below assumes — but keyed by `EventFieldName`, not `string`, so the keys and
-   * the schema cannot drift.
+   * A bare `string` key rather than a union of the schema's names, because the
+   * schema is now built from the picked type's `fields` and has no compile-time
+   * shape. What a union bought — a mistyped `this.errors.titel` failing to
+   * compile — is bought instead by `fieldControls`, which is the only thing
+   * that names a type's controls, for both the markup and the reader.
    */
-  @state() private errors: Partial<Record<EventFieldName, string>> = {};
+  @state() private errors: Record<string, string> = {};
   @state() private saveError = "";
 
   @query("form") private formEl?: HTMLFormElement;
@@ -213,7 +116,8 @@ export class EventSheet extends BaseElement {
       this.event &&
       findEventType(this.#eventTypes.value ?? [], this.event.type);
     return (
-      (recordType && fieldOfKind(recordType, "workActivity")?.id) ?? "activity"
+      (recordType && fieldWithRole(recordType, "workActivity")?.id) ??
+      "activity"
     );
   }
 
@@ -370,26 +274,47 @@ export class EventSheet extends BaseElement {
     const recordType =
       this.event &&
       findEventType(this.#eventTypes.value ?? [], this.event.type);
-    const followUpField = recordType && fieldOfKind(recordType, "followUp");
-    this.planFollowUp = !!(
-      followUpField && this.event?.customFields[followUpField.id] != null
+    // A checkbox opens ticked when the record stored something under it.
+    this.revealed = Object.fromEntries(
+      (recordType?.fields ?? [])
+        .filter((field) => field.reveals?.length)
+        .map((field) => [field.id, this.event?.customFields[field.id] != null]),
     );
     this.errors = {};
     this.saveError = "";
   }
 
   /**
-   * Practitioner or merchant, read from whichever `customFields` key the
-   * *record's* own type stores it in — not the type currently picked in the
-   * select, so switching type mid-edit still shows what was captured.
+   * One of the picked type's fields, drawn where its `fields` array puts it.
+   *
+   * The four blocks below used to be four lines in `render()`, in one sequence
+   * every type shared — so a type could list Budget before its counterparty and
+   * the form would still draw the counterparty first. A type's field list is
+   * meant to be the single statement of what its form shows; this makes it the
+   * statement of the order too, which was the half still written in the
+   * template.
+   *
+   * `workActivity` is the one kind not drawn here: it doubles as the record's
+   * title, so `render()` places it at the top of the form where `#renderTitle`
+   * would otherwise be, rather than among the optional fields.
    */
-  get #counterparty(): string {
-    const event = this.event;
-    if (!event) return "";
-    const recordType = findEventType(this.#eventTypes.value ?? [], event.type);
-    const field = recordType && fieldById(recordType, "counterparty");
-    const value = field && event.customFields[field.id];
-    return typeof value === "string" ? value : "";
+  #renderField(field: CustomFieldDef): unknown {
+    // No `default:` on purpose: every branch names a `FieldControl`, so adding
+    // a control is a compile error here rather than a field that silently
+    // renders as something else.
+    switch (field.control) {
+      case "checkbox":
+        return this.#renderCheckbox(field);
+      case "combobox":
+        return this.#renderCombobox(field);
+      case "select":
+        return this.#renderSelect(field);
+      case "money":
+      case "number":
+      case "date":
+      case "text":
+        return this.#renderInput(field);
+    }
   }
 
   // `select-change` / `checkbox-change`, not the native `change`: that one is
@@ -398,12 +323,12 @@ export class EventSheet extends BaseElement {
     this.type = event.detail.value;
     // Leaving a type that offers a follow-up takes it with it, so a hidden
     // checkbox can't smuggle an interval onto another type.
-    const type = this.#type;
-    if (!type || !fieldOfKind(type, "followUp")) this.planFollowUp = false;
-  };
-
-  #onFollowUpToggle = (event: CustomEvent<{ checked: boolean }>) => {
-    this.planFollowUp = event.detail.checked;
+    // Leaving a type takes its revealed state with it, so a hidden checkbox
+    // cannot smuggle a value onto another type.
+    const ids = new Set((this.#type?.fields ?? []).map((field) => field.id));
+    this.revealed = Object.fromEntries(
+      Object.entries(this.revealed).filter(([id]) => ids.has(id)),
+    );
   };
 
   #close = () => {
@@ -453,45 +378,54 @@ export class EventSheet extends BaseElement {
 
     const types = this.#eventTypes.value ?? [];
     const type = this.#type;
-    const isWork = !!(type && fieldOfKind(type, "workActivity"));
+    const activityField = type
+      ? fieldWithRole(type, "workActivity")
+      : undefined;
     const priorChoices = this.#activityChoices;
-    const result = readForm(submitEvent.target as HTMLFormElement, {
-      ...EVENT_SCHEMA,
-      type: oneOf(
-        types.map((candidate) => candidate.key),
-        { required: true },
-      ),
-      title: titleParser(!isWork),
-      activity: activityParser(isWork),
-    });
+
+    // The whole schema, built from the picked type's own field list. Only the
+    // type select is stated here: it is how a type is chosen, so it cannot be
+    // one of that type's own rows. Everything else — Nom, Date and Note
+    // included — comes from `fields`, which is why a type that lists no Nom
+    // (`travail`, whose combobox doubles as one) is not asked for one.
+    const result = readForm(
+      submitEvent.target as HTMLFormElement,
+      {
+        type: oneOf(
+          types.map((candidate) => candidate.key),
+          { required: true },
+        ),
+        ...Object.assign({}, ...(type?.fields ?? []).map(fieldSchema)),
+      } as FormSchema,
+    );
 
     if (!result.ok) {
-      this.errors = result.errors;
+      this.errors = result.errors as Record<string, string>;
       void this.#focusFirstError();
       return;
     }
 
-    // `oneOf` above already guarantees `result.value.type` names a live type.
-    const resolvedType = findEventType(types, result.value.type)!;
+    const values = result.value as Record<string, unknown>;
+    // `oneOf` above already guarantees this names a live type.
+    const resolvedType = findEventType(types, values.type as string)!;
 
-    // The schema parses the amount and the unit independently — neither is
-    // `required` on its own, since a type with no `quantity` field submits
-    // both blank. Enforced here, against the type actually being saved, the
-    // same reason `resolvedType` itself is read back rather than `this.#type`.
-    if (fieldById(resolvedType, "quantity")) {
-      const pairErrors = quantityPairErrors(
-        result.value.quantityAmount,
-        result.value.quantityUnit,
-      );
-      if (pairErrors.amount || pairErrors.unit) {
-        this.errors = {
-          ...this.errors,
-          quantityAmount: pairErrors.amount ?? "",
-          quantityUnit: pairErrors.unit ?? "",
-        };
+    // Amount and unit are parsed independently — a type with no quantity field
+    // submits both blank — so "both or neither" is enforced here, against the
+    // type actually being saved rather than whichever the form last showed.
+    for (const field of resolvedType.fields) {
+      const pairErrors = pairErrorsOf(field, values);
+      if (Object.keys(pairErrors).length > 0) {
+        this.errors = { ...this.errors, ...pairErrors };
         void this.#focusFirstError();
         return;
       }
+    }
+
+    // Folded here rather than in the service: which controls a field draws,
+    // and how they encode into one scalar, is this component's knowledge.
+    const answers: Record<string, string | number | boolean | null> = {};
+    for (const field of resolvedType.fields) {
+      answers[field.id] = valueOf(field, values);
     }
 
     try {
@@ -499,15 +433,19 @@ export class EventSheet extends BaseElement {
         horseId: horse.id,
         existing: this.event,
         type: resolvedType,
-        input: result.value,
+        input: { type: values.type as string, values: answers },
       });
 
       // A freshly typed activity — one `priorChoices` didn't already know —
       // joins the horse's catalogue, so it shows up as a suggestion next time
       // here and as a chip on the week strip, exactly as if it had been added
       // from there instead.
-      const activity = result.value.activity;
-      if (activity !== null && !matchActivity(activity, priorChoices)) {
+      const activity = activityField ? answers[activityField.id] : null;
+      if (
+        typeof activity === "string" &&
+        activity !== "" &&
+        !matchActivity(activity, priorChoices)
+      ) {
         await activitiesRepo.add({ horseId: horse.id, label: activity });
       }
     } catch (error: unknown) {
@@ -587,7 +525,6 @@ export class EventSheet extends BaseElement {
 
   render() {
     const type = this.#type;
-    const counterparty = type ? fieldById(type, "counterparty") : null;
     const options = this.#typeOptions();
     const event = this.event;
 
@@ -631,41 +568,14 @@ export class EventSheet extends BaseElement {
           ></app-select>
 
           ${
-            type && fieldOfKind(type, "workActivity")
-              ? this.#renderActivity()
-              : this.#renderTitle()
-          }
-
-          <app-input
-            flat
-            label="Date"
-            name="date"
-            type="date"
-            .value=${event?.date ?? todayISO()}
-            .error=${this.errors.date ?? ""}
-            required
-          ></app-input>
-
-          ${counterparty ? this.#renderCounterparty(counterparty) : nothing}
-          ${type && fieldById(type, "amountCents") ? this.#renderBudget() : nothing}
-          ${
-            type && fieldById(type, "quantity")
-              ? this.#renderQuantity(fieldById(type, "quantity")!)
+            /* The whole form, in the order the type's own `fields` array lists
+               it. Nothing else is drawn: Nom, Date and Note are rows in that
+               array like any other, which is what lets a type state its entire
+               form in one place. */
+            type
+              ? type.fields.map((field) => this.#renderField(field))
               : nothing
           }
-          ${
-            type && fieldOfKind(type, "followUp")
-              ? this.#renderFollowUp()
-              : nothing
-          }
-
-          <app-input
-            flat
-            label="Note"
-            name="notes"
-            .value=${event?.notes ?? ""}
-            .error=${this.errors.notes ?? ""}
-          ></app-input>
 
           <div class="event-form__error-region" role="alert">
             ${this.saveError ? html`<p class="event-form__error">${this.saveError}</p>` : nothing}
@@ -686,170 +596,172 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-   * Practitioner or merchant — the same field-per-type slot, relabelled from
-   * the type's own definition. One control, so the value can never be carried
-   * across a type change.
+
+
+  /**
+   * Whatever the record stored for this field, as text.
+   *
+   * The three base rows read their `HorseEvent` column rather than the bag —
+   * they are fields in the type's array like any other, but they are not
+   * `customFields` entries. A new event's date opens on today: every other
+   * control opens blank, but a date picker with nothing in it is a field the
+   * user has to fill in to say "now".
    */
-  #renderCounterparty(field: CustomFieldDef) {
-    return html`
+  #stored(field: CustomFieldDef): string {
+    const event = this.event;
+    if (field.id === "title") return event?.title ?? "";
+    if (field.id === "notes") return event?.notes ?? "";
+    if (field.id === "date") return event?.date ?? todayISO();
+
+    const value = event?.customFields[field.id];
+    return value === null || value === undefined ? "" : String(value);
+  }
+
+  /**
+   * `text`, `number`, `money` and `date` — one `app-input`, configured from the
+   * field rather than from its id.
+   *
+   * A `units` field draws a second control beside it: the amount and the unit
+   * are one value, stored concatenated, so they are one field here too.
+   */
+  #renderInput(field: CustomFieldDef) {
+    const numeric = field.control === "money" || field.control === "number";
+    const split = field.units
+      ? splitUnitValue(this.event?.customFields[field.id])
+      : null;
+
+    const input = html`
       <app-input
         flat
         label=${field.label}
-        name="counterparty"
-        .value=${this.#counterparty}
-        .error=${this.errors.counterparty ?? ""}
+        name=${field.id}
+        type=${field.control === "date" ? "date" : "text"}
+        inputmode=${numeric ? "decimal" : nothing}
+        ${
+          /* An empty `pattern` attribute is a pattern that matches only the
+              empty string, so it must be absent rather than blank on a text
+              field — with it, anything the user types is invalid. */ ""
+        }
+        pattern=${numeric ? "[0-9]+([.,][0-9]+)?" : nothing}
+        suffix=${field.suffix ?? nothing}
+        .value=${
+          split
+            ? split.amount
+            : field.control === "money"
+              ? this.#storedAmount(field)
+              : this.#stored(field)
+        }
+        .error=${this.errors[field.id] ?? ""}
+        ?required=${field.required}
       ></app-input>
     `;
-  }
 
-  /**
-   * The record's display title — its own free-text control on every layout
-   * but `work`, whose Nom is `#renderActivity` instead.
-   */
-  #renderTitle() {
-    return html`
-      <app-input
-        flat
-        label="Nom"
-        name="title"
-        .value=${this.event?.title ?? ""}
-        .error=${this.errors.title ?? ""}
-        required
-      ></app-input>
-    `;
-  }
-
-  /**
-   * Budget. Every type but a `workActivity` one — a schooling session has no
-   * cost of its own, and the field it would otherwise occupy the row after is
-   * the Nom combobox instead. Prefilled from `customFields.amountCents`,
-   * absent (rendered blank) for a record whose own type never asked for one.
-   */
-  #renderBudget() {
-    const amount = this.event?.customFields.amountCents;
-    return html`
-      <app-input
-        flat
-        label="Budget"
-        name="amountCents"
-        type="text"
-        inputmode="decimal"
-        pattern="[0-9]+([.,][0-9]{1,2})?"
-        suffix="€"
-        .value=${typeof amount === "number" ? String(fromCents(amount)) : ""}
-        .error=${this.errors.amountCents ?? ""}
-      ></app-input>
-    `;
-  }
-
-  /**
-   * The product's quantity — a decimal amount next to `app-unit-select`
-   * (mL/kg/L), stored as the two concatenated (`formatQuantity`/
-   * `parseQuantity` in `events.ts`) so `customFields` still holds a single
-   * scalar. `quantityPairErrors` in `#onSubmit` is what actually enforces the
-   * two together; the schema itself parses each independently, the same way
-   * `planFollowUp`/`followUpInterval` do.
-   */
-  #renderQuantity(field: CustomFieldDef) {
-    const stored = this.event?.customFields[field.id];
-    const parsed = typeof stored === "string" ? parseQuantity(stored) : null;
+    if (!field.units) return input;
 
     return html`
       <div class="event-form__quantity">
-        <app-input
-          flat
-          label=${field.label}
-          name="quantityAmount"
-          type="text"
-          inputmode="decimal"
-          pattern="[0-9]+([.,][0-9]+)?"
-          .value=${parsed ? String(parsed.amount) : ""}
-          .error=${this.errors.quantityAmount ?? ""}
-        ></app-input>
+        ${input}
         <app-unit-select
           label="Unités"
-          name="quantityUnit"
-          .options=${QUANTITY_UNIT_OPTIONS}
-          .value=${parsed?.unit ?? ""}
-          .error=${this.errors.quantityUnit ?? ""}
+          name=${unitNameOf(field)}
+          .options=${field.units.map((unit) => ({ value: unit, label: unit }))}
+          .value=${split?.unit ?? ""}
+          .error=${this.errors[unitNameOf(field)] ?? ""}
         ></app-unit-select>
       </div>
     `;
   }
 
-  /**
-   * A `workActivity` type's Nom field — what was done in the session, which
-   * doubles as the record's title (`eventFields` in `events.service.ts`
-   * derives one from the other). Rendered in the same template slot
-   * `#renderTitle` occupies on every other type, not beside it: a travail
-   * session has one name, not two fields that both claim to hold it.
-   *
-   * A combobox rather than `app-select`: the six built-ins and the horse's
-   * catalogue are suggestions, not a closed list, so typing one the horse has
-   * never done before has to work exactly like picking an existing one does.
-   */
-  #renderActivity() {
-    const options: AppComboboxOption[] = this.#activityChoices.map(
-      (activity) => ({
-        value: activity,
-        label: formatWorkActivity(activity),
-      }),
-    );
-    const stored = this.event?.customFields[this.#recordActivityFieldId];
-
-    return html`
-      <app-combobox
-        flat
-        label="Nom"
-        name="activity"
-        placeholder="Choisir ou ajouter une activité"
-        .options=${options}
-        .value=${typeof stored === "string" ? stored : ""}
-        .error=${this.errors.activity ?? ""}
-        required
-      ></app-combobox>
-    `;
+  /** Cents are stored as an integer and shown as a decimal. */
+  #storedAmount(field: CustomFieldDef): string {
+    const value = this.event?.customFields[field.id];
+    return typeof value === "number" ? String(fromCents(value)) : "";
   }
 
-  #renderFollowUp() {
+  /**
+   * A checkbox, plus whatever it reveals while ticked.
+   *
+   * The revealed fields are the same `#renderField` as any other, so a
+   * checkbox can hang a select, an input or another checkbox off itself
+   * without this method knowing which.
+   */
+  #renderCheckbox(field: CustomFieldDef) {
+    const on = this.revealed[field.id] ?? this.#stored(field) !== "";
+
     return html`
       <div class="event-form__follow-up">
         <app-checkbox
-          label="Planifier un rendez-vous"
-          name="planFollowUp"
-          ?checked=${this.planFollowUp}
-          @checkbox-change=${this.#onFollowUpToggle}
+          label=${field.label}
+          name=${field.id}
+          ?checked=${on}
+          @checkbox-change=${(event: CustomEvent<{ checked: boolean }>) => {
+            this.revealed = {
+              ...this.revealed,
+              [field.id]: event.detail.checked,
+            };
+          }}
         ></app-checkbox>
-
-        ${
-          this.planFollowUp
-            ? html`
-                <app-select
-                  label="Prochain rendez-vous à planifier"
-                  name="followUpInterval"
-                  .options=${FOLLOW_UP_OPTIONS}
-                  .value=${followUpValue(this.#recordFollowUp ?? DEFAULT_FOLLOW_UP)}
-                  required
-                ></app-select>
-              `
-            : nothing
-        }
+        ${on ? (field.reveals ?? []).map((child) => this.#renderField(child)) : nothing}
       </div>
     `;
   }
 
+  /** A closed list. */
+  #renderSelect(field: CustomFieldDef) {
+    return html`
+      <app-select
+        label=${field.label}
+        name=${field.id}
+        .options=${field.options ?? []}
+        .value=${this.#selectValue(field)}
+        .error=${this.errors[field.id] ?? ""}
+        ?required=${field.required}
+      ></app-select>
+    `;
+  }
+
   /**
-   * The record's own follow-up interval, decoded — read from whichever
-   * `customFields` key the *record's own* type uses, the same rule
-   * `#counterparty` follows. `null` when there is none to prefill from.
+   * The value a revealed select opens on — what the record stored if it is one
+   * of the options, else the first, so the control is never blank while its
+   * checkbox is ticked.
    */
-  get #recordFollowUp() {
-    const event = this.event;
-    if (!event) return null;
-    const recordType = findEventType(this.#eventTypes.value ?? [], event.type);
-    const field = recordType && fieldOfKind(recordType, "followUp");
-    const stored = field && event.customFields[field.id];
-    return typeof stored === "string" ? parseFollowUpValue(stored) : null;
+  #selectValue(field: CustomFieldDef): string {
+    const options = field.options ?? [];
+    const parent = this.#type?.fields.find((one) =>
+      one.reveals?.some((child) => child.id === field.id),
+    );
+    const stored = parent ? this.#stored(parent) : this.#stored(field);
+    return options.some((option) => option.value === stored)
+      ? stored
+      : (options[0]?.value ?? "");
+  }
+
+  /**
+   * An open list — the options plus, when the field asks for them, suggestions
+   * from a live catalogue. Typing something in neither has to work: that is
+   * what separates this from `select`.
+   */
+  #renderCombobox(field: CustomFieldDef) {
+    const options =
+      field.suggestions === "activities"
+        ? this.#activityChoices.map((activity) => ({
+            value: activity,
+            label: formatWorkActivity(activity),
+          }))
+        : (field.options ?? []);
+
+    return html`
+      <app-combobox
+        flat
+        label=${field.label}
+        name=${field.id}
+        placeholder="Choisir ou ajouter"
+        .options=${options}
+        .value=${this.#stored(field)}
+        .error=${this.errors[field.id] ?? ""}
+        ?required=${field.required}
+      ></app-combobox>
+    `;
   }
 }
 

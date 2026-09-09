@@ -139,16 +139,21 @@ beforeEach(async () => {
 describe("event-sheet submit", () => {
   it("shows a message on every required field left empty", async () => {
     const el = await openSheet();
-    const form = await submit(el);
 
-    // `type` and `title` are the required fields with nothing in them — `date`
-    // is prefilled with today, so it parses.
-    for (const name of ["type", "title"]) {
-      const field = fieldNamed<AppInput | AppSelect>(form, name);
-      expect(errorTextOf(field), `${name} should show its message`).not.toBe(
-        "",
-      );
-    }
+    // With no type picked the sheet draws only the type select: a type's own
+    // `fields` array is the whole form, so there is no form until there is a
+    // type. That one field is what an empty submit can fault.
+    let form = await submit(el);
+    expect(errorTextOf(fieldNamed<AppSelect>(form, "type"))).not.toBe("");
+
+    // Once a type is chosen, its required rows fault the same way. `date` is
+    // prefilled with today, so it parses; `title` is the one left empty.
+    await pick(el, "type", "veto");
+    form = await submit(el);
+    expect(
+      errorTextOf(fieldNamed<AppInput>(form, "title")),
+      "title should show its message",
+    ).not.toBe("");
   });
 
   it("moves focus to the first field at fault", async () => {
@@ -271,7 +276,7 @@ describe("event-sheet — the travail layout", () => {
     expect(form.querySelector('[name="title"]')).toBeNull();
     expect(form.querySelector('[name="amountCents"]')).toBeNull();
     expect(form.querySelector('[name="counterparty"]')).toBeNull();
-    expect(form.querySelector('[name="planFollowUp"]')).toBeNull();
+    expect(form.querySelector('[name="followUp"]')).toBeNull();
 
     // And it leaves with the layout: a care event has its own Nom field and a
     // Budget again, and no more activity to record.
@@ -370,7 +375,7 @@ describe("event-sheet — the alimentation quantity field", () => {
   const pickUnit = async (el: EventSheet, value: string) => {
     const field = fieldNamed<AppUnitSelect>(
       el.renderRoot.querySelector("form")!,
-      "quantityUnit",
+      "quantity-unit",
     );
     const radios = [
       ...field.renderRoot.querySelectorAll<HTMLInputElement>(".option__input"),
@@ -383,25 +388,25 @@ describe("event-sheet — the alimentation quantity field", () => {
     const el = await openSheet();
     await pick(el, "type", "veto");
     let form = el.renderRoot.querySelector("form")!;
-    expect(form.querySelector('[name="quantityAmount"]')).toBeNull();
-    expect(form.querySelector('[name="quantityUnit"]')).toBeNull();
+    expect(form.querySelector('[name="quantity"]')).toBeNull();
+    expect(form.querySelector('[name="quantity-unit"]')).toBeNull();
 
     await pick(el, "type", "alimentation");
     form = el.renderRoot.querySelector("form")!;
-    expect(form.querySelector('[name="quantityAmount"]')).not.toBeNull();
-    expect(form.querySelector('[name="quantityUnit"]')).not.toBeNull();
+    expect(form.querySelector('[name="quantity"]')).not.toBeNull();
+    expect(form.querySelector('[name="quantity-unit"]')).not.toBeNull();
   });
 
   it("refuses a quantity typed with no unit picked", async () => {
     const el = await openSheet();
     await pick(el, "type", "alimentation");
     await fill(el, "title", "Foin");
-    await fill(el, "quantityAmount", "40");
+    await fill(el, "quantity", "40");
 
     const form = await submit(el);
 
     expect(
-      errorTextOf(fieldNamed<AppUnitSelect>(form, "quantityUnit")),
+      errorTextOf(fieldNamed<AppUnitSelect>(form, "quantity-unit")),
     ).not.toBe("");
     expect(await db.events.count()).toBe(0);
   });
@@ -414,9 +419,7 @@ describe("event-sheet — the alimentation quantity field", () => {
 
     const form = await submit(el);
 
-    expect(errorTextOf(fieldNamed<AppInput>(form, "quantityAmount"))).not.toBe(
-      "",
-    );
+    expect(errorTextOf(fieldNamed<AppInput>(form, "quantity"))).not.toBe("");
     expect(await db.events.count()).toBe(0);
   });
 
@@ -424,7 +427,7 @@ describe("event-sheet — the alimentation quantity field", () => {
     const el = await openSheet();
     await pick(el, "type", "alimentation");
     await fill(el, "title", "Foin");
-    await fill(el, "quantityAmount", "40");
+    await fill(el, "quantity", "40");
     await pickUnit(el, "mL");
 
     await submit(el);
@@ -455,16 +458,16 @@ describe("event-sheet — the alimentation quantity field", () => {
     // disabled state to poll here, so wait on the field this test is about.
     await waitFor(
       el,
-      () => el.renderRoot.querySelector('[name="quantityAmount"]') !== null,
+      () => el.renderRoot.querySelector('[name="quantity"]') !== null,
     );
 
     const form = el.renderRoot.querySelector("form")!;
     const amountInput = fieldNamed<AppInput>(
       form,
-      "quantityAmount",
+      "quantity",
     ).renderRoot.querySelector("input")!;
     expect(amountInput.value).toBe("1.5");
-    expect(fieldNamed<AppUnitSelect>(form, "quantityUnit").value).toBe("L");
+    expect(fieldNamed<AppUnitSelect>(form, "quantity-unit").value).toBe("L");
   });
 });
 
