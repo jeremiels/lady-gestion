@@ -30,9 +30,9 @@ import type {
  * options live in its row rather than in the code that draws it.
  */
 const FOLLOW_UP_OPTIONS: FieldOption[] = [
-  { value: "2w", label: "2 semaines" },
-  { value: "4w", label: "4 semaines" },
+  { value: "3w", label: "3 semaines" },
   { value: "6w", label: "6 semaines" },
+  { value: "7w", label: "7 semaines" },
   { value: "8w", label: "8 semaines" },
   { value: "3m", label: "3 mois" },
   { value: "6m", label: "6 mois" },
@@ -115,7 +115,7 @@ export const quantityField = () =>
 const careFields = (): CustomFieldDef[] => [
   inputTextField({ id: "title", label: "Nom", required: true }),
   inputDateField({ id: "date", label: "Date", required: true }),
-  inputTextField({ id: "counterparty", label: "Practicien" }),
+  inputTextField({ id: "counterparty", label: "Practicien", defaultValue: "Dr. Orange" }),
   inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
   inputCheckboxField({
     id: "followUp",
@@ -252,6 +252,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "coach", label: "Coach", defaultValue: "Fabien Cassagnaud" }),
       inputDateField({ id: "date", label: "Date", required: true }),
       inputTextField({ id: "notes", label: "Note" }),
     ],
@@ -351,7 +352,23 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputDateField({ id: "date", label: "Date", required: true }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "competition", label: "Épreuve", required: true }),
+      inputMoneyField({ id: "amountCents", label: "Budget engagement", suffix: "€" }),
+      inputSelectField({
+        id: "result",
+        label: "Résultat",
+        options: [
+          { value: "Sans Faute", label: "Sans Faute" },
+          { value: "Sans faute classé", label: "Sans faute classé" },
+          { value: "4pts", label: "4 pts" },
+          { value: "8pts", label: "8 pts" },
+          { value: "12pts", label: "12 pts" },
+          { value: "16pts", label: "16 pts" },
+          { value: "20pts", label: "20 pts" },
+          { value: "Éliminées", label: "Éliminées" },
+        ],
+        required: true,
+      }),
       inputTextField({ id: "notes", label: "Note" }),
     ],
   },
@@ -393,8 +410,20 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({ id: "counterparty", label: "Practicien" }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "duration", label: "Durée" }),
+      inputCheckboxField({
+        id: "followUp",
+        label: "Planifier un renouvellement",
+        role: "followUp",
+        reveals: [
+          inputSelectField({
+            id: "followUp-interval",
+            label: "Prochain rendez-vous à planifier",
+            required: true,
+            options: FOLLOW_UP_OPTIONS,
+          }),
+        ],
+      }),
       inputTextField({ id: "notes", label: "Note" }),
     ],
   },
