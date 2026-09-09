@@ -34,6 +34,7 @@ export const ICON_NAMES = [
   "search",
   "firstAidKit",
   "footprints",
+  "heart",
   "tooth",
   "pawPrint",
   "cowboyHat",

@@ -215,7 +215,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     // placeholder icons at v9, `pawPrint` was already this row's real,
     // shipped icon, and it is what tells it apart from its new sibling
     // `massage` inside the "Soins" group.
-    icon: "pawPrint",
+    icon: null,
     theme: null,
     isBuiltIn: true,
     isAppointment: true,
@@ -244,7 +244,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     // exist yet; a competition's venue is the fixed `location` field, so no
     // counterparty field is needed here the way the care types have one.
     parentId: null,
-    icon: "dateFilled",
+    icon: "pawPrint",
     theme: "gold",
     isBuiltIn: true,
     isAppointment: false,
@@ -257,7 +257,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     key: "soins",
     label: "Soins",
     parentId: null,
-    icon: "firstAidKit",
+    icon: "heart",
     theme: "peach",
     isBuiltIn: true,
     isAppointment: true,

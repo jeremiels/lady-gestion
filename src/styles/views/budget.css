@@ -184,6 +184,7 @@
      open pushes only its own column. Indented to the label's column so the
      breakdown lines up with the name it belongs to rather than the dot. */
   .budget-view__legend-breakdown {
+    display: none; /* @todo revoir le design avec Léa avant d'afficher ce truc */
     margin-top: var(--spacing-4);
     margin-inline-start: calc(0.75rem + var(--spacing-8));
     font-size: 0.8125rem;
