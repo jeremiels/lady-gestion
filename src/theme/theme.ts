@@ -37,6 +37,26 @@ export const THEME_META: Record<ThemeKey, ThemeMeta> = {
     color: "var(--color-theme-fuchsia)",
     backgroundColor: "var(--color-theme-fuchsia-background)",
   },
+  mint: {
+    color: "var(--color-theme-mint)",
+    backgroundColor: "var(--color-theme-mint-background)",
+  },
+  coral: {
+    color: "var(--color-theme-coral)",
+    backgroundColor: "var(--color-theme-coral-background)",
+  },
+  peach: {
+    color: "var(--color-theme-peach)",
+    backgroundColor: "var(--color-theme-peach-background)",
+  },
+  grey: {
+    color: "var(--color-theme-grey)",
+    backgroundColor: "var(--color-theme-grey-background)",
+  },
+  gold: {
+    color: "var(--color-theme-gold)",
+    backgroundColor: "var(--color-theme-gold-background)",
+  },
 };
 
 /**

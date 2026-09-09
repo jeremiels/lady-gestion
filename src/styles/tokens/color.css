@@ -12,15 +12,15 @@
     --color-brown-9: #faf8f6;
     --color-pink-1: #c9a4b2;
     --color-pink-2: #f3dae4;
-    --color-green-1: #a8b89a;
+    --color-green-1: #8d9c80;
     --color-green-2: #dbe9ce;
-    --color-purple-1: #b8a8cc;
+    --color-purple-1: #9179ae;
     --color-purple-2: #e6dcf4;
-    --color-orange-1: #e1ab7f;
+    --color-orange-1: #e89b5d;
     --color-orange-2: #f7dbc5;
     --color-yellow-1: #ddcb85;
     --color-yellow-2: #f6ecc6;
-    --color-taupe-1: #d4b0a8;
+    --color-taupe-1: #ad8076;
     --color-taupe-2: #f6ecea;
     --color-turquoise-1: #9bc9c2;
     --color-turquoise-2: #def1ef;
@@ -33,6 +33,14 @@
     --color-grey-1: #d6d6d6;
     --color-grey-2: #f4f4f4;
     --color-grey-3: #f0f0f0;
+    --color-mint-1: #66a394;
+    --color-mint-2: #def1ef;
+    --color-coral-1: #bf7a7a;
+    --color-coral-2: #f2d6d6;
+    --color-peach-1: #c7856b;
+    --color-peach-2: #f7ded1;
+    --color-gold-1: #deab35;
+    --color-gold-2: #f7e7ac;
 
     --color-brown-light: var(--color-brown-3);
     --color-brown-middle: var(--color-brown-2);
@@ -47,6 +55,11 @@
     --color-theme-taupe: var(--color-taupe-1);
     --color-theme-turquoise: var(--color-turquoise-1);
     --color-theme-fuchsia: var(--color-fuchsia-1);
+    --color-theme-mint: var(--color-mint-1);
+    --color-theme-coral: var(--color-coral-1);
+    --color-theme-peach: var(--color-peach-1);
+    --color-theme-grey: var(--color-grey-0);
+    --color-theme-gold: var(--color-gold-1);
     --color-theme-brown-background: var(--color-brown-6);
     --color-theme-pink-background: var(--color-pink-2);
     --color-theme-purple-background: var(--color-purple-2);
@@ -56,6 +69,11 @@
     --color-theme-taupe-background: var(--color-taupe-2);
     --color-theme-turquoise-background: var(--color-turquoise-2);
     --color-theme-fuchsia-background: var(--color-fuchsia-2);
+    --color-theme-mint-background: var(--color-mint-2);
+    --color-theme-coral-background: var(--color-coral-2);
+    --color-theme-peach-background: var(--color-peach-2);
+    --color-theme-grey-background: var(--color-grey-3);
+    --color-theme-gold-background: var(--color-gold-2);
     --color-input-drawer: var(--color-brown-9);
     /* Muted text sitting on a dark/tinted card, e.g. the budget subtitle.
        Named for where it goes: it was --color-brown-semi-middle, which

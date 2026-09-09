@@ -13,7 +13,12 @@ export type ThemeKey =
   | "yellow"
   | "taupe"
   | "turquoise"
-  | "fuchsia";
+  | "fuchsia"
+  | "mint"
+  | "coral"
+  | "peach"
+  | "grey"
+  | "gold";
 
 export type ThemeMeta = {
   color: string;
