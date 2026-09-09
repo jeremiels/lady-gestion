@@ -115,7 +115,11 @@ export const quantityField = () =>
 const careFields = (): CustomFieldDef[] => [
   inputTextField({ id: "title", label: "Nom", required: true }),
   inputDateField({ id: "date", label: "Date", required: true }),
-  inputTextField({ id: "counterparty", label: "Practicien", defaultValue: "Dr. Orange" }),
+  inputTextField({
+    id: "counterparty",
+    label: "Practicien",
+    defaultValue: "Dr. Orange",
+  }),
   inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
   inputCheckboxField({
     id: "followUp",
@@ -252,7 +256,11 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputTextField({ id: "coach", label: "Coach", defaultValue: "Fabien Cassagnaud" }),
+      inputTextField({
+        id: "coach",
+        label: "Coach",
+        defaultValue: "Fabien Cassagnaud",
+      }),
       inputDateField({ id: "date", label: "Date", required: true }),
       inputTextField({ id: "notes", label: "Note" }),
     ],
@@ -353,7 +361,11 @@ export const BUILT_IN_EVENT_TYPES: Omit<
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputDateField({ id: "date", label: "Date", required: true }),
       inputTextField({ id: "competition", label: "Épreuve", required: true }),
-      inputMoneyField({ id: "amountCents", label: "Budget engagement", suffix: "€" }),
+      inputMoneyField({
+        id: "amountCents",
+        label: "Budget engagement",
+        suffix: "€",
+      }),
       inputSelectField({
         id: "result",
         label: "Résultat",
@@ -406,7 +418,6 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 11,
-    // No follow-up: a cure is a defined course, not a recurring visit.
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputDateField({ id: "date", label: "Date", required: true }),

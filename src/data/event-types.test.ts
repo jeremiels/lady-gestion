@@ -46,6 +46,7 @@ describe("the generic field constructors reproduce the old fixed shapes", () => 
         control: "text",
         label: "Practicien",
         required: false,
+        defaultValue: "Dr. Orange",
       },
       {
         id: "amountCents",
@@ -67,9 +68,9 @@ describe("the generic field constructors reproduce the old fixed shapes", () => 
             label: "Prochain rendez-vous à planifier",
             required: true,
             options: [
-              { value: "2w", label: "2 semaines" },
-              { value: "4w", label: "4 semaines" },
+              { value: "3w", label: "3 semaines" },
               { value: "6w", label: "6 semaines" },
+              { value: "7w", label: "7 semaines" },
               { value: "8w", label: "8 semaines" },
               { value: "3m", label: "3 mois" },
               { value: "6m", label: "6 mois" },
