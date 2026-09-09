@@ -2,9 +2,11 @@ import type { IsoDate } from "../dates.ts";
 import { fieldById, fieldOfKind } from "../event-types.ts";
 import {
   followUpValue,
+  formatQuantity,
   formatWorkActivity,
   parseFollowUpValue,
   statusForDate,
+  type QuantityUnit,
   type WorkActivity,
   type WorkSession,
 } from "../events.ts";
@@ -72,6 +74,10 @@ export type EventInput = {
   planFollowUp: boolean;
   /** `followUpValue()`'s encoding, e.g. `6w`. Parsed below. */
   followUpInterval: string | null;
+  /** The `quantity` field's amount and unit — required together, enforced by
+   * `quantityPairErrors` before this reaches the service. */
+  quantityAmount: number | null;
+  quantityUnit: QuantityUnit | null;
 };
 
 export type SaveEventCommand = {
@@ -238,6 +244,7 @@ const eventFields = (
   const amountField = fieldById(type, "amountCents");
   const followUpField = fieldOfKind(type, "followUp");
   const activityField = fieldOfKind(type, "workActivity");
+  const quantityField = fieldById(type, "quantity");
 
   // Written per field the type actually has, rather than from whatever the
   // form still holds, so a field this type does not draw can never reach the
@@ -264,6 +271,14 @@ const eventFields = (
     // ask what was done must not carry an answer left over from the type the
     // user picked before.
     customFields[activityField.id] = input.activity;
+  }
+  if (quantityField) {
+    // Both or neither by the time this runs — `event-sheet.ts` already ran
+    // `quantityPairErrors` and blocked submission otherwise.
+    customFields[quantityField.id] =
+      input.quantityAmount !== null && input.quantityUnit !== null
+        ? formatQuantity(input.quantityAmount, input.quantityUnit)
+        : null;
   }
 
   return {

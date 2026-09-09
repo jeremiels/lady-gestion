@@ -6,7 +6,7 @@ import {
   type RecordTableName,
 } from "../db.ts";
 import { nowISO, type IsoTimestamp } from "../dates.ts";
-import { seedEventTypeDefs } from "../event-types.ts";
+import { quantityField, seedEventTypeDefs } from "../event-types.ts";
 import {
   migrateEventToCustomFields,
   type LegacyEventColumns,
@@ -260,6 +260,26 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
         } = row;
         return { ...rest, type, customFields };
       }),
+    };
+  }
+
+  // v6 -> v7: `alimentation`'s built-in `fields` gains a `quantity` entry.
+  // Same transform as `db.ts`'s v7 upgrade, applied to the file's own
+  // `eventTypes` rows instead of a live table — addressed by `key`, the same
+  // field `findEventType` resolves a type by everywhere else in this app, so
+  // an older file's row is found the same way regardless of which build wrote
+  // it or what its own `id` happens to be. Guarded so replaying an
+  // already-migrated row (a device patched live, backed up, then restored
+  // onto itself) cannot double the field.
+  if (backup.schemaVersion < 7) {
+    tables = {
+      ...tables,
+      eventTypes: tables.eventTypes.map((type) =>
+        type.key === "alimentation" &&
+        !type.fields.some((field) => field.id === "quantity")
+          ? { ...type, fields: [...type.fields, quantityField()] }
+          : type,
+      ),
     };
   }
 

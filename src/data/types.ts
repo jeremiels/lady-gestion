@@ -118,19 +118,23 @@ export type HorseEvent = BaseRecord & {
 /**
  * The shapes a custom field can take.
  *
- * `text`, `cents` and `bool` are general-purpose. `followUp` and `workActivity`
- * are not: `followUp` pairs a checkbox with the interval `FOLLOW_UP_INTERVALS`
- * offers (`events.ts`), and `workActivity` is the `travail` layout's Nom
- * combobox, backed by the activities catalogue (`ActivityItem` below) rather
- * than free text. Both exist because the built-in types already need them, not
- * because a generic field could reproduce what they do.
+ * `text`, `cents` and `bool` are general-purpose. `followUp`, `workActivity`
+ * and `quantity` are not: `followUp` pairs a checkbox with the interval
+ * `FOLLOW_UP_INTERVALS` offers (`events.ts`), `workActivity` is the `travail`
+ * layout's Nom combobox, backed by the activities catalogue (`ActivityItem`
+ * below) rather than free text, and `quantity` pairs a decimal amount with one
+ * of `QUANTITY_UNITS` (`events.ts`), stored as the two concatenated
+ * (`formatQuantity`) — a scalar, like every other custom field's value has to
+ * be. All three exist because a built-in type already needs them, not because
+ * a generic field could reproduce what they do.
  */
 export type CustomFieldKind =
   | "text"
   | "cents"
   | "bool"
   | "followUp"
-  | "workActivity";
+  | "workActivity"
+  | "quantity";
 
 /** One field a type's entry form draws, beyond the fixed base fields above. */
 export type CustomFieldDef = {

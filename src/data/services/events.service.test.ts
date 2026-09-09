@@ -50,6 +50,8 @@ const input = (over: Partial<EventInput> = {}): EventInput => ({
   activity: "balade",
   planFollowUp: true,
   followUpInterval: "6w",
+  quantityAmount: null,
+  quantityUnit: null,
   ...over,
 });
 
@@ -125,6 +127,34 @@ describe("follow-up interval", () => {
     const event = await create({ type: "veto", followUpInterval: "six-weeks" });
 
     expect(event.customFields.followUp).toBeNull();
+  });
+});
+
+describe("quantity field", () => {
+  it("writes the concatenated amount and unit for a type that has the field", async () => {
+    const event = await create({
+      type: "alimentation",
+      quantityAmount: 40,
+      quantityUnit: "mL",
+    });
+
+    expect(event.customFields.quantity).toBe("40 mL");
+  });
+
+  it("drops it entirely on a type with no quantity field", async () => {
+    const event = await create({
+      type: "veto",
+      quantityAmount: 40,
+      quantityUnit: "mL",
+    });
+
+    expect(event.customFields.quantity).toBeUndefined();
+  });
+
+  it("is null, not dropped, when neither the amount nor the unit was filled in", async () => {
+    const event = await create({ type: "alimentation" });
+
+    expect(event.customFields.quantity).toBeNull();
   });
 });
 

@@ -103,6 +103,50 @@ const writeV5Database = async (rows: { events?: unknown[] }) => {
   legacy.close();
 };
 
+/** The stores a real v6 device's IndexedDB actually has — `V5_STORES` plus
+ * the `eventTypes` table v6 introduced. */
+const V6_STORES = {
+  ...V5_STORES,
+  eventTypes: "id, key, order, archived, updatedAt",
+};
+
+/**
+ * The `alimentation` `eventTypes` row exactly as v6 wrote it — no `quantity`
+ * field yet. Hand-frozen rather than read off the live `BUILT_IN_EVENT_TYPES`,
+ * which now includes it — the same trap `LEGACY_STORES`'s own note warns
+ * against for the stores above.
+ */
+const preV7AlimentationType = () => ({
+  ...stamps,
+  id: "alimentation",
+  key: "alimentation",
+  label: "Alimentation",
+  icon: "carrot",
+  theme: "yellow",
+  isBuiltIn: true,
+  isAppointment: false,
+  tracksWork: false,
+  archived: false,
+  order: 1,
+  fields: [
+    { id: "counterparty", kind: "text", label: "Site", required: false },
+    { id: "amountCents", kind: "cents", label: "Budget", required: false },
+  ],
+});
+
+/** Writes a database already at v6, then closes it so `db` can upgrade it
+ * straight to v7 — isolating that one migration the same way `writeV5Database`
+ * isolates v5 -> v6. */
+const writeV6Database = async (rows: { eventTypes?: unknown[] }) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(6).stores(V6_STORES);
+  await legacy.open();
+  if (rows.eventTypes?.length) {
+    await legacy.table("eventTypes").bulkAdd(rows.eventTypes);
+  }
+  legacy.close();
+};
+
 /** Writes a database at `version`, then closes it so `db` can upgrade it. */
 const writeLegacyDatabase = async (
   version: number,
@@ -428,6 +472,54 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
     expect(event).not.toHaveProperty("followUpInterval");
     expect(event).not.toHaveProperty("activity");
     expect(event).not.toHaveProperty("amountCents");
+  });
+});
+
+describe("v6 -> v7: alimentation gains a quantity field", () => {
+  it("appends the field to the existing row", async () => {
+    await writeV6Database({ eventTypes: [preV7AlimentationType()] });
+
+    await db.open();
+
+    const alimentation = await db.eventTypes
+      .where("id")
+      .equals("alimentation")
+      .first();
+    expect(alimentation?.fields.map((field) => field.id).sort()).toEqual([
+      "amountCents",
+      "counterparty",
+      "quantity",
+    ]);
+  });
+
+  it("leaves a type with no quantity field untouched", async () => {
+    const veto = {
+      ...stamps,
+      id: "veto",
+      key: "veto",
+      label: "Vétérinaire",
+      icon: "firstAidKit",
+      theme: "pink",
+      isBuiltIn: true,
+      isAppointment: true,
+      tracksWork: false,
+      archived: false,
+      order: 6,
+      fields: [
+        {
+          id: "counterparty",
+          kind: "text",
+          label: "Practicien",
+          required: false,
+        },
+      ],
+    };
+    await writeV6Database({ eventTypes: [preV7AlimentationType(), veto] });
+
+    await db.open();
+
+    const stored = await db.eventTypes.where("id").equals("veto").first();
+    expect(stored?.fields).toEqual(veto.fields);
   });
 });
 

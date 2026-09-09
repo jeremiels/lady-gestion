@@ -4,6 +4,7 @@ import { BaseElement } from "../../commons/base-element.ts";
 import {
   DEFAULT_FOLLOW_UP,
   FOLLOW_UP_INTERVALS,
+  QUANTITY_UNITS,
   type CustomFieldDef,
   type EventTypeDef,
   type FieldParser,
@@ -15,6 +16,7 @@ import {
   bool,
   byLabel,
   cents,
+  decimal,
   eventsService,
   eventTypesRepo,
   fieldById,
@@ -29,6 +31,8 @@ import {
   matchActivity,
   oneOf,
   parseFollowUpValue,
+  parseQuantity,
+  quantityPairErrors,
   readForm,
   text,
   todayISO,
@@ -36,12 +40,14 @@ import {
 import type { ActivityItem, HorseEvent } from "../../data/types.ts";
 import type { AppComboboxOption } from "../app-combobox/app-combobox.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
+import type { UnitOption } from "../app-unit-select/app-unit-select.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-combobox/app-combobox.ts";
 import "../app-input/app-input.ts";
 import "../app-select/app-select.ts";
 import "../app-checkbox/app-checkbox.ts";
+import "../app-unit-select/app-unit-select.ts";
 
 const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
   (interval) => ({
@@ -49,6 +55,12 @@ const FOLLOW_UP_OPTIONS: AppSelectOption[] = FOLLOW_UP_INTERVALS.map(
     label: formatFollowUpInterval(interval),
   }),
 );
+
+/** mL/kg/L read the same as their own value, so there is nothing to translate. */
+const QUANTITY_UNIT_OPTIONS: UnitOption[] = QUANTITY_UNITS.map((unit) => ({
+  value: unit,
+  label: unit,
+}));
 
 /**
  * The activity parser, required only on the layout that draws the field.
@@ -120,6 +132,8 @@ const EVENT_SCHEMA = {
   activity: activityParser(false),
   planFollowUp: bool(),
   followUpInterval: text(),
+  quantityAmount: decimal({ min: 0 }),
+  quantityUnit: oneOf(QUANTITY_UNITS),
 };
 
 type EventFieldName = keyof typeof EVENT_SCHEMA;
@@ -272,6 +286,19 @@ export class EventSheet extends BaseElement {
       .event-form__follow-up app-select {
         opacity: 0;
       }
+    }
+
+    /* The amount grows, the unit stays exactly as wide as "mL"/"kg"/"L" need —
+       matching how the two read together in the mockup. */
+    .event-form__quantity {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--spacing-16);
+    }
+
+    .event-form__quantity app-input {
+      flex: 1;
+      min-width: 0;
     }
 
     /* The live region itself, always in the DOM and never hidden — see the note
@@ -445,6 +472,26 @@ export class EventSheet extends BaseElement {
     // `oneOf` above already guarantees `result.value.type` names a live type.
     const resolvedType = findEventType(types, result.value.type)!;
 
+    // The schema parses the amount and the unit independently — neither is
+    // `required` on its own, since a type with no `quantity` field submits
+    // both blank. Enforced here, against the type actually being saved, the
+    // same reason `resolvedType` itself is read back rather than `this.#type`.
+    if (fieldById(resolvedType, "quantity")) {
+      const pairErrors = quantityPairErrors(
+        result.value.quantityAmount,
+        result.value.quantityUnit,
+      );
+      if (pairErrors.amount || pairErrors.unit) {
+        this.errors = {
+          ...this.errors,
+          quantityAmount: pairErrors.amount ?? "",
+          quantityUnit: pairErrors.unit ?? "",
+        };
+        void this.#focusFirstError();
+        return;
+      }
+    }
+
     try {
       await eventsService.saveEvent({
         horseId: horse.id,
@@ -572,6 +619,11 @@ export class EventSheet extends BaseElement {
           ${counterparty ? this.#renderCounterparty(counterparty) : nothing}
           ${type && fieldById(type, "amountCents") ? this.#renderBudget() : nothing}
           ${
+            type && fieldById(type, "quantity")
+              ? this.#renderQuantity(fieldById(type, "quantity")!)
+              : nothing
+          }
+          ${
             type && fieldOfKind(type, "followUp")
               ? this.#renderFollowUp()
               : nothing
@@ -657,6 +709,41 @@ export class EventSheet extends BaseElement {
         .value=${typeof amount === "number" ? String(fromCents(amount)) : ""}
         .error=${this.errors.amountCents ?? ""}
       ></app-input>
+    `;
+  }
+
+  /**
+   * The product's quantity — a decimal amount next to `app-unit-select`
+   * (mL/kg/L), stored as the two concatenated (`formatQuantity`/
+   * `parseQuantity` in `events.ts`) so `customFields` still holds a single
+   * scalar. `quantityPairErrors` in `#onSubmit` is what actually enforces the
+   * two together; the schema itself parses each independently, the same way
+   * `planFollowUp`/`followUpInterval` do.
+   */
+  #renderQuantity(field: CustomFieldDef) {
+    const stored = this.event?.customFields[field.id];
+    const parsed = typeof stored === "string" ? parseQuantity(stored) : null;
+
+    return html`
+      <div class="event-form__quantity">
+        <app-input
+          flat
+          label=${field.label}
+          name="quantityAmount"
+          type="text"
+          inputmode="decimal"
+          pattern="[0-9]+([.,][0-9]+)?"
+          .value=${parsed ? String(parsed.amount) : ""}
+          .error=${this.errors.quantityAmount ?? ""}
+        ></app-input>
+        <app-unit-select
+          label="Unités"
+          name="quantityUnit"
+          .options=${QUANTITY_UNIT_OPTIONS}
+          .value=${parsed?.unit ?? ""}
+          .error=${this.errors.quantityUnit ?? ""}
+        ></app-unit-select>
+      </div>
     `;
   }
 

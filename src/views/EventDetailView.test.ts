@@ -95,6 +95,31 @@ describe("event-detail-view", () => {
     expect(purchase.textContent).not.toContain("Practicien");
   });
 
+  it("shows an alimentation event’s quantity, already display-ready", async () => {
+    await db.events.bulkAdd([
+      makeEvent({
+        id: "alimentation-1",
+        type: "alimentation",
+        customFields: { quantity: "40 mL" },
+      }),
+      makeEvent({
+        id: "care-3",
+        type: "veto",
+        customFields: { counterparty: "Dr. Dupont" },
+      }),
+    ]);
+
+    const el = await mount("alimentation-1");
+    await waitFor(el, () => el.textContent!.includes("Quantité du produit"));
+    expect(el.textContent).toContain("40 mL");
+
+    // Driven by the value being present, like every other custom field row —
+    // a type with no quantity field never shows it.
+    const care = await mount("care-3");
+    await waitFor(care, () => care.textContent!.includes("Practicien"));
+    expect(care.textContent).not.toContain("Quantité du produit");
+  });
+
   it("shows a travail event’s activity by its label, not its stored key", async () => {
     await db.events.bulkAdd([
       makeEvent({

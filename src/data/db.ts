@@ -1,6 +1,6 @@
 import Dexie, { liveQuery, type Table } from "dexie";
 import { nowISO } from "./dates.ts";
-import { seedEventTypeDefs } from "./event-types.ts";
+import { quantityField, seedEventTypeDefs } from "./event-types.ts";
 import {
   migrateEventToCustomFields,
   type FollowUpInterval,
@@ -46,8 +46,12 @@ import type {
  *   union and become user-visible data. `HorseEvent` loses `providerName`,
  *   `vendor`, `followUpInterval`, `activity` and `amountCents` in favour of a
  *   generic `customFields` bag, keyed by the winning type's field ids.
+ * - v7 — `alimentation`'s built-in `fields` gains a `quantity` entry. Unlike
+ *   v6, no new table and no new column on `HorseEvent`: only the *content* of
+ *   one already-seeded `eventTypes` row changes, so a fresh install and an
+ *   upgraded device end up with the same row either way.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -245,6 +249,30 @@ export class LadyGestionDb extends Dexie {
             delete event.amountCents;
           });
       });
+
+    // No index changed and no new table, so the stores are repeated verbatim
+    // — same reason v2's comment gives. `alimentation` is addressed by `key`,
+    // the stable slug `findEventType` and every other lookup in this app
+    // already resolves a type by — not `id`, which happens to equal it for a
+    // freshly-seeded built-in (`seedEventTypeDefs`) but is not the field
+    // anything else here treats as the type's identity. A device with no such
+    // row (the type was since deleted) or one already carrying a `quantity`
+    // field (seeded fresh, past this version) simply sees `.modify()` match
+    // nothing or add a harmless duplicate — guarded against below all the
+    // same, since a backup restore can replay this row.
+    this.version(7)
+      .stores(STORES_V6)
+      .upgrade((transaction) =>
+        transaction
+          .table<EventTypeDef>("eventTypes")
+          .where("key")
+          .equals("alimentation")
+          .modify((type) => {
+            if (!type.fields.some((field) => field.id === "quantity")) {
+              type.fields = [...type.fields, quantityField()];
+            }
+          }),
+      );
   }
 }
 

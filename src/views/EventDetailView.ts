@@ -220,6 +220,14 @@ export class EventDetailView extends LightElement {
       });
     }
 
+    // Already display-ready — `formatQuantity` (`events.ts`) is what wrote
+    // this string in the first place, so there is nothing left to format.
+    const quantityField = type && fieldById(type, "quantity");
+    const quantityValue = quantityField && event.customFields[quantityField.id];
+    if (typeof quantityValue === "string" && quantityValue) {
+      rows.push({ label: quantityField.label, value: quantityValue });
+    }
+
     const followUpField = type && fieldOfKind(type, "followUp");
     const followUpValueRaw =
       followUpField && event.customFields[followUpField.id];

@@ -5,7 +5,12 @@ import { followUpValue } from "../events.ts";
 import { getOwnerId, setOwnerId } from "../owner.ts";
 import { DEFAULT_SEASON } from "../seasons.ts";
 import type { EventTypeDef, Horse, HorseEvent, RationItem } from "../types.ts";
-import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
+import {
+  exportBackup,
+  importBackup,
+  migrateSnapshot,
+  type BackupSnapshot,
+} from "./snapshot.ts";
 
 const LOCAL_OWNER = "owner-local";
 const REMOTE_OWNER = "owner-remote";
@@ -150,6 +155,45 @@ describe("exportBackup", () => {
     const backup = await exportBackup();
 
     expect(backup.tables.horses.map((row) => row.id)).toContain("gone");
+  });
+});
+
+describe("migrateSnapshot", () => {
+  // Only the v7 step gets a dedicated test here — the others predate a test
+  // for `migrateSnapshot` on its own and are otherwise covered through
+  // `importBackup`.
+  it("adds alimentation's quantity field to a pre-v7 file", () => {
+    const current = eventTypeRows.find((type) => type.key === "alimentation")!;
+    const preV7 = {
+      ...current,
+      fields: current.fields.filter((field) => field.id !== "quantity"),
+    };
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 6, tables: { eventTypes: [preV7] } }),
+    );
+
+    const alimentation = migrated.tables.eventTypes.find(
+      (type) => type.id === preV7.id,
+    )!;
+    expect(alimentation.fields.map((field) => field.id).sort()).toEqual([
+      "amountCents",
+      "counterparty",
+      "quantity",
+    ]);
+  });
+
+  it("does not duplicate the field on an already-migrated row", () => {
+    const current = eventTypeRows.find((type) => type.key === "alimentation")!;
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 6, tables: { eventTypes: [current] } }),
+    );
+
+    const alimentation = migrated.tables.eventTypes.find(
+      (type) => type.id === current.id,
+    )!;
+    expect(alimentation.fields).toEqual(current.fields);
   });
 });
 

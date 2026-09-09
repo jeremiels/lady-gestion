@@ -3,14 +3,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../data/db.ts";
 import {
   HORSE_ID,
+  makeEvent,
   makeHorse,
   resetDb,
 } from "../../data/__tests__/factories.ts";
 import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
-import { fixture, settled } from "../__tests__/fixture.ts";
+import { fixture, settled, waitFor } from "../__tests__/fixture.ts";
 import type { AppCombobox } from "../app-combobox/app-combobox.ts";
 import type { AppInput } from "../app-input/app-input.ts";
 import type { AppSelect } from "../app-select/app-select.ts";
+import type { AppUnitSelect } from "../app-unit-select/app-unit-select.ts";
 import "./event-sheet.ts";
 import type { EventSheet } from "./event-sheet.ts";
 
@@ -121,7 +123,9 @@ const savedEvent = async () => {
 };
 
 /** What the user can actually read under a field, or `''` if nothing is shown. */
-const errorTextOf = (field: AppCombobox | AppInput | AppSelect) => {
+const errorTextOf = (
+  field: AppCombobox | AppInput | AppSelect | AppUnitSelect,
+) => {
   const node = field.renderRoot.querySelector('[part="error"]');
   return node?.hasAttribute("hidden") ? "" : (node?.textContent?.trim() ?? "");
 };
@@ -353,5 +357,112 @@ describe("event-sheet — the travail layout", () => {
     // than present-and-null — `veto` (with a field but nothing entered) would
     // be the `null` case instead.
     expect(saved?.customFields.activity).toBeUndefined();
+  });
+});
+
+/**
+ * `alimentation`'s quantity field — a decimal amount next to `app-unit-select`
+ * (mL/kg/L), required together even though neither is required on its own at
+ * the schema level (see `quantityPairErrors` in `data/events.ts`).
+ */
+describe("event-sheet — the alimentation quantity field", () => {
+  const pickUnit = async (el: EventSheet, value: string) => {
+    const field = fieldNamed<AppUnitSelect>(
+      el.renderRoot.querySelector("form")!,
+      "quantityUnit",
+    );
+    const radios = [
+      ...field.renderRoot.querySelectorAll<HTMLInputElement>(".option__input"),
+    ];
+    radios.find((input) => input.value === value)!.click();
+    await settled(el);
+  };
+
+  it("shows the quantity row only for Alimentation", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "veto");
+    let form = el.renderRoot.querySelector("form")!;
+    expect(form.querySelector('[name="quantityAmount"]')).toBeNull();
+    expect(form.querySelector('[name="quantityUnit"]')).toBeNull();
+
+    await pick(el, "type", "alimentation");
+    form = el.renderRoot.querySelector("form")!;
+    expect(form.querySelector('[name="quantityAmount"]')).not.toBeNull();
+    expect(form.querySelector('[name="quantityUnit"]')).not.toBeNull();
+  });
+
+  it("refuses a quantity typed with no unit picked", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "alimentation");
+    await fill(el, "title", "Foin");
+    await fill(el, "quantityAmount", "40");
+
+    const form = await submit(el);
+
+    expect(
+      errorTextOf(fieldNamed<AppUnitSelect>(form, "quantityUnit")),
+    ).not.toBe("");
+    expect(await db.events.count()).toBe(0);
+  });
+
+  it("refuses a unit picked with no quantity typed", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "alimentation");
+    await fill(el, "title", "Foin");
+    await pickUnit(el, "mL");
+
+    const form = await submit(el);
+
+    expect(errorTextOf(fieldNamed<AppInput>(form, "quantityAmount"))).not.toBe(
+      "",
+    );
+    expect(await db.events.count()).toBe(0);
+  });
+
+  it("saves the amount and unit concatenated when both are filled in", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "alimentation");
+    await fill(el, "title", "Foin");
+    await fill(el, "quantityAmount", "40");
+    await pickUnit(el, "mL");
+
+    await submit(el);
+
+    expect((await savedEvent())?.customFields.quantity).toBe("40 mL");
+  });
+
+  it("is not required on its own — Alimentation saves fine with neither filled in", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "alimentation");
+    await fill(el, "title", "Foin");
+
+    await submit(el);
+
+    expect((await savedEvent())?.customFields.quantity).toBeNull();
+  });
+
+  it("prefills the amount and the unit when editing a record that has one", async () => {
+    const event = makeEvent({
+      type: "alimentation",
+      customFields: { quantity: "1,5 L" },
+    });
+    const el = await fixture<EventSheet>(
+      html`<event-sheet open .event=${event}></event-sheet>`,
+    );
+    // The type catalogue is its own `LiveQuery`, settling on its own tick —
+    // unlike `openSheet`'s wait for the horse, there is no submit button
+    // disabled state to poll here, so wait on the field this test is about.
+    await waitFor(
+      el,
+      () => el.renderRoot.querySelector('[name="quantityAmount"]') !== null,
+    );
+
+    const form = el.renderRoot.querySelector("form")!;
+    const amountInput = fieldNamed<AppInput>(
+      form,
+      "quantityAmount",
+    ).renderRoot.querySelector("input")!;
+    expect(amountInput.value).toBe("1.5");
+    expect(fieldNamed<AppUnitSelect>(form, "quantityUnit").value).toBe("L");
   });
 });

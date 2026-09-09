@@ -46,6 +46,19 @@ const activityField = (): CustomFieldDef => ({
   required: true,
 });
 
+/**
+ * Exported: `db.ts`'s schema v7 migration and `migrateSnapshot`
+ * (`backup/snapshot.ts`) both append this to an existing `alimentation` row
+ * rather than reseeding it, so the definition has to be reachable from
+ * outside this module too.
+ */
+export const quantityField = (): CustomFieldDef => ({
+  id: "quantity",
+  kind: "quantity",
+  label: "Quantité du produit",
+  required: false,
+});
+
 /** A care appointment's fields: practitioner, follow-up, budget. */
 const careFields = (): CustomFieldDef[] => [
   counterpartyField("Practicien"),
@@ -104,7 +117,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 1,
-    fields: [counterpartyField("Site"), amountField()],
+    fields: [counterpartyField("Site"), amountField(), quantityField()],
   },
   {
     key: "travail",

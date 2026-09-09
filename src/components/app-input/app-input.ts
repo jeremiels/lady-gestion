@@ -141,7 +141,7 @@ export class AppInput extends FormFieldElement {
          ::part declarations win over the shadow tree's own. */
       background-color: var(--app-input-background, var(--color-input-drawer));
       border: 1px solid var(--app-input-background, var(--color-input-drawer));
-      border-radius: var(--radius-8);
+      border-radius: var(--radius-12);
       padding-inline: var(--spacing-12);
       min-height: 2.75rem;
       box-sizing: border-box;

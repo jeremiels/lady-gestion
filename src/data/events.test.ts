@@ -4,10 +4,13 @@ import {
   activityChoices,
   followUpValue,
   formatFollowUpInterval,
+  formatQuantity,
   formatWorkActivity,
   isFollowUpInterval,
   matchActivity,
   parseFollowUpValue,
+  parseQuantity,
+  quantityPairErrors,
   statusForDate,
   workActivityByDate,
   workSessionByDate,
@@ -105,6 +108,50 @@ describe("formatFollowUpInterval", () => {
 
   it("says a year rather than twelve months", () => {
     expect(formatFollowUpInterval({ amount: 12, unit: "month" })).toBe("1 an");
+  });
+});
+
+describe("formatQuantity / parseQuantity", () => {
+  it("round-trips a decimal amount and its unit", () => {
+    expect(parseQuantity(formatQuantity(40, "mL"))).toEqual({
+      amount: 40,
+      unit: "mL",
+    });
+    expect(parseQuantity(formatQuantity(1.5, "L"))).toEqual({
+      amount: 1.5,
+      unit: "L",
+    });
+  });
+
+  it("formats with a comma, French-locale, like formatRationAmount", () => {
+    expect(formatQuantity(1.5, "L")).toBe("1,5 L");
+    expect(formatQuantity(40, "mL")).toBe("40 mL");
+  });
+
+  it("returns null for anything unrecognised rather than guessing", () => {
+    expect(parseQuantity("")).toBe(null);
+    expect(parseQuantity("40")).toBe(null);
+    expect(parseQuantity("40 g")).toBe(null);
+    expect(parseQuantity("mL")).toBe(null);
+  });
+});
+
+describe("quantityPairErrors", () => {
+  it("is fine with both present, or neither", () => {
+    expect(quantityPairErrors(40, "mL")).toEqual({});
+    expect(quantityPairErrors(null, null)).toEqual({});
+  });
+
+  it("blames the amount when only the unit is picked", () => {
+    expect(quantityPairErrors(null, "mL")).toEqual({
+      amount: "Indiquez une quantité.",
+    });
+  });
+
+  it("blames the unit when only the amount is typed", () => {
+    expect(quantityPairErrors(40, null)).toEqual({
+      unit: "Choisissez une unité.",
+    });
   });
 });
 
