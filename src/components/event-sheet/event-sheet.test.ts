@@ -5,6 +5,7 @@ import {
   BUILT_IN_EVENT_TYPE_ROWS,
   HORSE_ID,
   makeEvent,
+  makeEventType,
   makeHorse,
   resetDb,
 } from "../../data/__tests__/factories.ts";
@@ -468,6 +469,82 @@ describe("event-sheet — the alimentation quantity field", () => {
     ).renderRoot.querySelector("input")!;
     expect(amountInput.value).toBe("1.5");
     expect(fieldNamed<AppUnitSelect>(form, "quantity-unit").value).toBe("L");
+  });
+});
+
+describe("a field's defaultValue", () => {
+  /**
+   * A type with one `defaultValue` on each of a `text` and a `money` field —
+   * the two read sites that don't funnel through `#stored` and needed their
+   * own fallback (`#storedAmount`; the `units` split doesn't apply here).
+   */
+  const withDefaultedType = () =>
+    db.eventTypes.add(
+      makeEventType({
+        id: "event-type-defaulted",
+        key: "defaulted",
+        label: "Testé",
+        fields: [
+          {
+            id: "note",
+            control: "text",
+            label: "Note",
+            required: false,
+            defaultValue: "Pré-rempli",
+          },
+          {
+            id: "amountCents",
+            control: "money",
+            label: "Budget",
+            required: false,
+            suffix: "€",
+            defaultValue: 1234,
+          },
+        ],
+      }),
+    );
+
+  it("opens a new event's fields prefilled with their defaultValue", async () => {
+    await withDefaultedType();
+    const el = await openSheet();
+    await pick(el, "type", "defaulted");
+
+    const form = el.renderRoot.querySelector("form")!;
+    expect(
+      fieldNamed<AppInput>(form, "note").renderRoot.querySelector("input")!
+        .value,
+    ).toBe("Pré-rempli");
+    expect(
+      fieldNamed<AppInput>(form, "amountCents").renderRoot.querySelector(
+        "input",
+      )!.value,
+    ).toBe("12.34");
+  });
+
+  it("never overrides an existing event's own value, including a blank one", async () => {
+    await withDefaultedType();
+    const event = makeEvent({
+      type: "defaulted",
+      customFields: { note: "", amountCents: null },
+    });
+    const el = await fixture<EventSheet>(
+      html`<event-sheet open .event=${event}></event-sheet>`,
+    );
+    await waitFor(
+      el,
+      () => el.renderRoot.querySelector('[name="note"]') !== null,
+    );
+
+    const form = el.renderRoot.querySelector("form")!;
+    expect(
+      fieldNamed<AppInput>(form, "note").renderRoot.querySelector("input")!
+        .value,
+    ).toBe("");
+    expect(
+      fieldNamed<AppInput>(form, "amountCents").renderRoot.querySelector(
+        "input",
+      )!.value,
+    ).toBe("");
   });
 });
 

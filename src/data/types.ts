@@ -157,6 +157,15 @@ export type CustomFieldDef = {
   /** Shown inside the control, e.g. `€`. Presentation only. */
   suffix?: string;
   /**
+   * The value a *new* event's form opens on for this field, before the user
+   * touches it. Ignored once a record exists — editing an existing event
+   * always shows what is actually stored, even if that's nothing. Optional
+   * for the same reason `units`/`suggestions` are: most fields don't need
+   * one, and an old row (or a restored backup) simply lacking it reads as
+   * "no default", not an error.
+   */
+  defaultValue?: string | number | boolean;
+  /**
    * A unit picker beside the control. The pair stores as one scalar, the
    * amount and the unit concatenated — `customFields` values have to survive a
    * JSON round trip through a backup file.

@@ -48,67 +48,50 @@ const QUANTITY_UNIT_NAMES = ["mL", "kg", "L"] as const;
  */
 export const BASE_FIELD_IDS = new Set(["title", "date", "notes"]);
 
-const titleField = (): CustomFieldDef => ({
-  id: "title",
-  control: "text",
-  label: "Nom",
-  required: true,
-});
+/**
+ * What every field constructor below takes: everything `CustomFieldDef` has
+ * beyond its `control` (each constructor fixes that itself), with `required`
+ * defaulted to `false` — the common case for everything but a handful of
+ * built-ins that opt into it explicitly.
+ *
+ * One config shape per `FieldControl` value is what makes a type's `fields`
+ * array read as data — `id`, storage key; `label`, what's shown; the rest are
+ * the composable modifiers `CustomFieldDef` documents (`role`, `reveals`,
+ * `units`, `suggestions`, `suffix`, `defaultValue`) — rather than a pile of
+ * differently-shaped one-off helpers.
+ */
+type FieldConfig = Omit<CustomFieldDef, "control" | "required"> & {
+  required?: boolean;
+};
 
-const dateField = (): CustomFieldDef => ({
-  id: "date",
-  control: "date",
-  label: "Date",
-  required: true,
-});
+const buildField =
+  (control: CustomFieldDef["control"]) =>
+  (config: FieldConfig): CustomFieldDef => ({
+    required: false,
+    ...config,
+    control,
+  });
 
-const notesField = (): CustomFieldDef => ({
-  id: "notes",
-  control: "text",
-  label: "Note",
-  required: false,
-});
+/** A free-text field — a name, a note, a practitioner. */
+const inputTextField = buildField("text");
 
-const counterpartyField = (label: string): CustomFieldDef => ({
-  id: "counterparty",
-  control: "text",
-  label,
-  required: false,
-});
+/** A numeric field, optionally paired with a unit picker (`units`). */
+const inputNumberField = buildField("number");
 
-const amountField = (): CustomFieldDef => ({
-  id: "amountCents",
-  control: "money",
-  label: "Budget",
-  suffix: "€",
-  required: false,
-});
+/** A date picker. */
+const inputDateField = buildField("date");
 
-const followUpField = (): CustomFieldDef => ({
-  id: "followUp",
-  control: "checkbox",
-  label: "Planifier un rendez-vous",
-  required: false,
-  role: "followUp",
-  reveals: [
-    {
-      id: "followUp-interval",
-      control: "select",
-      label: "Prochain rendez-vous à planifier",
-      required: true,
-      options: FOLLOW_UP_OPTIONS,
-    },
-  ],
-});
+/** A currency amount, stored in cents. */
+const inputMoneyField = buildField("money");
 
-const activityField = (): CustomFieldDef => ({
-  id: "activity",
-  control: "combobox",
-  label: "Nom",
-  required: true,
-  role: "workActivity",
-  suggestions: "activities",
-});
+/** A checkbox, optionally revealing more fields while ticked (`reveals`). */
+const inputCheckboxField = buildField("checkbox");
+
+/** A closed list (`options`). */
+const inputSelectField = buildField("select");
+
+/** An open list: `options` plus, optionally, a live catalogue (`suggestions`). */
+const comboBoxField = buildField("combobox");
 
 /**
  * Exported: `db.ts`'s schema v7 migration and `migrateSnapshot`
@@ -116,22 +99,38 @@ const activityField = (): CustomFieldDef => ({
  * rather than reseeding it, so the definition has to be reachable from
  * outside this module too.
  */
-export const quantityField = (): CustomFieldDef => ({
-  id: "quantity",
-  control: "number",
-  label: "Quantité du produit",
-  required: false,
-  units: QUANTITY_UNIT_NAMES,
-});
+export const quantityField = () =>
+  inputNumberField({
+    id: "quantity",
+    label: "Quantité du produit",
+    units: QUANTITY_UNIT_NAMES,
+  });
 
-/** A care appointment's fields: practitioner, follow-up, budget. */
+/**
+ * A care appointment's fields: practitioner, follow-up, budget — shared
+ * verbatim by the seven types below whose form *is* this layout (dentiste,
+ * marechal, veto, osteo, soins, traitement, massage), so it stays one
+ * composed template rather than seven copies of the same six fields.
+ */
 const careFields = (): CustomFieldDef[] => [
-  titleField(),
-  dateField(),
-  counterpartyField("Practicien"),
-  amountField(),
-  followUpField(),
-  notesField(),
+  inputTextField({ id: "title", label: "Nom", required: true }),
+  inputDateField({ id: "date", label: "Date", required: true }),
+  inputTextField({ id: "counterparty", label: "Practicien" }),
+  inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+  inputCheckboxField({
+    id: "followUp",
+    label: "Planifier un rendez-vous",
+    role: "followUp",
+    reveals: [
+      inputSelectField({
+        id: "followUp-interval",
+        label: "Prochain rendez-vous à planifier",
+        required: true,
+        options: FOLLOW_UP_OPTIONS,
+      }),
+    ],
+  }),
+  inputTextField({ id: "notes", label: "Note" }),
 ];
 
 /**
@@ -189,11 +188,11 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     archived: false,
     order: 0,
     fields: [
-      titleField(),
-      dateField(),
-      amountField(),
-      counterpartyField("Site"),
-      notesField(),
+      inputTextField({ id: "title", label: "Nom", required: true }),
+      inputDateField({ id: "date", label: "Date", required: true }),
+      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "counterparty", label: "Site" }),
+      inputTextField({ id: "notes", label: "Note" }),
     ],
   },
   {
@@ -208,12 +207,12 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     archived: false,
     order: 1,
     fields: [
-      titleField(),
-      dateField(),
-      counterpartyField("Site"),
-      amountField(),
+      inputTextField({ id: "title", label: "Nom", required: true }),
+      inputDateField({ id: "date", label: "Date", required: true }),
+      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
       quantityField(),
-      notesField(),
+      inputTextField({ id: "counterparty", label: "Site" }),
+      inputTextField({ id: "notes", label: "Note" }),
     ],
   },
   {
@@ -227,7 +226,17 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: true,
     archived: false,
     order: 2,
-    fields: [dateField(), activityField(), notesField()],
+    fields: [
+      inputDateField({ id: "date", label: "Date", required: true }),
+      comboBoxField({
+        id: "activity",
+        label: "Nom",
+        required: true,
+        role: "workActivity",
+        suggestions: "activities",
+      }),
+      inputTextField({ id: "notes", label: "Note" }),
+    ],
   },
   {
     key: "cours",
@@ -240,7 +249,12 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 3,
-    fields: [titleField(), dateField(), amountField(), notesField()],
+    fields: [
+      inputTextField({ id: "title", label: "Nom", required: true }),
+      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputDateField({ id: "date", label: "Date", required: true }),
+      inputTextField({ id: "notes", label: "Note" }),
+    ],
   },
   {
     key: "dentiste",
@@ -313,7 +327,12 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 8,
-    fields: [titleField(), dateField(), amountField(), notesField()],
+    fields: [
+      inputTextField({ id: "title", label: "Nom", required: true }),
+      inputDateField({ id: "date", label: "Date", required: true }),
+      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "notes", label: "Note" }),
+    ],
   },
   {
     key: "concours",
@@ -329,7 +348,12 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     tracksWork: false,
     archived: false,
     order: 9,
-    fields: [titleField(), dateField(), amountField(), notesField()],
+    fields: [
+      inputTextField({ id: "title", label: "Nom", required: true }),
+      inputDateField({ id: "date", label: "Date", required: true }),
+      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "notes", label: "Note" }),
+    ],
   },
   {
     key: "soins",
@@ -367,11 +391,11 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     order: 11,
     // No follow-up: a cure is a defined course, not a recurring visit.
     fields: [
-      titleField(),
-      dateField(),
-      counterpartyField("Practicien"),
-      amountField(),
-      notesField(),
+      inputTextField({ id: "title", label: "Nom", required: true }),
+      inputDateField({ id: "date", label: "Date", required: true }),
+      inputTextField({ id: "counterparty", label: "Practicien" }),
+      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      inputTextField({ id: "notes", label: "Note" }),
     ],
   },
   {

@@ -6,11 +6,13 @@ import {
 } from "./__tests__/factories.ts";
 import { addDays, todayISO } from "./dates.ts";
 import {
+  BUILT_IN_EVENT_TYPES,
   canBeParentOf,
   childrenOf,
   fieldById,
   fieldWithRole,
   isAppointmentType,
+  quantityField,
   resolveCatalogue,
   rootOf,
   rootsOf,
@@ -25,6 +27,87 @@ import {
  */
 
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+
+/**
+ * Pins the exact `CustomFieldDef` shape the generic `input*Field`/`comboBoxField`
+ * constructors produce for a couple of representative built-ins — a
+ * regression net on the constructors themselves, not on `BUILT_IN_EVENT_TYPES`
+ * (which the rest of the suite, `field-order.test.ts` and
+ * `backup/snapshot.test.ts` already exercise thoroughly).
+ */
+describe("the generic field constructors reproduce the old fixed shapes", () => {
+  it("Vétérinaire's fields — text, date, money, checkbox+reveals", () => {
+    const veto = BUILT_IN_EVENT_TYPES.find((type) => type.key === "veto")!;
+    expect(veto.fields).toEqual([
+      { id: "title", control: "text", label: "Nom", required: true },
+      { id: "date", control: "date", label: "Date", required: true },
+      {
+        id: "counterparty",
+        control: "text",
+        label: "Practicien",
+        required: false,
+      },
+      {
+        id: "amountCents",
+        control: "money",
+        label: "Budget",
+        suffix: "€",
+        required: false,
+      },
+      {
+        id: "followUp",
+        control: "checkbox",
+        label: "Planifier un rendez-vous",
+        required: false,
+        role: "followUp",
+        reveals: [
+          {
+            id: "followUp-interval",
+            control: "select",
+            label: "Prochain rendez-vous à planifier",
+            required: true,
+            options: [
+              { value: "2w", label: "2 semaines" },
+              { value: "4w", label: "4 semaines" },
+              { value: "6w", label: "6 semaines" },
+              { value: "8w", label: "8 semaines" },
+              { value: "3m", label: "3 mois" },
+              { value: "6m", label: "6 mois" },
+              { value: "12m", label: "1 an" },
+            ],
+          },
+        ],
+      },
+      { id: "notes", control: "text", label: "Note", required: false },
+    ]);
+  });
+
+  it("quantityField — number with a unit list", () => {
+    expect(quantityField()).toEqual({
+      id: "quantity",
+      control: "number",
+      label: "Quantité du produit",
+      required: false,
+      units: ["mL", "kg", "L"],
+    });
+  });
+
+  it("Travail's activity field — combobox with role and suggestions", () => {
+    const travail = BUILT_IN_EVENT_TYPES.find(
+      (type) => type.key === "travail",
+    )!;
+    expect(
+      travail.fields.find((field) => field.role === "workActivity"),
+    ).toEqual({
+      id: "activity",
+      control: "combobox",
+      label: "Nom",
+      required: true,
+      role: "workActivity",
+      suggestions: "activities",
+    });
+  });
+});
 
 describe("fieldWithRole", () => {
   it("finds the one field of a kind a type has", () => {

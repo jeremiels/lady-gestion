@@ -601,8 +601,12 @@ export class EventSheet extends BaseElement {
    * The three base rows read their `HorseEvent` column rather than the bag —
    * they are fields in the type's array like any other, but they are not
    * `customFields` entries. A new event's date opens on today: every other
-   * control opens blank, but a date picker with nothing in it is a field the
-   * user has to fill in to say "now".
+   * control opens blank unless its field carries a `defaultValue`, but a date
+   * picker with nothing in it is a field the user has to fill in to say "now".
+   *
+   * `defaultValue` only ever applies to a *new* event (`event` undefined) —
+   * editing an existing one always shows what's actually stored, including a
+   * field the user genuinely left empty.
    */
   #stored(field: CustomFieldDef): string {
     const event = this.event;
@@ -611,7 +615,8 @@ export class EventSheet extends BaseElement {
     if (field.id === "date") return event?.date ?? todayISO();
 
     const value = event?.customFields[field.id];
-    return value === null || value === undefined ? "" : String(value);
+    if (value !== null && value !== undefined) return String(value);
+    return event ? "" : (field.defaultValue?.toString() ?? "");
   }
 
   /**
@@ -623,8 +628,12 @@ export class EventSheet extends BaseElement {
    */
   #renderInput(field: CustomFieldDef) {
     const numeric = field.control === "money" || field.control === "number";
+    const event = this.event;
     const split = field.units
-      ? splitUnitValue(this.event?.customFields[field.id])
+      ? splitUnitValue(
+          event?.customFields[field.id] ??
+            (event ? undefined : field.defaultValue),
+        )
       : null;
 
     const input = html`
@@ -671,7 +680,9 @@ export class EventSheet extends BaseElement {
 
   /** Cents are stored as an integer and shown as a decimal. */
   #storedAmount(field: CustomFieldDef): string {
-    const value = this.event?.customFields[field.id];
+    const event = this.event;
+    const value =
+      event?.customFields[field.id] ?? (event ? undefined : field.defaultValue);
     return typeof value === "number" ? String(fromCents(value)) : "";
   }
 
