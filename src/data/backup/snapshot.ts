@@ -245,9 +245,10 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
       ...tables,
       eventTypes: types,
       events: tables.events.map((row) => {
-        const { type, customFields } = migrateEventToCustomFields(
+        const { type, customFields, notes } = migrateEventToCustomFields(
           {
             type: row.type,
+            notes: row.notes ?? null,
             providerName: row.providerName ?? null,
             vendor: row.vendor ?? null,
             followUpInterval: row.followUpInterval ?? null,
@@ -264,7 +265,7 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
           amountCents: _amountCents,
           ...rest
         } = row;
-        return { ...rest, type, customFields };
+        return { ...rest, type, customFields, notes };
       }),
     };
   }

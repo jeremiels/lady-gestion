@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { seedEventTypeDefs } from "./event-types.ts";
 import {
   FOLLOW_UP_INTERVALS,
   activityChoices,
@@ -8,6 +9,7 @@ import {
   formatWorkActivity,
   isFollowUpInterval,
   matchActivity,
+  migrateEventToCustomFields,
   parseFollowUpValue,
   parseQuantity,
   quantityPairErrors,
@@ -364,5 +366,91 @@ describe("matchActivity", () => {
 
   it("answers null for a blank label rather than matching the first chip", () => {
     expect(matchActivity("  ", choices)).toBe(null);
+  });
+});
+
+describe("migrateEventToCustomFields", () => {
+  const types = seedEventTypeDefs("owner-1", "2026-01-01T00:00:00.000Z");
+
+  const legacy = (
+    over: Partial<Parameters<typeof migrateEventToCustomFields>[0]> = {},
+  ) => ({
+    type: "veto",
+    notes: null,
+    providerName: null,
+    vendor: null,
+    followUpInterval: null,
+    activity: null,
+    amountCents: null,
+    ...over,
+  });
+
+  it("corrects the one built-in key that was misspelled", () => {
+    expect(
+      migrateEventToCustomFields(legacy({ type: "coucours" }), types).type,
+    ).toBe("concours");
+  });
+
+  it("takes the practitioner, then the merchant, into the one counterparty field", () => {
+    expect(
+      migrateEventToCustomFields(
+        legacy({ providerName: "Julie", vendor: "Boutique" }),
+        types,
+      ).customFields.counterparty,
+    ).toBe("Julie");
+
+    expect(
+      migrateEventToCustomFields(
+        legacy({ type: "achat", vendor: "Boutique" }),
+        types,
+      ).customFields.counterparty,
+    ).toBe("Boutique");
+  });
+
+  it("keeps an amount the winning type still has a field for", () => {
+    const { customFields, notes } = migrateEventToCustomFields(
+      legacy({ amountCents: 8000 }),
+      types,
+    );
+
+    expect(customFields.amountCents).toBe(8000);
+    expect(notes).toBeNull();
+  });
+
+  /**
+   * `travail` is the one built-in with no amount field, so it is the one type
+   * that can be handed money with nowhere to put it. Before this, the fold
+   * dropped it without a word.
+   */
+  it("strands a work session's budget in the notes rather than dropping it", () => {
+    const { customFields, notes } = migrateEventToCustomFields(
+      legacy({ type: "travail", activity: "trotting", amountCents: 2500 }),
+      types,
+    );
+
+    expect(customFields.amountCents).toBeUndefined();
+    expect(customFields.activity).toBe("trotting");
+    expect(notes).toContain("25,00");
+  });
+
+  it("appends to a note the user already wrote instead of replacing it", () => {
+    const { notes } = migrateEventToCustomFields(
+      legacy({ type: "travail", notes: "Bon travail.", amountCents: 2500 }),
+      types,
+    );
+
+    expect(notes?.startsWith("Bon travail.")).toBe(true);
+    expect(notes).toContain("25,00");
+  });
+
+  it("leaves the notes alone when there is no money to strand", () => {
+    for (const amountCents of [null, 0]) {
+      expect(
+        migrateEventToCustomFields(
+          legacy({ type: "travail", notes: "Bon travail.", amountCents }),
+          types,
+        ).notes,
+      ).toBe("Bon travail.");
+    }
   });
 });

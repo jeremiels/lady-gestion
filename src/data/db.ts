@@ -145,7 +145,10 @@ type LegacyWorkEvent = {
  * corrects. `customFields` itself is declared optional purely so this type can
  * be assigned it during the upgrade — a pre-v6 row has no such key at all.
  */
-type LegacyEventRow = { type: string } & Partial<LegacyEventColumns> & {
+type LegacyEventRow = {
+  type: string;
+  notes?: string | null;
+} & Partial<LegacyEventColumns> & {
     customFields?: HorseEvent["customFields"];
   };
 
@@ -253,9 +256,10 @@ export class LadyGestionDb extends Dexie {
           .table<LegacyEventRow>("events")
           .toCollection()
           .modify((event) => {
-            const { type, customFields } = migrateEventToCustomFields(
+            const { type, customFields, notes } = migrateEventToCustomFields(
               {
                 type: event.type,
+                notes: event.notes ?? null,
                 providerName: event.providerName ?? null,
                 vendor: event.vendor ?? null,
                 followUpInterval: event.followUpInterval ?? null,
@@ -266,6 +270,9 @@ export class LadyGestionDb extends Dexie {
             );
             event.type = type;
             event.customFields = customFields;
+            // Carries a stranded budget into the note when the winning type has
+            // no field for it; otherwise hands back exactly what was there.
+            event.notes = notes;
             delete event.providerName;
             delete event.vendor;
             delete event.followUpInterval;

@@ -1,5 +1,6 @@
 import { todayISO, type IsoDate } from "./dates.ts";
 import type { FieldError } from "./forms.ts";
+import { formatCents } from "./money.ts";
 import type { EventStatus, EventTypeDef, HorseEvent } from "./types.ts";
 
 /**
@@ -435,10 +436,48 @@ export type LegacyEventColumns = {
  * survives depends on whether the row's type still has an amount field, which
  * only the new schema can say — the old one had no such concept.
  */
+/**
+ * Where a `travail` row's money would otherwise go.
+ *
+ * `amountCents` only survives the fold above when the row's *target* type
+ * still carries an amount field, and one built-in does not: `travail` lost
+ * its Budget field in `c60fc47`. Every other legacy column has a home on
+ * every type that ever used it, so this is the one column the migration can
+ * be handed with nowhere to put it — and dropping money silently is the
+ * worst thing a migration can do to a budget app.
+ *
+ * The value is appended to `notes` rather than given a field: writing it to
+ * a column the type does not have would be invalid, and adding the field to
+ * `travail` would repaint a type on every installed device — a catalogue
+ * change, which is exactly the class of edit this app is trying to stop
+ * paying a schema version for. A note is inert, visible on the event itself,
+ * and survives the backup round trip like any other text.
+ *
+ * Both halves of the v6 migration share it for the reason they share the
+ * fold: a device upgraded in place and a file restored from an older build
+ * have to strand identically.
+ *
+ * Zero is not stranded — it is the absence of a budget, not a lost one.
+ */
+const strandedAmountNotes = (
+  row: { notes: string | null } & Pick<LegacyEventColumns, "amountCents">,
+  has: (fieldId: string) => boolean,
+): string | null => {
+  const amount = row.amountCents;
+  if (!amount || has("amountCents")) return row.notes;
+
+  const line = `Budget conservé lors de la migration : ${formatCents(amount)}.`;
+  return row.notes ? `${row.notes}\n${line}` : line;
+};
+
 export const migrateEventToCustomFields = (
-  row: { type: string } & LegacyEventColumns,
+  row: { type: string; notes: string | null } & LegacyEventColumns,
   types: EventTypeDef[],
-): { type: string; customFields: HorseEvent["customFields"] } => {
+): {
+  type: string;
+  customFields: HorseEvent["customFields"];
+  notes: string | null;
+} => {
   const type = row.type === "coucours" ? "concours" : row.type;
   const def = types.find((candidate) => candidate.key === type);
   const has = (fieldId: string) =>
@@ -456,5 +495,5 @@ export const migrateEventToCustomFields = (
   if (has("activity")) customFields.activity = row.activity;
   if (has("amountCents")) customFields.amountCents = row.amountCents;
 
-  return { type, customFields };
+  return { type, customFields, notes: strandedAmountNotes(row, has) };
 };

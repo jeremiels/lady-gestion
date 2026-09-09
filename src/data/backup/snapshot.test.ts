@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import realV5ExportRaw from "../__tests__/fixtures/real-v5-export.json?raw";
 import { db, SCHEMA_VERSION, type BackupTables } from "../db.ts";
 import { BUILT_IN_EVENT_TYPES } from "../event-types.ts";
 import { followUpValue } from "../events.ts";
@@ -719,5 +720,135 @@ describe("importBackup — rejects bad input", () => {
     // The valid horse must not have landed: validation runs before the
     // transaction opens, so a bad file is rejected whole.
     expect(await db.horses.count()).toBe(0);
+  });
+});
+
+/**
+ * Léa's own database, exported at schema v5 and scrubbed of names.
+ *
+ * Every other migration test on this file builds the row it wants, which
+ * means every one of them tests the step its author was already thinking
+ * about. This one is the shape that actually exists on a phone: 111 events
+ * across nine built-in types, 9 tombstones, 13 work sessions, practitioners
+ * and merchants on the columns v6 folds away, and a five-version climb to
+ * make — v5 is what the app wrote on 2026-09-07, and v6 landed the next day.
+ *
+ * Pulled in with Vite's `?raw` suffix and parsed here, rather than imported
+ * as a module: `resolveJsonModule` is off, and turning it on to type one
+ * fixture would let any JSON become an importable module. `types` in
+ * `tsconfig.json` is `["vite/client"]` on purpose — browser only — so reading
+ * it through `node:fs` was not an option either; that would have meant
+ * admitting Node's globals into the app's ambient types to serve a test.
+ *
+ * The totals below were computed from the file before it was scrubbed, and
+ * scrubbing touched no amount. If a change to the fold makes one of them
+ * move, that is money leaving a real ledger — not a fixture needing an
+ * update.
+ */
+const REAL_V5_EXPORT = JSON.parse(realV5ExportRaw) as BackupSnapshot;
+
+/** Cents across every event in the fixture, tombstones included. */
+const REAL_TOTAL_CENTS = 1_575_560;
+const REAL_EVENT_COUNT = 111;
+
+const realExport = (): BackupSnapshot =>
+  structuredClone(REAL_V5_EXPORT) as BackupSnapshot;
+
+const totalCents = (events: HorseEvent[]) =>
+  events.reduce(
+    (sum, entry) => sum + (Number(entry.customFields?.amountCents) || 0),
+    0,
+  );
+
+describe("migrateSnapshot — a real v5 export", () => {
+  it("carries every event across the five-version climb", () => {
+    const migrated = migrateSnapshot(realExport());
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(migrated.tables.events).toHaveLength(REAL_EVENT_COUNT);
+  });
+
+  it("does not lose a cent", () => {
+    const before = realExport();
+    const legacyTotal = before.tables.events.reduce(
+      (sum, row) =>
+        sum +
+        ((row as unknown as { amountCents: number | null }).amountCents ?? 0),
+      0,
+    );
+    expect(legacyTotal).toBe(REAL_TOTAL_CENTS);
+
+    expect(totalCents(migrateSnapshot(before).tables.events)).toBe(
+      REAL_TOTAL_CENTS,
+    );
+  });
+
+  it("keeps the 9 tombstones, so the deletions survive the restore", () => {
+    const migrated = migrateSnapshot(realExport());
+
+    expect(
+      migrated.tables.events.filter((row) => row.deletedAt !== null),
+    ).toHaveLength(9);
+  });
+
+  it("folds every legacy column away and leaves none behind", () => {
+    const migrated = migrateSnapshot(realExport());
+
+    for (const row of migrated.tables.events) {
+      expect(row.customFields).toBeDefined();
+      expect(row).not.toHaveProperty("providerName");
+      expect(row).not.toHaveProperty("vendor");
+      expect(row).not.toHaveProperty("followUpInterval");
+      expect(row).not.toHaveProperty("activity");
+      expect(row).not.toHaveProperty("amountCents");
+    }
+  });
+
+  it("keeps every practitioner and merchant, on the field their type carries", () => {
+    const before = realExport();
+    const named = before.tables.events.filter((candidate) => {
+      const legacy = candidate as unknown as {
+        providerName: string | null;
+        vendor: string | null;
+      };
+      return legacy.providerName ?? legacy.vendor;
+    });
+    expect(named.length).toBeGreaterThan(0);
+
+    const migrated = migrateSnapshot(before);
+    const byId = new Map(migrated.tables.events.map((e) => [e.id, e]));
+
+    for (const row of named) {
+      expect(byId.get(row.id)?.customFields.counterparty).toBeTruthy();
+    }
+  });
+
+  it("gives the file the 14 built-in types it was exported without", () => {
+    const migrated = migrateSnapshot(realExport());
+
+    expect(migrated.tables.eventTypes).toHaveLength(
+      BUILT_IN_EVENT_TYPES.length,
+    );
+    // Every row's type still resolves against the seeded catalogue —
+    // an row pointing at a key nothing carries renders untyped.
+    const keys = new Set(migrated.tables.eventTypes.map((type) => type.key));
+    for (const row of migrated.tables.events) {
+      expect(keys.has(row.type)).toBe(true);
+    }
+  });
+
+  it("restores into an empty database with every row written", async () => {
+    const result = await importBackup(realExport());
+
+    expect(result.imported).toBe(
+      REAL_EVENT_COUNT +
+        REAL_V5_EXPORT.tables.horses.length +
+        REAL_V5_EXPORT.tables.documents.length +
+        REAL_V5_EXPORT.tables.rationItems.length +
+        REAL_V5_EXPORT.tables.activities.length +
+        BUILT_IN_EVENT_TYPES.length,
+    );
+    expect(await db.events.count()).toBe(REAL_EVENT_COUNT);
+    expect(totalCents(await db.events.toArray())).toBe(REAL_TOTAL_CENTS);
   });
 });
