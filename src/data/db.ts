@@ -4,6 +4,8 @@ import {
   quantityField,
   seedEventTypeDefs,
   SCHEMA_V9_NESTINGS,
+  SCHEMA_V10_NESTINGS,
+  SCHEMA_V10_NEW_TYPES,
 } from "./event-types.ts";
 import {
   migrateEventToCustomFields,
@@ -63,8 +65,12 @@ import type {
  *   new table and no new column — only the content of two already-seeded
  *   `eventTypes` rows changes, so a fresh install and an upgraded device end
  *   up with the same catalogue either way.
+ * - v10 — `osteo`, a root since v1, files under `soins`; `massage`, a brand
+ *   new type, is seeded directly as its sibling. Like v6 this one *adds* a
+ *   row (`massage` never existed before), and like v9 it *moves* one
+ *   (`osteo`) — no new table and no new column either way.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -348,6 +354,57 @@ export class LadyGestionDb extends Dexie {
             theme: null,
           });
         }
+      });
+
+    // No index changed, so the stores are repeated verbatim once more.
+    //
+    // Two independent changes share this version because both grow the
+    // "Soins" group at once: `osteo` — a root since v1 — moves under it, the
+    // same shape as v9's reparenting (`SCHEMA_V10_NESTINGS`, whose own
+    // comment says why `osteo`'s icon is kept rather than nulled this time);
+    // and `massage`, seeded fresh as its new sibling, the same shape as v6's
+    // original seed since there is no existing row to move. Guarded so
+    // replaying either half — a device patched live, backed up, then
+    // restored onto itself — is a no-op: the reparenting skips a row that is
+    // no longer a root, and the insertion skips a key already present.
+    this.version(10)
+      .stores(STORES_V6)
+      .upgrade(async (transaction) => {
+        const table = transaction.table<EventTypeDef>("eventTypes");
+        const rows = await table.toArray();
+
+        for (const { key, parentKey } of SCHEMA_V10_NESTINGS) {
+          const child = rows.find((type) => type.key === key);
+          const parent = rows.find((type) => type.key === parentKey);
+          if (!child || !parent || child.parentId !== null) continue;
+
+          await table.put({ ...child, parentId: parent.id, theme: null });
+        }
+
+        // Resolved off an existing row rather than `meta` — unlike v6, this
+        // upgrade never runs before the table has been seeded, so any row's
+        // `ownerId` is as good a source as another in a single-tenant app.
+        const ownerId = rows[0]?.ownerId;
+        if (!ownerId) return;
+
+        const existingKeys = new Set(rows.map((type) => type.key));
+        const additions = seedEventTypeDefs(ownerId, nowISO())
+          .filter(
+            (type) =>
+              SCHEMA_V10_NEW_TYPES.includes(type.key) &&
+              !existingKeys.has(type.key),
+          )
+          // `seedEventTypeDefs` stamps `parentId` as the literal key it is
+          // written with in `BUILT_IN_EVENT_TYPES`, valid only under the
+          // "built-in id === key" assumption a device seeded entirely by v6
+          // satisfies but this insertion, running against rows already on
+          // the device, must not assume — resolved from the table instead,
+          // the same way `SCHEMA_V10_NESTINGS`'s loop above does.
+          .map((type) => {
+            const parent = rows.find((row) => row.key === type.parentId);
+            return parent ? { ...type, parentId: parent.id } : type;
+          });
+        if (additions.length > 0) await table.bulkAdd(additions);
       });
   }
 }

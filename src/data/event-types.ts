@@ -97,6 +97,11 @@ const careFields = (): CustomFieldDef[] => [
  * on installed devices already, and changing the seed reaches only a fresh
  * install.
  *
+ * Schema v10 does the same to one of the original nine: `osteo`, a root since
+ * v1, files under `soins` too, alongside a brand-new sibling, `massage`, that
+ * never shipped as a root at all — inserted fresh rather than moved. Ten of
+ * the fourteen rows are roots today.
+ *
  * Read by both halves of the schema v6 migration — `db.ts`'s live upgrade and
  * `backup/snapshot.ts`'s `migrateSnapshot` — via `seedEventTypeDefs` below, so
  * a database upgraded in place and a backup file restored from an older build
@@ -201,9 +206,17 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "osteo",
     label: "Ostéopathe",
-    parentId: null,
+    // A child of `soins` since schema v10, alongside `massage` below — both
+    // are care appointments a client books through the same "Soins" entry
+    // point. `parentId` holds the parent's `id`, not its `key` — see the note
+    // on `cures` further down for why a literal slug is valid here.
+    parentId: "soins",
+    // Kept as an override rather than nulled: unlike `cures`/`traitement`'s
+    // placeholder icons at v9, `pawPrint` was already this row's real,
+    // shipped icon, and it is what tells it apart from its new sibling
+    // `massage` inside the "Soins" group.
     icon: "pawPrint",
-    theme: "orange",
+    theme: null,
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
@@ -295,6 +308,25 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     order: 12,
     fields: careFields(),
   },
+  {
+    key: "massage",
+    label: "Massage",
+    // A new child of `soins`, introduced alongside `osteo`'s reparenting —
+    // schema v10. Unlike `cures`/`traitement`, this type never shipped as a
+    // root: it is inserted fresh by v10's migration rather than moved.
+    parentId: "soins",
+    // Both null: inherited from `soins`, the same as `cures`/`traitement` —
+    // there is no dedicated icon for this type, and `pawPrint` is already
+    // spoken for by its sibling `osteo`.
+    icon: null,
+    theme: null,
+    isBuiltIn: true,
+    isAppointment: true,
+    tracksWork: false,
+    archived: false,
+    order: 13,
+    fields: careFields(),
+  },
 ];
 
 /**
@@ -325,6 +357,40 @@ export const SCHEMA_V9_NESTINGS: readonly { key: string; parentKey: string }[] =
   ];
 
 /**
+ * The one nesting schema v10 introduces: `osteo`, a root since v1, files
+ * under `soins`. Same shape and same reason as `SCHEMA_V9_NESTINGS` above —
+ * shared between `db.ts`'s live upgrade and `migrateSnapshot`, frozen, and
+ * addressed by `key`.
+ *
+ * v10 does **not** null `osteo`'s `icon` the way v9 nulled `cures`' and
+ * `traitement`'s: those were unused placeholders, but `pawPrint` is `osteo`'s
+ * real, already-shipped icon, and keeping it as an override is what tells it
+ * apart from its new sibling `massage` inside the "Soins" group. `theme` is
+ * still cleared — that half of the invariant (a group is one colour) is not
+ * optional.
+ */
+export const SCHEMA_V10_NESTINGS: readonly {
+  key: string;
+  parentKey: string;
+}[] = [{ key: "osteo", parentKey: "soins" }];
+
+/**
+ * The one brand-new type schema v10 introduces: `massage`, seeded directly as
+ * a child of `soins` — never a root, so there is no existing row to move the
+ * way `SCHEMA_V10_NESTINGS` moves `osteo`.
+ *
+ * Unlike an edit to an already-shipped row, inserting a row that never
+ * existed before is safe to source straight from `BUILT_IN_EVENT_TYPES` (via
+ * `seedEventTypeDefs`) rather than a frozen duplicate: nothing about editing
+ * `massage`'s definition *after* it ships can retroactively change what this
+ * key list did, because any such edit needs its own version and its own
+ * migration step, addressed by `key`, the same way v7 edited `alimentation`.
+ * This constant exists only so `db.ts` and `migrateSnapshot` agree on
+ * *which* keys v10 is responsible for inserting.
+ */
+export const SCHEMA_V10_NEW_TYPES: readonly string[] = ["massage"];
+
+/**
  * Stamps `BUILT_IN_EVENT_TYPES` into real rows.
  *
  * Called from both halves of the schema v6 migration with whichever owner id
@@ -341,7 +407,7 @@ export const SCHEMA_V9_NESTINGS: readonly { key: string; parentKey: string }[] =
  * `migrateSnapshot` (the file itself predates the `eventTypes` table, so it
  * carries none of its own) — and `importBackup`'s merge is per-`id`. A
  * random id each time would make every one of those calls produce a
- * *different* 13 rows for the same 13 types, so restoring a backup onto an
+ * *different* 14 rows for the same 14 types, so restoring a backup onto an
  * already-seeded device would double them rather than merge them, the same
  * way `import a snapshot twice` must not double every other table either.
  * Deriving `id` from `key` is what makes two independent seed calls agree on

@@ -17,7 +17,7 @@ import type { HorseEvent } from "./types.ts";
 /**
  * These are pure functions over records the caller fetched, so the fixtures are
  * built straight from the factory — no database, no `resetDb`. `TYPES` is the
- * real 13 built-ins, in their real `order` — the sequence `sumByType` sorts by.
+ * real 14 built-ins, in their real `order` — the sequence `sumByType` sorts by.
  */
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
@@ -147,11 +147,13 @@ describe("sumByType", () => {
    * become children of `soins`, which is what an event-type editor would write
    * through `setParent`.
    *
-   * `TYPES` already nests `cures` and `traitement` since schema v9, but both
-   * spend nothing here, so a group of leaves the shipped catalogue leaves
-   * alone is what isolates these assertions. It also keeps them legal: nesting
-   * `veto`, which now has a child of its own, would build the three-deep chain
-   * `canBeParentOf` refuses and `resolveCatalogue`, a single hop, cannot read.
+   * `TYPES` already nests `cures` and `traitement` since schema v9, and
+   * `osteo`/`massage` under `soins` since v10, but none of the four spend
+   * anything here, so a group of leaves the shipped catalogue leaves alone is
+   * what isolates these assertions. It also keeps them legal: nesting `veto`
+   * or `soins` itself, which now have children of their own, would build the
+   * three-deep chain `canBeParentOf` refuses and `resolveCatalogue`, a single
+   * hop, cannot read.
    */
   describe("with a nested catalogue", () => {
     const soins = TYPES.find((type) => type.key === "soins")!;

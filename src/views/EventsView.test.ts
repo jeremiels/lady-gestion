@@ -13,7 +13,7 @@ import type { AppChip } from "../components/app-chip/app-chip.ts";
 import "./EventsView.ts";
 import type { EventsView } from "./EventsView.ts";
 
-/** Label lookup for the real 13 built-ins, standing in for `eventType.label`
+/** Label lookup for the real 14 built-ins, standing in for `eventType.label`
  * now that a type's label is data rather than a compile-time table. */
 const LABEL_OF = new Map(
   BUILT_IN_EVENT_TYPE_ROWS.map((type) => [type.key, type.label]),
@@ -62,9 +62,9 @@ const chipLabels = (el: EventsView, selector = ".events-view__filters") =>
  * theme cleared, so the child takes its parent's colour.
  *
  * Pick a leaf. The shipped catalogue nests `cures` and `traitement` since
- * schema v9, so re-parenting `alimentation` or `veto` here would build a
- * three-deep chain `setParent` refuses and `resolveCatalogue`, a single hop,
- * cannot read.
+ * schema v9, and `osteo`/`massage` under `soins` since v10, so re-parenting
+ * `alimentation`, `veto` or `osteo` here would build a three-deep chain
+ * `setParent` refuses and `resolveCatalogue`, a single hop, cannot read.
  */
 const nest = async (childKey: string, parentKey: string) => {
   const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
@@ -349,9 +349,12 @@ describe("events-view", () => {
       chipLabeled(el, labelOf("soins")).click();
       await settled(el);
 
+      // `massage` is a third child here too — shipped under `soins` since
+      // v10, alongside `osteo`, without this test having to nest it itself.
       expect(chipLabels(el, ".events-view__filters--nested")).toEqual([
         "Tous",
         labelOf("dentiste"),
+        labelOf("massage"),
         labelOf("osteo"),
       ]);
     });

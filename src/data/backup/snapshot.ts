@@ -10,6 +10,8 @@ import {
   quantityField,
   seedEventTypeDefs,
   SCHEMA_V9_NESTINGS,
+  SCHEMA_V10_NESTINGS,
+  SCHEMA_V10_NEW_TYPES,
 } from "../event-types.ts";
 import {
   migrateEventToCustomFields,
@@ -332,6 +334,46 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
           : type;
       }),
     };
+  }
+
+  // v9 -> v10: `osteo` files under `soins`, and `massage` is seeded as its
+  // new sibling. Same payloads as `db.ts`'s v10 upgrade, shared as
+  // `SCHEMA_V10_NESTINGS`/`SCHEMA_V10_NEW_TYPES` so the two cannot drift,
+  // applied to the file's own `eventTypes` rows instead of a live table.
+  //
+  // The reparenting mirrors v8 -> v9 above, including resolving the parent's
+  // `id` from the file's own rows rather than assuming it equals `key` —
+  // except `osteo`'s icon is kept rather than nulled; see
+  // `SCHEMA_V10_NESTINGS`'s own comment for why. The insertion mirrors v5 ->
+  // v6's `eventTypes` seed: `massage` never shipped before, so there is no
+  // row in an older file to migrate, only one to add — guarded on the key not
+  // already being present, for a file already carrying it.
+  if (backup.schemaVersion < 10) {
+    const rows = tables.eventTypes;
+    const nested = rows.map((type) => {
+      const nesting = SCHEMA_V10_NESTINGS.find((one) => one.key === type.key);
+      if (!nesting || type.parentId !== null) return type;
+
+      const parent = rows.find((one) => one.key === nesting.parentKey);
+      return parent ? { ...type, parentId: parent.id, theme: null } : type;
+    });
+
+    const existingKeys = new Set(nested.map((type) => type.key));
+    // `seedEventTypeDefs` stamps `parentId` as the literal key it is written
+    // with in `BUILT_IN_EVENT_TYPES`, resolved to a real `id` below off the
+    // file's own rows for the same reason the reparenting above does.
+    const additions = seedEventTypeDefs(backup.ownerId, nowISO())
+      .filter(
+        (type) =>
+          SCHEMA_V10_NEW_TYPES.includes(type.key) &&
+          !existingKeys.has(type.key),
+      )
+      .map((type) => {
+        const parent = rows.find((row) => row.key === type.parentId);
+        return parent ? { ...type, parentId: parent.id } : type;
+      });
+
+    tables = { ...tables, eventTypes: [...nested, ...additions] };
   }
 
   return {

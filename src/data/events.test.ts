@@ -17,7 +17,7 @@ import {
 } from "./events.ts";
 import { BUILT_IN_EVENT_TYPE_ROWS, makeEvent } from "./__tests__/factories.ts";
 
-/** The real 13 built-ins — `travail` is the one `tracksWork` type. */
+/** The real 14 built-ins — `travail` is the one `tracksWork` type. */
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
 describe("statusForDate", () => {

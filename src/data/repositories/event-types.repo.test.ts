@@ -14,7 +14,7 @@ import * as eventTypesRepo from "./event-types.repo.ts";
 
 beforeEach(resetDb);
 
-/** Replaces `resetDb`'s 13 built-ins with just what a case is about. */
+/** Replaces `resetDb`'s 14 built-ins with just what a case is about. */
 const seed = async (types: Parameters<typeof makeEventType>[0][]) => {
   await db.eventTypes.clear();
   await db.eventTypes.bulkAdd(types.map((over) => makeEventType(over)));
@@ -44,13 +44,16 @@ describe("listResolved", () => {
     });
   });
 
-  it("resolves the shipped catalogue, roots and the two nested types alike", async () => {
+  it("resolves the shipped catalogue, roots and the four nested types alike", async () => {
     const types = await eventTypesRepo.listResolved();
 
-    expect(types).toHaveLength(13);
+    expect(types).toHaveLength(14);
     expect(
-      types.filter((type) => type.parentId !== null).map((type) => type.key),
-    ).toEqual(["cures", "traitement"]);
+      types
+        .filter((type) => type.parentId !== null)
+        .map((type) => type.key)
+        .sort(),
+    ).toEqual(["cures", "massage", "osteo", "traitement"]);
 
     // Both carry `null` for icon and theme, so what comes back is entirely
     // their parent's — Alimentation's, then Vétérinaire's.
@@ -59,6 +62,17 @@ describe("listResolved", () => {
       theme: "yellow",
     });
     expect(types.find((type) => type.key === "traitement")).toMatchObject({
+      icon: "firstAidKit",
+      theme: "pink",
+    });
+
+    // `osteo` keeps its own icon as an override; `massage` inherits — the
+    // asymmetry `SCHEMA_V10_NESTINGS`'s comment explains.
+    expect(types.find((type) => type.key === "osteo")).toMatchObject({
+      icon: "pawPrint",
+      theme: "pink",
+    });
+    expect(types.find((type) => type.key === "massage")).toMatchObject({
       icon: "firstAidKit",
       theme: "pink",
     });

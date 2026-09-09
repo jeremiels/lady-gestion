@@ -18,7 +18,7 @@ import * as eventsRepo from "./events.repo.ts";
 
 beforeEach(resetDb);
 
-/** The real 13 built-ins — what `totalSpentByType` groups against. */
+/** The real 14 built-ins — what `totalSpentByType` groups against. */
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 
 const seedEvents = (events: Parameters<typeof makeEvent>[0][]) =>

@@ -83,7 +83,8 @@ and `remove` promotes children back to roots (materialising the presentation
 they were inheriting) so deleting a parent never repaints its children.
 
 Currently nested: `cures` under `alimentation`, `traitement` under `veto`
-(schema v9). The other 11 are roots.
+(schema v9); `osteo` and `massage` under `soins` (schema v10). The other 10
+are roots.
 
 ## The two-migration rule
 
@@ -165,9 +166,12 @@ If you must, six sites:
   failure is **silent**: `resolveCatalogue` reads an unresolvable parent as a
   root, so the whole suite stays green while asserting against a flat catalogue
   the app does not ship.
-- **A test that nests a type must pick a leaf.** `alimentation` and `veto` have
-  children now; re-parenting either in a fixture builds the three-deep chain
-  `setParent` would have refused. `marechal`, `osteo` and `dentiste` are safe.
+- **A test that nests a type must pick a leaf.** `alimentation`, `veto` and
+  `soins` have children now; re-parenting one of the three as someone else's
+  child builds the three-deep chain `setParent` would have refused.
+  `marechal`, `dentiste`, `osteo` and `massage` are still leaves — none has
+  children of its own — so all four remain safe to re-parent in a test, `osteo`
+  and `massage` included even though they already have `soins` as a parent.
 - **`fieldById`, not `fieldOfKind`, for a fixed slot.** `fieldOfKind` is only
   safe for `followUp` and `workActivity`, which are singletons by construction;
   for `counterparty`, `amountCents` and `quantity` it resolves to whichever

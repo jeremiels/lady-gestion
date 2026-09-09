@@ -12,7 +12,7 @@ import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./BudgetView.ts";
 import type { BudgetView } from "./BudgetView.ts";
 
-/** Label lookup for the real 13 built-ins, standing in for `eventType.label`
+/** Label lookup for the real 14 built-ins, standing in for `eventType.label`
  * now that a type's label is data rather than a compile-time table. */
 const LABEL_OF = new Map(
   BUILT_IN_EVENT_TYPE_ROWS.map((type) => [type.key, type.label]),

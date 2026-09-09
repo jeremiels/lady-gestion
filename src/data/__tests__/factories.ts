@@ -86,7 +86,7 @@ export const makeEventType = (
 const eventTypeId = (key: string) => `event-type-${key}`;
 
 /**
- * The 13 built-in `EventTypeDef` rows, stamped with fresh `BaseRecord` fields
+ * The 14 built-in `EventTypeDef` rows, stamped with fresh `BaseRecord` fields
  * — the same shape `seedEventTypeDefs` (`event-types.ts`) produces, but with
  * stable, key-derived ids so a test can address one by name.
  *
@@ -107,7 +107,7 @@ export const BUILT_IN_EVENT_TYPE_ROWS: EventTypeDef[] =
   }));
 
 /**
- * Seeds the real 13 built-in types into `db.eventTypes` — what any component
+ * Seeds the real 14 built-in types into `db.eventTypes` — what any component
  * test whose `LiveQuery` reads the live catalogue needs, the same way a real
  * install always has them from the schema v6 migration.
  */
@@ -166,7 +166,7 @@ export const resetDb = async (): Promise<void> => {
     db.meta.clear(),
   ]);
   await setOwnerId(OWNER);
-  // The 13 built-ins, present the same way a real install always has them
+  // The 14 built-ins, present the same way a real install always has them
   // after the schema v6 migration — so a suite testing something else
   // entirely does not also have to seed the event-type catalogue just to keep
   // a `LiveQuery` over it from settling empty. A test with different types in

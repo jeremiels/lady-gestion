@@ -15,7 +15,7 @@ import type { HorseEvent, RationUnit } from "./types.ts";
 const REPORT_EVENT_TITLE = "Contrôle œil";
 
 /**
- * Seeds the 13 built-in event types the first time the database has none.
+ * Seeds the 14 built-in event types the first time the database has none.
  *
  * A brand-new install never runs `db.ts`'s v6 `.upgrade()` — Dexie only fires
  * an upgrade transaction when a database already exists at an older version,

@@ -10,7 +10,7 @@ import { seedIfEmpty } from "./seed.ts";
  * an upgrade transaction for a database that already exists at an older
  * version, and a fresh `IndexedDB` is created directly at the current schema
  * with every table empty. `seedIfEmpty` is the only code path a first run
- * reaches, so it is what has to seed the 13 built-in types there — a real gap
+ * reaches, so it is what has to seed the 14 built-in types there — a real gap
  * caught by driving the app fresh rather than by the migration tests alone,
  * which only ever exercise an *upgrading* database.
  */
@@ -24,17 +24,17 @@ beforeEach(async () => {
 });
 
 describe("seedIfEmpty — event types", () => {
-  it("seeds the 13 built-in types on a database with none", async () => {
+  it("seeds the 14 built-in types on a database with none", async () => {
     await seedIfEmpty();
 
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(await db.eventTypes.count()).toBe(14);
   });
 
   it("does not duplicate them on a second call", async () => {
     await seedIfEmpty();
     await seedIfEmpty();
 
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(await db.eventTypes.count()).toBe(14);
   });
 
   it("seeds types even when a horse already exists", async () => {
@@ -61,7 +61,7 @@ describe("seedIfEmpty — event types", () => {
 
     await seedIfEmpty();
 
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(await db.eventTypes.count()).toBe(14);
     // And it must not have also reseeded the demo horse/events on top of the
     // one already there.
     expect(await db.horses.count()).toBe(1);

@@ -30,7 +30,7 @@ import {
 
 beforeEach(resetDb);
 
-/** The real 13 built-ins, resolved by key — the shape `event-sheet.ts` already
+/** The real 14 built-ins, resolved by key — the shape `event-sheet.ts` already
  * hands `saveEvent`/`setDayActivity`, so these tests do the same resolution. */
 const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
 const typeFor = (key: string): EventTypeDef => {

@@ -249,6 +249,62 @@ const writeV8Database = async (rows: { eventTypes?: unknown[] }) => {
   legacy.close();
 };
 
+const V9_STORES = { ...V8_STORES };
+
+/**
+ * The two rows v10 touches, exactly as v9 left them: `soins` and `osteo`,
+ * both roots — `osteo` with its own icon and theme, unaffected by v9's own
+ * migration since it was never one of the two rows that touched.
+ *
+ * Hand-frozen for the reason `preV9Types` gives: reading either off
+ * `BUILT_IN_EVENT_TYPES` would exercise the upgrade against its own output,
+ * since that array already carries both the nesting and `massage` itself.
+ */
+const preV10Types = () => [
+  {
+    ...stamps,
+    id: "type-soins",
+    key: "soins",
+    label: "Soins",
+    icon: "firstAidKit",
+    theme: "pink",
+    parentId: null,
+    isBuiltIn: true,
+    isAppointment: true,
+    tracksWork: false,
+    archived: false,
+    order: 10,
+    fields: [],
+  },
+  {
+    ...stamps,
+    id: "type-osteo",
+    key: "osteo",
+    label: "Ostéopathe",
+    icon: "pawPrint",
+    theme: "orange",
+    parentId: null,
+    isBuiltIn: true,
+    isAppointment: true,
+    tracksWork: false,
+    archived: false,
+    order: 7,
+    fields: [],
+  },
+];
+
+/** Writes a database already at v9, then closes it so `db` can upgrade it
+ * straight to v10. */
+const writeV9Database = async (rows: { eventTypes?: unknown[] }) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(9).stores(V9_STORES);
+  await legacy.open();
+  if (rows.eventTypes?.length) {
+    await legacy.table("eventTypes").bulkAdd(rows.eventTypes);
+  }
+  legacy.close();
+};
+
 /** Writes a database already at v6, then closes it so `db` can upgrade it
  * straight to v7 — isolating that one migration the same way `writeV5Database`
  * isolates v5 -> v6. */
@@ -470,12 +526,12 @@ describe("v4 -> v5: the activities table appears", () => {
 });
 
 describe("v5 -> v6: event types become data, events fold into customFields", () => {
-  it("seeds the 13 built-in types", async () => {
+  it("seeds the 14 built-in types", async () => {
     await writeV5Database({});
 
     await db.open();
 
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(await db.eventTypes.count()).toBe(14);
   });
 
   it("gives a seeded type the fields the app already offered under that type", async () => {
@@ -511,6 +567,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
       "cures",
       "dentiste",
       "marechal",
+      "massage",
       "osteo",
       "pension",
       "soins",
@@ -746,6 +803,102 @@ describe("v8 -> v9: cures and traitement file under a parent", () => {
   });
 });
 
+describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling", () => {
+  it("attaches osteo to soins, clearing its theme but keeping its icon", async () => {
+    await writeV9Database({ eventTypes: preV10Types() });
+
+    await db.open();
+
+    // Unlike v9's own `cures`/`traitement`, `osteo`'s icon is kept rather
+    // than nulled — it is a real, already-shipped icon, not a placeholder.
+    expect(await db.eventTypes.get("type-osteo")).toMatchObject({
+      parentId: "type-soins",
+      icon: "pawPrint",
+      theme: null,
+    });
+  });
+
+  it("leaves soins, and every other root, exactly as it was", async () => {
+    await writeV9Database({ eventTypes: preV10Types() });
+
+    await db.open();
+
+    expect(await db.eventTypes.get("type-soins")).toMatchObject({
+      parentId: null,
+      icon: "firstAidKit",
+      theme: "pink",
+    });
+  });
+
+  it("keeps a parent the user already chose", async () => {
+    // Replayed by a device patched live, backed up, then restored onto
+    // itself — the one case where re-running this would destroy a real
+    // choice.
+    const types = preV10Types().map((type) =>
+      type.key === "osteo" ? { ...type, parentId: "type-soins" } : type,
+    );
+    await writeV9Database({ eventTypes: types });
+
+    await db.open();
+
+    expect((await db.eventTypes.get("type-osteo"))?.theme).toBe("orange");
+  });
+
+  it("does nothing when the parent is not in the catalogue at all", async () => {
+    // A device where `soins` was deleted. A dangling `parentId` would leave a
+    // link `resolveCatalogue` silently reads back as "root" anyway.
+    const types = preV10Types().filter((type) => type.key !== "soins");
+    await writeV9Database({ eventTypes: types });
+
+    await db.open();
+
+    expect(await db.eventTypes.get("type-osteo")).toMatchObject({
+      parentId: null,
+      icon: "pawPrint",
+      theme: "orange",
+    });
+  });
+
+  it("seeds massage as a new child of soins", async () => {
+    await writeV9Database({ eventTypes: preV10Types() });
+
+    await db.open();
+
+    const massage = await db.eventTypes.where("key").equals("massage").first();
+    expect(massage).toMatchObject({
+      label: "Massage",
+      isBuiltIn: true,
+      isAppointment: true,
+    });
+    const soins = await db.eventTypes.where("key").equals("soins").first();
+    expect(massage?.parentId).toBe(soins?.id);
+  });
+
+  it("does not double massage when the file already carries it", async () => {
+    // Replayed the same way the reparenting guard above is.
+    const massage = {
+      ...stamps,
+      id: "type-massage",
+      key: "massage",
+      label: "Massage",
+      icon: null,
+      theme: null,
+      parentId: "type-soins",
+      isBuiltIn: true,
+      isAppointment: true,
+      tracksWork: false,
+      archived: false,
+      order: 13,
+      fields: [],
+    };
+    await writeV9Database({ eventTypes: [...preV10Types(), massage] });
+
+    await db.open();
+
+    expect(await db.eventTypes.where("key").equals("massage").count()).toBe(1);
+  });
+});
+
 describe("a v1 database upgrading all the way", () => {
   it("runs every upgrade in sequence", async () => {
     await writeLegacyDatabase(1, {
@@ -763,18 +916,19 @@ describe("a v1 database upgrading all the way", () => {
       null,
     );
     expect(await db.activities.count()).toBe(0);
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(await db.eventTypes.count()).toBe(14);
     // Seeded by v6 — from the current catalogue, so already nested — and left
-    // alone by v9, whose guard skips a row that is not a root. Both routes to
-    // the same two children is the point: a fresh seed and a device that
-    // upgraded through v9 have to agree on the finished shape.
+    // alone by v9 and v10, whose guards each skip a row that is not a root.
+    // Both routes to the same four children is the point: a fresh seed and a
+    // device that upgraded all the way through have to agree on the finished
+    // shape.
     const catalogue = await db.eventTypes.toArray();
     expect(
       catalogue
         .filter((type) => type.parentId !== null)
         .map((type) => type.key)
         .sort(),
-    ).toEqual(["cures", "traitement"]);
+    ).toEqual(["cures", "massage", "osteo", "traitement"]);
   });
 
   it("opens at the version the backup envelope advertises", async () => {

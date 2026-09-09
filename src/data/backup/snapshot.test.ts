@@ -71,7 +71,7 @@ const event = (over: Partial<HorseEvent> = {}): HorseEvent => ({
 
 const STAMP = "2026-01-01T00:00:00.000Z";
 
-/** The 13 built-in types, stamped — what a current-schema snapshot carries. */
+/** The 14 built-in types, stamped — what a current-schema snapshot carries. */
 const eventTypeRows: EventTypeDef[] = BUILT_IN_EVENT_TYPES.map((def) => ({
   ...def,
   id: `type-${def.key}`,
@@ -298,6 +298,97 @@ describe("migrateSnapshot", () => {
     expect(
       migrated.tables.eventTypes.find((t) => t.id === "type-cures"),
     ).toMatchObject({ parentId: null, icon: "pawPrint", theme: "purple" });
+  });
+
+  /**
+   * The two rows v10 touches, as a v9 file carried them: `soins` and `osteo`,
+   * both roots, `osteo` with the icon and theme it owned before nesting.
+   *
+   * Hand-derived from `eventTypeRows` the same way `preV9Types` is, for the
+   * same reason: reading the nesting off the live rows would exercise the
+   * upgrade against its own output.
+   */
+  const preV10Types = (): EventTypeDef[] => {
+    const row = (key: string, over: Partial<EventTypeDef> = {}) => ({
+      ...eventTypeRows.find((type) => type.key === key)!,
+      id: `type-${key}`,
+      parentId: null,
+      ...over,
+    });
+
+    return [row("soins"), row("osteo", { icon: "pawPrint", theme: "orange" })];
+  };
+
+  it("files a pre-v10 file's osteo under soins, keeping its icon", () => {
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 9, tables: { eventTypes: preV10Types() } }),
+    );
+
+    const byId = new Map(migrated.tables.eventTypes.map((t) => [t.id, t]));
+    expect(byId.get("type-osteo")).toMatchObject({
+      parentId: "type-soins",
+      icon: "pawPrint",
+      theme: null,
+    });
+    expect(byId.get("type-soins")).toMatchObject({
+      parentId: null,
+      icon: "firstAidKit",
+      theme: "pink",
+    });
+  });
+
+  it("keeps a parent the file already carries", () => {
+    const types = preV10Types().map((type) =>
+      type.key === "osteo" ? { ...type, parentId: "type-soins" } : type,
+    );
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 9, tables: { eventTypes: types } }),
+    );
+
+    const osteo = migrated.tables.eventTypes.find((t) => t.id === "type-osteo");
+    expect(osteo).toMatchObject({ parentId: "type-soins", theme: "orange" });
+  });
+
+  it("leaves osteo alone when soins is not in the file", () => {
+    const types = preV10Types().filter((type) => type.key !== "soins");
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 9, tables: { eventTypes: types } }),
+    );
+
+    expect(
+      migrated.tables.eventTypes.find((t) => t.id === "type-osteo"),
+    ).toMatchObject({ parentId: null, icon: "pawPrint", theme: "orange" });
+  });
+
+  it("adds massage as a new child of soins to a pre-v10 file", () => {
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 9, tables: { eventTypes: preV10Types() } }),
+    );
+
+    const soins = migrated.tables.eventTypes.find((t) => t.key === "soins")!;
+    const massage = migrated.tables.eventTypes.find((t) => t.key === "massage");
+    expect(massage).toMatchObject({ label: "Massage", parentId: soins.id });
+  });
+
+  it("does not duplicate massage when the file already carries it", () => {
+    const massage = {
+      ...eventTypeRows.find((type) => type.key === "massage")!,
+      id: "type-massage",
+      parentId: "type-soins",
+    };
+
+    const migrated = migrateSnapshot(
+      snapshot({
+        schemaVersion: 9,
+        tables: { eventTypes: [...preV10Types(), massage] },
+      }),
+    );
+
+    expect(
+      migrated.tables.eventTypes.filter((t) => t.key === "massage"),
+    ).toHaveLength(1);
   });
 
   it("stamps the file up to the current schema version", () => {
@@ -587,11 +678,11 @@ describe("importBackup — rejects bad input", () => {
       tables: { ...v4Tables, horses: [horse()] },
     });
 
-    // The horse, plus the 13 built-in types the v5 -> v6 step seeds in the
+    // The horse, plus the 14 built-in types the v5 -> v6 step seeds in the
     // same call — a v4 file has neither activities nor a type catalogue.
-    expect(result).toEqual({ imported: 14, skipped: 0 });
+    expect(result).toEqual({ imported: 15, skipped: 0 });
     expect(await db.activities.count()).toBe(0);
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(await db.eventTypes.count()).toBe(14);
   });
 
   it("still rejects a table missing from a current-version file", async () => {
@@ -610,8 +701,8 @@ describe("importBackup — rejects bad input", () => {
       tables: { ...snapshot().tables, eventTypes: eventTypeRows },
     });
 
-    expect(result).toEqual({ imported: 13, skipped: 0 });
-    expect(await db.eventTypes.count()).toBe(13);
+    expect(result).toEqual({ imported: 14, skipped: 0 });
+    expect(await db.eventTypes.count()).toBe(14);
   });
 
   it("writes nothing at all when validation fails", async () => {

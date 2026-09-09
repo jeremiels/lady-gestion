@@ -489,14 +489,14 @@ describe("the type picker", () => {
   const waitForOptions = async (el: EventSheet) =>
     waitFor(el, () => typeSelect(el).options.length > 0);
 
-  it("groups the shipped catalogue's two nested types under their parent", async () => {
+  it("groups the shipped catalogue's nested types under their parent", async () => {
     const el = await openSheet();
     await waitForOptions(el);
 
     const options = typeSelect(el).options;
     // Still one option per type: nesting moves a parent into a heading of its
     // own rather than adding an entry for it.
-    expect(options).toHaveLength(13);
+    expect(options).toHaveLength(14);
     expect(
       options
         .filter((option) => option.group !== undefined)
@@ -504,6 +504,9 @@ describe("the type picker", () => {
     ).toEqual([
       ["Alimentation", "alimentation"],
       ["Alimentation", "cures"],
+      ["Soins", "soins"],
+      ["Soins", "massage"],
+      ["Soins", "osteo"],
       ["Vétérinaire", "veto"],
       ["Vétérinaire", "traitement"],
     ]);
@@ -521,8 +524,16 @@ describe("the type picker", () => {
       .map((option) => option.value);
     // The parent first, because a parent is a selectable type in its own
     // right — an event can be filed under Soins without picking which kind.
-    // Its children follow alphabetically, the order the picker uses throughout.
-    expect(grouped).toEqual(["soins", "dentiste", "marechal"]);
+    // Its children follow alphabetically, the order the picker uses
+    // throughout — the two this test adds alongside the two the catalogue
+    // already ships under Soins (`massage`, `osteo`).
+    expect(grouped).toEqual([
+      "soins",
+      "dentiste",
+      "marechal",
+      "massage",
+      "osteo",
+    ]);
   });
 
   it("draws each group as a native optgroup", async () => {
@@ -533,16 +544,19 @@ describe("the type picker", () => {
     await settled(typeSelect(el));
 
     const groups = [...typeSelect(el).renderRoot.querySelectorAll("optgroup")];
-    // The two the catalogue ships with, plus the one this test made, in the
-    // roots' own alphabetical order.
+    // The three the catalogue ships with, in the roots' own alphabetical
+    // order — `marechal` joins `Soins`, an existing group, rather than
+    // creating a new one.
     expect(groups.map((group) => group.label)).toEqual([
       "Alimentation",
       "Soins",
       "Vétérinaire",
     ]);
+    // `soins` itself, plus its two shipped children (`massage`, `osteo`) and
+    // the one this test added (`marechal`).
     expect(
       groups.find((group) => group.label === "Soins")?.children,
-    ).toHaveLength(2);
+    ).toHaveLength(4);
   });
 
   it("keeps every type selectable, children included", async () => {
