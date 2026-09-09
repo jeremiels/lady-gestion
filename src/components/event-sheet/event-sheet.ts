@@ -596,9 +596,6 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-
-
-  /**
    * Whatever the record stored for this field, as text.
    *
    * The three base rows read their `HorseEvent` column rather than the bag —

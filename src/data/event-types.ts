@@ -687,8 +687,8 @@ export const byOrder = <T extends EventTypeDef>(types: T[]): T[] =>
  * The one field of a given *kind* on a type, if it has one.
  *
  * Only safe for `followUp` and `workActivity`: those two are not
- * general-purpose (see `CustomFieldKind`'s doc comment) — a type gets one or
- * none, by construction, and nothing a field-builder UI adds can create a
+ * general-purpose (see `CustomFieldDef["role"]`'s doc comment) — a type gets
+ * one or none, by construction, and nothing a field-builder UI adds can create a
  * second. `text`/`cents`/`bool` **are** general-purpose, so a type could one
  * day carry more than one of a kind; for the fixed slots built from those
  * kinds (counterparty, budget), use `fieldById` below instead — looking those
@@ -704,7 +704,7 @@ export const fieldWithRole = (
  * The field with this stable `id`, if the type has one.
  *
  * The right lookup for a fixed slot built from a general-purpose kind —
- * `"counterparty"`, `"amountCents"` — where `fieldOfKind` would risk matching
+ * `"counterparty"`, `"amountCents"` — where `fieldWithRole` would risk matching
  * a *different* field of the same kind once a type can carry more than one.
  */
 export const fieldById = (

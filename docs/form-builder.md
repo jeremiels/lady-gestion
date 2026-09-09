@@ -23,7 +23,9 @@ catalogue was moved onto it (grouped picker, subtree filter chips, budget
 roll-up); nothing yet _writes_ it, because that is step 4's editor. See
 "Parent/child hierarchy" below.
 
-One design note for whoever picks up step 4: the shipped field-lookup helpers are split in two — `fieldOfKind` (safe only for `followUp`/`workActivity`, which are singleton-by-construction) and `fieldById` (for the general-purpose kinds — `text`, `cents`, `bool` — where a type could in principle carry more than one field of the same kind). A field-builder UI that lets a user add a _second_ `text` or `cents` field to a type is exactly the case `fieldById` exists for; do not reintroduce a kind-based lookup for a fixed slot once that UI exists.
+One design note for whoever picks up step 4: the shipped field-lookup helpers are split in two — `fieldWithRole` (safe only for `followUp`/`workActivity`, which are singleton-by-construction) and `fieldById` (for the general-purpose kinds — `text`, `cents`, `bool` — where a type could in principle carry more than one field of the same kind). A field-builder UI that lets a user add a _second_ `text` or `cents` field to a type is exactly the case `fieldById` exists for; do not reintroduce a kind-based lookup for a fixed slot once that UI exists.
+
+**Refreshed 2026-09-09** — the `CustomFieldDef` shape below is the original v6 plan and no longer matches what shipped. The semantic `kind` union (`followUp`/`workActivity`/`quantity` as distinct kinds) was replaced by a presentation-only `control: FieldControl` (`'text' | 'number' | 'money' | 'checkbox' | 'select' | 'combobox' | 'date'`) plus composable modifiers — `role` (`'workActivity' | 'followUp'`, for the two behaviours non-form code still needs to find), `reveals` (fields shown while a checkbox is ticked), `units` (a unit picker beside the value) and `suggestions` (named live-data suggestions on top of `options`). `fieldOfKind` was renamed `fieldWithRole` to match. See the doc comments on `FieldControl`/`CustomFieldDef` in `src/data/types.ts` for the real shape, and `src/data/event-form.ts` for how it parses and folds to a stored scalar.
 
 ## Non-goals for v1
 
@@ -132,7 +134,7 @@ The remaining 11 are roots. Going further — a `Santé` parent over `veto`/`den
 
 - `src/data/db.test.ts`: extend the upgrade-path test to cover v6 (seeding + column migration) — done.
 - New `src/data/repositories/event-types.repo.test.ts` mirroring `activities.repo.ts` test conventions — done (v8; it did not actually exist before then, despite this line).
-- New `src/data/event-types.test.ts` for the pure helpers in `event-types.ts` (`fieldOfKind`/`fieldById`/`isAppointmentType`/`upcomingAppointments`, plus the v8 hierarchy helpers) — done.
+- New `src/data/event-types.test.ts` for the pure helpers in `event-types.ts` (`fieldWithRole`/`fieldById`/`isAppointmentType`/`upcomingAppointments`, plus the v8 hierarchy helpers) — done.
 - Component tests once the management UI exists: new `EventTypesView.test.ts` and `event-type-sheet.test.ts`, per the existing `test:components` convention.
 - Run `npm run build` (typecheck + oxlint + vite build) and both `npm run test:data` / `npm run test:components`.
 - Manual pass via the `run-lady-gestion` skill once the UI exists: create a custom type mixing several field kinds, create/edit an event of that type, edit a built-in type's label/icon/fields, confirm the dashboard/budget donut and week-strip day-activity still work, export a backup then import it into a fresh DB to confirm the v6 migration round-trips.

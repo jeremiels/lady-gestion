@@ -419,24 +419,6 @@ export type LegacyEventColumns = {
 };
 
 /**
- * Folds a pre-v6 event's fixed columns into a `customFields` bag, and
- * corrects the one built-in type whose key changed shape in the same
- * migration (`coucours` → `concours`, see `event-types.ts`).
- *
- * Takes and returns only the columns that change — `type` and the bag — so
- * `db.ts`'s live upgrade can assign the result onto a row it is mutating in
- * place, and `backup/snapshot.ts` onto a row it is rebuilding wholesale,
- * without either having to agree on the rest of the record's exact shape.
- * Shared by both for the reason `db.ts`'s own comment gives for why the two
- * migrations "must agree": a database upgraded on the device and a backup
- * file restored from an older build have to fold identically.
- *
- * `types` is the *target* schema's type list, with `BaseRecord` fields already
- * filled in (`seedEventTypeDefs` in `event-types.ts`): whether `amountCents`
- * survives depends on whether the row's type still has an amount field, which
- * only the new schema can say — the old one had no such concept.
- */
-/**
  * Where a `travail` row's money would otherwise go.
  *
  * `amountCents` only survives the fold above when the row's *target* type
@@ -470,6 +452,24 @@ const strandedAmountNotes = (
   return row.notes ? `${row.notes}\n${line}` : line;
 };
 
+/**
+ * Folds a pre-v6 event's fixed columns into a `customFields` bag, and
+ * corrects the one built-in type whose key changed shape in the same
+ * migration (`coucours` → `concours`, see `event-types.ts`).
+ *
+ * Takes and returns only the columns that change — `type` and the bag — so
+ * `db.ts`'s live upgrade can assign the result onto a row it is mutating in
+ * place, and `backup/snapshot.ts` onto a row it is rebuilding wholesale,
+ * without either having to agree on the rest of the record's exact shape.
+ * Shared by both for the reason `db.ts`'s own comment gives for why the two
+ * migrations "must agree": a database upgraded on the device and a backup
+ * file restored from an older build have to fold identically.
+ *
+ * `types` is the *target* schema's type list, with `BaseRecord` fields already
+ * filled in (`seedEventTypeDefs` in `event-types.ts`): whether `amountCents`
+ * survives depends on whether the row's type still has an amount field, which
+ * only the new schema can say — the old one had no such concept.
+ */
 export const migrateEventToCustomFields = (
   row: { type: string; notes: string | null } & LegacyEventColumns,
   types: EventTypeDef[],

@@ -554,7 +554,7 @@ would surface under real network latency:
   property**, which pierces shadow boundaries. `app-tag` used to render light
   and depend on global `.tag--<type>` rules, which forced `event-card` light and
   therefore every view too; it now sets `--app-tag-color`/`--app-tag-background`
-  from `tagStyle(eventType.theme(key))`, and `styles/components/tag.css` is
+  from `tagStyle(THEME_META[type.theme])`, and `styles/components/tag.css` is
   gone. Don't
   reintroduce a global stylesheet for a component's own colours.
 - Sizing a shadow component _from_ a light-DOM parent works — a rule on the host
@@ -886,7 +886,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   document categories still are one (`src/types/document.types.ts`). **`app-icon` and `app-tag` are domain-free and resolve
   nothing themselves** — they read two custom properties, and the call site
   composes them with `iconStyle(...)` / `tagStyle(...)` over a `ThemeMeta`:
-  `style=${styleMap(tagStyle(eventType.theme(event.type)))}`. That is what
+  `style=${styleMap(type ? tagStyle(THEME_META[type.theme]) : {})}`. That is what
   lets the document taxonomy colour a tag exactly as the event taxonomy does;
   an `event-type` attribute used to live on both and could only ever serve
   one of them. Prefer this over hardcoding a colour whenever the thing being

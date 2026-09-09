@@ -214,13 +214,6 @@ const dayActivityFields = (
 });
 
 /**
- * The form's answers, resolved into a row.
- *
- * Not exported. The `.ics` import that `icalendar.ts` anticipates will want
- * exactly this half without the write, and exporting it then is one line —
- * `db.ts` states the rule this follows: add it back with its caller, not before.
- */
-/**
  * A work session's title, taken from the activity it recorded.
  *
  * On a `workActivity` type the Nom field is the Activité combobox rather than
@@ -240,6 +233,13 @@ const workTitle = (
     : null;
 };
 
+/**
+ * The form's answers, resolved into a row.
+ *
+ * Not exported. The `.ics` import that `icalendar.ts` anticipates will want
+ * exactly this half without the write, and exporting it then is one line —
+ * `db.ts` states the rule this follows: add it back with its caller, not before.
+ */
 const eventFields = (
   type: EventTypeDef,
   input: EventInput,

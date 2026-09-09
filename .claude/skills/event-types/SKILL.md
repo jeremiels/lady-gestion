@@ -13,14 +13,14 @@ design this implements, and `AGENTS.md` for the repo's conventions.
 
 ## Where the catalogue lives
 
-| What               | Where                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| The row type       | `EventTypeDef`, `src/data/types.ts`                                                                                |
-| The seed catalogue | `BUILT_IN_EVENT_TYPES`, `src/data/event-types.ts`                                                                  |
-| Seeding            | `seedEventTypeDefs`, same file                                                                                     |
-| Pure helpers       | `resolveCatalogue`, `rootsOf`, `childrenOf`, `subtreeKeys`, `canBeParentOf`, `fieldById`, `fieldOfKind`, same file |
-| Write paths        | `src/data/repositories/event-types.repo.ts` (`setParent`, `remove`)                                                |
-| Test fixtures      | `BUILT_IN_EVENT_TYPE_ROWS`, `src/data/__tests__/factories.ts`                                                      |
+| What               | Where                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| The row type       | `EventTypeDef`, `src/data/types.ts`                                                                                  |
+| The seed catalogue | `BUILT_IN_EVENT_TYPES`, `src/data/event-types.ts`                                                                    |
+| Seeding            | `seedEventTypeDefs`, same file                                                                                       |
+| Pure helpers       | `resolveCatalogue`, `rootsOf`, `childrenOf`, `subtreeKeys`, `canBeParentOf`, `fieldById`, `fieldWithRole`, same file |
+| Write paths        | `src/data/repositories/event-types.repo.ts` (`setParent`, `remove`)                                                  |
+| Test fixtures      | `BUILT_IN_EVENT_TYPE_ROWS`, `src/data/__tests__/factories.ts`                                                        |
 
 `seedEventTypeDefs` stamps each row with **`id = def.key`**, deliberately: a
 fresh install, a live upgrade and a backup restore all seed the same catalogue,
@@ -149,7 +149,7 @@ do" — `text`, `cents` and `bool` are the general-purpose three.
 
 If you must, six sites:
 
-1. `CustomFieldKind`, `src/data/types.ts`
+1. `FieldControl`, `src/data/types.ts`
 2. `EVENT_SCHEMA` (the flat parser table) in `src/components/event-sheet/event-sheet.ts`
 3. a render branch and a `#render*` method in the same file
 4. `eventFields`, `src/data/services/events.service.ts` — which `customFields`
@@ -172,10 +172,10 @@ If you must, six sites:
   `marechal`, `dentiste`, `osteo` and `massage` are still leaves — none has
   children of its own — so all four remain safe to re-parent in a test, `osteo`
   and `massage` included even though they already have `soins` as a parent.
-- **`fieldById`, not `fieldOfKind`, for a fixed slot.** `fieldOfKind` is only
-  safe for `followUp` and `workActivity`, which are singletons by construction;
-  for `counterparty`, `amountCents` and `quantity` it resolves to whichever
-  field of that kind comes first.
+- **`fieldById`, not `fieldWithRole`, for a fixed slot.** `fieldWithRole` is
+  only safe for `followUp` and `workActivity`, which are singletons by
+  construction; for `counterparty`, `amountCents` and `quantity` it resolves to
+  whichever field of that kind comes first.
 - **`event-types.ts` and `events.ts` must not import each other.** Either
   direction is circular the moment the other reaches back. Join them at the call
   site.
