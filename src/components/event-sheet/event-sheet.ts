@@ -6,7 +6,6 @@ import {
   FOLLOW_UP_INTERVALS,
   QUANTITY_UNITS,
   type CustomFieldDef,
-  type EventTypeDef,
   type FieldParser,
   LiveQuery,
   type WorkActivity,
@@ -16,6 +15,7 @@ import {
   bool,
   byLabel,
   cents,
+  childrenOf,
   decimal,
   eventsService,
   eventTypesRepo,
@@ -34,8 +34,10 @@ import {
   parseQuantity,
   quantityPairErrors,
   readForm,
+  rootsOf,
   text,
   todayISO,
+  type ResolvedEventType,
 } from "../../data/index.ts";
 import type { ActivityItem, HorseEvent } from "../../data/types.ts";
 import type { AppComboboxOption } from "../app-combobox/app-combobox.ts";
@@ -184,8 +186,8 @@ export class EventSheet extends BaseElement {
   /** The event-type catalogue — the type picker and every field's presence,
    * label and requiredness now come from here rather than a compile-time
    * table. */
-  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
-    eventTypesRepo.listAll(),
+  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
+    eventTypesRepo.listResolved(),
   );
 
   /**
@@ -337,7 +339,7 @@ export class EventSheet extends BaseElement {
 
   /** The picked type, resolved from the live catalogue — `null` before one is
    * picked, or for the tick before the catalogue's `LiveQuery` settles. */
-  get #type(): EventTypeDef | null {
+  get #type(): ResolvedEventType | null {
     return this.type
       ? (findEventType(this.#eventTypes.value ?? [], this.type) ?? null)
       : null;
@@ -553,12 +555,40 @@ export class EventSheet extends BaseElement {
     if (selector) this.formEl?.querySelector<HTMLElement>(selector)?.focus();
   }
 
+  /**
+   * The type picker's options: roots alphabetically, each one that has
+   * children followed by them inside a native `<optgroup>`.
+   *
+   * The parent appears as the first option *inside its own group*, because a
+   * parent is a selectable type like any other — an event can be filed under
+   * `Santé` without picking which kind. Putting it above the group instead
+   * would read as a separate entry that happens to share a name with the
+   * heading below it.
+   *
+   * A catalogue with no children yields no `group` at all, so this is the same
+   * flat list `byLabel` produced before types could nest.
+   */
+  #typeOptions(): AppSelectOption[] {
+    const catalogue = this.#eventTypes.value ?? [];
+
+    return byLabel(rootsOf(catalogue)).flatMap((root) => {
+      const children = byLabel(childrenOf(catalogue, root.id));
+      if (children.length === 0) {
+        return [{ value: root.key, label: root.label }];
+      }
+
+      return [root, ...children].map((type) => ({
+        value: type.key,
+        label: type.label,
+        group: root.label,
+      }));
+    });
+  }
+
   render() {
     const type = this.#type;
     const counterparty = type ? fieldById(type, "counterparty") : null;
-    const options: AppSelectOption[] = byLabel(
-      this.#eventTypes.value ?? [],
-    ).map((candidate) => ({ value: candidate.key, label: candidate.label }));
+    const options = this.#typeOptions();
     const event = this.event;
 
     // `.event-form__error-region` is mounted with the form and never hidden —

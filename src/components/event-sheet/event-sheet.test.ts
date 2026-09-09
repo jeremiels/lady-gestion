@@ -2,6 +2,7 @@ import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../data/db.ts";
 import {
+  BUILT_IN_EVENT_TYPE_ROWS,
   HORSE_ID,
   makeEvent,
   makeHorse,
@@ -464,5 +465,68 @@ describe("event-sheet — the alimentation quantity field", () => {
     ).renderRoot.querySelector("input")!;
     expect(amountInput.value).toBe("1.5");
     expect(fieldNamed<AppUnitSelect>(form, "quantityUnit").value).toBe("L");
+  });
+});
+
+describe("the type picker", () => {
+  /** Files one built-in type under another, the way `setParent` writes it. */
+  const nest = async (childKey: string, parentKey: string) => {
+    const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
+    const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
+    await db.eventTypes.put({ ...child, parentId: parent.id, theme: null });
+  };
+
+  const typeSelect = (el: EventSheet) =>
+    el.renderRoot.querySelector<AppSelect>('app-select[name="type"]')!;
+
+  const waitForOptions = async (el: EventSheet) =>
+    waitFor(el, () => typeSelect(el).options.length > 0);
+
+  it("is a flat list for the shipped catalogue", async () => {
+    const el = await openSheet();
+    await waitForOptions(el);
+
+    const options = typeSelect(el).options;
+    expect(options).toHaveLength(13);
+    expect(options.every((option) => option.group === undefined)).toBe(true);
+  });
+
+  it("puts a group's children under their parent's heading", async () => {
+    await nest("veto", "soins");
+    await nest("dentiste", "soins");
+
+    const el = await openSheet();
+    await waitForOptions(el);
+
+    const grouped = typeSelect(el)
+      .options.filter((option) => option.group !== undefined)
+      .map((option) => option.value);
+    // The parent first, because a parent is a selectable type in its own
+    // right — an event can be filed under Soins without picking which kind.
+    // Its children follow alphabetically, the order the picker uses throughout.
+    expect(grouped).toEqual(["soins", "dentiste", "veto"]);
+  });
+
+  it("draws the group as a native optgroup", async () => {
+    await nest("veto", "soins");
+
+    const el = await openSheet();
+    await waitForOptions(el);
+    await settled(typeSelect(el));
+
+    const group = typeSelect(el).renderRoot.querySelector("optgroup");
+    expect(group?.label).toBe("Soins");
+    expect(group?.children).toHaveLength(2);
+  });
+
+  it("keeps every type selectable, children included", async () => {
+    await nest("veto", "soins");
+
+    const el = await openSheet();
+    await waitForOptions(el);
+
+    expect(typeSelect(el).options.map((option) => option.value)).toContain(
+      "veto",
+    );
   });
 });

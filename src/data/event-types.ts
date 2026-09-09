@@ -1,3 +1,6 @@
+import { isIconName, type IconName } from "../components/app-icon/icons.ts";
+import { isThemeKey } from "../theme/theme.ts";
+import type { ThemeKey } from "../theme/theme.types.ts";
 import type { IsoTimestamp } from "./dates.ts";
 import type {
   CustomFieldDef,
@@ -98,6 +101,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "achat",
     label: "Achats",
+    parentId: null,
     icon: "shoppingCart",
     theme: "taupe",
     isBuiltIn: true,
@@ -110,6 +114,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "alimentation",
     label: "Alimentation",
+    parentId: null,
     icon: "carrot",
     theme: "yellow",
     isBuiltIn: true,
@@ -122,6 +127,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "travail",
     label: "Travail",
+    parentId: null,
     icon: "cowboyHat",
     theme: "fuchsia",
     isBuiltIn: true,
@@ -134,6 +140,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "cours",
     label: "Cours",
+    parentId: null,
     icon: "cactus",
     theme: "brown",
     isBuiltIn: true,
@@ -146,6 +153,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "dentiste",
     label: "Dentiste",
+    parentId: null,
     icon: "tooth",
     theme: "purple",
     isBuiltIn: true,
@@ -158,6 +166,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "marechal",
     label: "Maréchal",
+    parentId: null,
     icon: "footprints",
     theme: "green",
     isBuiltIn: true,
@@ -170,6 +179,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "veto",
     label: "Vétérinaire",
+    parentId: null,
     icon: "firstAidKit",
     theme: "pink",
     isBuiltIn: true,
@@ -182,6 +192,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "osteo",
     label: "Ostéopathe",
+    parentId: null,
     icon: "pawPrint",
     theme: "orange",
     isBuiltIn: true,
@@ -194,6 +205,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "pension",
     label: "Pension",
+    parentId: null,
     icon: "farm",
     theme: "turquoise",
     isBuiltIn: true,
@@ -209,6 +221,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     // Placeholder — see the module doc comment. A real "trophy" icon doesn't
     // exist yet; a competition's venue is the fixed `location` field, so no
     // counterparty field is needed here the way the care types have one.
+    parentId: null,
     icon: "dateFilled",
     theme: "turquoise",
     isBuiltIn: true,
@@ -221,6 +234,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "soins",
     label: "Soins",
+    parentId: null,
     icon: "firstAidKit",
     theme: "pink",
     isBuiltIn: true,
@@ -233,6 +247,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "cures",
     label: "Cures",
+    parentId: null,
     icon: "pawPrint",
     theme: "purple",
     isBuiltIn: true,
@@ -246,6 +261,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "traitement",
     label: "Traitement",
+    parentId: null,
     icon: "info",
     theme: "orange",
     isBuiltIn: true,
@@ -293,14 +309,168 @@ export const seedEventTypeDefs = (
     deletedAt: null,
   }));
 
-/** The type whose `key` matches, or `undefined` if the caller's list has none. */
-export const findEventType = (
+/**
+ * A type whose presentation is settled: no `null` left to think about.
+ *
+ * What every view consumes — `event-types.repo.ts`'s `listResolved` produces
+ * it, and it stays assignable to `EventTypeDef`, so the accessors below take
+ * either. The raw row is still what the type editor wants: only it needs to
+ * see the `null` that means "inherited" in order to say so.
+ */
+export type ResolvedEventType = Omit<EventTypeDef, "icon" | "theme"> & {
+  icon: IconName;
+  theme: ThemeKey;
+};
+
+/**
+ * What a root falls back to when it carries no usable presentation of its own.
+ *
+ * Not reachable from the app's own write paths — the editor requires both on a
+ * root — but very reachable from a restored backup, which `assertSnapshot`
+ * checks for `id` and `updatedAt` and nothing else. `"info"` is already what
+ * `event-card` fell back to in that case before this file did; `"taupe"` is the
+ * catalogue's most neutral tone.
+ */
+const DEFAULT_ICON: IconName = "info";
+const DEFAULT_THEME: ThemeKey = "taupe";
+
+/** The stored value if it is one this build can actually draw, else nothing. */
+const ownIcon = (type: EventTypeDef): IconName | undefined =>
+  type.icon !== null && isIconName(type.icon) ? type.icon : undefined;
+
+const ownTheme = (type: EventTypeDef): ThemeKey | undefined =>
+  type.theme !== null && isThemeKey(type.theme) ? type.theme : undefined;
+
+/**
+ * This type's parent, or `undefined` when it is a root.
+ *
+ * A `parentId` that resolves to nothing in the caller's own list counts as a
+ * root, not as an error: the parent may have been soft-deleted on another
+ * device, or a partial backup merge may have brought the child over without it.
+ * Rendering the child as a root is the one outcome that keeps it visible and
+ * editable — dropping it, or throwing, loses it. `rootsOf` applies the same
+ * rule from the other side, so the two can never disagree about what a root is.
+ */
+const parentOf = <T extends EventTypeDef>(
+  types: T[],
+  type: T,
+): T | undefined =>
+  type.parentId === null
+    ? undefined
+    : types.find((candidate) => candidate.id === type.parentId);
+
+/**
+ * Fills in every row's `icon`/`theme` from its parent, in one pass.
+ *
+ * A single hop, because the depth cap says a parent is a root
+ * (`canBeParentOf`). A deeper chain is only reachable from data this build did
+ * not write, and resolves against its immediate parent's *own* values, falling
+ * back to the defaults above rather than walking — bounded by construction, so
+ * no cycle in imported data can hang a render.
+ *
+ * This is also the app's only guard on those two columns. `THEME_META[key]` is
+ * a mapped type, so an unknown theme string from a backup file is a `TypeError`
+ * at render rather than a missing colour; `ownTheme`/`ownIcon` above turn it
+ * into the default here instead, once, for every read site at the same time.
+ */
+export const resolveCatalogue = (
+  types: EventTypeDef[],
+): ResolvedEventType[] => {
+  const byId = new Map(types.map((type) => [type.id, type]));
+
+  return types.map((type) => {
+    const parent = type.parentId === null ? undefined : byId.get(type.parentId);
+
+    return {
+      ...type,
+      // A dangling parent is normalised away here, so a resolved catalogue can
+      // be filtered on `parentId === null` directly.
+      parentId: parent ? type.parentId : null,
+      icon: ownIcon(type) ?? (parent && ownIcon(parent)) ?? DEFAULT_ICON,
+      theme: ownTheme(type) ?? (parent && ownTheme(parent)) ?? DEFAULT_THEME,
+    };
+  });
+};
+
+/** The types with no parent, in `order` — the top level of the picker, the
+ * chips and the budget ring. The whole shipped catalogue is one of these. */
+export const rootsOf = <T extends EventTypeDef>(types: T[]): T[] => {
+  const ids = new Set(types.map((type) => type.id));
+  return byOrder(
+    types.filter((type) => type.parentId === null || !ids.has(type.parentId)),
+  );
+};
+
+/** The direct children of `parentId`, in `order`. Empty for a leaf. */
+export const childrenOf = <T extends EventTypeDef>(
+  types: T[],
+  parentId: string,
+): T[] => byOrder(types.filter((type) => type.parentId === parentId));
+
+/** The root this type hangs under — itself when it is one. */
+export const rootOf = <T extends EventTypeDef>(types: T[], type: T): T =>
+  parentOf(types, type) ?? type;
+
+/**
+ * The `HorseEvent.type` slugs a filter on `key` should match: the type's own,
+ * plus its children's.
+ *
+ * Keys rather than ids because this is compared against `HorseEvent.type`,
+ * which stores the slug. A flat catalogue makes this a singleton, which is
+ * exactly today's `event.type === filter`.
+ */
+export const subtreeKeys = (
   types: EventTypeDef[],
   key: string,
-): EventTypeDef | undefined => types.find((type) => type.key === key);
+): Set<string> => {
+  const type = findEventType(types, key);
+  if (!type) return new Set([key]);
+  return new Set([
+    key,
+    ...childrenOf(types, type.id).map((child) => child.key),
+  ]);
+};
+
+/**
+ * The depth-2 invariant, as one predicate — the only thing standing between
+ * this table and a cycle.
+ *
+ * Four rules, and together they make a cycle unrepresentable without any
+ * recursive check: a type cannot be its own parent, both rows must exist, the
+ * proposed parent must itself be a root, and a type that already has children
+ * cannot be given one. The last two are the same rule seen from each end, and
+ * dropping either would let a three-deep chain in.
+ */
+export const canBeParentOf = (
+  types: EventTypeDef[],
+  childId: string,
+  parentId: string,
+): boolean => {
+  if (childId === parentId) return false;
+
+  const child = types.find((type) => type.id === childId);
+  const parent = types.find((type) => type.id === parentId);
+  if (!child || !parent) return false;
+
+  if (parentOf(types, parent) !== undefined) return false;
+  return childrenOf(types, childId).length === 0;
+};
+
+/**
+ * The type whose `key` matches, or `undefined` if the caller's list has none.
+ *
+ * Generic over the row rather than fixed to `EventTypeDef` — the views hand it
+ * a `ResolvedEventType[]` and would otherwise get a raw `EventTypeDef` back,
+ * losing exactly the non-null `icon`/`theme` they resolved the catalogue for.
+ * Same reason for `byLabel` and `byOrder` below.
+ */
+export const findEventType = <T extends EventTypeDef>(
+  types: T[],
+  key: string,
+): T | undefined => types.find((type) => type.key === key);
 
 /** Alphabetical by label — the order a filter list or a type picker offers them in. */
-export const byLabel = (types: EventTypeDef[]): EventTypeDef[] =>
+export const byLabel = <T extends EventTypeDef>(types: T[]): T[] =>
   [...types].sort((a, b) => a.label.localeCompare(b.label, "fr"));
 
 /**
@@ -309,7 +479,7 @@ export const byLabel = (types: EventTypeDef[]): EventTypeDef[] =>
  * month to the next. Replaces the fixed `EVENT_TYPES` array `sumByType` used
  * to iterate before types became data.
  */
-export const byOrder = (types: EventTypeDef[]): EventTypeDef[] =>
+export const byOrder = <T extends EventTypeDef>(types: T[]): T[] =>
   [...types].sort((a, b) => a.order - b.order);
 
 /**

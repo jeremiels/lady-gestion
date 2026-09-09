@@ -40,6 +40,12 @@
     display: none;
   }
 
+  /* Pulled up against the row it drills into. The page grid's 24px gap reads
+     as "another section", and these two rows are one control. */
+  .events-view__filters--nested {
+    margin-top: calc(var(--spacing-8) - var(--spacing-24));
+  }
+
   .events-view__day,
   .events-view__group {
     display: grid;

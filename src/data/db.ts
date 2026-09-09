@@ -50,8 +50,12 @@ import type {
  *   v6, no new table and no new column on `HorseEvent`: only the *content* of
  *   one already-seeded `eventTypes` row changes, so a fresh install and an
  *   upgraded device end up with the same row either way.
+ * - v8 — `EventTypeDef` gains `parentId`, nullable: a type can be a variation
+ *   of another one and inherit its presentation. `icon` and `theme` become
+ *   nullable with it (`null` meaning "take my parent's"), which needs no
+ *   rewrite — every existing row already carries both.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -129,6 +133,11 @@ type LegacyWorkEvent = {
 type LegacyEventRow = { type: string } & Partial<LegacyEventColumns> & {
     customFields?: HorseEvent["customFields"];
   };
+
+/** A pre-v8 event-type row: no `parentId`. */
+type LegacyEventTypeRow = {
+  parentId?: string | null;
+};
 
 export class LadyGestionDb extends Dexie {
   horses!: Table<Horse, string>;
@@ -271,6 +280,28 @@ export class LadyGestionDb extends Dexie {
             if (!type.fields.some((field) => field.id === "quantity")) {
               type.fields = [...type.fields, quantityField()];
             }
+          }),
+      );
+
+    // No index changed, so the stores are repeated verbatim once more.
+    // `parentId` is deliberately *not* indexed even though it is what the tree
+    // is walked by: it is nullable, and IndexedDB drops a record whose indexed
+    // value is null out of the index entirely — every root, which is the whole
+    // catalogue, would vanish from it. Same reason `deletedAt` is absent from
+    // every store string above. The catalogue is read whole anyway.
+    //
+    // `icon` and `theme` widen to nullable in the same version and need no
+    // rewrite: every row already has a real value, and `null` is a state only
+    // the type editor ever writes. `??=` so replaying this — a backup restored
+    // onto a device already past v8 — leaves a real parent alone.
+    this.version(8)
+      .stores(STORES_V6)
+      .upgrade((transaction) =>
+        transaction
+          .table<LegacyEventTypeRow>("eventTypes")
+          .toCollection()
+          .modify((type) => {
+            type.parentId ??= null;
           }),
       );
   }

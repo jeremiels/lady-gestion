@@ -86,6 +86,16 @@
     list-style: none;
   }
 
+  /* Two children since a group can carry a breakdown, so the track the button
+     stretches into has to be the li's *first row* rather than its whole box:
+     `height: 100%` below resolves against the grid area, and without this rule
+     that area is the entire li — the button ate it and pushed the disclosure
+     out through the bottom. `1fr` keeps exactly the stretch that rule wants. */
+  .budget-view__legend > li {
+    display: grid;
+    grid-template-rows: 1fr auto;
+  }
+
   /* The dot spans both rows so the label and its amount stack beside it.
 
      This is a <button> now — tapping it switches the category out of the ring —
@@ -96,6 +106,13 @@
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
+    /* Rows sized to their content, packed at the top, even though the box is
+       stretched by `height: 100%`. Without it the two auto rows share the
+       leftover space, so a row whose neighbour carries a breakdown pulls its
+       own label and amount apart to opposite ends of the cell. The dot still
+       centres against the pair — it spans both rows and `align-items` is what
+       does that, not the tracks. */
+    align-content: start;
     column-gap: var(--spacing-8);
     appearance: none;
     width: 100%;
@@ -161,6 +178,47 @@
 
   .budget-view__legend-item--off .budget-view__legend-label {
     text-decoration-color: var(--color-brown-disabled);
+  }
+
+  /* Sits under its legend row, inside the same grid cell, so a group that is
+     open pushes only its own column. Indented to the label's column so the
+     breakdown lines up with the name it belongs to rather than the dot. */
+  .budget-view__legend-breakdown {
+    margin-top: var(--spacing-4);
+    margin-inline-start: calc(0.75rem + var(--spacing-8));
+    font-size: 0.8125rem;
+  }
+
+  .budget-view__legend-breakdown > summary {
+    color: var(--color-brown-light);
+    cursor: pointer;
+  }
+
+  .budget-view__legend-breakdown > summary:focus-visible {
+    outline: 2px solid var(--color-brown-dark);
+    outline-offset: 2px;
+    border-radius: var(--radius-8);
+  }
+
+  .budget-view__legend-breakdown > ul {
+    display: grid;
+    gap: var(--spacing-2);
+    margin: var(--spacing-4) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .budget-view__legend-breakdown > ul > li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-8);
+    color: var(--color-brown-light);
+  }
+
+  /* Muted with the row above it: switching a group out of the ring switches
+     out everything the breakdown is counting. */
+  .budget-view__legend-item--off + .budget-view__legend-breakdown {
+    color: var(--color-brown-disabled);
   }
 
   .budget-view__ledger {

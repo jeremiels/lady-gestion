@@ -9,6 +9,7 @@ import {
   resetDb,
 } from "../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
+import type { AppChip } from "../components/app-chip/app-chip.ts";
 import "./EventsView.ts";
 import type { EventsView } from "./EventsView.ts";
 
@@ -48,6 +49,26 @@ const chipLabeled = (el: EventsView, label: string) =>
 
 const cardIds = (el: EventsView) =>
   [...el.querySelectorAll("event-card")].map((card) => card.event?.id).sort();
+
+const chipsIn = (el: EventsView, selector: string) => [
+  ...el.querySelectorAll<AppChip>(`${selector} app-chip`),
+];
+
+const chipLabels = (el: EventsView, selector = ".events-view__filters") =>
+  chipsIn(el, selector).map((chip) => chip.label);
+
+/**
+ * Files one built-in type under another, the way `setParent` writes it —
+ * theme cleared, so the child takes its parent's colour.
+ *
+ * The seeded catalogue is flat and stays that way; a nested one is something
+ * only the type editor or a restore produces.
+ */
+const nest = async (childKey: string, parentKey: string) => {
+  const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
+  const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
+  await db.eventTypes.put({ ...child, parentId: parent.id, theme: null });
+};
 
 beforeEach(async () => {
   await resetDb();
@@ -275,5 +296,100 @@ describe("events-view", () => {
     expect(after).toHaveLength(2);
     expect(after[0]).toBe(before.newest);
     expect(after[1]).toBe(before.oldest);
+  });
+
+  describe("with a nested type catalogue", () => {
+    const openList = async () => {
+      const el = await mount();
+      await switchToList(el);
+      await waitFor(
+        el,
+        () =>
+          el.querySelectorAll("event-card").length > 0 &&
+          el.querySelectorAll("app-chip").length > 1,
+      );
+      return el;
+    };
+
+    beforeEach(async () => {
+      await nest("veto", "soins");
+      await nest("dentiste", "soins");
+      await db.events.bulkAdd([
+        makeEvent({ id: "care", type: "soins", date: todayISO() }),
+        makeEvent({ id: "checkup", type: "veto", date: todayISO() }),
+        makeEvent({ id: "teeth", type: "dentiste", date: todayISO() }),
+        makeEvent({ id: "shoeing", type: "marechal", date: todayISO() }),
+      ]);
+    });
+
+    it("offers a chip per root, not per type", async () => {
+      const el = await openList();
+
+      const labels = chipLabels(el);
+      expect(labels).toContain(labelOf("soins"));
+      expect(labels).not.toContain(labelOf("veto"));
+      expect(labels).not.toContain(labelOf("dentiste"));
+    });
+
+    it("a root chip takes its whole subtree", async () => {
+      const el = await openList();
+
+      chipLabeled(el, labelOf("soins")).click();
+      await settled(el);
+
+      expect(cardIds(el)).toEqual(["care", "checkup", "teeth"]);
+    });
+
+    it("reveals the group's own chips once its root is selected", async () => {
+      const el = await openList();
+      expect(el.querySelector(".events-view__filters--nested")).toBeNull();
+
+      chipLabeled(el, labelOf("soins")).click();
+      await settled(el);
+
+      expect(chipLabels(el, ".events-view__filters--nested")).toEqual([
+        "Tous",
+        labelOf("dentiste"),
+        labelOf("veto"),
+      ]);
+    });
+
+    it("a child chip narrows to that child alone", async () => {
+      const el = await openList();
+      chipLabeled(el, labelOf("soins")).click();
+      await settled(el);
+
+      chipsIn(el, ".events-view__filters--nested")
+        .find((chip) => chip.label === labelOf("veto"))!
+        .click();
+      await settled(el);
+
+      expect(cardIds(el)).toEqual(["checkup"]);
+    });
+
+    it("keeps the root chip selected while a child is the filter", async () => {
+      const el = await openList();
+      chipLabeled(el, labelOf("soins")).click();
+      await settled(el);
+      chipsIn(el, ".events-view__filters--nested")
+        .find((chip) => chip.label === labelOf("veto"))!
+        .click();
+      await settled(el);
+
+      // Otherwise the second row would be showing children of a group that
+      // reads as switched off.
+      expect(chipLabeled(el, labelOf("soins")).selected).toBe(true);
+      expect(el.querySelector(".events-view__filters--nested")).not.toBeNull();
+    });
+
+    it("shows no second row for a root with no children", async () => {
+      const el = await openList();
+
+      chipLabeled(el, labelOf("marechal")).click();
+      await settled(el);
+
+      expect(cardIds(el)).toEqual(["shoeing"]);
+      expect(el.querySelector(".events-view__filters--nested")).toBeNull();
+    });
   });
 });

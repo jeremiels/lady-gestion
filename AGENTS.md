@@ -238,7 +238,7 @@ src/
     tokens/               # color.css, spacing.css, radius.css, typography.css
     components/, views/   # per-component / per-view CSS, in matching sub-layers
   theme/                 # ThemeKey -> {color, backgroundColor} (var(--color-theme-*))
-  types/                  # e.g. event.types.ts (EventTypeKey -> {label, icon, theme})
+  types/                  # taxonomy.ts, document.types.ts, horse.types.ts
   assets/icons/           # raw SVGs; built into /icons.svg by vite/icon-sprite.ts
   data/                   # persistence — see below
   pwa/                    # service worker + registration — see below
@@ -252,7 +252,7 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 ```
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
-  db.ts                # Dexie subclass + SCHEMA_VERSION (4) and its upgrades
+  db.ts                # Dexie subclass + SCHEMA_VERSION (8) and its upgrades
   types.ts             # BaseRecord, Horse, HorseEvent, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
@@ -420,14 +420,28 @@ src/data/
   without the second one an old file imports rows the current build silently
   misreads. `db.test.ts` covers the upgrade against a database really written
   by the previous version — keep its `V1_STORES` frozen.
+- **An event type may have a parent (`EventTypeDef.parentId`, schema v8), at
+  most one level deep, and a child inherits its presentation.** `parentId`
+  references a row `id`, not a `key` — unlike `HorseEvent.type`, which stores
+  the slug precisely so it outlives the row. `icon` and `theme` are nullable
+  there, `null` meaning "take my parent's", and **nothing reads those columns
+  directly**: views hold `eventTypesRepo.listResolved()`, which runs
+  `resolveCatalogue` (`data/event-types.ts`) — the one place that resolves the
+  inheritance, and the only guard against a theme string a backup file carries
+  that this build cannot draw. `canBeParentOf` is the depth cap, enforced by
+  `setParent`; `remove` promotes a deleted parent's children rather than
+  leaving them dangling. The shipped catalogue is entirely flat, so a hierarchy
+  is opt-in and everything above behaves as it did before v8.
 - Age is derived from `Horse.birthDate` via `ageInYears()` — never stored.
 - Components stay presentational and take data as properties
   (`horse-card` takes `.horse`); the owning view holds the `LiveQuery`.
-- **A taxonomy's accessors come from `taxonomy()` (`src/types/taxonomy.ts`)**,
-  not hand-written. `eventType` and `documentCategory` are each one call over
-  their `*_META` table and expose `.keys`, `.label(k)`, `.icon(k)`, `.theme(k)`.
-  `EVENT_TYPES` and `DOCUMENT_CATEGORIES` are `.keys`, so a category added to the
-  table cannot be missing from the list. There is no `getThemeMeta` — read
+- **A _closed_ taxonomy's accessors come from `taxonomy()`
+  (`src/types/taxonomy.ts`)**, not hand-written: `documentCategory` is one call
+  over `DOCUMENT_CATEGORY_META` and exposes `.keys`, `.label(k)`, `.icon(k)`,
+  `.theme(k)`, and `DOCUMENT_CATEGORIES` is `.keys`, so a category added to the
+  table cannot be missing from the list. Event types left this pattern in
+  schema v6 — `taxonomy()` only works over a key set known at compile time, and
+  those are rows now. There is no `getThemeMeta` — read
   `THEME_META[key]`, which is all it ever was.
 
 No component registry/barrel file. A component is used by importing its
@@ -865,10 +879,11 @@ message }` for `fieldMessages()` and `describedBy()`.
   `--app-input-background` and `--app-input-error-color` for exactly this;
   `::part(control)` is still right for something the component never varies
   itself, like `border-radius`.
-- `src/theme/theme.ts` (`ThemeKey` -> `{ color, backgroundColor }`) and
-  `src/types/event.types.ts` (`EventTypeKey` -> `{ label, icon, theme }`)
-  are the palette/icon source of truth for anything event- or
-  category-flavored. **`app-icon` and `app-tag` are domain-free and resolve
+- `src/theme/theme.ts` (`ThemeKey` -> `{ color, backgroundColor }`, plus
+  `THEME_KEYS` / `isThemeKey`) is the palette source of truth. An event type's
+  own `{ label, icon, theme }` is a **row** since schema v6, read through
+  `listResolved` / `resolveCatalogue` rather than a compile-time table;
+  document categories still are one (`src/types/document.types.ts`). **`app-icon` and `app-tag` are domain-free and resolve
   nothing themselves** — they read two custom properties, and the call site
   composes them with `iconStyle(...)` / `tagStyle(...)` over a `ThemeMeta`:
   `style=${styleMap(tagStyle(eventType.theme(event.type)))}`. That is what

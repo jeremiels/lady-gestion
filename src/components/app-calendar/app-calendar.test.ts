@@ -43,16 +43,14 @@ const press = async (
   key: string,
   init: KeyboardEventInit = {},
 ) => {
-  el.renderRoot
-    .querySelector(".calendar__grid")!
-    .dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key,
-        bubbles: true,
-        cancelable: true,
-        ...init,
-      }),
-    );
+  el.renderRoot.querySelector(".calendar__grid")!.dispatchEvent(
+    new KeyboardEvent("keydown", {
+      key,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    }),
+  );
   await settled(el);
 };
 

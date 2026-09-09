@@ -5,7 +5,8 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { appHref } from "../../commons/base-path.ts";
 import { formatDate, formatTime } from "../../data/dates.ts";
 import { formatCents } from "../../data/money.ts";
-import type { EventTypeDef, HorseEvent } from "../../data/types.ts";
+import type { ResolvedEventType } from "../../data/event-types.ts";
+import type { HorseEvent } from "../../data/types.ts";
 import { THEME_META } from "../../theme/theme.ts";
 
 import { iconStyle } from "../app-icon/app-icon.ts";
@@ -40,7 +41,7 @@ export class EventCard extends BaseElement {
    * query settles, or if the type has since been deleted; the card renders a
    * neutral placeholder rather than nothing so the row does not jump.
    */
-  @property({ attribute: false }) type: EventTypeDef | null = null;
+  @property({ attribute: false }) type: ResolvedEventType | null = null;
 
   /** Reflected so the styles below can key off it. */
   @property({ type: String, reflect: true }) layout: EventCardLayout =

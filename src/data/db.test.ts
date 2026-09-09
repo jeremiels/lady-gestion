@@ -134,6 +134,46 @@ const preV7AlimentationType = () => ({
   ],
 });
 
+/** The stores a real v7 device has. v7 changed row content, not indexes, so
+ * this is `V6_STORES` — restated rather than aliased, so the day v8's own
+ * successor adds an index this constant does not silently follow it. */
+const V7_STORES = { ...V6_STORES };
+
+/**
+ * An `eventTypes` row exactly as v7 wrote it — no `parentId`, and `icon`/
+ * `theme` never nullable. Hand-frozen, for the reason `preV7AlimentationType`
+ * and `LEGACY_STORES` both give: reading it off the live constants would
+ * exercise the upgrade against its own output.
+ */
+const preV8VetoType = () => ({
+  ...stamps,
+  id: "veto",
+  key: "veto",
+  label: "Vétérinaire",
+  icon: "firstAidKit",
+  theme: "pink",
+  isBuiltIn: true,
+  isAppointment: true,
+  tracksWork: false,
+  archived: false,
+  order: 6,
+  fields: [
+    { id: "counterparty", kind: "text", label: "Practicien", required: false },
+  ],
+});
+
+/** Writes a database already at v7, then closes it so `db` can upgrade it
+ * straight to v8. */
+const writeV7Database = async (rows: { eventTypes?: unknown[] }) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(7).stores(V7_STORES);
+  await legacy.open();
+  if (rows.eventTypes?.length) {
+    await legacy.table("eventTypes").bulkAdd(rows.eventTypes);
+  }
+  legacy.close();
+};
+
 /** Writes a database already at v6, then closes it so `db` can upgrade it
  * straight to v7 — isolating that one migration the same way `writeV5Database`
  * isolates v5 -> v6. */
@@ -523,6 +563,46 @@ describe("v6 -> v7: alimentation gains a quantity field", () => {
   });
 });
 
+describe("v7 -> v8: event types gain a parent", () => {
+  it("gives every existing row an explicit null parent", async () => {
+    await writeV7Database({ eventTypes: [preV8VetoType()] });
+
+    await db.open();
+
+    const stored = await db.eventTypes.get("veto");
+    // `null`, not absent: `undefined` contradicts the declared type and is
+    // dropped by `JSON.stringify` on the next backup export, so the file would
+    // never carry the column and never heal itself.
+    expect(stored).toHaveProperty("parentId", null);
+  });
+
+  it("leaves the presentation columns alone — they were never optional before", async () => {
+    await writeV7Database({ eventTypes: [preV8VetoType()] });
+
+    await db.open();
+
+    expect(await db.eventTypes.get("veto")).toMatchObject({
+      icon: "firstAidKit",
+      theme: "pink",
+    });
+  });
+
+  it("keeps a real parent when the row already has one", async () => {
+    // A device patched live, backed up, then restored onto itself replays this
+    // upgrade over rows that are already past it.
+    await writeV7Database({
+      eventTypes: [
+        { ...preV8VetoType(), id: "soins", key: "soins" },
+        { ...preV8VetoType(), parentId: "soins" },
+      ],
+    });
+
+    await db.open();
+
+    expect((await db.eventTypes.get("veto"))?.parentId).toBe("soins");
+  });
+});
+
 describe("a v1 database upgrading all the way", () => {
   it("runs every upgrade in sequence", async () => {
     await writeLegacyDatabase(1, {
@@ -541,6 +621,10 @@ describe("a v1 database upgrading all the way", () => {
     );
     expect(await db.activities.count()).toBe(0);
     expect(await db.eventTypes.count()).toBe(13);
+    // Seeded by v6 and carried through v8: the shipped catalogue is flat.
+    expect(
+      (await db.eventTypes.toArray()).every((type) => type.parentId === null),
+    ).toBe(true);
   });
 
   it("opens at the version the backup envelope advertises", async () => {

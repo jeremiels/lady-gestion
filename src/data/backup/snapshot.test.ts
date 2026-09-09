@@ -195,6 +195,38 @@ describe("migrateSnapshot", () => {
     )!;
     expect(alimentation.fields).toEqual(current.fields);
   });
+
+  it("gives a pre-v8 file's event types an explicit null parent", () => {
+    // A v7 file has no such key at all, and `undefined` is not `null` — the
+    // merge would write a row contradicting the declared type, and the next
+    // export would drop the key again.
+    const { parentId: _parentId, ...preV8 } = eventTypeRows[0]!;
+
+    const migrated = migrateSnapshot(
+      snapshot({
+        schemaVersion: 7,
+        tables: { eventTypes: [preV8 as EventTypeDef] },
+      }),
+    );
+
+    expect(migrated.tables.eventTypes[0]).toHaveProperty("parentId", null);
+  });
+
+  it("keeps a parent a pre-v8 file somehow already carries", () => {
+    const nested = { ...eventTypeRows[0]!, parentId: "soins" };
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 7, tables: { eventTypes: [nested] } }),
+    );
+
+    expect(migrated.tables.eventTypes[0]?.parentId).toBe("soins");
+  });
+
+  it("stamps the file up to the current schema version", () => {
+    const migrated = migrateSnapshot(snapshot({ schemaVersion: 7 }));
+
+    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
+  });
 });
 
 describe("importBackup — merge semantics", () => {

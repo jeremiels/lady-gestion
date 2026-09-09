@@ -39,4 +39,24 @@ export const THEME_META: Record<ThemeKey, ThemeMeta> = {
   },
 };
 
+/**
+ * The theme keys as a value, and the runtime check that goes with it.
+ *
+ * `THEME_META` is a mapped `Record<ThemeKey, ThemeMeta>`, so
+ * `noUncheckedIndexedAccess` does *not* widen `THEME_META[key]` to
+ * `| undefined` — an unknown theme string reaching a read site is a `TypeError`
+ * at render, not a missing colour. A string genuinely can arrive: a restored
+ * backup file is validated for `id` and `updatedAt` only
+ * (`assertSnapshot`), and `EventTypeDef.theme` is written straight from it.
+ * `resolveCatalogue` (`data/event-types.ts`) is the one place that guards it.
+ *
+ * Mirrors `ICON_NAMES` / `isIconName` in `components/app-icon/icons.ts`, which
+ * exists for the same reason on the other half of a type's presentation.
+ */
+export const THEME_KEYS = Object.keys(THEME_META) as ThemeKey[];
+
+const KEYS: ReadonlySet<string> = new Set<string>(THEME_KEYS);
+
+export const isThemeKey = (value: string): value is ThemeKey => KEYS.has(value);
+
 export type { ThemeKey, ThemeMeta };

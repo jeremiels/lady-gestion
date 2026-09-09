@@ -89,7 +89,7 @@ describe("sumByType", () => {
       ],
       TYPES,
     );
-    expect(slices).toEqual([{ type: "veto", cents: 12_500 }]);
+    expect(slices).toEqual([{ type: "veto", cents: 12_500, children: [] }]);
   });
 
   it("omits categories with nothing spent on them", () => {
@@ -107,7 +107,7 @@ describe("sumByType", () => {
       ],
       TYPES,
     );
-    expect(slices).toEqual([{ type: "veto", cents: 1000 }]);
+    expect(slices).toEqual([{ type: "veto", cents: 1000, children: [] }]);
   });
 
   it("orders by the type catalogue's order, not by amount, so the ring never reshuffles", () => {
@@ -135,11 +135,93 @@ describe("sumByType", () => {
       ],
       TYPES,
     );
-    expect(slices).toEqual([{ type: "veto", cents: 1000 }]);
+    expect(slices).toEqual([{ type: "veto", cents: 1000, children: [] }]);
   });
 
   it("returns nothing for no events", () => {
     expect(sumByType([], TYPES)).toEqual([]);
+  });
+
+  /**
+   * The hierarchy cases. `TYPES` is flat, so these re-parent a copy: `veto` and
+   * `dentiste` become children of `soins`, which is what an event-type editor
+   * would write through `setParent`.
+   */
+  describe("with a nested catalogue", () => {
+    const soins = TYPES.find((type) => type.key === "soins")!;
+    const nest = (key: string) => (type: (typeof TYPES)[number]) =>
+      type.key === key ? { ...type, parentId: soins.id, theme: null } : type;
+    const NESTED = TYPES.map(nest("veto")).map(nest("dentiste"));
+
+    it("rolls a child's spend into its root's wedge", () => {
+      const slices = sumByType(
+        [
+          budget("2026-01-05", "soins", 1000),
+          budget("2026-01-06", "veto", 2000, { id: "v" }),
+          budget("2026-01-07", "dentiste", 500, { id: "d" }),
+        ],
+        NESTED,
+      );
+
+      expect(slices).toEqual([
+        {
+          type: "soins",
+          cents: 3500,
+          children: [
+            { type: "dentiste", cents: 500 },
+            { type: "veto", cents: 2000 },
+          ],
+        },
+      ]);
+    });
+
+    it("gives a root a wedge for its children alone, even spending nothing itself", () => {
+      const slices = sumByType([budget("2026-01-06", "veto", 2000)], NESTED);
+
+      expect(slices).toEqual([
+        {
+          type: "soins",
+          cents: 2000,
+          children: [{ type: "veto", cents: 2000 }],
+        },
+      ]);
+    });
+
+    it("never gives a child a wedge of its own — it would repeat its parent's colour", () => {
+      const slices = sumByType([budget("2026-01-06", "veto", 2000)], NESTED);
+      expect(slices.map((slice) => slice.type)).not.toContain("veto");
+    });
+
+    it("drops a child that spent nothing from the breakdown", () => {
+      const slices = sumByType([budget("2026-01-06", "veto", 2000)], NESTED);
+      expect(slices[0]?.children).toEqual([{ type: "veto", cents: 2000 }]);
+    });
+
+    it("orders children by their own order within the group", () => {
+      // `dentiste` is order 4 and `veto` order 6 in the seeded catalogue.
+      const slices = sumByType(
+        [
+          budget("2026-01-06", "veto", 1, { id: "v" }),
+          budget("2026-01-07", "dentiste", 1, { id: "d" }),
+        ],
+        NESTED,
+      );
+      expect(slices[0]?.children.map((child) => child.type)).toEqual([
+        "dentiste",
+        "veto",
+      ]);
+    });
+
+    it("keeps sumSlices counting each event exactly once", () => {
+      const slices = sumByType(
+        [
+          budget("2026-01-05", "soins", 1000),
+          budget("2026-01-06", "veto", 2000, { id: "v" }),
+        ],
+        NESTED,
+      );
+      expect(sumSlices(slices)).toBe(3000);
+    });
   });
 });
 

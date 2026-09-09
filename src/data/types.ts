@@ -159,13 +159,56 @@ export type CustomFieldDef = {
  * block editing. `ActivityItem` below is code for its six built-ins for the
  * opposite reason: that is a closed vocabulary nothing there ever edits: this
  * one is the opposite from day one.
+ *
+ * Schema v8 gave it an optional parent (`parentId`), so a type can be a
+ * variation of another one — `Vétérinaire` under `Santé` — and inherit its
+ * presentation. Optional in the strong sense: every seeded row is a root, so a
+ * catalogue that never uses it behaves exactly as it did before v8.
  */
 export type EventTypeDef = BaseRecord & {
   /** Stable slug — what `HorseEvent.type` stores. Immutable once created. */
   key: string;
   label: string;
-  icon: IconName;
-  theme: ThemeKey;
+  /**
+   * The type this one is a variation of, by `id` — `null` for a root, which is
+   * what the whole shipped catalogue is.
+   *
+   * By `id`, not by `key`, unlike `HorseEvent.type` — the two are not the same
+   * kind of reference. An event keeps its type's *slug* so it survives that row
+   * disappearing; that durability is the whole contract of that field. A
+   * parent link is structural: a dangling pointer there is something to repair,
+   * not to preserve, and `id` is what `crud()` and `importBackup`'s merge
+   * already address a row by. `event-types.repo.ts`'s `remove` does that
+   * repair, promoting a deleted parent's children rather than leaving them
+   * pointing at a ghost.
+   *
+   * An adjacency list on purpose. The catalogue is read whole (`toArray()`) and
+   * the tree is assembled in memory, so a materialised path or a nested set
+   * would buy nothing here and cost one more invariant to hold on every write.
+   * Depth is capped at two — a child cannot itself be a parent — which is what
+   * makes resolving the presentation below a single hop with no recursion and
+   * no cycle to detect; `canBeParentOf` (`event-types.ts`) is that rule.
+   */
+  parentId: string | null;
+  /**
+   * The type's own icon, or `null` when it takes its parent's.
+   *
+   * `null` means "inherited" for both this and `theme` below — one sentinel,
+   * read through `resolveCatalogue` (`event-types.ts`), which is also where a
+   * root that somehow has neither falls back to a documented default.
+   */
+  icon: IconName | null;
+  /**
+   * The type's own theme, or `null` when it takes its parent's.
+   *
+   * The rule that a child *always* inherits its theme — so a group reads as one
+   * colour in the budget ring — lives in the editor, which writes `null` here
+   * and hides the swatches. Keeping it out of the schema is what makes an
+   * overridable theme a UI change later rather than a migration. It is also why
+   * a child's stored value is never noise: it is the theme it takes back the
+   * day `setParent(id, null)` detaches it.
+   */
+  theme: ThemeKey | null;
   /** True for the seeded rows. Informative only — it does not block editing. */
   isBuiltIn: boolean;
   /** Drives the dashboard's "Rendez-vous à venir" list — see `event-types.ts`. */
@@ -174,7 +217,13 @@ export type EventTypeDef = BaseRecord & {
   tracksWork: boolean;
   /** Soft-hide from pickers; still resolves for historical events. */
   archived: boolean;
-  /** Explicit, stable order — drives the budget donut/legend order. */
+  /**
+   * Explicit, stable order — drives the budget donut/legend order.
+   *
+   * Position *among siblings* since types gained a parent: the donut walks the
+   * roots in this order, and a group's legend walks its children in theirs. It
+   * never had to be unique across the table — it is only ever a sort key.
+   */
   order: number;
   fields: CustomFieldDef[];
 };

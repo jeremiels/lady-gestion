@@ -10,8 +10,9 @@ import {
   weekGrid,
   workSessionByDate,
   type IsoDate,
+  type ResolvedEventType,
 } from "../../data/index.ts";
-import type { EventTypeDef, HorseEvent } from "../../data/types.ts";
+import type { HorseEvent } from "../../data/types.ts";
 import { BaseElement } from "../../commons/base-element.ts";
 
 import "../day-card/day-card.ts";
@@ -63,12 +64,12 @@ export class WeekStrip extends BaseElement {
     [],
   );
 
-  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
-    eventTypesRepo.listAll(),
+  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
+    eventTypesRepo.listResolved(),
   );
 
   /** The type the day sheet writes to — the one type flagged `tracksWork`. */
-  get #workType(): EventTypeDef | null {
+  get #workType(): ResolvedEventType | null {
     return (
       (this.#eventTypes.value ?? []).find((type) => type.tracksWork) ?? null
     );

@@ -52,6 +52,25 @@ const toggleLegend = async (el: BudgetView, type: string) => {
   await settled(el);
 };
 
+/**
+ * Files one built-in type under another, the way `setParent` writes it. The
+ * seeded catalogue is flat; a nested one comes from the type editor or a
+ * restore.
+ */
+const nest = async (childKey: string, parentKey: string) => {
+  const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
+  const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
+  await db.eventTypes.put({ ...child, parentId: parent.id, theme: null });
+};
+
+const legendLabels = (el: BudgetView) =>
+  [...el.querySelectorAll(".budget-view__legend-label")].map((node) =>
+    node.textContent?.trim(),
+  );
+
+const breakdownFor = (el: BudgetView, type: string) =>
+  legendFor(el, type).parentElement!.querySelector("details");
+
 const pickPeriod = async (el: BudgetView, key: string) => {
   el.querySelector("app-select")!.dispatchEvent(
     new CustomEvent("select-change", {
@@ -108,10 +127,7 @@ describe("budget-view", () => {
 
     expect(ledgerIds(el)).toEqual(["this-month-marechal", "this-month-veto"]);
 
-    const legendLabels = [
-      ...el.querySelectorAll(".budget-view__legend-label"),
-    ].map((node) => node.textContent?.trim());
-    expect(legendLabels).toEqual(
+    expect(legendLabels(el)).toEqual(
       expect.arrayContaining([labelOf("veto"), labelOf("marechal")]),
     );
   });
@@ -378,5 +394,83 @@ describe("budget-view", () => {
     expect(legendFor(reopened, "veto").getAttribute("aria-pressed")).toBe(
       "false",
     );
+  });
+
+  describe("with a nested type catalogue", () => {
+    const spend = (id: string, type: string, amountCents: number) =>
+      makeEvent({ id, type, date: todayISO(), customFields: { amountCents } });
+
+    const openWithSpend = async () => {
+      const el = await mount();
+      await waitFor(
+        el,
+        () => el.querySelectorAll(".budget-view__legend-item").length > 0,
+      );
+      return el;
+    };
+
+    beforeEach(async () => {
+      await nest("veto", "soins");
+      await nest("dentiste", "soins");
+      await db.events.bulkAdd([
+        spend("care", "soins", 1000),
+        spend("checkup", "veto", 2000),
+        spend("teeth", "dentiste", 500),
+        spend("shoeing", "marechal", 7000),
+      ]);
+    });
+
+    it("gives the group one legend row, not one per child", async () => {
+      const el = await openWithSpend();
+
+      expect(legendLabels(el)).toEqual([labelOf("marechal"), labelOf("soins")]);
+    });
+
+    it("rolls the children's spend into the group's total", async () => {
+      const el = await openWithSpend();
+
+      expect(
+        legendFor(el, "soins").querySelector(".budget-view__legend-value")
+          ?.textContent,
+      ).toContain("35");
+    });
+
+    it("breaks the group down per child, collapsed by default", async () => {
+      const el = await openWithSpend();
+
+      const details = breakdownFor(el, "soins")!;
+      expect(details.open).toBe(false);
+      expect(details.querySelector("summary")?.textContent?.trim()).toBe(
+        "2 sous-types",
+      );
+      expect(
+        [...details.querySelectorAll("li")].map((li) =>
+          li.firstElementChild?.textContent?.trim(),
+        ),
+      ).toEqual([labelOf("dentiste"), labelOf("veto")]);
+    });
+
+    it("gives a root with no children no breakdown at all", async () => {
+      const el = await openWithSpend();
+
+      expect(breakdownFor(el, "marechal")).toBeNull();
+    });
+
+    it("draws one wedge per group, so no two share a colour", async () => {
+      const el = await openWithSpend();
+
+      expect(
+        el.querySelector("app-donut-chart")!.slices.map((slice) => slice.id),
+      ).toEqual(["marechal", "soins"]);
+    });
+
+    it("switching a group off takes its children with it", async () => {
+      const el = await openWithSpend();
+
+      await toggleLegend(el, "soins");
+
+      expect(hiddenInChart(el)).toEqual(["soins"]);
+      expect(legendLabels(el)).toContain(labelOf("soins"));
+    });
   });
 });

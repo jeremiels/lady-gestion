@@ -9,6 +9,20 @@ export interface AppSelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /**
+   * Header this option sits under, drawn as a native `<optgroup>`.
+   *
+   * Consecutive options sharing one open a single group, so the caller decides
+   * the grouping by the order it hands them over — the same contract a
+   * `<select>` has always had. Omit it and the option renders bare, so a list
+   * where nothing carries one is exactly the flat list this rendered before.
+   *
+   * Native rather than indented labels because on iOS this is the platform
+   * wheel picker, which draws the headers itself and reads them out; a label
+   * padded with spaces is a string the picker shows verbatim and a screen
+   * reader announces as one.
+   */
+  group?: string;
 }
 
 /**
@@ -75,6 +89,38 @@ export class AppSelect extends FormFieldElement {
    * animate between.
    */
   #measureCanvas?: HTMLCanvasElement;
+
+  /**
+   * `options` folded into runs of the same `group`, in the order given.
+   *
+   * A run rather than a bucket: re-ordering the caller's list to gather
+   * scattered members of a group would silently reshuffle a list whose order
+   * the caller chose, and `<select>` itself has never done that. A caller that
+   * wants one group therefore keeps its members together, which is what
+   * building the list root-by-root already does.
+   */
+  get #groups(): { label: string | undefined; options: AppSelectOption[] }[] {
+    const groups: { label: string | undefined; options: AppSelectOption[] }[] =
+      [];
+
+    for (const option of this.options) {
+      const last = groups.at(-1);
+      if (last && last.label === option.group) last.options.push(option);
+      else groups.push({ label: option.group, options: [option] });
+    }
+
+    return groups;
+  }
+
+  #renderOption = (option: AppSelectOption) => html`
+    <option
+      value=${option.value}
+      ?disabled=${option.disabled}
+      ?selected=${option.value === this.value}
+    >
+      ${option.label}
+    </option>
+  `;
 
   protected updated(changed?: PropertyValues<this>) {
     super.updated();
@@ -313,16 +359,12 @@ export class AppSelect extends FormFieldElement {
                   </option>`
                 : nothing
             }
-            ${this.options.map(
-              (option) => html`
-                <option
-                  value=${option.value}
-                  ?disabled=${option.disabled}
-                  ?selected=${option.value === this.value}
-                >
-                  ${option.label}
-                </option>
-              `,
+            ${this.#groups.map(({ label, options }) =>
+              label === undefined
+                ? options.map(this.#renderOption)
+                : html`<optgroup label=${label}>
+                    ${options.map(this.#renderOption)}
+                  </optgroup>`,
             )}
           </select>
           <span class="field__arrow" aria-hidden="true"></span>

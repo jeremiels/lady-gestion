@@ -25,8 +25,9 @@ import {
   type BudgetGranularity,
   type BudgetPeriod,
   type BudgetSlice,
+  type ResolvedEventType,
 } from "../data/index.ts";
-import type { EventTypeDef, HorseEvent } from "../data/types.ts";
+import type { HorseEvent } from "../data/types.ts";
 import { THEME_META } from "../theme/theme.ts";
 import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
 import type { DonutSlice } from "../components/app-donut-chart/app-donut-chart.ts";
@@ -93,8 +94,8 @@ export class BudgetView extends LightElement {
     [],
   );
 
-  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
-    eventTypesRepo.listAll(),
+  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
+    eventTypesRepo.listResolved(),
   );
 
   #reducedMotion = new MediaQuery(this, "(prefers-reduced-motion: reduce)");
@@ -321,7 +322,7 @@ export class BudgetView extends LightElement {
 
   #renderLedger(
     events: HorseEvent[],
-    types: EventTypeDef[],
+    types: ResolvedEventType[],
     granularity: BudgetGranularity,
   ) {
     return html`
@@ -359,7 +360,10 @@ export class BudgetView extends LightElement {
    * legend beside it carries the meaning, so nothing rests on telling two
    * similar pastels apart.
    */
-  #donutSlices(slices: BudgetSlice[], types: EventTypeDef[]): DonutSlice[] {
+  #donutSlices(
+    slices: BudgetSlice[],
+    types: ResolvedEventType[],
+  ): DonutSlice[] {
     return slices.map((slice) => {
       const type = findEventType(types, slice.type);
       return {
@@ -395,7 +399,7 @@ export class BudgetView extends LightElement {
    * The row survives being switched off — that is the only way back on — so the
    * amount stays readable and only the text is muted.
    */
-  #renderLegend(slices: BudgetSlice[], types: EventTypeDef[]) {
+  #renderLegend(slices: BudgetSlice[], types: ResolvedEventType[]) {
     const hidden = this.#hidden;
 
     return html`
@@ -435,11 +439,51 @@ export class BudgetView extends LightElement {
                     >${formatCents(slice.cents)}</span
                   >
                 </button>
+                ${this.#renderBreakdown(slice, types)}
               </li>
             `;
           },
         )}
       </ul>
+    `;
+  }
+
+  /**
+   * A grouped wedge's per-child figures, behind a native disclosure.
+   *
+   * The wedge is the group, so the ring cannot show these — a child inherits
+   * its parent's theme, and two wedges in one colour say nothing. They are the
+   * answer to "what is inside this", which is a second question, so they start
+   * collapsed rather than making every group three rows tall.
+   *
+   * `<details>` rather than a button and a piece of `ViewState`: it comes with
+   * the keyboard behaviour and the expanded/collapsed announcement already
+   * right, and unlike the legend row's own on/off state there is nothing here
+   * worth surviving a trip to an event and back.
+   *
+   * Renders nothing for a type with no children, which is every type in the
+   * shipped catalogue.
+   */
+  #renderBreakdown(slice: BudgetSlice, types: ResolvedEventType[]) {
+    if (slice.children.length === 0) return nothing;
+
+    const count = slice.children.length;
+    return html`
+      <details class="budget-view__legend-breakdown">
+        <summary>${count} sous-type${count > 1 ? "s" : ""}</summary>
+        <ul>
+          ${repeat(
+            slice.children,
+            (child) => child.type,
+            (child) => html`
+              <li>
+                <span>${findEventType(types, child.type)?.label ?? ""}</span>
+                <span>${formatCents(child.cents)}</span>
+              </li>
+            `,
+          )}
+        </ul>
+      </details>
     `;
   }
 }

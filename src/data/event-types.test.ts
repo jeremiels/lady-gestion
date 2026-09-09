@@ -6,9 +6,15 @@ import {
 } from "./__tests__/factories.ts";
 import { addDays, todayISO } from "./dates.ts";
 import {
+  canBeParentOf,
+  childrenOf,
   fieldById,
   fieldOfKind,
   isAppointmentType,
+  resolveCatalogue,
+  rootOf,
+  rootsOf,
+  subtreeKeys,
   upcomingAppointments,
 } from "./event-types.ts";
 
@@ -122,5 +128,174 @@ describe("upcomingAppointments", () => {
     const events = [makeEvent({ id: "veto", date: today, type: "veto" })];
 
     expect(upcomingAppointments(events, [])).toEqual([]);
+  });
+});
+
+/**
+ * The hierarchy helpers. Fixtures are hand-built rather than taken from
+ * `BUILT_IN_EVENT_TYPE_ROWS`, which is flat by design and stays that way — a
+ * nested catalogue is something only an editor or a restore produces.
+ */
+describe("the type hierarchy", () => {
+  const parent = makeEventType({
+    id: "p",
+    key: "soins",
+    label: "Soins",
+    icon: "firstAidKit",
+    theme: "pink",
+    order: 0,
+  });
+
+  /** A child the way `setParent` writes one: theme cleared, own icon kept. */
+  const child = makeEventType({
+    id: "c",
+    key: "veto",
+    label: "Vétérinaire",
+    parentId: "p",
+    icon: "pawPrint",
+    theme: null,
+    order: 1,
+  });
+
+  /** A child that inherits both halves of its presentation. */
+  const bare = makeEventType({
+    id: "b",
+    key: "dentiste",
+    label: "Dentiste",
+    parentId: "p",
+    icon: null,
+    theme: null,
+    order: 2,
+  });
+
+  describe("resolveCatalogue", () => {
+    it("gives a child its parent's theme", () => {
+      const [, resolved] = resolveCatalogue([parent, child]);
+      expect(resolved?.theme).toBe("pink");
+    });
+
+    it("keeps a child's own icon — it is what tells it from its siblings", () => {
+      const [, resolved] = resolveCatalogue([parent, child]);
+      expect(resolved?.icon).toBe("pawPrint");
+    });
+
+    it("gives a child with no icon of its own its parent's", () => {
+      const [, resolved] = resolveCatalogue([parent, bare]);
+      expect(resolved?.icon).toBe("firstAidKit");
+    });
+
+    it("leaves a root's own presentation alone", () => {
+      const [resolved] = resolveCatalogue([parent, child]);
+      expect(resolved).toMatchObject({ icon: "firstAidKit", theme: "pink" });
+    });
+
+    it("treats a child whose parent is not in the list as a root", () => {
+      // The parent was soft-deleted on another device, or a partial merge
+      // brought the child over alone. Rendering it as a root is what keeps it
+      // visible instead of dropping it.
+      const [resolved] = resolveCatalogue([child]);
+      expect(resolved?.parentId).toBeNull();
+      expect(resolved?.icon).toBe("pawPrint");
+    });
+
+    it("falls back to the defaults for a root carrying no presentation", () => {
+      const orphan = makeEventType({ id: "o", icon: null, theme: null });
+      const [resolved] = resolveCatalogue([orphan]);
+      expect(resolved).toMatchObject({ icon: "info", theme: "taupe" });
+    });
+
+    it("falls back for a theme this build cannot draw", () => {
+      // What a backup file written by a build with more themes restores as —
+      // `assertSnapshot` checks `id` and `updatedAt` and nothing else, and
+      // `THEME_META[key]` is a mapped type, so this used to be a TypeError at
+      // render rather than a missing colour.
+      const alien = makeEventType({
+        id: "a",
+        theme: "octarine" as never,
+        icon: "trophy" as never,
+      });
+      const [resolved] = resolveCatalogue([alien]);
+      expect(resolved).toMatchObject({ icon: "info", theme: "taupe" });
+    });
+  });
+
+  describe("rootsOf / childrenOf / rootOf", () => {
+    const catalogue = [parent, child, bare];
+
+    it("keeps only the parentless, in order", () => {
+      expect(rootsOf(catalogue).map((type) => type.id)).toEqual(["p"]);
+    });
+
+    it("counts a dangling child as a root, the same way resolveCatalogue does", () => {
+      expect(rootsOf([child]).map((type) => type.id)).toEqual(["c"]);
+    });
+
+    it("lists a parent's children in their own order", () => {
+      expect(childrenOf(catalogue, "p").map((type) => type.id)).toEqual([
+        "c",
+        "b",
+      ]);
+    });
+
+    it("has no children for a leaf", () => {
+      expect(childrenOf(catalogue, "c")).toEqual([]);
+    });
+
+    it("walks a child up to its root", () => {
+      expect(rootOf(catalogue, child).id).toBe("p");
+    });
+
+    it("answers a root with itself", () => {
+      expect(rootOf(catalogue, parent).id).toBe("p");
+    });
+  });
+
+  describe("subtreeKeys", () => {
+    const catalogue = [parent, child, bare];
+
+    it("covers a root and its children", () => {
+      expect([...subtreeKeys(catalogue, "soins")].sort()).toEqual([
+        "dentiste",
+        "soins",
+        "veto",
+      ]);
+    });
+
+    it("is the key alone for a leaf — today's flat filter", () => {
+      expect([...subtreeKeys(catalogue, "veto")]).toEqual(["veto"]);
+    });
+
+    it("is the key alone for a type the catalogue does not have", () => {
+      expect([...subtreeKeys(catalogue, "gone")]).toEqual(["gone"]);
+    });
+  });
+
+  describe("canBeParentOf", () => {
+    const catalogue = [parent, child, bare];
+    const other = makeEventType({ id: "x", key: "cours", order: 3 });
+
+    it("allows a root under another root", () => {
+      expect(canBeParentOf([parent, other], "x", "p")).toBe(true);
+    });
+
+    it("refuses a type as its own parent", () => {
+      expect(canBeParentOf(catalogue, "p", "p")).toBe(false);
+    });
+
+    it("refuses a parent that is itself a child — that would be three deep", () => {
+      expect(canBeParentOf([...catalogue, other], "x", "c")).toBe(false);
+    });
+
+    it("refuses giving a parent to a type that already has children", () => {
+      expect(canBeParentOf([...catalogue, other], "p", "x")).toBe(false);
+    });
+
+    it("refuses a parent the catalogue does not have", () => {
+      expect(canBeParentOf(catalogue, "c", "gone")).toBe(false);
+    });
+
+    it("refuses a child the catalogue does not have", () => {
+      expect(canBeParentOf(catalogue, "gone", "p")).toBe(false);
+    });
   });
 });

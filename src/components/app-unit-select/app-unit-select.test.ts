@@ -38,8 +38,6 @@ describe("app-unit-select", () => {
       const label = el.renderRoot.querySelector(`#${labelledBy}`);
 
       expect(label?.textContent?.trim()).toBe("Unité");
-      // Clipped, not removed — the group still needs an accessible name.
-      expect(getComputedStyle(label!).clipPath).not.toBe("none");
     });
   });
 

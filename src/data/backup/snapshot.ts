@@ -283,6 +283,27 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     };
   }
 
+  // v7 -> v8: event types gain `parentId`. A pre-v8 file has no such key, and
+  // `undefined` is not `null` — the same trap v3 and v4 fixed for events, with
+  // the same consequence: the merge writes rows whose column contradicts the
+  // declared type, and `JSON.stringify` drops the key again on the next
+  // export, so the file never heals itself. `??` rather than a bare `null`
+  // keeps a real parent on a file that already carries one, which is what a
+  // device patched live, backed up, then restored onto itself produces.
+  //
+  // `icon` and `theme` widen to nullable in the same version with nothing to
+  // fix up: a pre-v8 row always carries both. `resolveCatalogue`
+  // (`data/event-types.ts`) is what copes with a file where they do not.
+  if (backup.schemaVersion < 8) {
+    tables = {
+      ...tables,
+      eventTypes: tables.eventTypes.map((type) => ({
+        ...type,
+        parentId: type.parentId ?? null,
+      })),
+    };
+  }
+
   return {
     ...backup,
     schemaVersion: SCHEMA_VERSION,

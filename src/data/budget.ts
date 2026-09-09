@@ -1,5 +1,5 @@
 import { todayISO, type IsoDate } from "./dates.ts";
-import { byOrder } from "./event-types.ts";
+import { childrenOf, rootsOf } from "./event-types.ts";
 import { formatMonthLong, formatMonthShort, monthOf } from "./seasons.ts";
 import type { EventTypeDef, HorseEvent } from "./types.ts";
 
@@ -23,8 +23,23 @@ export type BudgetGranularity = "month" | "year";
  */
 export type BudgetPeriod = { granularity: BudgetGranularity; key: string };
 
-/** One wedge of the donut: a category and what was spent on it. */
-export type BudgetSlice = { type: string; cents: number };
+/** A category and what was spent on it. */
+export type BudgetLeaf = { type: string; cents: number };
+
+/**
+ * One wedge of the donut: a *root* category, what was spent on it, and the
+ * children that spend rolls up from.
+ *
+ * `cents` is the whole subtree — the wedge's own size — so `sumSlices` and the
+ * ring's total need to know nothing about the hierarchy. `children` is the
+ * breakdown the legend expands to, and it is a `BudgetLeaf[]` rather than a
+ * `BudgetSlice[]` on purpose: that is the depth cap (`canBeParentOf` in
+ * `event-types.ts`) stated in the type, so a grandchild is not merely absent
+ * here, it is unrepresentable.
+ *
+ * Empty for a type with no children, which is the entire shipped catalogue.
+ */
+export type BudgetSlice = BudgetLeaf & { children: BudgetLeaf[] };
 
 const PERIOD_KEY_LENGTH: Record<BudgetGranularity, number> = {
   month: 7,
@@ -47,8 +62,14 @@ export const inPeriod = (
 ): HorseEvent[] => events.filter((event) => event.date.startsWith(period.key));
 
 /**
- * Spend per category, in the type catalogue's `order`, categories with
+ * Spend per root category, in the type catalogue's `order`, categories with
  * nothing spent on them dropped.
+ *
+ * A child's spend rolls up into its root's wedge rather than earning one of
+ * its own — the ring would otherwise draw two wedges in the same colour, since
+ * a child inherits its parent's theme, and no legend can rescue that. The
+ * per-child figures survive on the slice for the legend to expand into. A flat
+ * catalogue has no children at all, so this is exactly the old behaviour.
  *
  * That order matters more than it looks: it is what keeps a category — and
  * therefore its colour and its neighbours — in the same place in the ring from
@@ -71,9 +92,22 @@ export const sumByType = (
     totals.set(event.type, (totals.get(event.type) ?? 0) + amount);
   }
 
-  return byOrder(types).flatMap((type) => {
-    const cents = totals.get(type.key) ?? 0;
-    return cents === 0 ? [] : [{ type: type.key, cents }];
+  return rootsOf(types).flatMap((root) => {
+    const children: BudgetLeaf[] = childrenOf(types, root.id).flatMap(
+      (child) => {
+        const cents = totals.get(child.key) ?? 0;
+        return cents === 0 ? [] : [{ type: child.key, cents }];
+      },
+    );
+
+    // The root's own spend plus its children's. A root that spends nothing
+    // itself still earns a wedge when a child does — dropping it would hide
+    // the group, which is the one thing the grouping exists to show.
+    const cents =
+      (totals.get(root.key) ?? 0) +
+      children.reduce((total, child) => total + child.cents, 0);
+
+    return cents === 0 ? [] : [{ type: root.key, cents, children }];
   });
 };
 

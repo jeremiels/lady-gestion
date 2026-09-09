@@ -71,6 +71,7 @@ export const makeEventType = (
   ...base("event-type-1"),
   key: "veto",
   label: "Vétérinaire",
+  parentId: null,
   icon: "firstAidKit",
   theme: "pink",
   isBuiltIn: true,

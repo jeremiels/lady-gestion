@@ -1,4 +1,4 @@
-import { html } from "lit";
+import { html, nothing } from "lit";
 import { customElement } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { LightElement } from "../commons/base-element.ts";
@@ -14,10 +14,15 @@ import {
   LiveQuery,
   occurrencesByDate,
   toCalendarEvent,
+  childrenOf,
+  rootOf,
+  rootsOf,
+  subtreeKeys,
   todayISO,
   type IsoDate,
+  type ResolvedEventType,
 } from "../data/index.ts";
-import type { EventTypeDef, HorseEvent } from "../data/types.ts";
+import type { HorseEvent } from "../data/types.ts";
 import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
 
 import "../components/app-calendar/app-calendar.ts";
@@ -82,8 +87,8 @@ export class EventsView extends LightElement {
     [],
   );
 
-  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
-    eventTypesRepo.listAll(),
+  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
+    eventTypesRepo.listResolved(),
   );
 
   #onModeChange = (event: CustomEvent<{ value: string }>) => {
@@ -103,13 +108,18 @@ export class EventsView extends LightElement {
   };
 
   /** Cancelled events are hidden here for the same reason the calendar hides them. */
-  #visibleEvents(types: EventTypeDef[]): HorseEvent[] {
+  #visibleEvents(types: ResolvedEventType[]): HorseEvent[] {
     const { query, typeFilter } = this.#ui.value;
     const needle = normalize(query.trim());
 
+    // A root chip covers its children too — `subtreeKeys` is a singleton for a
+    // type with none, which is exactly the `event.type === typeFilter` this
+    // replaces on a flat catalogue.
+    const keys = typeFilter === null ? null : subtreeKeys(types, typeFilter);
+
     return (this.#events.value ?? []).filter((event) => {
       if (event.status === "cancelled") return false;
-      if (typeFilter && event.type !== typeFilter) return false;
+      if (keys && !keys.has(event.type)) return false;
       if (!needle) return true;
 
       const haystack = [
@@ -155,7 +165,7 @@ export class EventsView extends LightElement {
     `;
   }
 
-  #renderCalendar(types: EventTypeDef[]) {
+  #renderCalendar(types: ResolvedEventType[]) {
     const { selected } = this.#ui.value;
     const events = this.#events.value ?? [];
     const calendarEvents = events.map(toCalendarEvent);
@@ -189,8 +199,8 @@ export class EventsView extends LightElement {
     `;
   }
 
-  #renderList(types: EventTypeDef[]) {
-    const { query, typeFilter } = this.#ui.value;
+  #renderList(types: ResolvedEventType[]) {
+    const { query } = this.#ui.value;
     const events = this.#visibleEvents(types);
 
     // `listByHorse` already returns newest first, so grouping in order gives
@@ -215,27 +225,7 @@ export class EventsView extends LightElement {
         @input=${this.#onSearch}
       ></app-input>
 
-      <div
-        class="events-view__filters"
-        role="group"
-        aria-label="Filtrer par type"
-      >
-        <app-chip
-          label="Tous"
-          ?selected=${typeFilter === null}
-          @click=${this.#onFilter(null)}
-        ></app-chip>
-        ${byLabel(types).map(
-          (type) => html`
-            <app-chip
-              label=${type.label}
-              ?selected=${typeFilter === type.key}
-              @click=${this.#onFilter(type.key)}
-            ></app-chip>
-          `,
-        )}
-      </div>
-
+      ${this.#renderFilters(types)}
       ${
         months.size === 0
           ? html`<p class="events-view__empty">
@@ -258,6 +248,78 @@ export class EventsView extends LightElement {
   }
 
   /**
+   * One chip per *root* type, and a second row for the selected root's
+   * children.
+   *
+   * Roots only on the first row because a child's chip beside its parent's
+   * would filter a subset of what the parent already covers, in the same
+   * colour, in a row that is already wide enough to scroll. Selecting a root
+   * takes its whole subtree (`#visibleEvents`), and the second row is how you
+   * narrow to one child from there — so nothing becomes unreachable, it moves
+   * one tap away.
+   *
+   * A flat catalogue is every type being a root, so this renders exactly the
+   * row it did before types could nest, and the second row never appears.
+   */
+  #renderFilters(types: ResolvedEventType[]) {
+    const { typeFilter } = this.#ui.value;
+    const selected =
+      typeFilter === null ? undefined : findEventType(types, typeFilter);
+    const root = selected ? rootOf(types, selected) : undefined;
+    const children = root ? childrenOf(types, root.id) : [];
+
+    return html`
+      <div
+        class="events-view__filters"
+        role="group"
+        aria-label="Filtrer par type"
+      >
+        <app-chip
+          label="Tous"
+          ?selected=${typeFilter === null}
+          @click=${this.#onFilter(null)}
+        ></app-chip>
+        ${byLabel(rootsOf(types)).map(
+          (type) => html`
+            <app-chip
+              label=${type.label}
+              ?selected=${root?.key === type.key}
+              @click=${this.#onFilter(type.key)}
+            ></app-chip>
+          `,
+        )}
+      </div>
+
+      ${
+        root === undefined || children.length === 0
+          ? nothing
+          : html`
+              <div
+                class="events-view__filters events-view__filters--nested"
+                role="group"
+                aria-label="Filtrer dans ${root.label}"
+              >
+                <app-chip
+                  label="Tous"
+                  ?selected=${typeFilter === root.key}
+                  @click=${this.#onFilter(root.key)}
+                ></app-chip>
+                ${byLabel(children).map(
+                  (child) => html`
+                    <app-chip
+                      label=${child.label}
+                      ?selected=${typeFilter === child.key}
+                      @click=${this.#onFilter(child.key)}
+                    ></app-chip>
+                  `,
+                )}
+              </div>
+            `
+      }
+    `;
+  }
+
+  /**
    * Keyed by event id, not rendered positionally.
    *
    * The search box, the type chips and the day picker all reorder and resize
@@ -266,7 +328,7 @@ export class EventsView extends LightElement {
    * record and re-renders all of them, rather than dropping the handful that
    * stopped matching. `repeat()` moves the DOM instead.
    */
-  #renderCards(events: HorseEvent[], types: EventTypeDef[]) {
+  #renderCards(events: HorseEvent[], types: ResolvedEventType[]) {
     return html`
       <ul class="events-view__list">
         ${repeat(

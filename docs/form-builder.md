@@ -16,6 +16,13 @@ The goal is to let end users, from within the app, create their own event types 
 
 Steps 1–3 of the build order below shipped in commit `a63615e` ("refactor data schema types"): the data model, the schema v6 migration, `event-types.repo.ts`, and `event-sheet.ts`/`EventDetailView.ts`/`budget.ts` reading fields dynamically off the live type catalogue. The app behaves identically to before that commit for the 13 seeded types. **Steps 4 and 5 — the type-management UI and the backup/migration hardening pass — have not started.**
 
+**Refreshed 2026-09-09** — schema v8 gave `EventTypeDef` an optional parent
+(`parentId`), capped at one level, with a child inheriting its parent's theme
+always and its icon when it has none of its own. Everything that _reads_ the
+catalogue was moved onto it (grouped picker, subtree filter chips, budget
+roll-up); nothing yet _writes_ it, because that is step 4's editor. See
+"Parent/child hierarchy" below.
+
 One design note for whoever picks up step 4: the shipped field-lookup helpers are split in two — `fieldOfKind` (safe only for `followUp`/`workActivity`, which are singleton-by-construction) and `fieldById` (for the general-purpose kinds — `text`, `cents`, `bool` — where a type could in principle carry more than one field of the same kind). A field-builder UI that lets a user add a _second_ `text` or `cents` field to a type is exactly the case `fieldById` exists for; do not reintroduce a kind-based lookup for a fixed slot once that UI exists.
 
 ## Non-goals for v1
@@ -97,14 +104,31 @@ Per the documented convention in `snapshot.ts` for migrating `db.version(n).upgr
 No existing settings/CRUD screen to copy — build new, reusing existing primitives (`app-bottom-sheet`, `app-chip`, `app-input`, `app-switch`, `app-combobox`, `<app-icon>`):
 
 - Entry point: a "Types d'événements" row on the profile view (today's closest thing to a settings screen), linking to a new `src/views/EventTypesView.ts` — a list of all types (built-in and custom together, no visual distinction beyond an optional "par défaut" badge), sorted by label, tappable to edit; a "+" opens the same editor in create mode.
-- Editor: new bottom-sheet component `src/components/event-type-sheet/event-type-sheet.ts` — label input; icon picker (grid over `ICON_NAMES` from `components/app-icon/icons.ts`, rendered with `<app-icon>`); theme picker (swatches over the `ThemeKey` values in `theme/theme.ts`); toggles for `isAppointment`/`tracksWork`; a field-list editor (each row: kind selector + label + required + kind-specific options like choice items or number min/max). No icon/color picker exists anywhere yet, so this is new UI, not a reuse of an existing pattern.
-- Archive vs delete: since `HorseEvent.type` is a direct key reference, hard-deleting a type that has events would orphan their display. Default action is "Archiver" (`archived: true` — hidden from new-event pickers, still resolves for historical events); offer a "Supprimer définitivement" action only when a count query on `events.repo` confirms zero events reference that key.
+- Editor: new bottom-sheet component `src/components/event-type-sheet/event-type-sheet.ts` — label input; icon picker (grid over `ICON_NAMES` from `components/app-icon/icons.ts`, rendered with `<app-icon>`); theme picker (swatches over `THEME_KEYS` in `theme/theme.ts`); toggles for `isAppointment`/`tracksWork`; a field-list editor (each row: kind selector + label + required + kind-specific options like choice items or number min/max). No icon/color picker exists anywhere yet, so this is new UI, not a reuse of an existing pattern.
+- **Parent picker** — an `<app-select>` "Type parent" whose options are `rootsOf(types)` filtered by `canBeParentOf(types, editedId, candidateId)`, writing through `eventTypesRepo.setParent`. The editor is the one place the _policy_ around inheritance lives: hide the theme swatches entirely when `parentId !== null` (a child always takes its parent's colour — that is what makes a group one wedge in the budget ring), and default a **new** child's `icon` to `null` so it inherits, with an explicit "personnaliser" affordance to give it one. This screen must read `eventTypesRepo.listAll()`, **not** `listResolved()`: only the raw row still carries the `null` that means "hérité", which is exactly what the swatch has to say.
+- Archive vs delete: since `HorseEvent.type` is a direct key reference, hard-deleting a type that has events would orphan their display. Default action is "Archiver" (`archived: true` — hidden from new-event pickers, still resolves for historical events); offer a "Supprimer définitivement" action only when a count query on `events.repo` confirms zero events reference that key. Either way `eventTypesRepo.remove` already promotes the type's children to roots, materialising the presentation they were inheriting, so deleting a parent never repaints its children.
+
+## Parent/child hierarchy (schema v8, shipped)
+
+`EventTypeDef.parentId: string | null` — an adjacency list, capped at **one level** (a child cannot itself be a parent). By row `id`, not by `key`, unlike `HorseEvent.type`: an event keeps the slug so it survives its type disappearing, whereas a dangling parent link is something to repair. `parentId` is deliberately **unindexed** — it is nullable, and IndexedDB drops null-keyed rows out of an index entirely, so every root would vanish from it.
+
+`icon` and `theme` are nullable with `null` meaning "take my parent's". Nothing reads them directly: `resolveCatalogue` (`data/event-types.ts`) fills them in one pass, treats a `parentId` that resolves to nothing as a root, and falls back to `info`/`taupe` for a value this build cannot draw — which also closes a pre-existing crash, since `THEME_META[key]` is a mapped type and an unknown theme from a restored backup used to be a `TypeError` at render.
+
+The helpers, all pure and tested in `src/data/event-types.test.ts`: `resolveCatalogue`, `rootsOf`, `childrenOf`, `rootOf`, `subtreeKeys`, `canBeParentOf`. The write paths, tested in `src/data/repositories/event-types.repo.test.ts`: `setParent` (enforces the cap; clears `theme` on attach, materialises it on detach) and `remove` (promotes children).
+
+What consumes it today:
+
+- **Picker** (`event-sheet`) — roots alphabetically; a root with children opens a native `<optgroup>` containing the root itself first, then its children. A parent is a selectable type in its own right.
+- **Filter chips** (`EventsView`) — roots only; selecting one takes its whole subtree (`subtreeKeys`) and reveals a second row of its children.
+- **Budget** (`budget.ts` `sumByType`) — a child's spend rolls into its root's wedge, with the per-child figures kept on `BudgetSlice.children` for the legend's disclosure. Children cannot have wedges of their own: they share their parent's colour, so the ring could not tell them apart.
+
+The 13 built-ins are all roots and stay that way. Giving them a real hierarchy — a `Santé` parent over `veto`/`dentiste`/`osteo`/`soins`/`cures`/`traitement` — is one line each in `BUILT_IN_EVENT_TYPES`, but it changes existing users' colours and donut, so it is a product decision rather than a migration detail.
 
 ## Testing & verification
 
 - `src/data/db.test.ts`: extend the upgrade-path test to cover v6 (seeding + column migration) — done.
-- New `src/data/repositories/event-types.repo.test.ts` mirroring `activities.repo.ts` test conventions — done.
-- New `src/data/event-types.test.ts` for the pure helpers in `event-types.ts` (`fieldOfKind`/`fieldById`/`isAppointmentType`/`upcomingAppointments`/etc.) — still to add.
+- New `src/data/repositories/event-types.repo.test.ts` mirroring `activities.repo.ts` test conventions — done (v8; it did not actually exist before then, despite this line).
+- New `src/data/event-types.test.ts` for the pure helpers in `event-types.ts` (`fieldOfKind`/`fieldById`/`isAppointmentType`/`upcomingAppointments`, plus the v8 hierarchy helpers) — done.
 - Component tests once the management UI exists: new `EventTypesView.test.ts` and `event-type-sheet.test.ts`, per the existing `test:components` convention.
 - Run `npm run build` (typecheck + oxlint + vite build) and both `npm run test:data` / `npm run test:components`.
 - Manual pass via the `run-lady-gestion` skill once the UI exists: create a custom type mixing several field kinds, create/edit an event of that type, edit a built-in type's label/icon/fields, confirm the dashboard/budget donut and week-strip day-activity still work, export a backup then import it into a fresh DB to confirm the v6 migration round-trips.
@@ -114,5 +138,5 @@ No existing settings/CRUD screen to copy — build new, reusing existing primiti
 1. ~~Data model + migration + `event-types.repo.ts` + seeding (no UI change yet, app still works off the seeded defaults).~~ Done — `a63615e`.
 2. ~~Make `event-types.ts`'s accessors and `event-sheet.ts` fully dynamic/data-driven for the seeded types (behaves identically to before, including the amount rules from `c60fc47`).~~ Done — `a63615e`.
 3. ~~Generalize `APPOINTMENT_TYPES`/`tracksWork`/budget ordering off the new flags.~~ Done — `a63615e`.
-4. Build the type-management UI (list + editor, icon/theme pickers, field-list editor).
+4. Build the type-management UI (list + editor, icon/theme pickers, **parent picker**, field-list editor). This is the only step left before the v8 hierarchy is reachable by a user rather than only by code or a restore.
 5. Backup/migration hardening + full test pass.

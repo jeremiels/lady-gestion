@@ -14,8 +14,9 @@ import {
   startOfMonth,
   todayISO,
   upcomingAppointments,
+  type ResolvedEventType,
 } from "../data/index.ts";
-import type { EventTypeDef, HorseEvent } from "../data/types.ts";
+import type { HorseEvent } from "../data/types.ts";
 import { ACCOUNT } from "../data/account.ts";
 import "../components/horse-card/horse-card.ts";
 import "../components/budget-card/budget-card.ts";
@@ -30,8 +31,8 @@ const UPCOMING_LIMIT = 3;
 export class HomeView extends LightElement {
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
-  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
-    eventTypesRepo.listAll(),
+  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
+    eventTypesRepo.listResolved(),
   );
 
   // Already filtered to still-to-happen `planned` events, soonest first — not

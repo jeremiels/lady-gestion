@@ -20,12 +20,9 @@ import {
   formatTime,
   formatWorkActivity,
   parseFollowUpValue,
+  type ResolvedEventType,
 } from "../data/index.ts";
-import type {
-  EventTypeDef,
-  HorseEvent,
-  StoredDocument,
-} from "../data/types.ts";
+import type { HorseEvent, StoredDocument } from "../data/types.ts";
 import { THEME_META } from "../theme/theme.ts";
 import type { IconName } from "../components/app-icon/icons.ts";
 import { documentCategory } from "../types/document.types.ts";
@@ -58,8 +55,8 @@ export class EventDetailView extends LightElement {
   #documents = new LiveQuery<StoredDocument[]>(this, () =>
     documentsRepo.listByEvent(this.eventId),
   );
-  #eventTypes = new LiveQuery<EventTypeDef[]>(this, () =>
-    eventTypesRepo.listAll(),
+  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
+    eventTypesRepo.listResolved(),
   );
 
   /** Back to the calendar or the list, whichever this was opened from. */
@@ -172,7 +169,7 @@ export class EventDetailView extends LightElement {
    * field actually being found, so the card degrades to its bare minimum
    * rather than throwing.
    */
-  #infoRows(event: HorseEvent, type: EventTypeDef | undefined): InfoRow[] {
+  #infoRows(event: HorseEvent, type: ResolvedEventType | undefined): InfoRow[] {
     const rows: InfoRow[] = [
       // `app-tag` resolves both the label and the colours from the type alone.
       {
@@ -285,7 +282,7 @@ export class EventDetailView extends LightElement {
     `;
   }
 
-  #renderActions(event: HorseEvent, type: EventTypeDef | undefined) {
+  #renderActions(event: HorseEvent, type: ResolvedEventType | undefined) {
     const doc = this.#documents.value?.[0] ?? null;
 
     return html`
@@ -421,7 +418,7 @@ export class EventDetailView extends LightElement {
    */
   async #share(
     event: HorseEvent,
-    type: EventTypeDef | undefined,
+    type: ResolvedEventType | undefined,
     doc: StoredDocument | null,
   ) {
     this.actionError = "";
