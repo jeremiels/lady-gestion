@@ -88,6 +88,15 @@ const careFields = (): CustomFieldDef[] => [
  * migration step that seeds this list (`migrateEventToCustomFields` in
  * `events.ts`).
  *
+ * Two of those four stopped being roots in schema v9: `cures` files under
+ * `alimentation` and `traitement` under `veto`, so both inherit their parent's
+ * presentation and their spend rolls into its wedge. That is a product
+ * decision rather than a migration detail — it repaints two types and redraws
+ * the budget ring for anyone already using them — which is why it needed a
+ * migration of its own rather than an edit to this array alone: the rows exist
+ * on installed devices already, and changing the seed reaches only a fresh
+ * install.
+ *
  * Read by both halves of the schema v6 migration — `db.ts`'s live upgrade and
  * `backup/snapshot.ts`'s `migrateSnapshot` — via `seedEventTypeDefs` below, so
  * a database upgraded in place and a backup file restored from an older build
@@ -247,9 +256,19 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "cures",
     label: "Cures",
-    parentId: null,
-    icon: "pawPrint",
-    theme: "purple",
+    // A child of `alimentation`: a cure is a course of supplements, which is
+    // what the group reads as. `parentId` holds the parent's `id`, not its
+    // `key` — the two happen to be equal for a built-in because
+    // `seedEventTypeDefs` below stamps `id: def.key` on purpose, and that is
+    // the only reason a literal slug is writable here.
+    parentId: "alimentation",
+    // Both null: inherited from the parent. `theme` always is — a group reads
+    // as one colour in the budget ring, and that is the invariant the whole
+    // feature rests on. `icon` is inherited here because `pawPrint` was only
+    // ever a placeholder (it is also Ostéopathe's); writing a real `IconName`
+    // back on this row takes it over again, no migration needed.
+    icon: null,
+    theme: null,
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
@@ -261,9 +280,14 @@ export const BUILT_IN_EVENT_TYPES: Omit<
   {
     key: "traitement",
     label: "Traitement",
-    parentId: null,
-    icon: "info",
-    theme: "orange",
+    // A child of `veto`, the same way `cures` is one of `alimentation` — see
+    // the note there for why a literal slug is a valid `id` in this table.
+    parentId: "veto",
+    // `info` was this row's placeholder icon, and it is also what
+    // `resolveCatalogue` falls back to for a row carrying nothing usable —
+    // inheriting Vétérinaire's `firstAidKit` says more than either.
+    icon: null,
+    theme: null,
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
@@ -272,6 +296,33 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     fields: careFields(),
   },
 ];
+
+/**
+ * The nestings schema v9 introduces, by `key`: child first, then parent.
+ *
+ * Exported because both halves of that migration need it — `db.ts`'s live
+ * upgrade and `migrateSnapshot` (`backup/snapshot.ts`) — for the same reason
+ * `quantityField` above is: two copies of a migration's payload are two things
+ * that can drift, and a live upgrade disagreeing with a restore is a
+ * divergence nothing later detects.
+ *
+ * **Frozen.** It describes what v9 did, not what the catalogue's hierarchy is.
+ * Nesting another built-in later means a new version with its own table, not a
+ * line here: adding one would silently change what v9 does to every device
+ * still upgrading through it, which is the one thing a shipped migration must
+ * never do.
+ *
+ * By `key` rather than `id`, even though `parentId` stores an `id`: `key` is
+ * the identity every other lookup in this app resolves a type by, and it is
+ * the only half of a row a restored file is guaranteed to agree with us on.
+ * The migrations resolve the parent's real `id` from the table they are
+ * looking at.
+ */
+export const SCHEMA_V9_NESTINGS: readonly { key: string; parentKey: string }[] =
+  [
+    { key: "cures", parentKey: "alimentation" },
+    { key: "traitement", parentKey: "veto" },
+  ];
 
 /**
  * Stamps `BUILT_IN_EVENT_TYPES` into real rows.

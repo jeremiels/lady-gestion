@@ -6,7 +6,11 @@ import {
   type RecordTableName,
 } from "../db.ts";
 import { nowISO, type IsoTimestamp } from "../dates.ts";
-import { quantityField, seedEventTypeDefs } from "../event-types.ts";
+import {
+  quantityField,
+  seedEventTypeDefs,
+  SCHEMA_V9_NESTINGS,
+} from "../event-types.ts";
 import {
   migrateEventToCustomFields,
   type LegacyEventColumns,
@@ -301,6 +305,32 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
         ...type,
         parentId: type.parentId ?? null,
       })),
+    };
+  }
+
+  // v8 -> v9: `cures` files under `alimentation`, `traitement` under `veto` —
+  // the first built-ins to use v8's hierarchy. Same payload as `db.ts`'s v9
+  // upgrade, shared as `SCHEMA_V9_NESTINGS` so the two cannot drift, applied
+  // to the file's own `eventTypes` rows instead of a live table.
+  //
+  // The parent's `id` comes from the file's own rows: `SCHEMA_V9_NESTINGS` is
+  // keyed by `key` for exactly this, since an older file's ids are whatever
+  // the build that wrote it produced. Guarded on the child still being a root,
+  // so a file already carrying the link — or one where the user chose a
+  // different parent — passes through untouched.
+  if (backup.schemaVersion < 9) {
+    const rows = tables.eventTypes;
+    tables = {
+      ...tables,
+      eventTypes: rows.map((type) => {
+        const nesting = SCHEMA_V9_NESTINGS.find((one) => one.key === type.key);
+        if (!nesting || type.parentId !== null) return type;
+
+        const parent = rows.find((one) => one.key === nesting.parentKey);
+        return parent
+          ? { ...type, parentId: parent.id, icon: null, theme: null }
+          : type;
+      }),
     };
   }
 

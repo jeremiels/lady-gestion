@@ -1,6 +1,10 @@
 import Dexie, { liveQuery, type Table } from "dexie";
 import { nowISO } from "./dates.ts";
-import { quantityField, seedEventTypeDefs } from "./event-types.ts";
+import {
+  quantityField,
+  seedEventTypeDefs,
+  SCHEMA_V9_NESTINGS,
+} from "./event-types.ts";
 import {
   migrateEventToCustomFields,
   type FollowUpInterval,
@@ -54,8 +58,13 @@ import type {
  *   of another one and inherit its presentation. `icon` and `theme` become
  *   nullable with it (`null` meaning "take my parent's"), which needs no
  *   rewrite — every existing row already carries both.
+ * - v9 — the first built-ins to actually use v8's hierarchy: `cures` files
+ *   under `alimentation`, `traitement` under `veto`. Like v7 and unlike v8, no
+ *   new table and no new column — only the content of two already-seeded
+ *   `eventTypes` rows changes, so a fresh install and an upgraded device end
+ *   up with the same catalogue either way.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -304,6 +313,42 @@ export class LadyGestionDb extends Dexie {
             type.parentId ??= null;
           }),
       );
+
+    // No index changed once more, so the stores are repeated verbatim again.
+    //
+    // The parent's `id` is looked up from the table rather than assumed equal
+    // to its `key`. That equality holds for a row `seedEventTypeDefs` wrote,
+    // and `SCHEMA_V9_NESTINGS` is keyed by `key` precisely so this does not
+    // have to rely on it: a file restored from a build that generated ids
+    // differently would otherwise get a `parentId` pointing at nothing, which
+    // `resolveCatalogue` quietly reads back as "root" — the nesting would
+    // simply not happen, with nothing to show for it.
+    //
+    // Guarded on the row still being a root, so replaying this is a no-op:
+    // a device upgraded live, backed up, then restored onto itself runs it
+    // twice, and a parent link the user chose themselves must survive it.
+    // `updatedAt` is deliberately left alone, as in v7 — it is what a restore
+    // arbitrates last-write-wins by, and a migration every device runs is not
+    // an edit that should win that argument.
+    this.version(9)
+      .stores(STORES_V6)
+      .upgrade(async (transaction) => {
+        const table = transaction.table<EventTypeDef>("eventTypes");
+        const rows = await table.toArray();
+
+        for (const { key, parentKey } of SCHEMA_V9_NESTINGS) {
+          const child = rows.find((type) => type.key === key);
+          const parent = rows.find((type) => type.key === parentKey);
+          if (!child || !parent || child.parentId !== null) continue;
+
+          await table.put({
+            ...child,
+            parentId: parent.id,
+            icon: null,
+            theme: null,
+          });
+        }
+      });
   }
 }
 

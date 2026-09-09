@@ -222,6 +222,84 @@ describe("migrateSnapshot", () => {
     expect(migrated.tables.eventTypes[0]?.parentId).toBe("soins");
   });
 
+  /**
+   * The four rows v9 cares about, as a v8 file carried them: all roots, each
+   * with the presentation it owned before nesting.
+   *
+   * The ids are deliberately not the keys. A seeded built-in has `id === key`,
+   * so a fixture that repeated that would pass whether the step resolved the
+   * parent's id out of the file or simply assumed the key was one — and a file
+   * written by another build is exactly where that assumption breaks.
+   */
+  const preV9Types = (): EventTypeDef[] => {
+    const row = (key: string, over: Partial<EventTypeDef> = {}) => ({
+      ...eventTypeRows.find((type) => type.key === key)!,
+      id: `type-${key}`,
+      parentId: null,
+      ...over,
+    });
+
+    return [
+      row("alimentation"),
+      row("veto"),
+      row("cures", { icon: "pawPrint", theme: "purple" }),
+      row("traitement", { icon: "info", theme: "orange" }),
+    ];
+  };
+
+  it("files a pre-v9 file's cures and traitement under their parent", () => {
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 8, tables: { eventTypes: preV9Types() } }),
+    );
+
+    const byId = new Map(migrated.tables.eventTypes.map((t) => [t.id, t]));
+    expect(byId.get("type-cures")).toMatchObject({
+      parentId: "type-alimentation",
+      icon: null,
+      theme: null,
+    });
+    expect(byId.get("type-traitement")).toMatchObject({
+      parentId: "type-veto",
+      icon: null,
+      theme: null,
+    });
+    // The parents keep everything: they gained a child, not a parent.
+    expect(byId.get("type-alimentation")).toMatchObject({
+      parentId: null,
+      icon: "carrot",
+      theme: "yellow",
+    });
+  });
+
+  it("keeps a parent the file already carries", () => {
+    const types = preV9Types().map((type) =>
+      type.key === "cures" ? { ...type, parentId: "type-veto" } : type,
+    );
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 8, tables: { eventTypes: types } }),
+    );
+
+    const cures = migrated.tables.eventTypes.find((t) => t.id === "type-cures");
+    expect(cures).toMatchObject({ parentId: "type-veto", theme: "purple" });
+  });
+
+  it("leaves a child alone when its parent is not in the file", () => {
+    // The parent type was deleted on the device that wrote this backup.
+    // Writing the link anyway would point at nothing, which `resolveCatalogue`
+    // reads back as "root" — the same outcome, reached by an accident rather
+    // than a rule.
+    const types = preV9Types().filter((type) => type.key !== "alimentation");
+
+    const migrated = migrateSnapshot(
+      snapshot({ schemaVersion: 8, tables: { eventTypes: types } }),
+    );
+
+    expect(
+      migrated.tables.eventTypes.find((t) => t.id === "type-cures"),
+    ).toMatchObject({ parentId: null, icon: "pawPrint", theme: "purple" });
+  });
+
   it("stamps the file up to the current schema version", () => {
     const migrated = migrateSnapshot(snapshot({ schemaVersion: 7 }));
 

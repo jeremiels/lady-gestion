@@ -410,11 +410,11 @@ describe("budget-view", () => {
     };
 
     beforeEach(async () => {
-      await nest("veto", "soins");
+      await nest("osteo", "soins");
       await nest("dentiste", "soins");
       await db.events.bulkAdd([
         spend("care", "soins", 1000),
-        spend("checkup", "veto", 2000),
+        spend("checkup", "osteo", 2000),
         spend("teeth", "dentiste", 500),
         spend("shoeing", "marechal", 7000),
       ]);
@@ -447,7 +447,7 @@ describe("budget-view", () => {
         [...details.querySelectorAll("li")].map((li) =>
           li.firstElementChild?.textContent?.trim(),
         ),
-      ).toEqual([labelOf("dentiste"), labelOf("veto")]);
+      ).toEqual([labelOf("dentiste"), labelOf("osteo")]);
     });
 
     it("gives a root with no children no breakdown at all", async () => {

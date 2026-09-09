@@ -174,6 +174,81 @@ const writeV7Database = async (rows: { eventTypes?: unknown[] }) => {
   legacy.close();
 };
 
+const V8_STORES = { ...V7_STORES };
+
+/**
+ * The two rows v9 nests, and the parents they nest under, exactly as v8 wrote
+ * them: roots, each with its own icon and theme.
+ *
+ * Hand-frozen for the reason the fixtures above give — reading them off
+ * `BUILT_IN_EVENT_TYPES` would exercise the upgrade against its own output,
+ * since that array already carries the nesting.
+ *
+ * The ids are deliberately *not* the keys. A seeded built-in has `id === key`
+ * (`seedEventTypeDefs`), so a fixture that repeated that would pass whether the
+ * migration resolved the parent's id or just assumed the key was one.
+ */
+const preV9Types = () => [
+  {
+    ...stamps,
+    id: "type-alimentation",
+    key: "alimentation",
+    label: "Alimentation",
+    icon: "carrot",
+    theme: "yellow",
+    parentId: null,
+    isBuiltIn: true,
+    isAppointment: false,
+    tracksWork: false,
+    archived: false,
+    order: 1,
+    fields: [],
+  },
+  { ...preV8VetoType(), id: "type-veto", parentId: null },
+  {
+    ...stamps,
+    id: "type-cures",
+    key: "cures",
+    label: "Cures",
+    icon: "pawPrint",
+    theme: "purple",
+    parentId: null,
+    isBuiltIn: true,
+    isAppointment: true,
+    tracksWork: false,
+    archived: false,
+    order: 11,
+    fields: [],
+  },
+  {
+    ...stamps,
+    id: "type-traitement",
+    key: "traitement",
+    label: "Traitement",
+    icon: "info",
+    theme: "orange",
+    parentId: null,
+    isBuiltIn: true,
+    isAppointment: true,
+    tracksWork: false,
+    archived: false,
+    order: 12,
+    fields: [],
+  },
+];
+
+/** Writes a database already at v8, then closes it so `db` can upgrade it
+ * straight to v9. */
+const writeV8Database = async (rows: { eventTypes?: unknown[] }) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(8).stores(V8_STORES);
+  await legacy.open();
+  if (rows.eventTypes?.length) {
+    await legacy.table("eventTypes").bulkAdd(rows.eventTypes);
+  }
+  legacy.close();
+};
+
 /** Writes a database already at v6, then closes it so `db` can upgrade it
  * straight to v7 — isolating that one migration the same way `writeV5Database`
  * isolates v5 -> v6. */
@@ -603,6 +678,74 @@ describe("v7 -> v8: event types gain a parent", () => {
   });
 });
 
+describe("v8 -> v9: cures and traitement file under a parent", () => {
+  it("attaches each one and clears the presentation it stops owning", async () => {
+    await writeV8Database({ eventTypes: preV9Types() });
+
+    await db.open();
+
+    // The parent's `id`, resolved from the table — not its `key`, which these
+    // fixtures deliberately differ from.
+    expect(await db.eventTypes.get("type-cures")).toMatchObject({
+      parentId: "type-alimentation",
+      icon: null,
+      theme: null,
+    });
+    expect(await db.eventTypes.get("type-traitement")).toMatchObject({
+      parentId: "type-veto",
+      icon: null,
+      theme: null,
+    });
+  });
+
+  it("leaves the parents, and every other root, exactly as they were", async () => {
+    await writeV8Database({ eventTypes: preV9Types() });
+
+    await db.open();
+
+    expect(await db.eventTypes.get("type-alimentation")).toMatchObject({
+      parentId: null,
+      icon: "carrot",
+      theme: "yellow",
+    });
+    expect(await db.eventTypes.get("type-veto")).toMatchObject({
+      parentId: null,
+      icon: "firstAidKit",
+      theme: "pink",
+    });
+  });
+
+  it("keeps a parent the user already chose", async () => {
+    // Replayed by a device patched live, backed up, then restored onto itself
+    // — and the one case where re-running this would destroy a real choice.
+    const types = preV9Types().map((type) =>
+      type.key === "cures" ? { ...type, parentId: "type-veto" } : type,
+    );
+    await writeV8Database({ eventTypes: types });
+
+    await db.open();
+
+    expect((await db.eventTypes.get("type-cures"))?.parentId).toBe("type-veto");
+    expect((await db.eventTypes.get("type-cures"))?.theme).toBe("purple");
+  });
+
+  it("does nothing when the parent is not in the catalogue at all", async () => {
+    // A type the user deleted. Writing a dangling `parentId` would leave a
+    // link `resolveCatalogue` silently reads back as "root" anyway — the
+    // nesting simply does not happen, and the row keeps what it can draw.
+    const types = preV9Types().filter((type) => type.key !== "alimentation");
+    await writeV8Database({ eventTypes: types });
+
+    await db.open();
+
+    expect(await db.eventTypes.get("type-cures")).toMatchObject({
+      parentId: null,
+      icon: "pawPrint",
+      theme: "purple",
+    });
+  });
+});
+
 describe("a v1 database upgrading all the way", () => {
   it("runs every upgrade in sequence", async () => {
     await writeLegacyDatabase(1, {
@@ -621,10 +764,17 @@ describe("a v1 database upgrading all the way", () => {
     );
     expect(await db.activities.count()).toBe(0);
     expect(await db.eventTypes.count()).toBe(13);
-    // Seeded by v6 and carried through v8: the shipped catalogue is flat.
+    // Seeded by v6 — from the current catalogue, so already nested — and left
+    // alone by v9, whose guard skips a row that is not a root. Both routes to
+    // the same two children is the point: a fresh seed and a device that
+    // upgraded through v9 have to agree on the finished shape.
+    const catalogue = await db.eventTypes.toArray();
     expect(
-      (await db.eventTypes.toArray()).every((type) => type.parentId === null),
-    ).toBe(true);
+      catalogue
+        .filter((type) => type.parentId !== null)
+        .map((type) => type.key)
+        .sort(),
+    ).toEqual(["cures", "traitement"]);
   });
 
   it("opens at the version the backup envelope advertises", async () => {

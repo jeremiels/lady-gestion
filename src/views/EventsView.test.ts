@@ -61,8 +61,10 @@ const chipLabels = (el: EventsView, selector = ".events-view__filters") =>
  * Files one built-in type under another, the way `setParent` writes it —
  * theme cleared, so the child takes its parent's colour.
  *
- * The seeded catalogue is flat and stays that way; a nested one is something
- * only the type editor or a restore produces.
+ * Pick a leaf. The shipped catalogue nests `cures` and `traitement` since
+ * schema v9, so re-parenting `alimentation` or `veto` here would build a
+ * three-deep chain `setParent` refuses and `resolveCatalogue`, a single hop,
+ * cannot read.
  */
 const nest = async (childKey: string, parentKey: string) => {
   const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
@@ -312,11 +314,11 @@ describe("events-view", () => {
     };
 
     beforeEach(async () => {
-      await nest("veto", "soins");
+      await nest("osteo", "soins");
       await nest("dentiste", "soins");
       await db.events.bulkAdd([
         makeEvent({ id: "care", type: "soins", date: todayISO() }),
-        makeEvent({ id: "checkup", type: "veto", date: todayISO() }),
+        makeEvent({ id: "checkup", type: "osteo", date: todayISO() }),
         makeEvent({ id: "teeth", type: "dentiste", date: todayISO() }),
         makeEvent({ id: "shoeing", type: "marechal", date: todayISO() }),
       ]);
@@ -327,7 +329,7 @@ describe("events-view", () => {
 
       const labels = chipLabels(el);
       expect(labels).toContain(labelOf("soins"));
-      expect(labels).not.toContain(labelOf("veto"));
+      expect(labels).not.toContain(labelOf("osteo"));
       expect(labels).not.toContain(labelOf("dentiste"));
     });
 
@@ -350,7 +352,7 @@ describe("events-view", () => {
       expect(chipLabels(el, ".events-view__filters--nested")).toEqual([
         "Tous",
         labelOf("dentiste"),
-        labelOf("veto"),
+        labelOf("osteo"),
       ]);
     });
 
@@ -360,7 +362,7 @@ describe("events-view", () => {
       await settled(el);
 
       chipsIn(el, ".events-view__filters--nested")
-        .find((chip) => chip.label === labelOf("veto"))!
+        .find((chip) => chip.label === labelOf("osteo"))!
         .click();
       await settled(el);
 
@@ -372,7 +374,7 @@ describe("events-view", () => {
       chipLabeled(el, labelOf("soins")).click();
       await settled(el);
       chipsIn(el, ".events-view__filters--nested")
-        .find((chip) => chip.label === labelOf("veto"))!
+        .find((chip) => chip.label === labelOf("osteo"))!
         .click();
       await settled(el);
 

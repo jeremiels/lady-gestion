@@ -469,7 +469,14 @@ describe("event-sheet — the alimentation quantity field", () => {
 });
 
 describe("the type picker", () => {
-  /** Files one built-in type under another, the way `setParent` writes it. */
+  /**
+   * Files one built-in type under another, the way `setParent` writes it.
+   *
+   * Pick a leaf that the shipped catalogue leaves alone. Nesting `veto` or
+   * `alimentation`, which have children of their own since schema v9, builds a
+   * three-deep chain `setParent` would have refused and `#typeOptions`, which
+   * looks one hop down, cannot draw.
+   */
   const nest = async (childKey: string, parentKey: string) => {
     const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
     const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
@@ -482,51 +489,68 @@ describe("the type picker", () => {
   const waitForOptions = async (el: EventSheet) =>
     waitFor(el, () => typeSelect(el).options.length > 0);
 
-  it("is a flat list for the shipped catalogue", async () => {
+  it("groups the shipped catalogue's two nested types under their parent", async () => {
     const el = await openSheet();
     await waitForOptions(el);
 
     const options = typeSelect(el).options;
+    // Still one option per type: nesting moves a parent into a heading of its
+    // own rather than adding an entry for it.
     expect(options).toHaveLength(13);
-    expect(options.every((option) => option.group === undefined)).toBe(true);
+    expect(
+      options
+        .filter((option) => option.group !== undefined)
+        .map((option) => [option.group, option.value]),
+    ).toEqual([
+      ["Alimentation", "alimentation"],
+      ["Alimentation", "cures"],
+      ["Vétérinaire", "veto"],
+      ["Vétérinaire", "traitement"],
+    ]);
   });
 
   it("puts a group's children under their parent's heading", async () => {
-    await nest("veto", "soins");
+    await nest("marechal", "soins");
     await nest("dentiste", "soins");
 
     const el = await openSheet();
     await waitForOptions(el);
 
     const grouped = typeSelect(el)
-      .options.filter((option) => option.group !== undefined)
+      .options.filter((option) => option.group === "Soins")
       .map((option) => option.value);
     // The parent first, because a parent is a selectable type in its own
     // right — an event can be filed under Soins without picking which kind.
     // Its children follow alphabetically, the order the picker uses throughout.
-    expect(grouped).toEqual(["soins", "dentiste", "veto"]);
+    expect(grouped).toEqual(["soins", "dentiste", "marechal"]);
   });
 
-  it("draws the group as a native optgroup", async () => {
-    await nest("veto", "soins");
+  it("draws each group as a native optgroup", async () => {
+    await nest("marechal", "soins");
 
     const el = await openSheet();
     await waitForOptions(el);
     await settled(typeSelect(el));
 
-    const group = typeSelect(el).renderRoot.querySelector("optgroup");
-    expect(group?.label).toBe("Soins");
-    expect(group?.children).toHaveLength(2);
+    const groups = [...typeSelect(el).renderRoot.querySelectorAll("optgroup")];
+    // The two the catalogue ships with, plus the one this test made, in the
+    // roots' own alphabetical order.
+    expect(groups.map((group) => group.label)).toEqual([
+      "Alimentation",
+      "Soins",
+      "Vétérinaire",
+    ]);
+    expect(
+      groups.find((group) => group.label === "Soins")?.children,
+    ).toHaveLength(2);
   });
 
   it("keeps every type selectable, children included", async () => {
-    await nest("veto", "soins");
-
     const el = await openSheet();
     await waitForOptions(el);
 
     expect(typeSelect(el).options.map((option) => option.value)).toContain(
-      "veto",
+      "cures",
     );
   });
 });

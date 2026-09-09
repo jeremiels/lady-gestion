@@ -83,15 +83,27 @@ export const makeEventType = (
   ...over,
 });
 
+const eventTypeId = (key: string) => `event-type-${key}`;
+
 /**
  * The 13 built-in `EventTypeDef` rows, stamped with fresh `BaseRecord` fields
  * — the same shape `seedEventTypeDefs` (`event-types.ts`) produces, but with
  * stable, key-derived ids so a test can address one by name.
+ *
+ * `parentId` has to be remapped through the same prefix, and the reason is a
+ * trap worth stating: the catalogue stores a parent's `id`, which for a seeded
+ * built-in *is* its `key` — but not here, where every id is prefixed. Spreading
+ * `...def` unremapped would leave `cures` pointing at `"alimentation"` while
+ * the row it means is `"event-type-alimentation"`, and that failure is silent:
+ * `resolveCatalogue` reads an unresolvable parent as a root, so the whole suite
+ * would stay green while asserting against a flat catalogue the app does not
+ * ship.
  */
 export const BUILT_IN_EVENT_TYPE_ROWS: EventTypeDef[] =
   BUILT_IN_EVENT_TYPES.map((def) => ({
-    ...base(`event-type-${def.key}`),
+    ...base(eventTypeId(def.key)),
     ...def,
+    parentId: def.parentId === null ? null : eventTypeId(def.parentId),
   }));
 
 /**

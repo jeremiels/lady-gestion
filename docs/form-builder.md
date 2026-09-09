@@ -122,7 +122,11 @@ What consumes it today:
 - **Filter chips** (`EventsView`) — roots only; selecting one takes its whole subtree (`subtreeKeys`) and reveals a second row of its children.
 - **Budget** (`budget.ts` `sumByType`) — a child's spend rolls into its root's wedge, with the per-child figures kept on `BudgetSlice.children` for the legend's disclosure. Children cannot have wedges of their own: they share their parent's colour, so the ring could not tell them apart.
 
-The 13 built-ins are all roots and stay that way. Giving them a real hierarchy — a `Santé` parent over `veto`/`dentiste`/`osteo`/`soins`/`cures`/`traitement` — is one line each in `BUILT_IN_EVENT_TYPES`, but it changes existing users' colours and donut, so it is a product decision rather than a migration detail.
+Two of the 13 built-ins nest as of **schema v9**: `cures` under `alimentation`, `traitement` under `veto`. Both were placeholder types whose icon and theme were borrowed from a neighbour anyway (`pawPrint`/`purple` and `info`/`orange`), so they now carry `icon: null, theme: null` and inherit both — `Cures` draws yellow, `Traitement` pink, and each one's spend rolls into its parent's wedge.
+
+That it needed a migration at all is the point worth keeping: the rows already exist on installed devices, so editing `BUILT_IN_EVENT_TYPES` alone would have reached only a fresh install. `SCHEMA_V9_NESTINGS` (`data/event-types.ts`) is the payload both halves share, frozen — nesting another built-in later takes a new version with its own table, not a line there, because extending it would change what v9 does to every device still upgrading through it.
+
+The remaining 11 are roots. Going further — a `Santé` parent over `veto`/`dentiste`/`osteo`/`soins` — is the same one line each, and the same product decision: it repaints types people are already using and redraws the budget ring.
 
 ## Testing & verification
 

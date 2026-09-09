@@ -133,8 +133,9 @@ describe("upcomingAppointments", () => {
 
 /**
  * The hierarchy helpers. Fixtures are hand-built rather than taken from
- * `BUILT_IN_EVENT_TYPE_ROWS`, which is flat by design and stays that way — a
- * nested catalogue is something only an editor or a restore produces.
+ * `BUILT_IN_EVENT_TYPE_ROWS`, which nests only `cures` and `traitement` and
+ * would make every case below depend on that one shape — these want a parent
+ * with a child that keeps its own icon and one that keeps nothing.
  */
 describe("the type hierarchy", () => {
   const parent = makeEventType({

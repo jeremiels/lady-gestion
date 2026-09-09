@@ -143,21 +143,27 @@ describe("sumByType", () => {
   });
 
   /**
-   * The hierarchy cases. `TYPES` is flat, so these re-parent a copy: `veto` and
-   * `dentiste` become children of `soins`, which is what an event-type editor
-   * would write through `setParent`.
+   * The hierarchy cases, on a re-parented copy: `marechal` and `dentiste`
+   * become children of `soins`, which is what an event-type editor would write
+   * through `setParent`.
+   *
+   * `TYPES` already nests `cures` and `traitement` since schema v9, but both
+   * spend nothing here, so a group of leaves the shipped catalogue leaves
+   * alone is what isolates these assertions. It also keeps them legal: nesting
+   * `veto`, which now has a child of its own, would build the three-deep chain
+   * `canBeParentOf` refuses and `resolveCatalogue`, a single hop, cannot read.
    */
   describe("with a nested catalogue", () => {
     const soins = TYPES.find((type) => type.key === "soins")!;
     const nest = (key: string) => (type: (typeof TYPES)[number]) =>
       type.key === key ? { ...type, parentId: soins.id, theme: null } : type;
-    const NESTED = TYPES.map(nest("veto")).map(nest("dentiste"));
+    const NESTED = TYPES.map(nest("marechal")).map(nest("dentiste"));
 
     it("rolls a child's spend into its root's wedge", () => {
       const slices = sumByType(
         [
           budget("2026-01-05", "soins", 1000),
-          budget("2026-01-06", "veto", 2000, { id: "v" }),
+          budget("2026-01-06", "marechal", 2000, { id: "v" }),
           budget("2026-01-07", "dentiste", 500, { id: "d" }),
         ],
         NESTED,
@@ -169,46 +175,55 @@ describe("sumByType", () => {
           cents: 3500,
           children: [
             { type: "dentiste", cents: 500 },
-            { type: "veto", cents: 2000 },
+            { type: "marechal", cents: 2000 },
           ],
         },
       ]);
     });
 
     it("gives a root a wedge for its children alone, even spending nothing itself", () => {
-      const slices = sumByType([budget("2026-01-06", "veto", 2000)], NESTED);
+      const slices = sumByType(
+        [budget("2026-01-06", "marechal", 2000)],
+        NESTED,
+      );
 
       expect(slices).toEqual([
         {
           type: "soins",
           cents: 2000,
-          children: [{ type: "veto", cents: 2000 }],
+          children: [{ type: "marechal", cents: 2000 }],
         },
       ]);
     });
 
     it("never gives a child a wedge of its own — it would repeat its parent's colour", () => {
-      const slices = sumByType([budget("2026-01-06", "veto", 2000)], NESTED);
-      expect(slices.map((slice) => slice.type)).not.toContain("veto");
+      const slices = sumByType(
+        [budget("2026-01-06", "marechal", 2000)],
+        NESTED,
+      );
+      expect(slices.map((slice) => slice.type)).not.toContain("marechal");
     });
 
     it("drops a child that spent nothing from the breakdown", () => {
-      const slices = sumByType([budget("2026-01-06", "veto", 2000)], NESTED);
-      expect(slices[0]?.children).toEqual([{ type: "veto", cents: 2000 }]);
+      const slices = sumByType(
+        [budget("2026-01-06", "marechal", 2000)],
+        NESTED,
+      );
+      expect(slices[0]?.children).toEqual([{ type: "marechal", cents: 2000 }]);
     });
 
     it("orders children by their own order within the group", () => {
-      // `dentiste` is order 4 and `veto` order 6 in the seeded catalogue.
+      // `dentiste` is order 4 and `marechal` order 5 in the seeded catalogue.
       const slices = sumByType(
         [
-          budget("2026-01-06", "veto", 1, { id: "v" }),
+          budget("2026-01-06", "marechal", 1, { id: "v" }),
           budget("2026-01-07", "dentiste", 1, { id: "d" }),
         ],
         NESTED,
       );
       expect(slices[0]?.children.map((child) => child.type)).toEqual([
         "dentiste",
-        "veto",
+        "marechal",
       ]);
     });
 
@@ -216,7 +231,7 @@ describe("sumByType", () => {
       const slices = sumByType(
         [
           budget("2026-01-05", "soins", 1000),
-          budget("2026-01-06", "veto", 2000, { id: "v" }),
+          budget("2026-01-06", "marechal", 2000, { id: "v" }),
         ],
         NESTED,
       );

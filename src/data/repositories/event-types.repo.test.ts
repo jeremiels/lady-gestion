@@ -44,11 +44,26 @@ describe("listResolved", () => {
     });
   });
 
-  it("leaves the flat shipped catalogue exactly as it is", async () => {
+  it("resolves the shipped catalogue, roots and the two nested types alike", async () => {
     const types = await eventTypesRepo.listResolved();
 
     expect(types).toHaveLength(13);
-    expect(types.every((type) => type.parentId === null)).toBe(true);
+    expect(
+      types.filter((type) => type.parentId !== null).map((type) => type.key),
+    ).toEqual(["cures", "traitement"]);
+
+    // Both carry `null` for icon and theme, so what comes back is entirely
+    // their parent's — Alimentation's, then Vétérinaire's.
+    expect(types.find((type) => type.key === "cures")).toMatchObject({
+      icon: "carrot",
+      theme: "yellow",
+    });
+    expect(types.find((type) => type.key === "traitement")).toMatchObject({
+      icon: "firstAidKit",
+      theme: "pink",
+    });
+
+    // A root still answers with its own.
     expect(types.find((type) => type.key === "travail")).toMatchObject({
       icon: "cowboyHat",
       theme: "fuchsia",
