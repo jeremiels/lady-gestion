@@ -40,10 +40,23 @@ const labelsOf = (el: ActivitySheet) => chipsOf(el).map((chip) => chip.label);
 const chipNamed = (el: ActivitySheet, label: string) =>
   chipsOf(el).find((chip) => chip.label === label)!;
 
-/** Waits for the two live queries behind the chips to have reported. */
+/** Waits for the sheet's first render, where its (static) chips appear. */
 const ready = async (el: ActivitySheet) => {
   await waitFor(el, () => chipsOf(el).length > 0);
   return el;
+};
+
+/**
+ * Advances real async ticks so the horse's custom-activity `LiveQuery` —
+ * which the dedup check reads but nothing on screen reflects any more, now
+ * that the chip list is built-ins only — has a chance to report. Mirrors the
+ * tick `waitFor` spends per attempt, since there is no predicate to poll.
+ */
+const flushCustomActivities = async (el: ActivitySheet) => {
+  for (let i = 0; i < 20; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settled(el);
+  }
 };
 
 /** Types into the sheet's input and submits, the way the user does. */
@@ -83,31 +96,39 @@ describe("activity-sheet", () => {
     );
   });
 
-  it("offers the six built-in activities, alphabetically by their French labels", async () => {
+  it("offers the built-in activities, alphabetically by their French labels", async () => {
     const el = await ready(await mount());
 
     expect(labelsOf(el)).toEqual([
-      "Balade à pied",
-      "Liberté",
-      "Longe",
-      "Plat",
-      "TAP",
-      "Trotting",
-    ]);
-  });
-
-  it("slots the horse’s own activities in alphabetically among the built-ins", async () => {
-    await activitiesRepo.add({ horseId: HORSE_ID, label: "Carrière" });
-
-    const el = await mount();
-    await waitFor(el, () => labelsOf(el).includes("Carrière"));
-
-    expect(labelsOf(el)).toEqual([
+      "Balade",
       "Balade à pied",
       "Carrière",
       "Liberté",
       "Longe",
       "Plat",
+      "Repos",
+      "TAP",
+      "Trotting",
+    ]);
+  });
+
+  it("does not offer the horse’s other custom activities as chips", async () => {
+    await activitiesRepo.add({ horseId: HORSE_ID, label: "Voltige" });
+
+    const el = await ready(await mount());
+    // The chip list itself never depends on the custom-activity query, so
+    // give it a few ticks to have reported before asserting on its absence —
+    // otherwise this would pass even if the filtering below regressed.
+    await flushCustomActivities(el);
+
+    expect(labelsOf(el)).toEqual([
+      "Balade",
+      "Balade à pied",
+      "Carrière",
+      "Liberté",
+      "Longe",
+      "Plat",
+      "Repos",
       "TAP",
       "Trotting",
     ]);
@@ -209,25 +230,33 @@ describe("activity-sheet", () => {
   it("adds a typed activity to the catalogue and applies it at once", async () => {
     const el = await ready(await mount());
 
-    await submitLabel(el, "Carrière");
+    await submitLabel(el, "Voltige");
 
     expect(
       (await activitiesRepo.listByHorse(HORSE_ID)).map((item) => item.label),
-    ).toEqual(["Carrière"]);
+    ).toEqual(["Voltige"]);
     expect(await sessionOn(DATE)).toMatchObject({
-      activity: "Carrière",
-      title: "Carrière",
+      activity: "Voltige",
+      title: "Voltige",
     });
     expect(el.open).toBe(false);
   });
 
-  it("offers a typed activity as a chip the next time round", async () => {
-    await submitLabel(await ready(await mount()), "Repos");
+  it("keeps a freshly typed activity off the general chip list, but shows it as the day’s own chip", async () => {
+    await submitLabel(await ready(await mount()), "Voltige");
 
-    const second = await mount();
-    await waitFor(second, () => labelsOf(second).includes("Repos"));
+    const blank = await ready(await mount());
+    await flushCustomActivities(blank);
+    expect(labelsOf(blank)).not.toContain("Voltige");
 
-    expect(labelsOf(second)).toContain("Repos");
+    const withVoltige = await ready(
+      await mount({ existing: (await sessionOn(DATE))! }),
+    );
+    expect(
+      chipsOf(withVoltige)
+        .filter((chip) => chip.selected)
+        .map((chip) => chip.label),
+    ).toEqual(["Voltige"]);
   });
 
   it("reuses a built-in instead of writing a chip that reads the same", async () => {
@@ -243,15 +272,18 @@ describe("activity-sheet", () => {
   });
 
   it("reuses an activity already added rather than duplicating it", async () => {
-    await activitiesRepo.add({ horseId: HORSE_ID, label: "Carrière" });
-    const el = await mount();
-    await waitFor(el, () => labelsOf(el).includes("Carrière"));
+    await activitiesRepo.add({ horseId: HORSE_ID, label: "Écurie" });
+    const el = await ready(await mount());
+    // "Écurie" is not a built-in, so it never renders as a chip here — give
+    // the custom-activity query behind the dedup check a chance to have
+    // reported before submitting.
+    await flushCustomActivities(el);
 
-    await submitLabel(el, "carriere");
+    await submitLabel(el, "ecurie");
 
     expect(await activitiesRepo.listByHorse(HORSE_ID)).toHaveLength(1);
     expect(await sessionOn(DATE)).toMatchObject({
-      customFields: { activity: "Carrière" },
+      customFields: { activity: "Écurie" },
     });
   });
 

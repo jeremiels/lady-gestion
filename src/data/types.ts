@@ -200,7 +200,7 @@ export type CustomFieldDef = {
  *
  * The nine types the app shipped with, plus four more finished in the same
  * migration, are seeded with `isBuiltIn: true` — informative only, it does not
- * block editing. `ActivityItem` below is code for its six built-ins for the
+ * block editing. `ActivityItem` below is code for its built-ins for the
  * opposite reason: that is a closed vocabulary nothing there ever edits: this
  * one is the opposite from day one.
  *
@@ -273,8 +273,11 @@ export type EventTypeDef = BaseRecord & {
 };
 
 /**
- * A work activity the user added themselves — the chips the week strip's day
- * sheet offers beyond the six built into `events.ts`.
+ * A work activity the user added themselves, on top of the built-ins
+ * `events.ts` codes for. Its own catalogue row never renders as a chip on the
+ * week strip's day sheet or the Nom combobox — both are built-ins only — but
+ * still backs the dedup check that stops the same activity being typed in
+ * twice under two spellings.
  *
  * A catalogue, not a parent table. Nothing holds a foreign key to it: a
  * `travail` event stores this row's `label`, so deleting the row retires a chip

@@ -314,24 +314,17 @@ describe("event-sheet — the travail layout", () => {
     });
   });
 
-  it("offers a custom activity from the day sheet’s catalogue alongside the built-ins", async () => {
-    await activitiesRepo.add({ horseId: HORSE_ID, label: "Carrière" });
+  it("keeps the Nom suggestions to the built-ins, not the horse’s custom catalogue", async () => {
+    await activitiesRepo.add({ horseId: HORSE_ID, label: "Voltige" });
 
     const el = await openSheet();
     await pick(el, "type", "travail");
 
     // The horse's own catalogue is a second, independent `LiveQuery` —
-    // `openSheet` only waits for the horse itself, so this one may still be
-    // settling right after `pick`.
-    for (
-      let i = 0;
-      i < 20 &&
-      !fieldNamed<AppCombobox>(
-        el.renderRoot.querySelector("form")!,
-        "activity",
-      ).options.some((option) => option.label === "Carrière");
-      i++
-    ) {
+    // `openSheet` only waits for the horse itself, so give it a chance to
+    // settle before asserting on its absence from the suggestion list;
+    // otherwise this would pass even if the filtering below regressed.
+    for (let i = 0; i < 20; i++) {
       await new Promise((resolve) => setTimeout(resolve, 0));
       await settled(el);
     }
@@ -340,9 +333,17 @@ describe("event-sheet — the travail layout", () => {
       el.renderRoot.querySelector("form")!,
       "activity",
     );
-    expect(combobox.options.map((option) => option.label)).toContain(
+    expect(combobox.options.map((option) => option.label)).toEqual([
+      "Balade",
+      "Balade à pied",
       "Carrière",
-    );
+      "Liberté",
+      "Longe",
+      "Plat",
+      "Repos",
+      "TAP",
+      "Trotting",
+    ]);
   });
 
   it("drops the activity and its derived title when the type is changed away from Travail", async () => {

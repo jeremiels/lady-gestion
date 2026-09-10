@@ -305,6 +305,38 @@ const writeV9Database = async (rows: { eventTypes?: unknown[] }) => {
   legacy.close();
 };
 
+/** No index changed between v9 and v10, so this is `V9_STORES` restated —
+ * the same reason `V7_STORES`'s own comment gives. */
+const V10_STORES = { ...V9_STORES };
+
+/** A `travail` session exactly as it looked before v11: the bare key
+ * `balade`, back when it was the app's only "on foot" activity. */
+const preV11BaladeEvent = (id: string) => ({
+  ...stamps,
+  id,
+  horseId: "horse-1",
+  type: "travail",
+  title: "Balade à pied",
+  date: "2026-06-15",
+  time: null,
+  status: "done",
+  currency: "EUR",
+  location: null,
+  notes: null,
+  recurrenceId: null,
+  customFields: { activity: "balade" },
+});
+
+/** Writes a database already at v10, then closes it so `db` can upgrade it
+ * straight to v11. */
+const writeV10Database = async (rows: { events?: unknown[] }) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(10).stores(V10_STORES);
+  await legacy.open();
+  if (rows.events?.length) await legacy.table("events").bulkAdd(rows.events);
+  legacy.close();
+};
+
 /** Writes a database already at v6, then closes it so `db` can upgrade it
  * straight to v7 — isolating that one migration the same way `writeV5Database`
  * isolates v5 -> v6. */
@@ -899,6 +931,65 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
     await db.open();
 
     expect(await db.eventTypes.where("key").equals("massage").count()).toBe(1);
+  });
+});
+
+describe("v10 -> v11: balade splits into two activities", () => {
+  it("rewrites an existing balade session to baladeApied", async () => {
+    await writeV10Database({ events: [preV11BaladeEvent("event-1")] });
+
+    await db.open();
+
+    expect(await db.events.get("event-1")).toMatchObject({
+      customFields: { activity: "baladeApied" },
+    });
+  });
+
+  it("leaves a travail session on a different activity alone", async () => {
+    const longe = {
+      ...preV11BaladeEvent("event-1"),
+      customFields: { activity: "longe" },
+    };
+    await writeV10Database({ events: [longe] });
+
+    await db.open();
+
+    expect(await db.events.get("event-1")).toMatchObject({
+      customFields: { activity: "longe" },
+    });
+  });
+
+  it("leaves a non-travail event alone even if it happens to carry the key", async () => {
+    // Nothing but `travail`'s own field has ever written `activity` here, but
+    // the guard is on `type` first regardless — this is what proves it.
+    const other = {
+      ...preV11BaladeEvent("event-1"),
+      type: "veto",
+      customFields: { activity: "balade" },
+    };
+    await writeV10Database({ events: [other] });
+
+    await db.open();
+
+    expect(await db.events.get("event-1")).toMatchObject({
+      customFields: { activity: "balade" },
+    });
+  });
+
+  it("does nothing when the row already reads baladeApied", async () => {
+    // Replayed by a device patched live, backed up, then restored onto
+    // itself — the same guard `writeV9Database`'s reparenting tests exercise.
+    const already = {
+      ...preV11BaladeEvent("event-1"),
+      customFields: { activity: "baladeApied" },
+    };
+    await writeV10Database({ events: [already] });
+
+    await db.open();
+
+    expect(await db.events.get("event-1")).toMatchObject({
+      customFields: { activity: "baladeApied" },
+    });
   });
 });
 

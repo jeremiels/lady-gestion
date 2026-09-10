@@ -15,6 +15,7 @@ import {
 } from "../event-types.ts";
 import {
   migrateEventToCustomFields,
+  SCHEMA_V11_ACTIVITY_RENAME,
   type LegacyEventColumns,
 } from "../events.ts";
 import { newerOf } from "../record.ts";
@@ -375,6 +376,27 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
       });
 
     tables = { ...tables, eventTypes: [...nested, ...additions] };
+  }
+
+  // v10 -> v11: `balade` splits into two activities. Same rewrite as `db.ts`'s
+  // v11 upgrade, shared as `SCHEMA_V11_ACTIVITY_RENAME` so the two cannot
+  // drift, applied to the file's own `events` rows instead of a live table.
+  // Guarded on the field still reading the old key, so a file already
+  // rewritten — or one where the user genuinely picked today's `balade` —
+  // passes through untouched.
+  if (backup.schemaVersion < 11) {
+    const { type, field, from, to } = SCHEMA_V11_ACTIVITY_RENAME;
+    tables = {
+      ...tables,
+      events: tables.events.map((row) =>
+        row.type === type && row.customFields?.[field] === from
+          ? {
+              ...row,
+              customFields: { ...row.customFields, [field]: to },
+            }
+          : row,
+      ),
+    };
   }
 
   return {

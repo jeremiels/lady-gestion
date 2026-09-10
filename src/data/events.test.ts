@@ -290,36 +290,42 @@ describe("workSessionByDate", () => {
 
 describe("formatWorkActivity", () => {
   it("resolves a built-in key to its French label", () => {
-    expect(formatWorkActivity("balade")).toBe("Balade à pied");
+    expect(formatWorkActivity("baladeApied")).toBe("Balade à pied");
   });
 
   it("gives back an activity the user added, which is stored as its own label", () => {
-    expect(formatWorkActivity("Carrière")).toBe("Carrière");
+    expect(formatWorkActivity("Voltige")).toBe("Voltige");
   });
 });
 
 describe("activityChoices", () => {
-  it("offers the six built-ins alphabetically by their French labels", () => {
+  it("offers the built-ins alphabetically by their French labels", () => {
     expect(activityChoices([])).toEqual([
       "balade",
+      "baladeApied",
+      "carriere",
       "liberte",
       "longe",
       "plat",
+      "repos",
       "tap",
       "trotting",
     ]);
   });
 
   it("slots the user’s own in alphabetically among the built-ins", () => {
-    expect(activityChoices(["Carrière", "Repos"])).toEqual([
+    expect(activityChoices(["Voltige", "Pansage"])).toEqual([
       "balade",
-      "Carrière",
+      "baladeApied",
+      "carriere",
       "liberte",
       "longe",
+      "Pansage",
       "plat",
-      "Repos",
+      "repos",
       "tap",
       "trotting",
+      "Voltige",
     ]);
   });
 
@@ -327,41 +333,44 @@ describe("activityChoices", () => {
     // The built-in stores `trotting` and reads "Trotting"; a row spelling the
     // label out would render a second chip identical to the first.
     expect(activityChoices(["Trotting"])).not.toContain("Trotting");
-    expect(activityChoices(["Trotting"])).toHaveLength(6);
+    expect(activityChoices(["Trotting"])).toHaveLength(9);
   });
 
   it("ignores case, surrounding space and accents when comparing", () => {
     expect(
-      activityChoices(["  liberte ", "LIBERTÉ", "Carrière", "carriere"]),
+      activityChoices(["  liberte ", "LIBERTÉ", "Voltige", "voltige"]),
     ).toEqual([
       "balade",
-      "Carrière",
+      "baladeApied",
+      "carriere",
       "liberte",
       "longe",
       "plat",
+      "repos",
       "tap",
       "trotting",
+      "Voltige",
     ]);
   });
 
   it("skips a blank label rather than offering an unlabelled chip", () => {
-    expect(activityChoices(["   "])).toHaveLength(6);
+    expect(activityChoices(["   "])).toHaveLength(9);
   });
 });
 
 describe("matchActivity", () => {
-  const choices = activityChoices(["Carrière"]);
+  const choices = activityChoices(["Voltige"]);
 
   it("resolves a typed label to the chip already offering it", () => {
-    expect(matchActivity("carriere", choices)).toBe("Carrière");
+    expect(matchActivity("voltige", choices)).toBe("Voltige");
   });
 
   it("resolves a built-in by its label, not by its storage key", () => {
-    expect(matchActivity("Balade à pied", choices)).toBe("balade");
+    expect(matchActivity("Balade à pied", choices)).toBe("baladeApied");
   });
 
   it("answers null for a label nothing offers yet", () => {
-    expect(matchActivity("Repos", choices)).toBe(null);
+    expect(matchActivity("Dressage", choices)).toBe(null);
   });
 
   it("answers null for a blank label rather than matching the first chip", () => {

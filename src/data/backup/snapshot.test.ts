@@ -399,6 +399,57 @@ describe("migrateSnapshot", () => {
     ).toHaveLength(1);
   });
 
+  it("rewrites a pre-v11 file's balade session to baladeApied", () => {
+    const migrated = migrateSnapshot(
+      snapshot({
+        schemaVersion: 10,
+        tables: {
+          events: [
+            event({ type: "travail", customFields: { activity: "balade" } }),
+          ],
+        },
+      }),
+    );
+
+    expect(migrated.tables.events[0]).toMatchObject({
+      customFields: { activity: "baladeApied" },
+    });
+  });
+
+  it("leaves a pre-v11 travail session on a different activity alone", () => {
+    const migrated = migrateSnapshot(
+      snapshot({
+        schemaVersion: 10,
+        tables: {
+          events: [
+            event({ type: "travail", customFields: { activity: "longe" } }),
+          ],
+        },
+      }),
+    );
+
+    expect(migrated.tables.events[0]).toMatchObject({
+      customFields: { activity: "longe" },
+    });
+  });
+
+  it("leaves a non-travail event alone even if it happens to carry the key", () => {
+    const migrated = migrateSnapshot(
+      snapshot({
+        schemaVersion: 10,
+        tables: {
+          events: [
+            event({ type: "veto", customFields: { activity: "balade" } }),
+          ],
+        },
+      }),
+    );
+
+    expect(migrated.tables.events[0]).toMatchObject({
+      customFields: { activity: "balade" },
+    });
+  });
+
   it("stamps the file up to the current schema version", () => {
     const migrated = migrateSnapshot(snapshot({ schemaVersion: 7 }));
 

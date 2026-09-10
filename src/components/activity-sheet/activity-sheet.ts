@@ -39,10 +39,10 @@ const LABEL_SCHEMA = { label: text({ required: true, maxLength: MAX_LABEL }) };
  * full event sheet is still there for a session that needs a price, a note or a
  * date the strip does not show.
  *
- * The list of chips is the six built-in activities plus whatever the user has
- * added, and the input at the bottom is how they add one. A new activity is
- * saved to the catalogue (`activitiesRepo`) *and* applied to the day in one
- * submit — typing it is already the act of choosing it.
+ * The list of chips is the built-in activities, and the input at the
+ * bottom is how the user reaches anything else. A new activity is saved to
+ * the catalogue (`activitiesRepo`) *and* applied to the day in one submit —
+ * typing it is already the act of choosing it.
  *
  * Reads the day's existing session from `existing` rather than querying for it:
  * the strip holds the whole week and has already resolved which row each day
@@ -140,8 +140,27 @@ export class ActivitySheet extends BaseElement {
     }
   `;
 
-  /** The chips to offer: the built-ins, then the horse's own. */
+  /**
+   * The chips to offer: the built-ins, plus the day's own activity when
+   * it is a custom one — so a session already set to a custom activity still
+   * shows a selected chip (and can be tapped off), even though the sheet no
+   * longer lists the rest of the horse's custom catalogue.
+   */
   get #choices(): WorkActivity[] {
+    const choices = activityChoices([]);
+    const selected = this.existing?.activity ?? null;
+    return selected !== null && !choices.includes(selected)
+      ? [...choices, selected]
+      : choices;
+  }
+
+  /**
+   * The built-ins plus the horse's whole custom catalogue — what a freshly
+   * typed activity is checked against before adding it as a new catalogue
+   * row, so retyping an existing custom activity finds it instead of adding
+   * a duplicate.
+   */
+  get #knownActivities(): WorkActivity[] {
     return activityChoices(
       (this.#activities.value ?? []).map((item) => item.label),
     );
@@ -283,7 +302,7 @@ export class ActivitySheet extends BaseElement {
     }
 
     const label = result.value.label;
-    const known = matchActivity(label, this.#choices);
+    const known = matchActivity(label, this.#knownActivities);
 
     await this.#apply(known ?? label, known ? null : label);
   };

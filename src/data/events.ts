@@ -90,34 +90,59 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
  */
 export type BuiltInActivity =
   | "balade"
+  | "baladeApied"
+  | "carriere"
   | "longe"
   | "tap"
   | "liberte"
   | "plat"
-  | "trotting";
+  | "trotting"
+  | "repos";
 
 /**
  * A built-in key, or a label the user typed.
  *
  * `(string & {})` rather than a bare `string`: the union keeps editor completion
- * on the six built-ins, which widening to `string` would silently drop.
+ * on the built-ins, which widening to `string` would silently drop.
  */
 export type WorkActivity = BuiltInActivity | (string & {});
 
 /** In the order the sheet offers them. */
 const WORK_ACTIVITY_LABELS: Record<BuiltInActivity, string> = {
-  balade: "Balade à pied",
+  balade: "Balade",
+  baladeApied: "Balade à pied",
+  carriere: "Carrière",
   longe: "Longe",
   tap: "TAP",
   liberte: "Liberté",
   plat: "Plat",
   trotting: "Trotting",
+  repos: "Repos",
 };
 
 /** Derived from the table above, so the list and the labels cannot drift. */
 export const WORK_ACTIVITIES = Object.keys(
   WORK_ACTIVITY_LABELS,
 ) as BuiltInActivity[];
+
+/**
+ * `balade` split in two: it used to be the only "on foot" option and meant
+ * what `baladeApied` now spells out, and was repurposed for the broader
+ * outing `baladeApied` was carved out of. Every `travail` session recorded
+ * before the split still stores the bare key `balade` and still means
+ * "Balade à pied" — read against today's label table that now silently
+ * becomes the *other* activity.
+ *
+ * Shared by `db.ts`'s v11 upgrade and `backup/snapshot.ts`'s matching step,
+ * so a live database and a restored backup file rewrite the same rows to the
+ * same value.
+ */
+export const SCHEMA_V11_ACTIVITY_RENAME = {
+  type: "travail",
+  field: "activity",
+  from: "balade",
+  to: "baladeApied",
+} as const;
 
 /**
  * A `Map` rather than indexing the `Record` above.
@@ -151,10 +176,9 @@ const activityKey = (label: string): string =>
     .toLocaleLowerCase("fr-FR");
 
 /**
- * The chips the day sheet offers: the six built-ins and the user's own,
- * alphabetically by their displayed label — so a custom activity takes its
- * place among the built-ins rather than always trailing them, and the list
- * stays scannable as it grows.
+ * The built-ins and the given custom labels, alphabetically by their
+ * displayed label — so a custom activity takes its place among the built-ins
+ * rather than always trailing them, and the list stays scannable as it grows.
  *
  * Deduplicated on what each choice *reads as* rather than on what it stores, so
  * a user who types "Trotting" gets the built-in `trotting` back instead of a

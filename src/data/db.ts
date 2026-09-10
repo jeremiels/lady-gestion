@@ -9,6 +9,7 @@ import {
 } from "./event-types.ts";
 import {
   migrateEventToCustomFields,
+  SCHEMA_V11_ACTIVITY_RENAME,
   type FollowUpInterval,
   type LegacyEventColumns,
   type WorkActivity,
@@ -69,8 +70,14 @@ import type {
  *   new type, is seeded directly as its sibling. Like v6 this one *adds* a
  *   row (`massage` never existed before), and like v9 it *moves* one
  *   (`osteo`) — no new table and no new column either way.
+ * - v11 — `balade` splits into `balade` (kept, repointed at the broader
+ *   outing) and `baladeApied` (new, carrying the meaning `balade` used to
+ *   have). No new table and no new column: only `travail` events already
+ *   holding the bare key `balade` are rewritten to `baladeApied`, so they
+ *   keep meaning what they meant when they were recorded rather than
+ *   silently reading as the new, different activity `balade` now names.
  */
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -221,7 +228,7 @@ export class LadyGestionDb extends Dexie {
 
     // A brand-new store, so there is no row to rewrite and no `.upgrade()` to
     // write — but the version still has to exist, or Dexie never creates it.
-    // Nothing seeds it either: the six built-in activities are code, not rows,
+    // Nothing seeds it either: the built-in activities are code, not rows,
     // and this table holds only what the user adds on top of them.
     this.version(5).stores(STORES_V5);
 
@@ -412,6 +419,31 @@ export class LadyGestionDb extends Dexie {
             return parent ? { ...type, parentId: parent.id } : type;
           });
         if (additions.length > 0) await table.bulkAdd(additions);
+      });
+
+    // No index changed, so the stores are repeated verbatim once more.
+    //
+    // Scoped to `type` = `travail` via the indexed column, then guarded on
+    // the field's own value, rather than scanning every event: no other type
+    // has ever written to a `workActivity`-role field, so this is exactly the
+    // set of rows the key's old meaning could be sitting on. Idempotent by
+    // construction — a row already rewritten no longer reads `from`, so
+    // replaying this (a device patched live, backed up, then restored onto
+    // itself) leaves it alone.
+    this.version(11)
+      .stores(STORES_V6)
+      .upgrade((transaction) => {
+        const { type, field, from, to } = SCHEMA_V11_ACTIVITY_RENAME;
+
+        return transaction
+          .table<HorseEvent>("events")
+          .where("type")
+          .equals(type)
+          .modify((event) => {
+            if (event.customFields?.[field] === from) {
+              event.customFields[field] = to;
+            }
+          });
       });
   }
 }

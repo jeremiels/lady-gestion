@@ -122,24 +122,41 @@ export class EventSheet extends BaseElement {
   }
 
   /**
-   * The activities the combobox suggests — the six built-ins, the horse's
-   * catalogue, and the one on the record being edited.
+   * The activities the combobox suggests — the built-ins, and the one on
+   * the record being edited.
    *
    * The last is the one case that still bites: an activity whose catalogue
    * row has since been retired, or was never in the catalogue at all, is
    * still on the event, and without it here the field would open blank on a
    * session that plainly has one.
+   *
+   * Deliberately built-ins only otherwise — the horse's wider custom
+   * catalogue used to fill this list too, but `#knownActivities` below is
+   * where that still matters: it is what a freshly typed activity is checked
+   * against before being added as a new row, so this field no longer
+   * *offering* a custom activity doesn't mean retyping one creates a
+   * duplicate.
    */
   get #activityChoices(): WorkActivity[] {
-    const custom = (this.#customActivities.value ?? []).map(
-      (item) => item.label,
-    );
-    const choices = activityChoices(custom);
+    const choices = activityChoices([]);
     const stored = this.event?.customFields[this.#recordActivityFieldId];
     const current = typeof stored === "string" ? stored : null;
     return current !== null && !choices.includes(current)
       ? [...choices, current]
       : choices;
+  }
+
+  /**
+   * The built-ins plus the horse's whole custom catalogue — what a freshly
+   * typed activity is checked against before it is saved as a new catalogue
+   * row, so retyping an existing custom activity finds it instead of adding
+   * a duplicate.
+   */
+  get #knownActivities(): WorkActivity[] {
+    const custom = (this.#customActivities.value ?? []).map(
+      (item) => item.label,
+    );
+    return activityChoices(custom);
   }
 
   static componentStyles = css`
@@ -381,7 +398,7 @@ export class EventSheet extends BaseElement {
     const activityField = type
       ? fieldWithRole(type, "workActivity")
       : undefined;
-    const priorChoices = this.#activityChoices;
+    const priorChoices = this.#knownActivities;
 
     // The whole schema, built from the picked type's own field list. Only the
     // type select is stated here: it is how a type is chosen, so it cannot be
