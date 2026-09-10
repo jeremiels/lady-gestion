@@ -2,6 +2,7 @@ import { css, html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import {
   activeHorseQuery,
+  courseDatesThisWeek,
   eventsRepo,
   eventTypesRepo,
   formatDayLong,
@@ -148,6 +149,7 @@ export class WeekStrip extends BaseElement {
       this.#week.value ?? [],
       this.#eventTypes.value ?? [],
     );
+    const courseDates = courseDatesThisWeek(this.#week.value ?? []);
     const { selected, sheetOpen } = this;
 
     return html`
@@ -169,6 +171,7 @@ export class WeekStrip extends BaseElement {
                 <day-card
                   .date=${date}
                   .activity=${sessions.get(date)?.activity ?? null}
+                  ?course=${courseDates.has(date)}
                   ?today=${date === today}
                 ></day-card>
               </button>

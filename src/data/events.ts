@@ -319,6 +319,23 @@ export const workActivityByDate = (
     ]),
   );
 
+/**
+ * The days this week that carry a `cours` event — the week strip's cue to
+ * show "Cours" instead of a work activity.
+ *
+ * A `Set`, not a `Map` to something richer, because the strip shows nothing
+ * about the lesson beyond the fact of it — no coach, no budget, the same way
+ * `workActivityByDate` throws away everything but the activity string.
+ * Cancelled events are skipped, as `workSessionByDate` skips them: a
+ * cancelled lesson did not happen.
+ */
+export const courseDatesThisWeek = (events: HorseEvent[]): Set<IsoDate> =>
+  new Set(
+    events
+      .filter((event) => event.type === "cours" && event.status !== "cancelled")
+      .map((event) => event.date),
+  );
+
 export const isFollowUpInterval = (
   value: unknown,
 ): value is FollowUpInterval => {

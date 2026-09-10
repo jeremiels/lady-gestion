@@ -35,6 +35,16 @@ export class DayCard extends BaseElement {
   /** The day's work session, or `null` for a day with none. */
   @property({ attribute: false }) activity: WorkActivity | null = null;
 
+  /**
+   * Whether a `cours` event falls on this day.
+   *
+   * Shown in place of `activity` rather than beside it — the line has room
+   * for one label, and a lesson day says more than the work session under it
+   * would. Just the word, nothing else: no coach, no budget, the same way the
+   * strip only ever names the lesson, never describes it.
+   */
+  @property({ type: Boolean }) course = false;
+
   /** The second of the two styles. Reflected so `:host([today])` can paint it. */
   @property({ type: Boolean, reflect: true }) today = false;
 
@@ -126,7 +136,11 @@ export class DayCard extends BaseElement {
           <span class="day__number">${dayOfMonth(this.date)}</span>
         </time>
         <p class="day__activity">
-          ${this.activity === null ? nothing : formatWorkActivity(this.activity)}
+          ${this.course
+            ? "Cours"
+            : this.activity === null
+              ? nothing
+              : formatWorkActivity(this.activity)}
         </p>
       </div>
     `;

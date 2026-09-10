@@ -9,6 +9,7 @@ import {
   formatWorkActivity,
   isFollowUpInterval,
   matchActivity,
+  courseDatesThisWeek,
   migrateEventToCustomFields,
   parseFollowUpValue,
   parseQuantity,
@@ -285,6 +286,30 @@ describe("workSessionByDate", () => {
     expect(session?.activity).toBe(
       workActivityByDate(events, TYPES).get("2026-08-10"),
     );
+  });
+});
+
+describe("courseDatesThisWeek", () => {
+  it("names the day of a cours event, and no other event’s", () => {
+    const dates = courseDatesThisWeek([
+      makeEvent({ id: "lesson", type: "cours", date: "2026-08-10" }),
+      makeEvent({ id: "care", type: "veto", date: "2026-08-11" }),
+    ]);
+
+    expect(dates).toEqual(new Set(["2026-08-10"]));
+  });
+
+  it("skips a cancelled lesson — it did not happen", () => {
+    const dates = courseDatesThisWeek([
+      makeEvent({
+        id: "lesson",
+        type: "cours",
+        date: "2026-08-10",
+        status: "cancelled",
+      }),
+    ]);
+
+    expect(dates.size).toBe(0);
   });
 });
 

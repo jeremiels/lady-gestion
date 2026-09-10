@@ -86,6 +86,29 @@ describe("week-strip", () => {
     );
   });
 
+  it("shows “Cours” on a day with a cours event, and nothing else’s", async () => {
+    const monday = startOfWeek(todayISO(), 1);
+    const wednesday = addDays(monday, 2);
+
+    await db.events.bulkAdd([
+      makeEvent({ id: "lesson", type: "cours", date: wednesday }),
+      // A cancelled lesson did not happen — must not light up its day.
+      makeEvent({
+        id: "cancelled-lesson",
+        type: "cours",
+        date: addDays(monday, 4),
+        status: "cancelled",
+      }),
+    ]);
+
+    const el = await mount();
+    await waitFor(el, () => cardsOf(el).some((card) => card.course));
+
+    const byDate = new Map(cardsOf(el).map((card) => [card.date, card]));
+    expect(byDate.get(wednesday)?.course).toBe(true);
+    expect([...byDate.values()].filter((card) => card.course)).toHaveLength(1);
+  });
+
   it("shows a user’s own activity by the label it stores", async () => {
     const wednesday = addDays(startOfWeek(todayISO(), 1), 2);
     await db.events.add(
