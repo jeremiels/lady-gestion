@@ -136,11 +136,13 @@ export class DayCard extends BaseElement {
           <span class="day__number">${dayOfMonth(this.date)}</span>
         </time>
         <p class="day__activity">
-          ${this.course
-            ? "Cours"
-            : this.activity === null
-              ? nothing
-              : formatWorkActivity(this.activity)}
+          ${
+            this.course
+              ? "Cours"
+              : this.activity === null
+                ? nothing
+                : formatWorkActivity(this.activity)
+          }
         </p>
       </div>
     `;
