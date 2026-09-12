@@ -1,4 +1,4 @@
-import { css, html, nothing } from "lit";
+import { css, html, nothing, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { live } from "lit/directives/live.js";
@@ -33,12 +33,18 @@ export class AppCombobox extends FormFieldElement {
   /** Drops the card behind the field, for a surface that already provides one. */
   @property({ type: Boolean, reflect: true }) flat = false;
 
-  /** Whether the suggestions list is open. */
-  @state() private open = false;
+  /**
+   * Whether the suggestions list is open.
+   *
+   * Not `private`: `changed.has(...)` in `updated()` needs it in `keyof AppCombobox`.
+   */
+  @state() open = false;
   /** Index into `#rows`, or `-1` when nothing is highlighted. */
   @state() private activeIndex = -1;
 
   @query("input") private inputEl?: HTMLInputElement;
+  @query(".field__control") private controlEl?: HTMLElement;
+  @query(".field__listbox") private listboxEl?: HTMLUListElement;
 
   protected get control(): HTMLInputElement | undefined {
     return this.inputEl;
@@ -194,6 +200,92 @@ export class AppCombobox extends FormFieldElement {
     this.activeIndex = -1;
   }
 
+  /**
+   * `updated()` is unconditional in `FormFieldElement` (see its comment), so
+   * this reads `changed` itself rather than relying on the base to gate it.
+   *
+   * The listbox is a `popover="manual"`, promoted to the top layer, because
+   * `position: absolute` inside `.field__wrapper` was clipped by any ancestor
+   * that clips overflow — `event-form__follow-up` does, to animate its own
+   * height — and had no idea a keyboard had eaten the bottom of the viewport.
+   * Showing/hiding it here, alongside the viewport tracking, is what a plain
+   * `?hidden` binding can no longer do once the element lives in the top layer.
+   */
+  protected updated(changed?: PropertyValues<this>) {
+    super.updated();
+    if (!changed?.has("open")) return;
+    const listbox = this.listboxEl;
+    if (!listbox) return;
+    if (this.open) {
+      if (!listbox.matches(":popover-open")) listbox.showPopover();
+      this.#startTracking();
+    } else {
+      this.#stopTracking();
+      if (listbox.matches(":popover-open")) listbox.hidePopover();
+    }
+  }
+
+  disconnectedCallback() {
+    this.#stopTracking();
+    super.disconnectedCallback();
+  }
+
+  /**
+   * Anchors the listbox to the control on every open and on every scroll or
+   * resize while it stays open — including `visualViewport`'s, which is what
+   * actually shrinks when the on-screen keyboard appears (`window.innerHeight`
+   * does not). Flipping above the control, not just capping the height, when
+   * the keyboard leaves too little room below is what keeps the list from
+   * opening half-hidden behind it.
+   */
+  #reposition = () => {
+    const control = this.controlEl;
+    const listbox = this.listboxEl;
+    if (!control || !listbox) return;
+
+    const rect = control.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const visibleTop = viewport?.offsetTop ?? 0;
+    const visibleBottom = viewport
+      ? viewport.offsetTop + viewport.height
+      : window.innerHeight;
+    const gap = 4;
+    const rootFontSize =
+      parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const preferredMaxHeight = rootFontSize * 12;
+
+    const spaceBelow = visibleBottom - rect.bottom - gap;
+    const spaceAbove = rect.top - visibleTop - gap;
+    const openUpward = spaceBelow < rootFontSize * 3 && spaceAbove > spaceBelow;
+
+    listbox.style.left = `${rect.left}px`;
+    listbox.style.width = `${rect.width}px`;
+    if (openUpward) {
+      listbox.style.top = "auto";
+      listbox.style.bottom = `${window.innerHeight - rect.top + gap}px`;
+      listbox.style.maxHeight = `${Math.max(0, Math.min(preferredMaxHeight, spaceAbove))}px`;
+    } else {
+      listbox.style.bottom = "auto";
+      listbox.style.top = `${rect.bottom + gap}px`;
+      listbox.style.maxHeight = `${Math.max(0, Math.min(preferredMaxHeight, spaceBelow))}px`;
+    }
+  };
+
+  #startTracking() {
+    this.#reposition();
+    window.addEventListener("resize", this.#reposition);
+    window.addEventListener("scroll", this.#reposition, true);
+    window.visualViewport?.addEventListener("resize", this.#reposition);
+    window.visualViewport?.addEventListener("scroll", this.#reposition);
+  }
+
+  #stopTracking() {
+    window.removeEventListener("resize", this.#reposition);
+    window.removeEventListener("scroll", this.#reposition, true);
+    window.visualViewport?.removeEventListener("resize", this.#reposition);
+    window.visualViewport?.removeEventListener("scroll", this.#reposition);
+  }
+
   #onKeydown = (event: KeyboardEvent) => {
     const total = this.#filteredOptions.length + (this.#showCreateRow ? 1 : 0);
 
@@ -305,7 +397,11 @@ export class AppCombobox extends FormFieldElement {
     .field__input {
       grid-column: 1;
       font: inherit;
-      font-size: 0.813rem;
+      /* Not 0.813rem, like app-input's: Safari on iOS zooms the whole page in
+         when a control smaller than 16px takes focus, and a standalone PWA has
+         no address bar to reset the zoom from — see app-select's own note by
+         its .field__select rule. */
+      font-size: var(--font-size-base);
       color: var(--font-color);
       background: none;
       border: 0;
@@ -354,12 +450,17 @@ export class AppCombobox extends FormFieldElement {
       box-shadow: var(--app-field-error-ring);
     }
 
+    /*
+     * A popover, not position: absolute inside .field__wrapper: this field can
+     * sit inside .event-form__follow-up, which clips overflow to animate its
+     * own height, and an absolutely-positioned list was clipped along with it.
+     * position: fixed here, with left/width/top or bottom written by
+     * #reposition, is what lets the list escape that clip and still track the
+     * control across scrolls, resizes and the on-screen keyboard.
+     */
     .field__listbox {
-      position: absolute;
-      top: calc(100% + var(--spacing-4));
-      left: 0;
-      right: 0;
-      z-index: 1;
+      position: fixed;
+      inset: auto;
       margin: 0;
       padding: var(--spacing-4);
       list-style: none;
@@ -370,10 +471,6 @@ export class AppCombobox extends FormFieldElement {
       max-height: 12rem;
       overflow-y: auto;
       overscroll-behavior: contain;
-    }
-
-    .field__listbox[hidden] {
-      display: none;
     }
 
     .field__option {
@@ -459,7 +556,7 @@ export class AppCombobox extends FormFieldElement {
             class="field__listbox"
             part="listbox"
             role="listbox"
-            ?hidden=${!this.open}
+            popover="manual"
           >
             ${options.map(
               (option, index) => html`
