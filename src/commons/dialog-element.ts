@@ -203,20 +203,22 @@ export abstract class DialogElement extends BaseElement {
        white, the sheet from the brown palette — so the colour and the focus
        ring stay with each of them. */
     .dialog__close {
+      --icon-color: var(--color-brown-dark);
       appearance: none;
       border: none;
-      background: transparent;
+      background: var(--color-brown-light-bg);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: var(--spacing-8);
-      border-radius: var(--radius-pill);
+      padding: 0;
+      border-radius: var(--radius-8);
       cursor: pointer;
     }
 
     @media (hover: hover) and (pointer: fine) {
       .dialog__close:hover {
         background-color: var(--color-brown-light-bg);
+        color: var(--color-brown-dark);
       }
     }
 
