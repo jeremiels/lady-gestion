@@ -1,6 +1,6 @@
 /* Label-left / value-right rows separated by hairlines, inside a `.container`
-   card. Shared by `HorseView` (identity, origin) and `ProfileView` (account
-   details), which is why it lives here rather than in a view's stylesheet. */
+   card. Used by `ProfileView` (account details); `horse-profile` restates the
+   same rows in its shadow root, which this layer cannot reach. */
 @layer components.meta-list {
   .meta-list {
     display: flex;

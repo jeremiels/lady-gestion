@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isLateral, SECTIONS, sectionOf } from "./sections.ts";
+import {
+  horseRouteOf,
+  horseTransitionType,
+  isLateral,
+  SECTIONS,
+  sectionOf,
+} from "./sections.ts";
 
 /**
  * The section table decides two things the user sees: which nav item is lit,
@@ -71,5 +77,45 @@ describe("isLateral", () => {
 
   it("is false leaving a path that belongs to no section", () => {
     expect(isLateral("/nope", "/events")).toBe(false);
+  });
+});
+
+describe("horseRouteOf", () => {
+  it("defaults to the first tab, so horse-card's plain link still lands", () => {
+    expect(horseRouteOf("/horse")).toEqual({ horseId: null, tab: "ration" });
+    expect(horseRouteOf("/horse/abc")).toEqual({
+      horseId: "abc",
+      tab: "ration",
+    });
+  });
+
+  it("reads a known tab", () => {
+    expect(horseRouteOf("/horse/abc/cheval")).toEqual({
+      horseId: "abc",
+      tab: "cheval",
+    });
+  });
+
+  it("refuses an unknown tab or a deeper path, so the 404 gets them", () => {
+    expect(horseRouteOf("/horse/abc/nope")).toBeNull();
+    expect(horseRouteOf("/horse/abc/cheval/extra")).toBeNull();
+    expect(horseRouteOf("/horses")).toBeNull();
+  });
+});
+
+describe("horseTransitionType", () => {
+  it("morphs the card only on the way in or out of the horse page", () => {
+    expect(horseTransitionType("/", "/horse/abc")).toBe("horse");
+    expect(horseTransitionType("/horse/abc/cures", "/")).toBe("horse");
+  });
+
+  it("keeps the page still between two of its sub-pages", () => {
+    expect(horseTransitionType("/horse/abc", "/horse/abc/cheval")).toBe(
+      "horse-subpage",
+    );
+  });
+
+  it("is nothing for a navigation that never touches the horse", () => {
+    expect(horseTransitionType("/", "/events")).toBeNull();
   });
 });

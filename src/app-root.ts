@@ -11,7 +11,12 @@ import { initData } from "./data/index.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { appHref } from "./commons/base-path.ts";
-import { isHorsePath, isLateral, SECTIONS } from "./commons/sections.ts";
+import {
+  horseRouteOf,
+  horseTransitionType,
+  isLateral,
+  SECTIONS,
+} from "./commons/sections.ts";
 import "./components/navigation/nav-bar.ts";
 import "./components/navigation/nav-item.ts";
 import "./components/app-icon/app-icon.ts";
@@ -118,13 +123,24 @@ const ROUTES: Route[] = [
     render: () => html`<profile-view></profile-view>`,
   },
   {
-    // `/horse/<id>` is accepted but the id is deliberately ignored for now: the
+    // `/horse`, `/horse/<id>` and `/horse/<id>/<tab>`; an unknown tab falls
+    // through to the 404. The id only builds the sub-nav's links for now: the
     // app is single-horse and `HorseView` reads `horsesRepo.getActive()`. Wire
-    // the id through before a second horse can exist.
-    match: isHorsePath,
+    // it through to the data before a second horse can exist.
+    //
+    // Deliberately not `keyed`: switching tabs keeps the same element, so its
+    // `LiveQuery`s stay subscribed and the cover is not rebuilt. Key on the id
+    // alone once it selects the horse.
+    match: (path) => horseRouteOf(path) !== null,
     title: "Fiche du cheval",
     load: () => import("./views/HorseView.ts"),
-    render: () => html`<horse-view></horse-view>`,
+    render: (path) => {
+      const route = horseRouteOf(path)!;
+      return html`<horse-view
+        .horseId=${route.horseId}
+        .tab=${route.tab}
+      ></horse-view>`;
+    },
   },
 ];
 
@@ -183,13 +199,16 @@ export class AppRoot extends LightElement {
   readonly #router = new Router(this, {
     beforeRender: (path) => this.#prepareRoute(path),
     afterRender: () => this.#focusHeading(),
-    // Tags home↔horse-view navigations so `transitions/horse.css` can give
-    // `--horse-card` its shared-element morph only there, and let it ride the
-    // plain route slide like the rest of the page for every other destination.
-    extraTransitionTypes: (from, to) => [
-      ...(isHorsePath(from) || isHorsePath(to) ? ["horse"] : []),
-      ...(isLateral(from, to) ? ["lateral"] : []),
-    ],
+    // `horse` on home↔horse-view, so `transitions/horse.css` can give
+    // `--horse-card` its shared-element morph only there; `horse-subpage`
+    // between two of its tabs, where the cover and sub-nav stay put.
+    extraTransitionTypes: (from, to) => {
+      const horse = horseTransitionType(from, to);
+      return [
+        ...(horse ? [horse] : []),
+        ...(isLateral(from, to) ? ["lateral"] : []),
+      ];
+    },
   });
 
   connectedCallback() {

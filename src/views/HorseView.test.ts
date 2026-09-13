@@ -7,22 +7,42 @@ import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./HorseView.ts";
 import type { HorseView } from "./HorseView.ts";
 
-const mount = () => fixture<HorseView>(html`<horse-view></horse-view>`);
+import type { HorseTab } from "../commons/sections.ts";
+import type { HorseProfile } from "../components/horse-profile/horse-profile.ts";
+import type { HorseRation } from "../components/horse-ration/horse-ration.ts";
+import type { RationSheet } from "../components/ration-sheet/ration-sheet.ts";
+
+const mount = (tab: HorseTab = "ration") =>
+  fixture<HorseView>(
+    html`<horse-view .horseId=${"horse-1"} .tab=${tab}></horse-view>`,
+  );
+
+/** The pieces of the page live in their own shadow roots. */
+const rationList = (el: HorseView) =>
+  el.querySelector<HorseRation>("horse-ration")!;
+const rationSheet = (el: HorseView) =>
+  el.querySelector<RationSheet>("ration-sheet")!;
+const profile = (el: HorseView) =>
+  el.querySelector<HorseProfile>("horse-profile")!;
+
+const rationRows = (el: HorseView) =>
+  rationList(el)?.renderRoot.querySelectorAll(".item").length ?? 0;
+const editButton = (el: HorseView) =>
+  rationList(el).renderRoot.querySelector<HTMLButtonElement>(".edit-button")!;
 
 /**
  * The form field for one ration line's quantity, or its seasonal checkbox.
  *
  * `name` is a plain reactive property, not a reflected attribute — it exists
- * only on the shadow-root native control, not as a light-DOM `app-input`
- * attribute — so this has to filter by the property instead of a CSS
- * attribute selector.
+ * only on the shadow-root native control, not as an `app-input` attribute — so
+ * this has to filter by the property instead of a CSS attribute selector.
  */
 const quantityField = (el: HorseView, rationId: string) =>
-  [...el.querySelectorAll("app-input")].find(
+  [...rationSheet(el).renderRoot.querySelectorAll("app-input")].find(
     (input) => input.name === `quantity-${rationId}`,
   )!;
 const seasonalField = (el: HorseView, rationId: string) =>
-  [...el.querySelectorAll("app-checkbox")].find(
+  [...rationSheet(el).renderRoot.querySelectorAll("app-checkbox")].find(
     (checkbox) => checkbox.name === `seasonal-${rationId}`,
   )!;
 
@@ -43,7 +63,9 @@ const toggleSeasonal = async (el: HorseView, rationId: string) => {
 };
 
 const submitRationSheet = async (el: HorseView) => {
-  el.querySelector<HTMLFormElement>("#ration-form")!.requestSubmit();
+  rationSheet(el)
+    .renderRoot.querySelector<HTMLFormElement>("#ration-form")!
+    .requestSubmit();
   await settled(el);
   await new Promise((resolve) => setTimeout(resolve, 0));
   await settled(el);
@@ -55,12 +77,14 @@ beforeEach(async () => {
 });
 
 describe("horse-view", () => {
-  it("shows the identity card, falling back to — for what is unknown", async () => {
-    const el = await mount();
-    await waitFor(el, () => el.textContent!.includes("Selle Français"));
+  it("shows the identity card under Cheval, falling back to — for what is unknown", async () => {
+    const el = await mount("cheval");
+    await waitFor(el, () =>
+      Boolean(profile(el)?.renderRoot.textContent?.includes("Selle Français")),
+    );
 
-    const identity = el.querySelectorAll(".horse-view__meta")[0]!;
-    const values = [...identity.querySelectorAll(".meta-value")].map((node) =>
+    const identity = profile(el).renderRoot.querySelectorAll(".section")[0]!;
+    const values = [...identity.querySelectorAll(".item__value")].map((node) =>
       node.textContent?.trim(),
     );
 
@@ -72,14 +96,16 @@ describe("horse-view", () => {
 
   it("shows the empty ration state and disables editing when there are no rations", async () => {
     const el = await mount();
-    await waitFor(el, () => el.textContent!.includes("Ration quotidienne"));
+    await waitFor(el, () =>
+      Boolean(
+        rationList(el)?.renderRoot.textContent?.includes("Ration quotidienne"),
+      ),
+    );
 
-    expect(el.textContent).toContain(
+    expect(rationList(el).renderRoot.textContent).toContain(
       "Aucune ration enregistrée pour le moment.",
     );
-    expect(
-      el.querySelector<HTMLButtonElement>(".horse-view__edit-button")?.disabled,
-    ).toBe(true);
+    expect(editButton(el).disabled).toBe(true);
   });
 
   /**
@@ -109,10 +135,11 @@ describe("horse-view", () => {
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll(".ration-item").length === 2);
+    await waitFor(el, () => rationRows(el) === 2);
 
-    el.querySelector<HTMLButtonElement>(".horse-view__edit-button")!.click();
+    editButton(el).click();
     await settled(el);
+    await settled(rationSheet(el));
 
     await setQuantity(el, "ration-a", "2,5");
     await submitRationSheet(el);
@@ -149,10 +176,11 @@ describe("horse-view", () => {
     ]);
 
     const el = await mount();
-    await waitFor(el, () => el.querySelectorAll(".ration-item").length === 2);
+    await waitFor(el, () => rationRows(el) === 2);
 
-    el.querySelector<HTMLButtonElement>(".horse-view__edit-button")!.click();
+    editButton(el).click();
     await settled(el);
+    await settled(rationSheet(el));
 
     await toggleSeasonal(el, "ration-a");
     await toggleSeasonal(el, "ration-b");

@@ -26,6 +26,66 @@ import type { IconName } from "../components/app-icon/icons.ts";
 export const isHorsePath = (path: string): boolean =>
   path === "/horse" || path.startsWith("/horse/");
 
+/**
+ * The horse page's sub-pages, in the order the second-level nav shows them.
+ *
+ * The first is the default: `/horse/<id>` with no tab renders it, which is what
+ * keeps `horse-card`'s plain `/horse/<id>` link valid.
+ */
+export const HORSE_TABS = [
+  { id: "ration", label: "Ration" },
+  { id: "cures", label: "Cures" },
+  { id: "traitements", label: "Traitements" },
+  { id: "cheval", label: "Cheval" },
+] as const;
+
+export type HorseTab = (typeof HORSE_TABS)[number]["id"];
+
+const isHorseTab = (value: string): value is HorseTab =>
+  HORSE_TABS.some((tab) => tab.id === value);
+
+/**
+ * `/horse`, `/horse/<id>` or `/horse/<id>/<tab>`, split into its parts — or
+ * `null` for anything else, an unknown tab included, so the route table can
+ * hand that to the 404 instead of silently showing the default tab.
+ *
+ * `horseId` is `null` only for the bare `/horse`.
+ */
+export const horseRouteOf = (
+  path: string,
+): { horseId: string | null; tab: HorseTab } | null => {
+  if (path === "/horse") return { horseId: null, tab: HORSE_TABS[0].id };
+  if (!path.startsWith("/horse/")) return null;
+
+  const [horseId, tab, ...rest] = path.slice("/horse/".length).split("/");
+  if (!horseId || rest.length > 0) return null;
+  if (tab === undefined) return { horseId, tab: HORSE_TABS[0].id };
+  return isHorseTab(tab) ? { horseId, tab } : null;
+};
+
+/**
+ * The view-transition type a navigation touching the horse page gets.
+ *
+ * `horse` only on the way in or out (home ↔ horse page), where `horse-card`
+ * morphs. Between two of the horse's own sub-pages it is `horse-subpage`
+ * instead: the cover and the second-level nav are on both sides and must stay
+ * put while only the tab's content slides — re-running the card morph there
+ * would animate a card that never moved.
+ */
+export const horseTransitionType = (
+  from: string,
+  to: string,
+): "horse" | "horse-subpage" | null => {
+  const fromHorse = isHorsePath(from);
+  const toHorse = isHorsePath(to);
+  if (fromHorse && toHorse) return "horse-subpage";
+  return fromHorse || toHorse ? "horse" : null;
+};
+
+/** App-relative, like every path here — `appHref()` it where it is rendered. */
+export const horseTabPath = (horseId: string, tab: HorseTab): string =>
+  `/horse/${horseId}/${tab}`;
+
 /** One of the four destinations the bottom nav offers. */
 export type Section = {
   id: string;

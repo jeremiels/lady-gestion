@@ -107,6 +107,16 @@ Three consequences worth stating out loud:
   survives a reload for free. **Never persist it with `history.replaceState()`**:
   where the Navigation API exists that fires a `navigate` event, which `Router`
   intercepts — a chip tap would run a whole view transition.
+- **The horse page's tabs are sub-pages, not view state.** `/horse/<id>` (Ration
+  by default) and `/horse/<id>/{cures,traitements,cheval}` are real routes:
+  `HORSE_TABS` / `horseRouteOf()` in `commons/sections.ts` parse them, an unknown
+  tab is a 404, and `app-subnav` renders them as links (`aria-current="page"`) —
+  the same look as `app-segmented` through `commons/segmented.styles.ts`, but a
+  `<nav>`, not a radio group. Use `app-segmented` to pick a value, `app-subnav`
+  to pick a page. Switching tabs is tagged `horse-subpage` (see
+  `horseTransitionType`), which holds the page still and slides only
+  `.horse-view__panel`. `HorseView` is the container (queries, sheet state,
+  save); `horse-ration`, `ration-sheet` and `horse-profile` are presentational.
 - **`/budget` is a drill-down, not a section**: it has no nav item, is reached
   by tapping the dashboard's `budget-card`, and Accueil stays lit while it is
   open (the `SECTIONS` table's `matches` predicates in `app-root`, which
@@ -784,7 +794,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   `<div class="container"><ul class="meta-list">`, never both classes on one
   element: `.meta-list` zeroes its own padding and sits in a _later_
   `components` sub-layer, so it silently wins and the card loses its inset.
-  `HorseView` and `ProfileView` already nest it this way.
+  `ProfileView` already nests it this way.
 
 ## Styling / design tokens
 

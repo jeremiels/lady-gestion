@@ -16,70 +16,113 @@
        — `--horse-card` doesn't override it. Named rather than inlined below so
        that if the card's morph ever gets its own duration, the two can't drift
        apart silently.
-       Both live on `:root`, not on the meta elements themselves: the
-       `::view-transition-*` pseudo-tree hangs off the document root and does
-       not inherit through the DOM tree, so a custom property set on
-       `.horse-view__meta--origin` would never reach `::view-transition-new`
-       below.
-       Here and not in `tokens/motion.css`: these are two implementation
-       constants of one transition, not design tokens anything else may reach
-       for. `--stagger-step` there is the token that had to be shared. */
+       On `:root`, not on the panel itself: the `::view-transition-*`
+       pseudo-tree hangs off the document root and does not inherit through the
+       DOM tree, so a custom property set on `.horse-view__panel` would never
+       reach `::view-transition-new` below.
+       Here and not in `tokens/motion.css`: an implementation constant of one
+       transition, not a design token anything else may reach for. */
     --horse-card-morph-duration: 0.25s;
-    --horse-view-meta-stagger: 0.08s;
   }
 
   /*
-   * Home ↔ horse-view: identity and origin get their own capture, the same way
-   * `--horse-card` above and `--nav-bar` in `route.css` opt out of the `root`
-   * bitmap. That takes them off the route-enter-from-right/route-leave-to-left
-   * slide — neither exists on both sides of the navigation (home has no meta
-   * blocks), so each only ever gets an old *or* a new pseudo-element, never both.
+   * Home ↔ horse-view: the sub-page's content gets its own capture, the same
+   * way `--horse-card` above and `--nav-bar` in `route.css` opt out of the
+   * `root` bitmap. That takes it off the route slide — it never exists on both
+   * sides of the navigation (home has no panel), so it only ever gets an old
+   * *or* a new pseudo-element, never both.
+   *
+   * Named on the whole panel rather than on sections inside it: those now live
+   * in components' shadow roots, where a document rule cannot name them.
    *
    * Forward into horse-view: only `::view-transition-new` exists, and it fades
    * and slides up on `--easing-out` — this is an entrance, not on-screen
-   * movement, so it should start fast rather than ease into it. The blocks wait
-   * out `--horse-card-morph-duration` before moving, so they land once the
-   * card's own morph has settled instead of racing it; origin's extra
-   * `--horse-view-meta-stagger` is what separates the two.
+   * movement, so it should start fast rather than ease into it. It waits out
+   * `--horse-card-morph-duration` before moving, so it lands once the card's
+   * own morph has settled instead of racing it.
    *
-   * Back to home (or anywhere else out of horse-view): only
-   * `::view-transition-old` exists, and it gets a quick fade so the page clears
-   * without lingering behind the root's own leave animation.
+   * Back to home: only `::view-transition-old` exists, and it gets a quick fade
+   * so the page clears without lingering behind the root's own leave animation.
    */
-  .horse-view__meta--identity {
-    view-transition-name: --horse-view-identity;
+  :root:active-view-transition-type(horse) .horse-view__panel {
+    view-transition-name: --horse-view-panel;
   }
 
-  .horse-view__meta--origin {
-    view-transition-name: --horse-view-origin;
-  }
-
-  @keyframes horse-view-meta-enter {
+  @keyframes horse-view-panel-enter {
     from {
       opacity: 0;
       translate: 0 1rem;
     }
   }
 
-  @keyframes horse-view-meta-leave {
+  @keyframes horse-view-panel-leave {
     to {
       opacity: 0;
     }
   }
 
-  ::view-transition-new(--horse-view-identity) {
-    animation: horse-view-meta-enter var(--duration-medium) var(--easing-out)
+  ::view-transition-new(--horse-view-panel) {
+    animation: horse-view-panel-enter var(--duration-medium) var(--easing-out)
       var(--horse-card-morph-duration) both;
   }
 
-  ::view-transition-new(--horse-view-origin) {
-    animation: horse-view-meta-enter var(--duration-medium) var(--easing-out)
-      calc(var(--horse-card-morph-duration) + var(--horse-view-meta-stagger))
+  ::view-transition-old(--horse-view-panel) {
+    animation: horse-view-panel-leave var(--duration-fast) var(--easing-out)
       both;
   }
 
-  ::view-transition-old(--horse-view-identity),
-  ::view-transition-old(--horse-view-origin) {
-    animation: horse-view-meta-leave var(--duration-fast) var(--easing-out) both;
+  /*
+   * Between two of the horse's own sub-pages (`horse-subpage`, see
+   * `horseTransitionType` in sections.ts): only the content under the sub-nav
+   * moves. The cover and the sub-nav are on both sides and did not change, so
+   * the page itself — the `root` capture — is held still, and the panel alone
+   * gets the forward/back slide `route.css` gives whole routes elsewhere, on
+   * the same keyframes and tempo so the two read as one vocabulary. The
+   * sub-nav stays live in `root`'s new image, so its pill still travels.
+   *
+   * The `root` rules outrank `route.css`'s forward/back ones on specificity
+   * (two type pseudo-classes, not one), not only on layer order.
+   */
+  :root:active-view-transition-type(horse-subpage) {
+    & .horse-view__panel {
+      view-transition-name: --horse-view-panel;
+    }
+
+    &::view-transition-old(root) {
+      animation: none;
+      display: none;
+    }
+
+    &::view-transition-new(root) {
+      animation: none;
+    }
+  }
+
+  :root:active-view-transition-type(horse-subpage):active-view-transition-type(
+      forward
+    ) {
+    &::view-transition-old(--horse-view-panel) {
+      animation: route-leave-to-left var(--duration-slow) var(--easing-standard)
+        both;
+    }
+
+    &::view-transition-new(--horse-view-panel) {
+      animation: route-enter-from-right var(--duration-slow)
+        var(--easing-standard) both;
+    }
+  }
+
+  :root:active-view-transition-type(horse-subpage):active-view-transition-type(
+      back
+    ) {
+    &::view-transition-old(--horse-view-panel) {
+      animation: route-leave-to-right var(--duration-slow)
+        var(--easing-standard) both;
+    }
+
+    &::view-transition-new(--horse-view-panel) {
+      animation: route-enter-from-left var(--duration-slow)
+        var(--easing-standard) both;
+    }
   }
 }
