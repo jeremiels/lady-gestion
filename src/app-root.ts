@@ -12,6 +12,8 @@ import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { appHref } from "./commons/base-path.ts";
 import {
+  customizeRouteOf,
+  customizeTransitionType,
   horseRouteOf,
   horseTransitionType,
   isLateral,
@@ -123,6 +125,16 @@ const ROUTES: Route[] = [
     render: () => html`<profile-view></profile-view>`,
   },
   {
+    // `/profile/interface` and `/profile/interface/<tab>`; an unknown tab falls
+    // through to the 404. Not `keyed`, like the horse page: switching tabs
+    // keeps the same element and its queries.
+    match: (path) => customizeRouteOf(path) !== null,
+    title: "Personnaliser mon interface",
+    load: () => import("./views/CustomizeView.ts"),
+    render: (path) =>
+      html`<customize-view .tab=${customizeRouteOf(path)!.tab}></customize-view>`,
+  },
+  {
     // `/horse`, `/horse/<id>` and `/horse/<id>/<tab>`; an unknown tab falls
     // through to the 404. The id only builds the sub-nav's links for now: the
     // app is single-horse and `HorseView` reads `horsesRepo.getActive()`. Wire
@@ -204,8 +216,10 @@ export class AppRoot extends LightElement {
     // between two of its tabs, where the cover and sub-nav stay put.
     extraTransitionTypes: (from, to) => {
       const horse = horseTransitionType(from, to);
+      const customize = customizeTransitionType(from, to);
       return [
         ...(horse ? [horse] : []),
+        ...(customize ? [customize] : []),
         ...(isLateral(from, to) ? ["lateral"] : []),
       ];
     },

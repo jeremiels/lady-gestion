@@ -107,6 +107,7 @@ const snapshot = (
     rationItems: [],
     activities: [],
     eventTypes: [],
+    profiles: [],
     ...over.tables,
   },
 });
@@ -121,6 +122,7 @@ beforeEach(async () => {
     db.rationItems.clear(),
     db.activities.clear(),
     db.eventTypes.clear(),
+    db.profiles.clear(),
     db.meta.clear(),
   ]);
   await setOwnerId(LOCAL_OWNER);
@@ -144,6 +146,7 @@ describe("exportBackup", () => {
       "eventTypes",
       "events",
       "horses",
+      "profiles",
       "rationItems",
     ]);
   });
@@ -448,6 +451,16 @@ describe("migrateSnapshot", () => {
     expect(migrated.tables.events[0]).toMatchObject({
       customFields: { activity: "balade" },
     });
+  });
+
+  it("supplies an empty profiles table to a pre-v12 file", () => {
+    const { profiles: _, ...tables } = snapshot({ schemaVersion: 11 }).tables;
+    const migrated = migrateSnapshot({
+      ...snapshot({ schemaVersion: 11 }),
+      tables: tables as BackupTables,
+    });
+
+    expect(migrated.tables.profiles).toEqual([]);
   });
 
   it("stamps the file up to the current schema version", () => {

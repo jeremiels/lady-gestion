@@ -45,6 +45,7 @@ export * as documentsRepo from "./repositories/documents.repo.ts";
 export * as rationsRepo from "./repositories/rations.repo.ts";
 export * as activitiesRepo from "./repositories/activities.repo.ts";
 export * as eventTypesRepo from "./repositories/event-types.repo.ts";
+export * as profileRepo from "./repositories/profile.repo.ts";
 export * as metaRepo from "./repositories/meta.repo.ts";
 
 export * as eventsService from "./services/events.service.ts";

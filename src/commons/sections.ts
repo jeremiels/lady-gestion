@@ -86,6 +86,52 @@ export const horseTransitionType = (
 export const horseTabPath = (horseId: string, tab: HorseTab): string =>
   `/horse/${horseId}/${tab}`;
 
+/** Personnaliser mon interface, reached from the profile page. */
+export const CUSTOMIZE_ROOT = "/profile/interface";
+
+/**
+ * Its sub-pages, in sub-nav order — the same shape as `HORSE_TABS`, and the
+ * first is likewise the default for the bare `CUSTOMIZE_ROOT`.
+ */
+export const CUSTOMIZE_TABS = [
+  { id: "profil", label: "Profil" },
+  { id: "ration", label: "Ration" },
+  { id: "categories", label: "Catégories" },
+  { id: "cheval", label: "Cheval" },
+] as const;
+
+export type CustomizeTab = (typeof CUSTOMIZE_TABS)[number]["id"];
+
+const isCustomizePath = (path: string): boolean =>
+  path === CUSTOMIZE_ROOT || path.startsWith(`${CUSTOMIZE_ROOT}/`);
+
+/**
+ * `CUSTOMIZE_ROOT` or `CUSTOMIZE_ROOT/<tab>`, as its tab — `null` for anything
+ * else, an unknown tab included, so the route table 404s it as `horseRouteOf`
+ * does.
+ */
+export const customizeRouteOf = (
+  path: string,
+): { tab: CustomizeTab } | null => {
+  if (path === CUSTOMIZE_ROOT) return { tab: CUSTOMIZE_TABS[0].id };
+  if (!isCustomizePath(path)) return null;
+
+  const tab = path.slice(`${CUSTOMIZE_ROOT}/`.length);
+  const match = CUSTOMIZE_TABS.find((candidate) => candidate.id === tab);
+  return match ? { tab: match.id } : null;
+};
+
+/** `customize-subpage` between two of its tabs, where header and sub-nav stay put. */
+export const customizeTransitionType = (
+  from: string,
+  to: string,
+): "customize-subpage" | null =>
+  customizeRouteOf(from) && customizeRouteOf(to) ? "customize-subpage" : null;
+
+/** App-relative, like every path here — `appHref()` it where it is rendered. */
+export const customizeTabPath = (tab: CustomizeTab): string =>
+  `${CUSTOMIZE_ROOT}/${tab}`;
+
 /** One of the four destinations the bottom nav offers. */
 export type Section = {
   id: string;

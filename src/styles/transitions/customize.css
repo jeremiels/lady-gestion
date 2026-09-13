@@ -1,0 +1,50 @@
+@layer transitions.customize {
+  /*
+   * Between two tabs of Personnaliser mon interface (`customize-subpage`, see
+   * `customizeTransitionType` in sections.ts): the same treatment as
+   * `horse-subpage` in horse.css — header and sub-nav hold still, only the
+   * panel slides, on route.css's keyframes and tempo.
+   */
+  :root:active-view-transition-type(customize-subpage) {
+    & .customize-view__panel {
+      view-transition-name: --customize-view-panel;
+    }
+
+    &::view-transition-old(root) {
+      animation: none;
+      display: none;
+    }
+
+    &::view-transition-new(root) {
+      animation: none;
+    }
+  }
+
+  :root:active-view-transition-type(customize-subpage):active-view-transition-type(
+      forward
+    ) {
+    &::view-transition-old(--customize-view-panel) {
+      animation: route-leave-to-left var(--duration-slow) var(--easing-standard)
+        both;
+    }
+
+    &::view-transition-new(--customize-view-panel) {
+      animation: route-enter-from-right var(--duration-slow)
+        var(--easing-standard) both;
+    }
+  }
+
+  :root:active-view-transition-type(customize-subpage):active-view-transition-type(
+      back
+    ) {
+    &::view-transition-old(--customize-view-panel) {
+      animation: route-leave-to-right var(--duration-slow)
+        var(--easing-standard) both;
+    }
+
+    &::view-transition-new(--customize-view-panel) {
+      animation: route-enter-from-left var(--duration-slow)
+        var(--easing-standard) both;
+    }
+  }
+}

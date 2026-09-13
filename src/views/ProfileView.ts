@@ -1,14 +1,17 @@
 import { html, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { LightElement } from "../commons/base-element.ts";
+import { appHref } from "../commons/base-path.ts";
 import { goBack } from "../commons/navigation.ts";
+import { CUSTOMIZE_ROOT } from "../commons/sections.ts";
 import {
   LiveQuery,
   downloadBackup,
   metaRepo,
+  profileRepo,
   readBackupFile,
 } from "../data/index.ts";
-import { ACCOUNT } from "../data/account.ts";
+import { displayProfile } from "../data/account.ts";
 
 import "../components/app-icon/app-icon.ts";
 import "../components/app-switch/app-switch.ts";
@@ -32,6 +35,7 @@ export class ProfileView extends LightElement {
 
   @query("#backup-file") private fileInput?: HTMLInputElement;
 
+  #profile = new LiveQuery(this, () => profileRepo.get());
   #daysSinceBackup = new LiveQuery(this, () => metaRepo.daysSinceBackup());
   #notifications = new LiveQuery(this, () =>
     metaRepo.getNotificationsEnabled(),
@@ -104,30 +108,32 @@ export class ProfileView extends LightElement {
   }
 
   #renderIdentity() {
+    const account = displayProfile(this.#profile.value);
     return html`
       <div class="profile-view__identity">
         <!-- Decorative: the name it initialises is spelled out right next to it. -->
         <app-avatar
           aria-hidden="true"
-          initial=${ACCOUNT.firstName.charAt(0)}
+          initial=${account.firstName.charAt(0)}
         ></app-avatar>
         <div>
-          <p class="profile-view__name">${ACCOUNT.firstName}</p>
-          <p class="profile-view__email">${ACCOUNT.email}</p>
+          <p class="profile-view__name">${account.firstName}</p>
+          <p class="profile-view__email">${account.email}</p>
         </div>
       </div>
     `;
   }
 
   #renderPersonalInfo() {
+    const account = displayProfile(this.#profile.value);
     return html`
       <section class="profile-view__section">
         <h2 class="section-title-small">Informations personnelles</h2>
         <div class="container">
           <ul class="meta-list">
-            ${this.#renderMetaItem("Prénom", ACCOUNT.firstName)}
-            ${this.#renderMetaItem("Nom", ACCOUNT.lastName)}
-            ${this.#renderMetaItem("Email", ACCOUNT.email)}
+            ${this.#renderMetaItem("Prénom", account.firstName)}
+            ${this.#renderMetaItem("Nom", account.lastName)}
+            ${this.#renderMetaItem("Email", account.email)}
             ${this.#renderMetaItem("Mot de passe", PASSWORD_MASK)}
           </ul>
         </div>
@@ -160,14 +166,23 @@ export class ProfileView extends LightElement {
   }
 
   #renderAccount() {
-    // Both actions are inert: there is no session to end and no account to
-    // delete while the app is device-local. Wiring "Supprimer mon compte" to
+    // "Se déconnecter" and "Supprimer mon compte" are inert: there is no
+    // session to end and no account to delete while the app is device-local. Wiring "Supprimer mon compte" to
     // wipe IndexedDB needs a confirmation step first — it is unrecoverable.
     return html`
       <section class="profile-view__section">
         <h2 class="section-title-small">Compte</h2>
         <div class="container">
           <ul class="meta-list">
+            <li class="meta-item">
+              <a
+                class="profile-view__action pressable"
+                href=${appHref(CUSTOMIZE_ROOT)}
+              >
+                <span class="meta-label">Personnaliser mon interface</span>
+                <app-icon icon="chevronRight"></app-icon>
+              </a>
+            </li>
             <li class="meta-item">
               <button class="profile-view__action pressable" type="button">
                 <span class="meta-label">Se déconnecter</span>

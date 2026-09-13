@@ -357,6 +357,18 @@ export type RationItem = BaseRecord & {
 };
 
 /** Local app state. Not an entity: never exported, never synced. */
+/**
+ * The user's own identity, as typed on the Personnaliser mon interface page.
+ * Added in schema v12. There is no password: nothing here signs anyone in, so
+ * the profile page keeps showing a mask. Read through `displayProfile()`
+ * (`account.ts`), which falls back to `ACCOUNT` until a row exists.
+ */
+export type UserProfile = BaseRecord & {
+  firstName: string;
+  lastName: string | null;
+  email: string;
+};
+
 export type MetaEntry = {
   key: MetaKey;
   value: unknown;

@@ -69,6 +69,7 @@ describe("profile-view", () => {
         rationItems: [],
         activities: [],
         eventTypes: [],
+        profiles: [],
       },
     };
     const file = new File([JSON.stringify(backup)], "backup.json", {

@@ -993,6 +993,26 @@ describe("v10 -> v11: balade splits into two activities", () => {
   });
 });
 
+describe("v11 -> v12: a profiles table is added", () => {
+  it("keeps every existing row and starts with no profile", async () => {
+    const legacy = new Dexie(DB_NAME);
+    legacy.version(11).stores(V10_STORES);
+    await legacy.open();
+    await legacy.table("events").add(preV11BaladeEvent("event-1"));
+    await legacy.table("meta").add({ key: "ownerId", value: "owner-1" });
+    legacy.close();
+
+    await db.open();
+
+    expect(await db.events.get("event-1")).toBeDefined();
+    expect(await db.meta.get("ownerId")).toEqual({
+      key: "ownerId",
+      value: "owner-1",
+    });
+    expect(await db.profiles.count()).toBe(0);
+  });
+});
+
 describe("a v1 database upgrading all the way", () => {
   it("runs every upgrade in sequence", async () => {
     await writeLegacyDatabase(1, {

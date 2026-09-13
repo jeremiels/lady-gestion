@@ -127,11 +127,17 @@ Three consequences worth stating out loud:
   Dexie's `liveQuery` — see "Data layer" below.
 - **Dexie / IndexedDB** is the persistence layer (`src/data/`). No
   localStorage, no fetch/API calls, no backend. `HorseView`, `EventsView`,
-  every view now reads real data. The one **deliberate** exception is
-  `ProfileView`'s account block (`ACCOUNT` at the top of the file): there is no
-  sign-in and no user record, so the name, email, masked password and the
-  "Se déconnecter"/"Supprimer mon compte" buttons are a mock kept until Google
-  sign-in lands. Don't "fix" it piecemeal.
+  every view now reads real data. The user's name and email live in the
+  `profiles` table (schema v12), edited on `/profile/interface` (Profil tab)
+  and read everywhere through `displayProfile()` (`data/account.ts`), which
+  falls back to the `ACCOUNT` constant until a row exists. Still a
+  **deliberate** mock: the masked password (nothing signs anyone in) and the
+  "Se déconnecter"/"Supprimer mon compte" buttons, kept until Google sign-in
+  lands.
+- **`/profile/interface` mirrors the horse page's tabs**: `CUSTOMIZE_TABS` /
+  `customizeRouteOf()` in `commons/sections.ts`, `app-subnav`, a
+  `customize-subpage` transition that slides only `.customize-view__panel`.
+  Ration, Catégories and Cheval are title-only placeholders for now.
 - Events are **created** from `event-sheet`, opened by the `+` in the nav bar
   (which is a button, not a link — it opens a sheet, it does not navigate), and
   **edited** through the same sheet: setting its `event` property prefills the
@@ -262,7 +268,7 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 ```
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
-  db.ts                # Dexie subclass + SCHEMA_VERSION (8) and its upgrades
+  db.ts                # Dexie subclass + SCHEMA_VERSION (12) and its upgrades
   types.ts             # BaseRecord, Horse, HorseEvent, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts

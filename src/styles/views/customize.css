@@ -1,0 +1,44 @@
+@layer views.customize {
+  .customize-view {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .customize-view__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-4);
+  }
+
+  /* Same bare chevron as the profile page it came from. */
+  .customize-view__back {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-8);
+    background: none;
+    color: var(--color-brown-dark);
+    cursor: pointer;
+  }
+
+  .customize-view__back:focus-visible {
+    outline: 2px solid var(--color-brown-dark);
+    outline-offset: 2px;
+  }
+
+  .customize-view__back app-icon {
+    --icon-size: 1.25rem;
+
+    padding: 0;
+  }
+
+  .customize-view__panel {
+    display: grid;
+    gap: 1.5rem;
+  }
+}

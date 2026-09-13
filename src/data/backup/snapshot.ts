@@ -399,6 +399,13 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     };
   }
 
+  // v11 -> v12: `profiles` is a whole new table, absent from an older file
+  // exactly the way `activities` was absent from a pre-v5 one. Supplied empty:
+  // the UI falls back to `ACCOUNT` until the user saves a profile.
+  if (backup.schemaVersion < 12) {
+    tables = { ...tables, profiles: tables.profiles ?? [] };
+  }
+
   return {
     ...backup,
     schemaVersion: SCHEMA_VERSION,

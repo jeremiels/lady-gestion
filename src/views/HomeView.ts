@@ -11,13 +11,14 @@ import {
   eventTypesRepo,
   findEventType,
   horsesRepo,
+  profileRepo,
   startOfMonth,
   todayISO,
   upcomingAppointments,
   type ResolvedEventType,
 } from "../data/index.ts";
 import type { HorseEvent } from "../data/types.ts";
-import { ACCOUNT } from "../data/account.ts";
+import { displayProfile } from "../data/account.ts";
 import "../components/horse-card/horse-card.ts";
 import "../components/budget-card/budget-card.ts";
 import "../components/week-strip/week-strip.ts";
@@ -30,6 +31,7 @@ const UPCOMING_LIMIT = 3;
 @customElement("home-view")
 export class HomeView extends LightElement {
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
+  #profile = new LiveQuery(this, () => profileRepo.get());
 
   #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
     eventTypesRepo.listResolved(),
@@ -88,7 +90,7 @@ export class HomeView extends LightElement {
           >
             <app-avatar
               aria-hidden="true"
-              initial=${ACCOUNT.firstName.charAt(0)}
+              initial=${displayProfile(this.#profile.value).firstName.charAt(0)}
               size="2.5rem"
             ></app-avatar>
           </a>

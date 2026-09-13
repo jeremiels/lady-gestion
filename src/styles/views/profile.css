@@ -79,6 +79,7 @@
     background: none;
     font: inherit;
     text-align: start;
+    text-decoration: none;
     color: var(--font-color);
     cursor: pointer;
   }

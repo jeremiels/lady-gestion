@@ -25,6 +25,7 @@ import type {
   MetaEntry,
   RationItem,
   StoredDocument,
+  UserProfile,
 } from "./types.ts";
 
 /**
@@ -76,8 +77,12 @@ import type {
  *   holding the bare key `balade` are rewritten to `baladeApied`, so they
  *   keep meaning what they meant when they were recorded rather than
  *   silently reading as the new, different activity `balade` now names.
+ * - v12 — new `profiles` table: the user's first name, last name and email,
+ *   until then the hardcoded `ACCOUNT` mock. Purely additive — no row is
+ *   rewritten and none is created; the UI keeps showing `ACCOUNT` until the
+ *   user saves, so an upgraded device looks exactly as it did.
  */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -128,6 +133,16 @@ const STORES_V6 = {
   eventTypes: "id, key, order, archived, updatedAt",
 } as const;
 
+/**
+ * v12 adds the user's profile, spread from `STORES_V6` for the same reason.
+ * One row in practice; read whole and resolved in memory by
+ * `profile.repo.ts`, so nothing but the bookkeeping is indexed.
+ */
+const STORES_V12 = {
+  ...STORES_V6,
+  profiles: "id, updatedAt",
+} as const;
+
 /** A v1 ration row, mid-upgrade: the old flag is still there, the window is not. */
 type LegacyRationItem = {
   seasonal?: boolean;
@@ -172,6 +187,7 @@ export class LadyGestionDb extends Dexie {
   rationItems!: Table<RationItem, string>;
   activities!: Table<ActivityItem, string>;
   eventTypes!: Table<EventTypeDef, string>;
+  profiles!: Table<UserProfile, string>;
   meta!: Table<MetaEntry, string>;
 
   constructor() {
@@ -445,6 +461,10 @@ export class LadyGestionDb extends Dexie {
             }
           });
       });
+
+    // A new store and nothing else: no upgrade callback, so every existing row
+    // is left exactly where it is.
+    this.version(12).stores(STORES_V12);
   }
 }
 
@@ -478,6 +498,7 @@ export const RECORD_TABLES = {
   rationItems: db.rationItems,
   activities: db.activities,
   eventTypes: db.eventTypes,
+  profiles: db.profiles,
 } as const;
 
 export type RecordTableName = keyof typeof RECORD_TABLES;

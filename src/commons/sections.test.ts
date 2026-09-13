@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  customizeRouteOf,
+  customizeTransitionType,
   horseRouteOf,
   horseTransitionType,
   isLateral,
@@ -77,6 +79,32 @@ describe("isLateral", () => {
 
   it("is false leaving a path that belongs to no section", () => {
     expect(isLateral("/nope", "/events")).toBe(false);
+  });
+});
+
+describe("customizeRouteOf", () => {
+  it("defaults to the Profil tab", () => {
+    expect(customizeRouteOf("/profile/interface")).toEqual({ tab: "profil" });
+  });
+
+  it("reads a known tab", () => {
+    expect(customizeRouteOf("/profile/interface/categories")).toEqual({
+      tab: "categories",
+    });
+  });
+
+  it("rejects an unknown tab, a deeper path and an unrelated one", () => {
+    expect(customizeRouteOf("/profile/interface/nope")).toBeNull();
+    expect(customizeRouteOf("/profile/interface/ration/x")).toBeNull();
+    expect(customizeRouteOf("/profile/interfaces")).toBeNull();
+    expect(customizeRouteOf("/profile")).toBeNull();
+  });
+
+  it("tags only moves between two of its tabs", () => {
+    expect(
+      customizeTransitionType("/profile/interface", "/profile/interface/ration"),
+    ).toBe("customize-subpage");
+    expect(customizeTransitionType("/profile", "/profile/interface")).toBeNull();
   });
 });
 
