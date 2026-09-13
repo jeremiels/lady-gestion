@@ -237,18 +237,31 @@ export class AppCombobox extends FormFieldElement {
    * does not). Flipping above the control, not just capping the height, when
    * the keyboard leaves too little room below is what keeps the list from
    * opening half-hidden behind it.
+   *
+   * Everything is measured in `getBoundingClientRect()` space, then shifted by
+   * where a `top: 0; left: 0` fixed box actually lands in that space. The two
+   * agree in Chromium, but not in WebKit: there rects are relative to the
+   * visual viewport while `position: fixed` resolves against the layout
+   * viewport, so with the iOS keyboard up (`visualViewport.offsetTop` ≈ its
+   * height) writing `rect.bottom` straight into `top` put the list that far
+   * too high — at the top of the screen, half off it. Measuring the offset
+   * rather than sniffing WebKit keeps this right whichever way an engine goes.
+   * `top` only, never `bottom`, for the same reason: `bottom` needs the
+   * layout viewport's height, and iOS's `innerHeight` follows the visual one.
    */
   #reposition = () => {
     const control = this.controlEl;
     const listbox = this.listboxEl;
     if (!control || !listbox) return;
 
+    listbox.style.top = "0px";
+    listbox.style.left = "0px";
+    const origin = listbox.getBoundingClientRect();
     const rect = control.getBoundingClientRect();
     const viewport = window.visualViewport;
-    const visibleTop = viewport?.offsetTop ?? 0;
-    const visibleBottom = viewport
-      ? viewport.offsetTop + viewport.height
-      : window.innerHeight;
+    const visibleTop = origin.top + (viewport?.offsetTop ?? 0);
+    const visibleBottom =
+      visibleTop + (viewport?.height ?? window.innerHeight);
     const gap = 4;
     const rootFontSize =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -257,33 +270,52 @@ export class AppCombobox extends FormFieldElement {
     const spaceBelow = visibleBottom - rect.bottom - gap;
     const spaceAbove = rect.top - visibleTop - gap;
     const openUpward = spaceBelow < rootFontSize * 3 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(
+      0,
+      Math.min(preferredMaxHeight, openUpward ? spaceAbove : spaceBelow),
+    );
 
-    listbox.style.left = `${rect.left}px`;
+    listbox.style.left = `${rect.left - origin.left}px`;
     listbox.style.width = `${rect.width}px`;
-    if (openUpward) {
-      listbox.style.top = "auto";
-      listbox.style.bottom = `${window.innerHeight - rect.top + gap}px`;
-      listbox.style.maxHeight = `${Math.max(0, Math.min(preferredMaxHeight, spaceAbove))}px`;
-    } else {
-      listbox.style.bottom = "auto";
-      listbox.style.top = `${rect.bottom + gap}px`;
-      listbox.style.maxHeight = `${Math.max(0, Math.min(preferredMaxHeight, spaceBelow))}px`;
-    }
+    listbox.style.maxHeight = `${maxHeight}px`;
+    const top = openUpward
+      ? rect.top - gap - listbox.offsetHeight
+      : rect.bottom + gap;
+    listbox.style.top = `${top - origin.top}px`;
+  };
+
+  #frame = 0;
+
+  /** Coalesces the burst of scroll/resize events iOS fires as the keyboard moves into one layout per frame. */
+  #scheduleReposition = () => {
+    if (this.#frame) return;
+    this.#frame = requestAnimationFrame(() => {
+      this.#frame = 0;
+      this.#reposition();
+    });
   };
 
   #startTracking() {
     this.#reposition();
-    window.addEventListener("resize", this.#reposition);
-    window.addEventListener("scroll", this.#reposition, true);
-    window.visualViewport?.addEventListener("resize", this.#reposition);
-    window.visualViewport?.addEventListener("scroll", this.#reposition);
+    window.addEventListener("resize", this.#scheduleReposition);
+    window.addEventListener("scroll", this.#scheduleReposition, true);
+    window.visualViewport?.addEventListener("resize", this.#scheduleReposition);
+    window.visualViewport?.addEventListener("scroll", this.#scheduleReposition);
   }
 
   #stopTracking() {
-    window.removeEventListener("resize", this.#reposition);
-    window.removeEventListener("scroll", this.#reposition, true);
-    window.visualViewport?.removeEventListener("resize", this.#reposition);
-    window.visualViewport?.removeEventListener("scroll", this.#reposition);
+    cancelAnimationFrame(this.#frame);
+    this.#frame = 0;
+    window.removeEventListener("resize", this.#scheduleReposition);
+    window.removeEventListener("scroll", this.#scheduleReposition, true);
+    window.visualViewport?.removeEventListener(
+      "resize",
+      this.#scheduleReposition,
+    );
+    window.visualViewport?.removeEventListener(
+      "scroll",
+      this.#scheduleReposition,
+    );
   }
 
   #onKeydown = (event: KeyboardEvent) => {
@@ -454,7 +486,7 @@ export class AppCombobox extends FormFieldElement {
      * A popover, not position: absolute inside .field__wrapper: this field can
      * sit inside .event-form__follow-up, which clips overflow to animate its
      * own height, and an absolutely-positioned list was clipped along with it.
-     * position: fixed here, with left/width/top or bottom written by
+     * position: fixed here, with left/width/top written by
      * #reposition, is what lets the list escape that clip and still track the
      * control across scrolls, resizes and the on-screen keyboard.
      */

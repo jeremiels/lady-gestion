@@ -1,4 +1,4 @@
-import { css, html } from "lit";
+import { css, html, type PropertyValues } from "lit";
 import { customElement } from "lit/decorators.js";
 import { DialogElement } from "../../commons/dialog-element.ts";
 
@@ -64,6 +64,90 @@ export class AppBottomSheet extends DialogElement {
   #sampleTime = 0;
   #prevSampleY = 0;
   #prevSampleTime = 0;
+
+  /**
+   * Resizes the sheet smoothly when its *content* changes size — the form
+   * swapping fields when the event type changes, a follow-up field
+   * appearing — as opposed to the sheet opening or closing.
+   *
+   * CSS cannot do this alone. `height: auto` never triggers a transition on
+   * its own: a CSS transition starts only when a property's own specified
+   * value changes (e.g. `0` → `auto`), and here the specified value is
+   * always the literal keyword `auto` — only the *used* value moves, because
+   * the content inside resized it. `interpolate-size: allow-keywords`
+   * (set on `:root` in `layers/reset.css`) only smooths the former case;
+   * verified in isolation that it does nothing for the latter, in the exact
+   * engine this app ships to. So this is a manual FLIP: remember the height
+   * `ResizeObserver` last reported, and when it reports a different one,
+   * play a Web Animation between the two — the box is already laid out at
+   * the new height by the time the callback runs, so nothing here touches
+   * layout, it only animates what is already true.
+   */
+  #resizeObserver = new ResizeObserver((entries) => this.#onDialogResize(entries));
+  #lastDialogHeight: number | null = null;
+  #heightAnimation: Animation | null = null;
+
+  override connectedCallback() {
+    super.connectedCallback();
+    if (this.dialogEl) this.#resizeObserver.observe(this.dialogEl);
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.#resizeObserver.disconnect();
+  }
+
+  override firstUpdated(changed: PropertyValues) {
+    super.firstUpdated?.(changed);
+    if (this.dialogEl) this.#resizeObserver.observe(this.dialogEl);
+  }
+
+  override updated(changed: PropertyValues) {
+    super.updated(changed);
+    // Closed (or not yet opened): the next open is a fresh entrance, not a
+    // resize, so it must not animate from whatever height was last recorded.
+    if (changed.has("open") && !this.open) {
+      this.#heightAnimation?.cancel();
+      this.#lastDialogHeight = null;
+    }
+  }
+
+  #onDialogResize = (entries: ResizeObserverEntry[]) => {
+    const entry = entries[0];
+    const dialog = this.dialogEl;
+    if (!entry || !dialog) return;
+
+    // The animation below changes the dialog's real height every frame, and
+    // ResizeObserver reports that exactly like any other resize. Left
+    // unfiltered, each of those self-inflicted notifications restarted the
+    // animation from whatever frame it had just reached, which is what turned
+    // a smooth resize into visible jitter. The one entry that matters —
+    // content settling at its new final height — always arrives before this
+    // animation starts, never while it is running.
+    if (this.#heightAnimation?.playState === "running") return;
+
+    const height =
+      entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+    const previous = this.#lastDialogHeight;
+    this.#lastDialogHeight = height;
+
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (
+      previous === null ||
+      previous === height ||
+      !this.open ||
+      this.#dragPointerId !== null ||
+      reducedMotion
+    ) {
+      return;
+    }
+
+    this.#heightAnimation?.cancel();
+    this.#heightAnimation = dialog.animate(
+      [{ height: `${previous}px` }, { height: `${height}px` }],
+      { duration: 200, easing: "cubic-bezier(0.23, 1, 0.32, 1)" },
+    );
+  };
 
   #onHandlePointerDown = (event: PointerEvent) => {
     // A second finger landing mid-drag would re-anchor `#dragStartY` on itself
@@ -170,6 +254,7 @@ export class AppBottomSheet extends DialogElement {
       max-width: 32rem;
       margin-inline: auto;
       max-height: min(85dvh, 45rem);
+      height: auto;
       background-color: var(--color-page);
       border-radius: var(--radius-24) var(--radius-24) 0 0;
       box-shadow: 0 -8px 32px rgb(0 0 0 / 16%);
@@ -178,6 +263,10 @@ export class AppBottomSheet extends DialogElement {
       overflow: hidden;
       transform: translateY(100%);
       opacity: 0;
+      /* Content-driven height changes are animated in JS (see
+         #onDialogResize) — CSS transitions never fire here, since height's
+         own specified value never changes, only its used value once content
+         inside resizes it. */
       transition:
         transform var(--duration-slow) var(--easing-sheet),
         opacity var(--duration-slow) var(--easing-sheet),
