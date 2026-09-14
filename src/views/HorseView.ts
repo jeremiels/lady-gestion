@@ -1,11 +1,12 @@
 import { html, nothing } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, property } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
-import { goBack } from "../commons/navigation.ts";
+import { goBackOutOf } from "../commons/navigation.ts";
 import {
   HORSE_TABS,
   horseTabPath,
+  isHorsePath,
   type HorseTab,
 } from "../commons/sections.ts";
 import {
@@ -13,19 +14,16 @@ import {
   activeHorseQuery,
   horsesRepo,
   rationsRepo,
-  rationsService,
   todayISO,
 } from "../data/index.ts";
 import type { RationItem } from "../data/types.ts";
 import type { SubnavItem } from "../components/app-subnav/app-subnav.ts";
-import type { RationSubmitDetail } from "../components/ration-sheet/ration-sheet.ts";
 
 import "../components/app-icon/app-icon.ts";
 import "../components/app-subnav/app-subnav.ts";
 import "../components/horse-card/horse-card.ts";
 import "../components/horse-profile/horse-profile.ts";
 import "../components/horse-ration/horse-ration.ts";
-import "../components/ration-sheet/ration-sheet.ts";
 
 /** Only ever opened from the dashboard, so that's the only fallback back needs. */
 const HOME = "/";
@@ -33,8 +31,9 @@ const HOME = "/";
 /**
  * The horse's page, and the container for its sub-pages.
  *
- * Owns the data (both queries), the edit sheet's open state and the save; every
- * piece of the page itself is a presentational component fed from here. Which
+ * Owns the data (both queries); every piece of the page itself is a
+ * presentational component fed from here. The ration is read-only here — it is
+ * edited on Personnaliser mon interface › Ration (`CustomizeView`). Which
  * sub-page is shown is not state either — it is the URL, parsed by the route
  * table in `app-root` and handed down as `tab`.
  */
@@ -47,10 +46,8 @@ export class HorseView extends LightElement {
   @property({ attribute: false }) horseId: string | null = null;
   @property({ attribute: false }) tab: HorseTab = HORSE_TABS[0].id;
 
-  @state() private rationSheetOpen = false;
-
-  // Both re-run automatically whenever a table they read is written to, so
-  // saving the ration sheet re-renders the list without any manual refresh.
+  // Both re-run automatically whenever a table they read is written to, so an
+  // edit made on the customize page shows here without any manual refresh.
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
   #rations = activeHorseQuery<RationItem[]>(
     this,
@@ -58,37 +55,9 @@ export class HorseView extends LightElement {
     [],
   );
 
-  #openRationSheet = () => {
-    this.rationSheetOpen = true;
-  };
-
-  #closeRationSheet = () => {
-    this.rationSheetOpen = false;
-  };
-
-  #goBack = () => goBack(HOME);
-
-  /**
-   * Hands the sheet's form to `rationsService.saveRationSheet`, against the
-   * same list that rendered it.
-   *
-   * Passing `#rations.value` rather than letting the service read the plan back
-   * is the point: the schema, the lookup and the diff all have to run against
-   * the lines the user was actually looking at.
-   *
-   * A failed parse leaves the sheet open with nothing said, as it always has.
-   * Every normal path is already blocked by the inputs' own `required` and
-   * `pattern`, so reaching here means the platform was bypassed — there is no
-   * field to point at and no wording that would help.
-   */
-  #onRationSubmit = async (event: CustomEvent<RationSubmitDetail>) => {
-    const result = await rationsService.saveRationSheet(
-      this.#rations.value ?? [],
-      event.detail.form,
-    );
-
-    if (result.ok) this.rationSheetOpen = false;
-  };
+  // Out of the whole horse section, not one entry back: every tab switch pushes
+  // an entry, so a plain `goBack` walked back through the tabs.
+  #goBack = () => goBackOutOf(isHorsePath, HOME);
 
   render() {
     const horse = this.#horse.value;
@@ -146,22 +115,11 @@ export class HorseView extends LightElement {
 
   #renderTab() {
     switch (this.tab) {
-      case "ration": {
-        const rations = this.#rations.value ?? [];
-        return html`
-          <horse-ration
-            .rations=${rations}
-            .today=${todayISO()}
-            @ration-edit=${this.#openRationSheet}
-          ></horse-ration>
-          <ration-sheet
-            .open=${this.rationSheetOpen}
-            .rations=${rations}
-            @ration-submit=${this.#onRationSubmit}
-            @sheet-close=${this.#closeRationSheet}
-          ></ration-sheet>
-        `;
-      }
+      case "ration":
+        return html`<horse-ration
+          .rations=${this.#rations.value ?? []}
+          .today=${todayISO()}
+        ></horse-ration>`;
       case "cheval":
         return html`<horse-profile
           .horse=${this.#horse.value ?? null}

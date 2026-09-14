@@ -8,9 +8,31 @@ import {
   customizeTabPath,
   type CustomizeTab,
 } from "../commons/sections.ts";
-import { LiveQuery, profileRepo, readForm, text } from "../data/index.ts";
+import {
+  LiveQuery,
+  activeHorseQuery,
+  horsesRepo,
+  horsesService,
+  profileRepo,
+  rationsRepo,
+  rationsService,
+  readForm,
+  text,
+  todayISO,
+} from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
+import type { RationItem } from "../data/types.ts";
+import type {
+  HorseFieldErrors,
+  HorseSubmitDetail,
+} from "../components/customize-horse/customize-horse.ts";
 import type { SubnavItem } from "../components/app-subnav/app-subnav.ts";
+import type {
+  RationAddDetail,
+  RationAddErrors,
+} from "../components/customize-ration/customize-ration.ts";
+import type { RationRowDetail } from "../components/horse-ration/horse-ration.ts";
+import type { RationSubmitDetail } from "../components/ration-sheet/ration-sheet.ts";
 import {
   PROFILE_FIELDS,
   type ProfileFieldErrors,
@@ -18,6 +40,8 @@ import {
 } from "../components/customize-profile/customize-profile.ts";
 
 import "../components/app-icon/app-icon.ts";
+import "../components/app-modal/app-modal.ts";
+import "../components/ration-sheet/ration-sheet.ts";
 import "../components/app-subnav/app-subnav.ts";
 import "../components/customize-profile/customize-profile.ts";
 import "../components/customize-ration/customize-ration.ts";
@@ -48,7 +72,21 @@ export class CustomizeView extends LightElement {
   @state() private profileErrors: ProfileFieldErrors = {};
   @state() private profileStatus = "";
 
+  @state() private horseErrors: HorseFieldErrors = {};
+  @state() private horseStatus = "";
+
+  @state() private rationErrors: RationAddErrors = {};
+  @state() private rationSheetOpen = false;
+  /** The line waiting on the delete confirmation, or `null` when it is closed. */
+  @state() private rationToDelete: RationItem | null = null;
+
   #profile = new LiveQuery(this, () => profileRepo.get());
+  #horse = new LiveQuery(this, () => horsesRepo.getActive());
+  #rations = activeHorseQuery<RationItem[]>(
+    this,
+    (horseId) => rationsRepo.listByHorse(horseId),
+    [],
+  );
 
   #goBack = () => navigateTo(appHref(PROFILE));
 
@@ -63,6 +101,79 @@ export class CustomizeView extends LightElement {
     this.profileErrors = {};
     await profileRepo.save(result.value);
     this.profileStatus = "Modifications enregistrées.";
+  };
+
+  #onHorseSubmit = async (event: CustomEvent<HorseSubmitDetail>) => {
+    const horse = this.#horse.value;
+    if (!horse) return;
+
+    this.horseStatus = "";
+    const result = await horsesService.saveHorseProfile(
+      horse,
+      event.detail.form,
+    );
+    if (!result.ok) {
+      this.horseErrors = result.errors;
+      return;
+    }
+
+    this.horseErrors = {};
+    this.horseStatus = "Modifications enregistrées.";
+  };
+
+  #onRationAdd = async (event: CustomEvent<RationAddDetail>) => {
+    const horse = this.#horse.value;
+    if (!horse) return;
+
+    const { form } = event.detail;
+    const result = await rationsService.addRation(horse.id, form);
+    if (!result.ok) {
+      this.rationErrors = result.errors;
+      return;
+    }
+
+    this.rationErrors = {};
+    form.reset();
+  };
+
+  #openRationSheet = () => {
+    this.rationSheetOpen = true;
+  };
+
+  #closeRationSheet = () => {
+    this.rationSheetOpen = false;
+  };
+
+  /**
+   * Hands the sheet's form to `rationsService.saveRationSheet`, against the
+   * same list that rendered it — the schema, the lookup and the diff all have
+   * to run against the lines the user was actually looking at. A failed parse
+   * leaves the sheet open: the inputs' own `required` and `pattern` already
+   * block every normal path.
+   */
+  #onRationSubmit = async (event: CustomEvent<RationSubmitDetail>) => {
+    const result = await rationsService.saveRationSheet(
+      this.#rations.value ?? [],
+      event.detail.form,
+    );
+
+    if (result.ok) this.rationSheetOpen = false;
+  };
+
+  #onRationDelete = (event: CustomEvent<RationRowDetail>) => {
+    this.rationToDelete =
+      this.#rations.value?.find((ration) => ration.id === event.detail.id) ??
+      null;
+  };
+
+  #closeDeleteModal = () => {
+    this.rationToDelete = null;
+  };
+
+  #confirmRationDelete = async () => {
+    const ration = this.rationToDelete;
+    this.rationToDelete = null;
+    if (ration) await rationsRepo.remove(ration.id);
   };
 
   render() {
@@ -108,11 +219,61 @@ export class CustomizeView extends LightElement {
           @profile-submit=${this.#onProfileSubmit}
         ></customize-profile>`;
       case "ration":
-        return html`<customize-ration></customize-ration>`;
+        return this.#renderRation();
       case "categories":
         return html`<customize-categories></customize-categories>`;
       case "cheval":
-        return html`<customize-horse></customize-horse>`;
+        return html`<customize-horse
+          .horse=${this.#horse.value ?? null}
+          .errors=${this.horseErrors}
+          status=${this.horseStatus}
+          @horse-submit=${this.#onHorseSubmit}
+        ></customize-horse>`;
     }
+  }
+
+  #renderRation() {
+    const rations = this.#rations.value ?? [];
+    const toDelete = this.rationToDelete;
+
+    return html`
+      <customize-ration
+        .rations=${rations}
+        .today=${todayISO()}
+        .errors=${this.rationErrors}
+        @ration-add=${this.#onRationAdd}
+        @ration-edit=${this.#openRationSheet}
+        @ration-delete=${this.#onRationDelete}
+      ></customize-ration>
+      <ration-sheet
+        .open=${this.rationSheetOpen}
+        .rations=${rations}
+        @ration-submit=${this.#onRationSubmit}
+        @sheet-close=${this.#closeRationSheet}
+      ></ration-sheet>
+      <app-modal
+        heading="Supprimer le produit ?"
+        description=${toDelete ? `« ${toDelete.label} » sera retiré de la ration.` : ""}
+        .open=${toDelete !== null}
+        @modal-close=${this.#closeDeleteModal}
+      >
+        <div slot="footer" class="customize-view__confirm-actions">
+          <button
+            class="customize-view__button"
+            type="button"
+            @click=${this.#closeDeleteModal}
+          >
+            Annuler
+          </button>
+          <button
+            class="customize-view__button customize-view__button--danger"
+            type="button"
+            @click=${this.#confirmRationDelete}
+          >
+            Supprimer
+          </button>
+        </div>
+      </app-modal>
+    `;
   }
 }

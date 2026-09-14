@@ -11,6 +11,7 @@ import {
 } from "vitest";
 import { fixture } from "../../components/__tests__/fixture.ts";
 import { historyIndex, requestNavigate } from "../history-fallback.ts";
+import { goBackOutOf } from "../navigation.ts";
 import { Router, type RouterOptions } from "./router.ts";
 
 /**
@@ -241,6 +242,26 @@ describe("Router", () => {
     },
   );
 
+  it("does nothing for a navigation to the page already on screen", async () => {
+    const el = await mount();
+    await go("/documents");
+
+    const spy = vi.spyOn(document, "startViewTransition");
+    const renders = el.renders;
+    const index = navigation.currentEntry?.index;
+
+    try {
+      // The lit nav item, tapped again: Chromium turns it into a `replace`.
+      await go("/documents");
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(el.renders).toBe(renders);
+      expect(navigation.currentEntry?.index).toBe(index);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("gives a replace no direction at all", async () => {
     await mount();
     const spy = vi.spyOn(document, "startViewTransition");
@@ -460,5 +481,44 @@ describe("Router — history fallback", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("goBackOutOf", () => {
+  /**
+   * Waits for the URL to move. A traversal starts asynchronously, so
+   * `navigation.transition` is still null right after `traverseTo` returns.
+   */
+  const landedOn = async (pathname: string) => {
+    for (let i = 0; i < 50 && location.pathname !== pathname; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await navigation.transition?.finished.catch(() => {});
+  };
+
+  it("skips every entry inside the section and traverses to the one before it", async () => {
+    await mount();
+    await go("/");
+    await go("/horse/h1");
+    await go("/horse/h1/cheval");
+    await go("/horse/h1/cures");
+    const before = navigation.currentEntry!.index;
+
+    goBackOutOf((path) => path.startsWith("/horse"), "/fallback");
+    await landedOn("/");
+
+    expect(location.pathname).toBe("/");
+    // A traversal, not a push: three entries back, nothing added.
+    expect(navigation.currentEntry!.index).toBe(before - 3);
+  });
+
+  it("falls back when every earlier entry is inside the section", async () => {
+    await mount();
+    await go("/horse/h1", "replace");
+    // Nothing before this test's entries is outside `/` for this predicate.
+    goBackOutOf(() => true, "/documents");
+    await landedOn("/documents");
+
+    expect(location.pathname).toBe("/documents");
   });
 });

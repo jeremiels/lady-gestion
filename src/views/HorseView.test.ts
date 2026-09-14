@@ -1,16 +1,14 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
-import { DEFAULT_SEASON } from "../data/index.ts";
 import { makeHorse, makeRation, resetDb } from "../data/__tests__/factories.ts";
-import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
+import { fixture, waitFor } from "../components/__tests__/fixture.ts";
 import "./HorseView.ts";
 import type { HorseView } from "./HorseView.ts";
 
 import type { HorseTab } from "../commons/sections.ts";
 import type { HorseProfile } from "../components/horse-profile/horse-profile.ts";
 import type { HorseRation } from "../components/horse-ration/horse-ration.ts";
-import type { RationSheet } from "../components/ration-sheet/ration-sheet.ts";
 
 const mount = (tab: HorseTab = "ration") =>
   fixture<HorseView>(
@@ -20,56 +18,11 @@ const mount = (tab: HorseTab = "ration") =>
 /** The pieces of the page live in their own shadow roots. */
 const rationList = (el: HorseView) =>
   el.querySelector<HorseRation>("horse-ration")!;
-const rationSheet = (el: HorseView) =>
-  el.querySelector<RationSheet>("ration-sheet")!;
 const profile = (el: HorseView) =>
   el.querySelector<HorseProfile>("horse-profile")!;
 
 const rationRows = (el: HorseView) =>
   rationList(el)?.renderRoot.querySelectorAll(".item").length ?? 0;
-const editButton = (el: HorseView) =>
-  rationList(el).renderRoot.querySelector<HTMLButtonElement>(".edit-button")!;
-
-/**
- * The form field for one ration line's quantity, or its seasonal checkbox.
- *
- * `name` is a plain reactive property, not a reflected attribute — it exists
- * only on the shadow-root native control, not as an `app-input` attribute — so
- * this has to filter by the property instead of a CSS attribute selector.
- */
-const quantityField = (el: HorseView, rationId: string) =>
-  [...rationSheet(el).renderRoot.querySelectorAll("app-input")].find(
-    (input) => input.name === `quantity-${rationId}`,
-  )!;
-const seasonalField = (el: HorseView, rationId: string) =>
-  [...rationSheet(el).renderRoot.querySelectorAll("app-checkbox")].find(
-    (checkbox) => checkbox.name === `seasonal-${rationId}`,
-  )!;
-
-const setQuantity = async (el: HorseView, rationId: string, value: string) => {
-  const field = quantityField(el, rationId);
-  const input = field.renderRoot.querySelector("input")!;
-  input.value = value;
-  input.dispatchEvent(
-    new InputEvent("input", { bubbles: true, composed: true }),
-  );
-  await settled(field);
-};
-
-const toggleSeasonal = async (el: HorseView, rationId: string) => {
-  const field = seasonalField(el, rationId);
-  field.renderRoot.querySelector("input")!.click();
-  await settled(field);
-};
-
-const submitRationSheet = async (el: HorseView) => {
-  rationSheet(el)
-    .renderRoot.querySelector<HTMLFormElement>("#ration-form")!
-    .requestSubmit();
-  await settled(el);
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await settled(el);
-};
 
 beforeEach(async () => {
   await resetDb();
@@ -94,102 +47,25 @@ describe("horse-view", () => {
     expect(values[3]).toBe("—"); // sireNumber is null in the factory default
   });
 
-  it("shows the empty ration state and disables editing when there are no rations", async () => {
+  it("shows the empty ration state, with no editing controls", async () => {
     const el = await mount();
     await waitFor(el, () =>
       Boolean(
-        rationList(el)?.renderRoot.textContent?.includes("Ration quotidienne"),
+        rationList(el)?.renderRoot.textContent?.includes(
+          "Aucune ration enregistrée pour le moment.",
+        ),
       ),
     );
 
-    expect(rationList(el).renderRoot.textContent).toContain(
-      "Aucune ration enregistrée pour le moment.",
-    );
-    expect(editButton(el).disabled).toBe(true);
+    expect(el.querySelector("ration-sheet")).toBeNull();
   });
 
-  /**
-   * This is the exact bug `AGENTS.md` records against `HorseView`: the sheet
-   * used to hardcode five product names and read four different keys, so
-   * saving wrote one unlabeled row and silently dropped the rest. Building
-   * both the schema and the field names from the same `rations` list is what
-   * fixed it — this pins that a row nobody touched stays untouched, and a row
-   * that was edited is the only one re-saved.
-   */
-  it("writes only the ration lines that were actually changed", async () => {
-    await db.rationItems.bulkAdd([
-      makeRation({
-        id: "ration-a",
-        label: "Fib & Fib",
-        quantity: 1.5,
-        unit: "L",
-        sortOrder: 0,
-      }),
-      makeRation({
-        id: "ration-b",
-        label: "CMV Minéral",
-        quantity: 2,
-        unit: "kg",
-        sortOrder: 1,
-      }),
-    ]);
+  it("lists the rations read-only — editing lives on the customize page", async () => {
+    await db.rationItems.add(makeRation({ id: "ration-a", label: "Sel" }));
 
     const el = await mount();
-    await waitFor(el, () => rationRows(el) === 2);
+    await waitFor(el, () => rationRows(el) === 1);
 
-    editButton(el).click();
-    await settled(el);
-    await settled(rationSheet(el));
-
-    await setQuantity(el, "ration-a", "2,5");
-    await submitRationSheet(el);
-
-    const a = await db.rationItems.get("ration-a");
-    const b = await db.rationItems.get("ration-b");
-
-    expect(a?.quantity).toBe(2.5);
-    expect(a?.updatedAt).not.toBe("2026-01-01T00:00:00.000Z");
-    // Untouched: same quantity, and — the point of the fix — the same
-    // `updatedAt`, which is what tells a re-saved seed row from a real edit.
-    expect(b?.quantity).toBe(2);
-    expect(b?.updatedAt).toBe("2026-01-01T00:00:00.000Z");
-  });
-
-  it("ticking Saisonnier stores the default window, and unticking clears it", async () => {
-    await db.rationItems.bulkAdd([
-      makeRation({
-        id: "ration-a",
-        label: "Fib & Fib",
-        quantity: 1.5,
-        unit: "L",
-        season: null,
-        sortOrder: 0,
-      }),
-      makeRation({
-        id: "ration-b",
-        label: "Huile de lin",
-        quantity: 0.1,
-        unit: "L",
-        season: DEFAULT_SEASON,
-        sortOrder: 1,
-      }),
-    ]);
-
-    const el = await mount();
-    await waitFor(el, () => rationRows(el) === 2);
-
-    editButton(el).click();
-    await settled(el);
-    await settled(rationSheet(el));
-
-    await toggleSeasonal(el, "ration-a");
-    await toggleSeasonal(el, "ration-b");
-    await submitRationSheet(el);
-
-    const a = await db.rationItems.get("ration-a");
-    const b = await db.rationItems.get("ration-b");
-
-    expect(a?.season).toEqual(DEFAULT_SEASON);
-    expect(b?.season).toBeNull();
+    expect(rationList(el).renderRoot.querySelector("button")).toBeNull();
   });
 });

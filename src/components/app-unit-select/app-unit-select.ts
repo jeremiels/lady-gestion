@@ -103,7 +103,10 @@ export class AppUnitSelect extends FormFieldElement {
 
       .field__group {
         display: inline-grid;
-        grid-template-columns: repeat(3, 1fr);
+        /* One equal column per option, however many there are — event-sheet
+           offers three units, the ration form four. */
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
         gap: var(--spacing-2);
         border-radius: var(--radius-12);
         background: var(--color-brown-light-bg);

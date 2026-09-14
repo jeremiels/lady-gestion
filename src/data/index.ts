@@ -49,6 +49,7 @@ export * as profileRepo from "./repositories/profile.repo.ts";
 export * as metaRepo from "./repositories/meta.repo.ts";
 
 export * as eventsService from "./services/events.service.ts";
+export * as horsesService from "./services/horses.service.ts";
 export * as rationsService from "./services/rations.service.ts";
 
 export * from "./live.ts";

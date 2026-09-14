@@ -1,13 +1,20 @@
 import {
   bool,
   decimal,
+  oneOf,
   readForm,
+  text,
   type FieldError,
   type FormSchema,
 } from "../forms.ts";
 import * as rationsRepo from "../repositories/rations.repo.ts";
-import { DEFAULT_SEASON } from "../seasons.ts";
-import type { RationItem, RecordPatch } from "../types.ts";
+import {
+  DEFAULT_SEASON,
+  MONTH_NUMBERS,
+  type MonthNumber,
+  type RationSeason,
+} from "../seasons.ts";
+import type { RationItem, RationUnit, RecordPatch } from "../types.ts";
 
 /**
  * Reading the feed-plan sheet back and writing what actually changed.
@@ -29,7 +36,7 @@ import type { RationItem, RecordPatch } from "../types.ts";
 /**
  * The two controls one ration line contributes, by name.
  *
- * Called by the markup in `HorseView.#renderRationField` and by the schema
+ * Called by the markup in `ration-sheet` and by the schema
  * below, so a rename is one edit rather than two that must be made together.
  */
 export const rationFieldNames = (
@@ -118,3 +125,94 @@ const rationPatches = (
 
     return unchanged ? [] : [{ id: ration.id, patch: { quantity, season } }];
   });
+
+/**
+ * The units the "Ajouter un produit" form offers.
+ *
+ * A subset of `RationUnit`, not a replacement: `dose` and `mesure` stay valid in
+ * storage and keep rendering on the lines that already use them — they are just
+ * not offered for a new one. No migration either way.
+ */
+export const RATION_FORM_UNITS: readonly RationUnit[] = ["mL", "g", "kg", "L"];
+
+/** The add form's field names, read by its markup and by `addRation`'s schema. */
+export const RATION_ADD_FIELDS = {
+  label: "label",
+  quantity: "quantity",
+  unit: "unit",
+  seasonFrom: "seasonFrom",
+  seasonTo: "seasonTo",
+} as const;
+
+export type RationAddField = keyof typeof RATION_ADD_FIELDS;
+
+/** Long enough for "CMV Minéral Oligovit Bio", short enough for one row. */
+export const RATION_LABEL_MAX = 80;
+
+const MONTH_VALUES = MONTH_NUMBERS.map(String);
+
+const ADD_SCHEMA = {
+  [RATION_ADD_FIELDS.label]: text({
+    required: true,
+    maxLength: RATION_LABEL_MAX,
+  }),
+  [RATION_ADD_FIELDS.quantity]: decimal({ required: true, min: 0 }),
+  [RATION_ADD_FIELDS.unit]: oneOf(RATION_FORM_UNITS, { required: true }),
+  [RATION_ADD_FIELDS.seasonFrom]: oneOf(MONTH_VALUES),
+  [RATION_ADD_FIELDS.seasonTo]: oneOf(MONTH_VALUES),
+};
+
+export type RationAddResult =
+  | { ok: true; item: RationItem }
+  | { ok: false; errors: Partial<Record<RationAddField, FieldError>> };
+
+/**
+ * Parses the "Ajouter un produit" form and appends the line to the horse's plan.
+ *
+ * The period is two optional months: both blank is a line fed all year
+ * (`season: null`), both set is the window. One without the other is an error
+ * on the blank one rather than a guess — defaulting the missing end would store
+ * a window the user never picked.
+ */
+export const addRation = async (
+  horseId: string,
+  source: HTMLFormElement | FormData,
+): Promise<RationAddResult> => {
+  const data = source instanceof FormData ? source : new FormData(source);
+  const result = readForm(data, ADD_SCHEMA);
+  const errors: Partial<Record<RationAddField, FieldError>> = result.ok
+    ? {}
+    : { ...result.errors };
+
+  // Checked on the raw values, not the parsed ones, so the pairing error shows
+  // alongside every other problem rather than on the next submit.
+  const blank = (name: string) => String(data.get(name) ?? "").trim() === "";
+  const fromBlank = blank(RATION_ADD_FIELDS.seasonFrom);
+  if (fromBlank !== blank(RATION_ADD_FIELDS.seasonTo)) {
+    errors[fromBlank ? "seasonFrom" : "seasonTo"] ??= "Indiquez les deux mois.";
+  }
+
+  if (!result.ok || Object.keys(errors).length > 0) {
+    return { ok: false, errors };
+  }
+
+  // Both are "1".."12" or both null by now — `oneOf(MONTH_VALUES)` and the
+  // pairing check above let nothing else through.
+  const { label, quantity, unit, seasonFrom, seasonTo } = result.value;
+  const season: RationSeason | null =
+    seasonFrom !== null && seasonTo !== null
+      ? {
+          from: Number(seasonFrom) as MonthNumber,
+          to: Number(seasonTo) as MonthNumber,
+        }
+      : null;
+
+  const item = await rationsRepo.add({
+    horseId,
+    label,
+    quantity,
+    unit,
+    season,
+  });
+  return { ok: true, item };
+};

@@ -17,14 +17,19 @@ import {
 
 import "../app-icon/app-icon.ts";
 
+export type RationRowDetail = { id: string };
+
 /**
  * The horse's daily ration: one row per product, struck through when out of
  * season, and a footnote saying what is suspended.
  *
- * Presentational — the owning view runs the query and owns the edit sheet;
- * this only asks for it.
+ * Presentational — the owning view runs the query and owns the edit sheet and
+ * the delete confirmation; this only asks for them. Read-only on the horse
+ * page; `editable` on Personnaliser mon interface › Ration adds a pencil and a
+ * bin to every row.
  *
- * @fires ration-edit - The edit button was pressed. No detail.
+ * @fires ration-edit - `{ id: string }`, a row's pencil was pressed.
+ * @fires ration-delete - `{ id: string }`, a row's bin was pressed.
  */
 @customElement("horse-ration")
 export class HorseRation extends BaseElement {
@@ -36,6 +41,9 @@ export class HorseRation extends BaseElement {
    * left to themselves.
    */
   @property({ type: String }) today: IsoDate = todayISO();
+
+  /** Shows the per-row edit and delete buttons. */
+  @property({ type: Boolean }) editable = false;
 
   static componentStyles = css`
     :host {
@@ -61,7 +69,15 @@ export class HorseRation extends BaseElement {
       font-weight: 700;
     }
 
-    .edit-button {
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-4);
+      margin-inline-start: auto;
+      flex-shrink: 0;
+    }
+
+    .action-button {
       appearance: none;
       display: grid;
       place-items: center;
@@ -74,20 +90,17 @@ export class HorseRation extends BaseElement {
     }
 
     @media (hover: hover) and (pointer: fine) {
-      .edit-button:hover:not(:disabled) {
+      .action-button:hover {
         background: var(--color-brown-light-bg);
       }
     }
 
-    .edit-button:disabled {
-      color: var(--color-brown-disabled);
-      cursor: not-allowed;
-    }
-
     /* Sized on the glyph, not on \`app-icon\`'s host — the host carries its own
        padding, so constraining it instead squeezes the SVG to a sliver. */
-    .edit-button app-icon {
-      --icon-size: 1.5rem;
+    .action-button app-icon {
+      --icon-size: 1.25rem;
+
+      padding: 0;
     }
 
     .list {
@@ -273,8 +286,42 @@ export class HorseRation extends BaseElement {
             <span class="item__unit">${RATION_UNIT_LABEL[ration.unit]}</span>
           </span>
         </div>
+        ${this.editable ? this.#renderActions(ration) : nothing}
       </li>
     `;
+  }
+
+  #renderActions(ration: RationItem) {
+    return html`
+      <span class="actions">
+        <button
+          class="action-button pressable pressable--small"
+          type="button"
+          aria-label="Modifier ${ration.label}"
+          @click=${() => this.#emit("ration-edit", ration.id)}
+        >
+          <app-icon icon="edit"></app-icon>
+        </button>
+        <button
+          class="action-button pressable pressable--small"
+          type="button"
+          aria-label="Supprimer ${ration.label}"
+          @click=${() => this.#emit("ration-delete", ration.id)}
+        >
+          <app-icon icon="trash"></app-icon>
+        </button>
+      </span>
+    `;
+  }
+
+  #emit(type: "ration-edit" | "ration-delete", id: string) {
+    this.dispatchEvent(
+      new CustomEvent<RationRowDetail>(type, {
+        detail: { id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 }
 

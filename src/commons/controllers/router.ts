@@ -146,6 +146,24 @@ export class Router implements ReactiveController {
     if (event.navigationType === "reload") return;
 
     const path = toAppPath(decodeURI(new URL(event.destination.url).pathname));
+
+    // A link to the page already on screen — the lit nav item, tapped again.
+    // Chromium delivers it as a `replace` to the same URL, and committing it
+    // ran a whole cross-fade over a page that never moved: the history
+    // fallback's `#onClick` already swallowed this, this path never did.
+    // Intercepted with a no-op rather than ignored, or the browser reloads the
+    // document; `manual` so the scroll position and focus stay where they were.
+    // A fragment change is left to the browser, which scrolls to it.
+    if (path === this.path && event.navigationType !== "traverse") {
+      if (event.hashChange) return;
+      event.intercept({
+        handler: async () => {},
+        scroll: "manual",
+        focusReset: "manual",
+      });
+      return;
+    }
+
     const direction = this.#directionOf(event);
     event.intercept({ handler: () => this.#commit(path, direction) });
   };

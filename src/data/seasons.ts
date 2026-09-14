@@ -38,6 +38,11 @@ export type RationSeason = {
  */
 export const DEFAULT_SEASON: RationSeason = { from: 10, to: 4 };
 
+/** January to December, in calendar order — the options of a month picker. */
+export const MONTH_NUMBERS: readonly MonthNumber[] = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+];
+
 export const isMonthNumber = (value: unknown): value is MonthNumber =>
   typeof value === "number" &&
   Number.isInteger(value) &&

@@ -115,8 +115,9 @@ Three consequences worth stating out loud:
   `<nav>`, not a radio group. Use `app-segmented` to pick a value, `app-subnav`
   to pick a page. Switching tabs is tagged `horse-subpage` (see
   `horseTransitionType`), which holds the page still and slides only
-  `.horse-view__panel`. `HorseView` is the container (queries, sheet state,
-  save); `horse-ration`, `ration-sheet` and `horse-profile` are presentational.
+  `.horse-view__panel`. `HorseView` is the container (queries);
+  `horse-ration` and `horse-profile` are presentational. The ration is
+  read-only there — it is edited on `/profile/interface/ration`.
 - **`/budget` is a drill-down, not a section**: it has no nav item, is reached
   by tapping the dashboard's `budget-card`, and Accueil stays lit while it is
   open (the `SECTIONS` table's `matches` predicates in `app-root`, which
@@ -137,7 +138,18 @@ Three consequences worth stating out loud:
 - **`/profile/interface` mirrors the horse page's tabs**: `CUSTOMIZE_TABS` /
   `customizeRouteOf()` in `commons/sections.ts`, `app-subnav`, a
   `customize-subpage` transition that slides only `.customize-view__panel`.
-  Ration, Catégories and Cheval are title-only placeholders for now.
+  **Ration** is where the feed plan is managed: `customize-ration` (add form +
+  `horse-ration editable`, which adds a pencil and a bin per row) with
+  `CustomizeView` as the container — `rationsService.addRation`, the reused
+  `ration-sheet` on a pencil, an `app-modal` confirmation before
+  `rationsRepo.remove`. The add form offers `RATION_FORM_UNITS` (mL/g/kg/L, a
+  subset of `RationUnit`) and a Période as two month selects, both blank meaning
+  all year. **Cheval** edits the active horse's record card in place
+  (`customize-horse`, same card and rows as Profil through
+  `commons/customize-form.styles.ts`) and saves through
+  `horsesService.saveHorseProfile`, which writes only the fields that moved —
+  an untouched Enregistrer must not restamp the seeded horse. Âge is displayed,
+  the row holds `birthDate`. Catégories is a title-only placeholder for now.
 - Events are **created** from `event-sheet`, opened by the `+` in the nav bar
   (which is a button, not a link — it opens a sheet, it does not navigate), and
   **edited** through the same sheet: setting its `event` property prefills the

@@ -41,4 +41,28 @@
     display: grid;
     gap: 1.5rem;
   }
+
+  .customize-view__confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-12);
+  }
+
+  /* Same pair as the event detail page's delete confirmation. */
+  .customize-view__button {
+    appearance: none;
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+  }
+
+  .customize-view__button--danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+  }
 }

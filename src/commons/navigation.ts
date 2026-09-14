@@ -5,6 +5,7 @@
  * somewhere as the result of an action — a back button, or landing somewhere
  * sensible after deleting the record the page was showing.
  */
+import { toAppPath } from "./base-path.ts";
 import { historyIndex, requestNavigate } from "./history-fallback.ts";
 
 /**
@@ -67,4 +68,44 @@ export const goBack = (fallback: string): void => {
 
   if (hasNavigation) navigation.back();
   else history.back();
+};
+
+/**
+ * Back out of a section whose sub-pages are real routes — to the last entry
+ * *before* the user entered it — or to `fallback` if they never came from
+ * anywhere.
+ *
+ * `goBack` steps one entry, which is wrong for a page with tabs: every tab
+ * switch pushes an entry, so Retour on `/horse/<id>/cheval` used to land on
+ * `/horse/<id>/ration` rather than on the dashboard. This skips every entry
+ * `isInside` claims, and still *traverses* rather than pushing, so the
+ * transition plays as `back` and the stack is not grown by a way out.
+ *
+ * Only the Navigation API can see the URLs of earlier entries. Without it there
+ * is nothing to search, so it navigates to `fallback` — which lands in the
+ * right place, with a forward slide instead of a back one.
+ */
+export const goBackOutOf = (
+  isInside: (path: string) => boolean,
+  fallback: string,
+): void => {
+  if (!("navigation" in window)) {
+    navigateTo(fallback);
+    return;
+  }
+
+  const current = navigation.currentEntry?.index ?? -1;
+  const entries = navigation.entries();
+  for (let i = current - 1; i >= 0; i--) {
+    const entry = entries[i];
+    if (!entry?.url) continue;
+    const url = new URL(entry.url);
+    if (url.origin !== location.origin) break;
+    if (!isInside(toAppPath(decodeURI(url.pathname)))) {
+      navigation.traverseTo(entry.key);
+      return;
+    }
+  }
+
+  navigateTo(fallback);
 };

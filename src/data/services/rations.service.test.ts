@@ -4,7 +4,12 @@ import { db } from "../db.ts";
 import * as rationsRepo from "../repositories/rations.repo.ts";
 import { DEFAULT_SEASON } from "../seasons.ts";
 import type { RationItem } from "../types.ts";
-import { rationFieldNames, saveRationSheet } from "./rations.service.ts";
+import {
+  RATION_ADD_FIELDS,
+  addRation,
+  rationFieldNames,
+  saveRationSheet,
+} from "./rations.service.ts";
 
 /**
  * What the feed sheet writes, and — mostly — what it must leave alone.
@@ -238,5 +243,84 @@ describe("a line deleted underneath the sheet", () => {
     expect(result).toEqual({ ok: true, saved: 2 });
     expect((await rationsRepo.get("fib"))?.quantity).toBe(3);
     expect(await rationsRepo.get("cmv")).toBeUndefined();
+  });
+});
+
+describe("adding a product", () => {
+  /** The add form as submitted; a blank month is what an untouched select sends. */
+  const added = (fields: {
+    label?: string;
+    quantity?: string;
+    unit?: string;
+    seasonFrom?: string;
+    seasonTo?: string;
+  }): FormData => {
+    const form = new FormData();
+    for (const [key, name] of Object.entries(RATION_ADD_FIELDS)) {
+      form.set(name, fields[key as keyof typeof fields] ?? "");
+    }
+    return form;
+  };
+
+  it("appends a line fed all year when no period is picked", async () => {
+    await seed([{ id: "fib", quantity: 1.5 }]);
+
+    const result = await addRation(
+      HORSE_ID,
+      added({ label: " Sel ", quantity: "15", unit: "g" }),
+    );
+
+    expect(result.ok).toBe(true);
+    const plan = await rationsRepo.listByHorse(HORSE_ID);
+    expect(plan.map((item) => item.label)).toEqual(["Fib & Fib", "Sel"]);
+    expect(plan[1]).toMatchObject({ quantity: 15, unit: "g", season: null });
+  });
+
+  it("stores the picked window, including one that wraps the year", async () => {
+    const result = await addRation(
+      HORSE_ID,
+      added({
+        label: "Huile de lin",
+        quantity: "40",
+        unit: "mL",
+        seasonFrom: "10",
+        seasonTo: "4",
+      }),
+    );
+
+    expect(result.ok && result.item.season).toEqual({ from: 10, to: 4 });
+  });
+
+  it("accepts a comma decimal", async () => {
+    const result = await addRation(
+      HORSE_ID,
+      added({ label: "Fib", quantity: "1,5", unit: "L" }),
+    );
+
+    expect(result.ok && result.item.quantity).toBe(1.5);
+  });
+
+  it("rejects a period with only one month, alongside every other problem", async () => {
+    const result = await addRation(
+      HORSE_ID,
+      added({ label: "", quantity: "40", unit: "mL", seasonFrom: "10" }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.errors.seasonTo).toBeTruthy();
+    expect(result.ok === false && result.errors.label).toBeTruthy();
+    expect(await rationsRepo.listByHorse(HORSE_ID)).toEqual([]);
+  });
+
+  it("rejects a unit the form does not offer, and a missing quantity", async () => {
+    const result = await addRation(
+      HORSE_ID,
+      added({ label: "Vitamine E", quantity: "", unit: "dose" }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.errors.unit).toBeTruthy();
+    expect(result.ok === false && result.errors.quantity).toBeTruthy();
+    expect(await rationsRepo.listByHorse(HORSE_ID)).toEqual([]);
   });
 });
