@@ -234,6 +234,13 @@ export class Router implements ReactiveController {
     if (url.pathname === location.pathname && url.hash) return;
 
     event.preventDefault();
+
+    // A link to the page already on screen — the lit nav item, tapped again.
+    // Chromium turns this into an invisible `replace`; committing it here would
+    // push a duplicate entry and play the full forward slide over a page that
+    // never moved. Swallowed rather than returned early, or Safari reloads.
+    if (url.pathname === location.pathname) return;
+
     void this.#pushAndCommit(toAppPath(decodeURI(url.pathname)), url.href);
   };
 

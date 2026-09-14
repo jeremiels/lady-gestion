@@ -414,6 +414,37 @@ describe("Router — history fallback", () => {
     expect(location.pathname).toBe("/documents");
   });
 
+  it("swallows a link to the page already on screen", async () => {
+    const el = await mountFallback();
+
+    const done = committed(el);
+    link(el, "events").click();
+    await done;
+
+    const spy = vi.spyOn(document, "startViewTransition");
+    const length = history.length;
+
+    try {
+      // The lit nav item, tapped again. `dispatchEvent` rather than `click()`
+      // for its return value: false means the default was prevented, which is
+      // what keeps Safari from reloading the page instead.
+      const notPrevented = link(el, "events").dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          composed: true,
+          cancelable: true,
+        }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(notPrevented).toBe(false);
+      expect(spy).not.toHaveBeenCalled();
+      expect(history.length).toBe(length);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("leaves a fragment link to the browser", async () => {
     const el = await mountFallback();
     const spy = vi.spyOn(document, "startViewTransition");
