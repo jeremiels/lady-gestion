@@ -231,13 +231,12 @@ export abstract class DialogElement extends BaseElement {
     .dialog__body {
       overflow-y: auto;
       overscroll-behavior: contain;
-      padding: 0 var(--spacing-20) var(--spacing-20);
+      padding: 0 var(--spacing-16);
     }
 
     .dialog__footer {
       flex-shrink: 0;
-      padding: var(--spacing-12) var(--spacing-20)
-        calc(var(--spacing-20) + env(safe-area-inset-bottom, 0px));
+      padding: var(--spacing-16);
       border-top: 1px solid var(--color-divider);
     }
 

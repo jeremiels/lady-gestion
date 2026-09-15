@@ -92,7 +92,7 @@ export class AppModal extends DialogElement {
       justify-content: space-between;
       gap: var(--spacing-12);
       flex-shrink: 0;
-      padding: var(--spacing-20) var(--spacing-20) var(--spacing-12);
+      padding: var(--spacing-16);
     }
 
     :host([full-bleed]) .dialog__header {

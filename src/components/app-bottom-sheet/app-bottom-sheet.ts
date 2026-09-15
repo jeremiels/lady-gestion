@@ -326,7 +326,7 @@ export class AppBottomSheet extends DialogElement {
       justify-content: space-between;
       gap: var(--spacing-12);
       flex-shrink: 0;
-      padding: 0 var(--spacing-20) var(--spacing-12);
+      padding: var(--spacing-16);
     }
 
     .dialog__title {
