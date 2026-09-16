@@ -1,7 +1,7 @@
 import { todayISO, type IsoDate } from "./dates.ts";
 import type { FieldError } from "./forms.ts";
 import { formatCents } from "./money.ts";
-import type { PostStatus, Category, Post, StoredDocument } from "./types.ts";
+import type { PostStatus, Category, Post } from "./types.ts";
 
 /**
  * Event rules that are neither persistence nor iCalendar.
@@ -143,43 +143,6 @@ export const SCHEMA_V11_ACTIVITY_RENAME = {
   from: "balade",
   to: "baladeApied",
 } as const;
-
-/**
- * A post row as a pre-v13 build wrote it, in the `events` store: `type` where
- * `categoryKey` is now. Both optional, because a row can reach schema v13's
- * transform from either side — a v12 file, or one already renamed and then
- * restored onto itself.
- */
-export type LegacyPostRow = Omit<Post, "categoryKey"> & {
-  categoryKey?: string;
-  type?: string;
-};
-
-/**
- * Schema v13's rename of one post row: `type` becomes `categoryKey`.
- *
- * Shared by `db.ts`'s live upgrade and `migrateSnapshot`, like
- * `migrateEventToCustomFields`. **Frozen** — it describes what v13 did.
- * A row already carrying `categoryKey` keeps it, so replaying is a no-op.
- */
-export const migratePostRowV13 = (row: LegacyPostRow): Post => {
-  const { type, categoryKey, ...rest } = row;
-  return { ...rest, categoryKey: categoryKey ?? type ?? "" };
-};
-
-/**
- * Schema v13's rename of one document row: `eventId` becomes `postId`. Same
- * sharing, freezing and replay rule as `migratePostRowV13`.
- */
-export const migrateDocumentRowV13 = (
-  row: Omit<StoredDocument, "postId"> & {
-    postId?: string | null;
-    eventId?: string | null;
-  },
-): StoredDocument => {
-  const { eventId, postId, ...rest } = row;
-  return { ...rest, postId: postId ?? eventId ?? null };
-};
 
 /**
  * A `Map` rather than indexing the `Record` above.

@@ -3,6 +3,7 @@ import { customElement, property } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { BaseElement } from "../../commons/base-element.ts";
+import { customizeFormStyles } from "../../commons/customize-form.styles.ts";
 import { byOrder, type ResolvedCategory } from "../../data/categories.ts";
 import { THEME_META } from "../../theme/theme.ts";
 import { iconStyle } from "../app-icon/app-icon.ts";
@@ -33,49 +34,23 @@ export class CustomizeCategories extends BaseElement {
   /** The whole resolved catalogue, disabled rows included. */
   @property({ attribute: false }) categories: ResolvedCategory[] = [];
 
-  static componentStyles = css`
-    :host {
-      display: grid;
-      gap: var(--spacing-8);
-    }
+  static componentStyles = [
+    customizeFormStyles,
+    css`
+      :host {
+        display: grid;
+        gap: var(--spacing-8);
+      }
 
-    /* Restated from customize-form.styles.ts, which a shadow root does not
-       see — the same section title and white list as Profil and Cheval. */
-    .title {
-      margin: 0;
-      font-size: 0.75rem;
-      line-height: 0.875rem;
-      font-weight: bold;
-      color: var(--color-brown-middle);
-    }
+      .item {
+        column-gap: var(--spacing-12);
+      }
 
-    .list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      list-style: none;
-      margin: 0;
-      padding: var(--spacing-12);
-      border-radius: var(--radius-12);
-      background-color: var(--color-white);
-    }
-
-    .item {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      align-items: center;
-      column-gap: var(--spacing-12);
-    }
-
-    .item:not(:last-child) {
-      border-bottom: 1px solid var(--color-divider);
-      padding-bottom: 1rem;
-    }
-
-    .item__icon {
-      --icon-size: 1rem;
-    }
-  `;
+      .item__icon {
+        --icon-size: 1rem;
+      }
+    `,
+  ];
 
   #onToggle = (id: string) => (event: CustomEvent<{ checked: boolean }>) => {
     event.stopPropagation();

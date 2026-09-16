@@ -2,8 +2,8 @@
  * Where the app is mounted, and the two conversions that follow from it.
  *
  * GitHub Pages serves a project repository from `/<repo>/` rather than the
- * origin root, so the address bar reads `/lady-gestion/events` while the route
- * table — and every path literal in the app — says `/events`. One of the two
+ * origin root, so the address bar reads `/lady-gestion/posts` while the route
+ * table — and every path literal in the app — says `/posts`. One of the two
  * has to give. Rewriting the route table would spread the deploy target across
  * every view, card and test that mentions a path; converting at the two edges
  * where a browser pathname is *read* or *written* keeps all of them
@@ -39,7 +39,7 @@ export function toAppPath(pathname: string): string {
 }
 
 /**
- * An app path (`/events`) → what belongs in an `href` or in `location.href`.
+ * An app path (`/posts`) → what belongs in an `href` or in `location.href`.
  *
  * Every link in the app goes through this. Missing one is invisible in dev and
  * in the test suite, where the prefix is empty and the raw literal is already

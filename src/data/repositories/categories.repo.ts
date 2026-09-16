@@ -10,7 +10,7 @@ import { createRecord, crud, liveOnly, softDelete, touch } from "../record.ts";
 import type { Category, NewRecord, RecordPatch } from "../types.ts";
 
 /**
- * The event-type catalogue: what `Post.type` points at.
+ * The category catalogue: what `Post.categoryKey` points at.
  *
  * Not horse-scoped, unlike `activities.repo.ts`'s catalogue — a type applies
  * across every horse in the database, so there is no `listByHorse` here, only

@@ -10,7 +10,7 @@ import { Router } from "./commons/controllers/router.ts";
 import { initData } from "./data/index.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
-import { appHref, toAppPath } from "./commons/base-path.ts";
+import { appHref } from "./commons/base-path.ts";
 import {
   customizeRouteOf,
   customizeTransitionType,
@@ -51,12 +51,6 @@ type Route = {
 
 /** `/posts/<id>`. Also how the view's id is sliced back off the path. */
 const POST_DETAIL_PREFIX = "/posts/";
-
-/**
- * Where posts lived before schema v13 renamed them. Kept routable so a
- * bookmark, a shared link or an installed manifest shortcut still lands.
- */
-const LEGACY_POSTS_ROOT = "/events";
 
 /**
  * Where the `+` sits in the bar — between Calendrier and Documents.
@@ -107,22 +101,6 @@ const ROUTES: Route[] = [
         ></post-detail-view>`,
       )}
     `,
-  },
-  {
-    // `/events` and `/events/<id>` → the same page under `/posts`. Only a cold
-    // load can arrive here — nothing in the app links to the old paths — so a
-    // `location.replace` into the cached shell is simpler than teaching the
-    // router a redirect, and keeps the old URL out of history.
-    match: (path) =>
-      path === LEGACY_POSTS_ROOT || path.startsWith(`${LEGACY_POSTS_ROOT}/`),
-    title: "Activités",
-    load: async () => {
-      const path = toAppPath(decodeURI(location.pathname));
-      location.replace(
-        appHref(`/posts${path.slice(LEGACY_POSTS_ROOT.length)}`),
-      );
-    },
-    render: () => html``,
   },
   {
     // A drill-down from the dashboard's budget card, not a section of its

@@ -50,7 +50,7 @@ eventTypes: 'id, key, order, archived, updatedAt'
 
 ```ts
 interface Category extends BaseRecord {
-  key: string; // stable slug, generated at creation, immutable — this is what Post.type stores
+  key: string; // stable slug, generated at creation, immutable — this is what Post.categoryKey stores
   label: string;
   icon: IconName;
   theme: ThemeKey;
@@ -119,7 +119,7 @@ No existing settings/CRUD screen to copy — build new, reusing existing primiti
 
 ## Parent/child hierarchy (schema v8, shipped)
 
-`Category.parentId: string | null` — an adjacency list, capped at **one level** (a child cannot itself be a parent). By row `id`, not by `key`, unlike `Post.type`: an event keeps the slug so it survives its type disappearing, whereas a dangling parent link is something to repair. `parentId` is deliberately **unindexed** — it is nullable, and IndexedDB drops null-keyed rows out of an index entirely, so every root would vanish from it.
+`Category.parentId: string | null` — an adjacency list, capped at **one level** (a child cannot itself be a parent). By row `id`, not by `key`, unlike `Post.categoryKey`: an event keeps the slug so it survives its type disappearing, whereas a dangling parent link is something to repair. `parentId` is deliberately **unindexed** — it is nullable, and IndexedDB drops null-keyed rows out of an index entirely, so every root would vanish from it.
 
 `icon` and `theme` are nullable with `null` meaning "take my parent's". Nothing reads them directly: `resolveCatalogue` (`data/categories.ts`) fills them in one pass, treats a `parentId` that resolves to nothing as a root, and falls back to `info`/`taupe` for a value this build cannot draw — which also closes a pre-existing crash, since `THEME_META[key]` is a mapped type and an unknown theme from a restored backup used to be a `TypeError` at render.
 

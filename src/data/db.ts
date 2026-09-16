@@ -2,23 +2,26 @@ import Dexie, { liveQuery, type Table } from "dexie";
 import { nowISO } from "./dates.ts";
 import {
   quantityField,
-  migrateCategoryRowV13,
   seedCategories,
   SCHEMA_V9_NESTINGS,
   SCHEMA_V10_NESTINGS,
   SCHEMA_V10_NEW_TYPES,
-  type LegacyCategoryRow,
 } from "./categories.ts";
 import {
-  migrateDocumentRowV13,
   migrateEventToCustomFields,
-  migratePostRowV13,
   SCHEMA_V11_ACTIVITY_RENAME,
   type FollowUpInterval,
   type LegacyEventColumns,
-  type LegacyPostRow,
   type WorkActivity,
 } from "./posts.ts";
+import {
+  migrateCategoryRowV13,
+  migrateDocumentRowV13,
+  migratePostRowV13,
+  type LegacyCategoryRow,
+  type LegacyDocumentRow,
+  type LegacyPostRow,
+} from "./schema-v13.ts";
 import { newId } from "./ids.ts";
 import { seasonFromLegacyFlag, type RationSeason } from "./seasons.ts";
 import type {
@@ -525,7 +528,7 @@ export class LadyGestionDb extends Dexie {
           .bulkPut(types.map(migrateCategoryRowV13));
 
         const documents = await transaction
-          .table<StoredDocument>("documents")
+          .table<LegacyDocumentRow>("documents")
           .toArray();
         await transaction
           .table<StoredDocument>("documents")

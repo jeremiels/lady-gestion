@@ -5,10 +5,10 @@ import type { IsoTimestamp } from "./dates.ts";
 import type { CustomFieldDef, FieldOption, Category, Post } from "./types.ts";
 
 /**
- * Pure functions over the event-type catalogue, and its built-in seed data.
+ * Pure functions over the category catalogue, and its built-in seed data.
  *
  * Mirrors `posts.ts`: that file holds pure functions over `Post`, this
- * one holds pure functions over `Category` — the row `Post.type`
+ * one holds pure functions over `Category` — the row `Post.categoryKey`
  * points at (`types.ts`). Deliberately does not import `posts.ts` and is not
  * imported by it, even though both are needed together by the day-sheet write
  * path and the week strip: `posts.ts` already owns the `FollowUpInterval`
@@ -660,30 +660,6 @@ export const SCHEMA_V10_NESTINGS: readonly {
 export const SCHEMA_V10_NEW_TYPES: readonly string[] = ["massage"];
 
 /**
- * A category row as a pre-v13 build wrote it, in the `eventTypes` store:
- * `archived` where `enabled` is now. Both optional, for the same reason as
- * `LegacyPostRow` (`posts.ts`) — and because schema v6 and v10 seed today's
- * shape into that old store.
- */
-export type LegacyCategoryRow = Omit<Category, "enabled"> & {
-  enabled?: boolean;
-  archived?: boolean;
-};
-
-/**
- * Schema v13's rename of one category row: `archived` becomes its inverse,
- * `enabled`. Shared by `db.ts`'s live upgrade and `migrateSnapshot`, frozen,
- * and a no-op on a row already carrying `enabled`.
- */
-export const migrateCategoryRowV13 = (row: LegacyCategoryRow): Category => {
-  const { archived, enabled, ...rest } = row;
-  return {
-    ...rest,
-    enabled: typeof enabled === "boolean" ? enabled : archived !== true,
-  };
-};
-
-/**
  * Stamps `BUILT_IN_CATEGORIES` into real rows.
  *
  * Called from both halves of the schema v6 migration with whichever owner id
@@ -811,6 +787,14 @@ export const resolveCatalogue = (types: Category[]): ResolvedCategory[] => {
 export const enabledOf = <T extends Category>(types: T[]): T[] =>
   types.filter((type) => type.enabled);
 
+/**
+ * The keys whose posts are hidden: every category switched off. The other
+ * half of `enabledOf`, for the posts side — a post whose key names no category
+ * at all is not in here, so it stays visible: nothing switched it off.
+ */
+export const hiddenKeys = (types: Category[]): Set<string> =>
+  new Set(types.filter((type) => !type.enabled).map((type) => type.key));
+
 /** The types with no parent, in `order` — the top level of the picker, the
  * chips and the budget ring. The whole shipped catalogue is one of these. */
 export const rootsOf = <T extends Category>(types: T[]): T[] => {
@@ -831,10 +815,10 @@ export const rootOf = <T extends Category>(types: T[], type: T): T =>
   parentOf(types, type) ?? type;
 
 /**
- * The `Post.type` slugs a filter on `key` should match: the type's own,
+ * The `Post.categoryKey` slugs a filter on `key` should match: the type's own,
  * plus its children's.
  *
- * Keys rather than ids because this is compared against `Post.type`,
+ * Keys rather than ids because this is compared against `Post.categoryKey`,
  * which stores the slug. A flat catalogue makes this a singleton, which is
  * exactly today's `event.categoryKey === filter`.
  */

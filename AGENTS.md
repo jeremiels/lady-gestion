@@ -394,9 +394,9 @@ src/data/
   `formatCents()` from `money.ts`.
 - **Domain language: a `Post` belongs to a `Category`.** Since schema v13 the
   code, the tables and the URLs say so — `posts` / `categories` stores,
-  `postsRepo` / `categoriesRepo`, `post-card` / `post-sheet`, `/posts/:id` (an
-  old `/events…` link is redirected). They were `HorseEvent` / `EventTypeDef`,
-  `events` / `eventTypes` and `/events` before; migrations up to v12 keep the
+  `postsRepo` / `categoriesRepo`, `post-card` / `post-sheet`, `/posts/:id`
+  (an old `/events…` link is not redirected). They were `HorseEvent` /
+  `EventTypeDef`, `events` / `eventTypes` and `/events` before; migrations up to v12 keep the
   old names on purpose, because they describe the tables that version had.
   Calendar vocabulary (`CalendarEvent`, `VEVENT` in `icalendar.ts`) and DOM
   events are a different "event" and were not renamed. French UI copy

@@ -2,7 +2,9 @@ import { db } from "../db.ts";
 import { todayISO, type IsoDate } from "../dates.ts";
 import { sumByCategory } from "../budget.ts";
 import { sumCents } from "../money.ts";
+import { hiddenKeys } from "../categories.ts";
 import { createRecord, crud, liveOnly } from "../record.ts";
+import * as categoriesRepo from "./categories.repo.ts";
 import type { Category, Post, NewRecord } from "../types.ts";
 
 /**
@@ -33,19 +35,10 @@ export const { get, update, remove } = crud<Post>(db.posts);
  * The catalogue is read *here*, inside the query, rather than handed in by the
  * caller: a Dexie `liveQuery` re-runs only for tables its own query function
  * reads, so this is what makes flipping a switch refresh every open view.
- *
- * A post whose key matches no category stays visible — nothing switched it off.
  */
 const visible = async (posts: Post[]): Promise<Post[]> => {
-  const disabled = new Set(
-    liveOnly(await db.categories.toArray())
-      .filter((category) => !category.enabled)
-      .map((category) => category.key),
-  );
-  const live = liveOnly(posts);
-  return disabled.size === 0
-    ? live
-    : live.filter((post) => !disabled.has(post.categoryKey));
+  const hidden = hiddenKeys(await categoriesRepo.listAll());
+  return liveOnly(posts).filter((post) => !hidden.has(post.categoryKey));
 };
 
 /** One post, or `undefined` when it is deleted or its category is switched off. */
@@ -56,8 +49,8 @@ export const getVisible = async (id: string): Promise<Post | undefined> => {
 
 /** Every visible post for a horse, newest first. */
 export const listByHorse = async (horseId: string): Promise<Post[]> => {
-  const events = await byHorseAndDateRange(horseId, MIN_DATE, MAX_DATE);
-  return (await visible(events)).reverse();
+  const posts = await byHorseAndDateRange(horseId, MIN_DATE, MAX_DATE);
+  return (await visible(posts)).reverse();
 };
 
 /** Visible posts falling inside a calendar range, oldest first. */
@@ -68,7 +61,7 @@ export const listInRange = async (
 ): Promise<Post[]> => visible(await byHorseAndDateRange(horseId, from, to));
 
 /**
- * Still-to-happen events, soonest first.
+ * Still-to-happen posts, soonest first.
  *
  * Not narrowed to appointments here — that used to filter on the type
  * catalogue inside this query, but a Dexie `liveQuery` only re-runs for
@@ -77,15 +70,15 @@ export const listInRange = async (
  * capping to a limit, is `upcomingAppointments` (`categories.ts`)'s job
  * instead — the caller (`HomeView`) joins this against its own `categories`
  * `LiveQuery` in `render()`, the same way `BudgetView`/`PostsView` already
- * join events against types, so either one updating re-renders correctly.
+ * join posts against types, so either one updating re-renders correctly.
  */
 export const listUpcoming = async (horseId: string): Promise<Post[]> => {
-  const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
-  return (await visible(events)).filter((event) => event.status === "planned");
+  const posts = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
+  return (await visible(posts)).filter((post) => post.status === "planned");
 };
 
 /**
- * Events that cost something — i.e. the budget ledger.
+ * Posts that cost something — i.e. the budget ledger.
  *
  * Reads `customFields.amountCents`, schema v6's replacement for the fixed
  * `amountCents` column — present, and a number, only for a type whose fields
@@ -98,11 +91,11 @@ export const listBudget = async (
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
 ): Promise<Post[]> => {
-  const events = await listInRange(horseId, from, to);
-  return events.filter(
-    (event) =>
-      typeof event.customFields.amountCents === "number" &&
-      event.status !== "cancelled",
+  const posts = await listInRange(horseId, from, to);
+  return posts.filter(
+    (post) =>
+      typeof post.customFields.amountCents === "number" &&
+      post.status !== "cancelled",
   );
 };
 
@@ -114,8 +107,8 @@ export const totalSpent = async (
 ): Promise<number> => {
   const budget = await listBudget(horseId, from, to);
   return sumCents(
-    budget.map((event) => {
-      const amount = event.customFields.amountCents;
+    budget.map((post) => {
+      const amount = post.customFields.amountCents;
       return typeof amount === "number" ? amount : null;
     }),
   );
@@ -141,7 +134,7 @@ export const totalSpentByCategory = async (
 };
 
 export const create = async (fields: NewRecord<Post>): Promise<Post> => {
-  const event = createRecord<Post>(fields);
-  await db.posts.add(event);
-  return event;
+  const post = createRecord<Post>(fields);
+  await db.posts.add(post);
+  return post;
 };

@@ -121,9 +121,11 @@ export class PostsView extends LightElement {
   }
 
   /** Cancelled events are hidden here for the same reason the calendar hides them. */
-  #visiblePosts(types: ResolvedCategory[]): Post[] {
+  #visiblePosts(
+    types: ResolvedCategory[],
+    categoryFilter: string | null,
+  ): Post[] {
     const { query } = this.#ui.value;
-    const categoryFilter = this.#categoryFilter;
     const needle = normalize(query.trim());
 
     // A root chip covers its children too — `subtreeKeys` is a singleton for a
@@ -214,7 +216,8 @@ export class PostsView extends LightElement {
 
   #renderList(types: ResolvedCategory[]) {
     const { query } = this.#ui.value;
-    const events = this.#visiblePosts(types);
+    const categoryFilter = this.#categoryFilter;
+    const events = this.#visiblePosts(types, categoryFilter);
 
     // `listByHorse` already returns newest first, so grouping in order gives
     // months descending and, inside each, days descending.
@@ -238,7 +241,7 @@ export class PostsView extends LightElement {
         @input=${this.#onSearch}
       ></app-input>
 
-      ${this.#renderFilters(types)}
+      ${this.#renderFilters(types, categoryFilter)}
       ${
         months.size === 0
           ? html`<p class="posts-view__empty">
@@ -274,8 +277,7 @@ export class PostsView extends LightElement {
    * A flat catalogue is every type being a root, so this renders exactly the
    * row it did before types could nest, and the second row never appears.
    */
-  #renderFilters(types: ResolvedCategory[]) {
-    const categoryFilter = this.#categoryFilter;
+  #renderFilters(types: ResolvedCategory[], categoryFilter: string | null) {
     const selected =
       categoryFilter === null ? undefined : findCategory(types, categoryFilter);
     const root = selected ? rootOf(types, selected) : undefined;

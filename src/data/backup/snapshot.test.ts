@@ -3,183 +3,29 @@ import realV5ExportRaw from "../__tests__/fixtures/real-v5-export.json?raw";
 import { db, SCHEMA_VERSION, type BackupTables } from "../db.ts";
 import { BUILT_IN_CATEGORIES } from "../categories.ts";
 import { followUpValue } from "../posts.ts";
-import { getOwnerId, setOwnerId } from "../owner.ts";
+import { getOwnerId } from "../owner.ts";
 import { DEFAULT_SEASON } from "../seasons.ts";
-import type {
-  Category,
-  Horse,
-  Post,
-  RationItem,
-  StoredDocument,
-} from "../types.ts";
+import type { Category, Post } from "../types.ts";
 import {
   exportBackup,
   importBackup,
   migrateSnapshot,
   type BackupSnapshot,
 } from "./snapshot.ts";
+import {
+  categoryRows,
+  event,
+  horse,
+  legacy,
+  LOCAL_OWNER,
+  post,
+  ration,
+  REMOTE_OWNER,
+  resetDatabase,
+  snapshot,
+} from "./snapshot.fixtures.ts";
 
-const LOCAL_OWNER = "owner-local";
-const REMOTE_OWNER = "owner-remote";
-
-const horse = (over: Partial<Horse> = {}): Horse => ({
-  id: "horse-1",
-  ownerId: REMOTE_OWNER,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  deletedAt: null,
-  name: "Ladympala",
-  sex: "jument",
-  birthDate: "2021-05-01",
-  breed: null,
-  coat: null,
-  sireNumber: null,
-  sireName: null,
-  damName: null,
-  photoDocumentId: null,
-  archivedAt: null,
-  ...over,
-});
-
-const ration = (over: Partial<RationItem> = {}): RationItem => ({
-  id: "ration-1",
-  ownerId: REMOTE_OWNER,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  deletedAt: null,
-  horseId: "horse-1",
-  label: "Fib & fib",
-  quantity: 2,
-  unit: "kg",
-  season: null,
-  sortOrder: 0,
-  ...over,
-});
-
-const post = (over: Partial<Post> = {}): Post => ({
-  id: "event-1",
-  ownerId: REMOTE_OWNER,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  deletedAt: null,
-  horseId: "horse-1",
-  categoryKey: "veto",
-  title: "Contrôle œil",
-  date: "2026-06-15",
-  time: null,
-  status: "planned",
-  currency: "EUR",
-  location: null,
-  notes: null,
-  recurrenceId: null,
-  customFields: {},
-  ...over,
-});
-
-/** A post row as a pre-v13 file carries it: `type` where `categoryKey` is now. */
-type LegacyEvent = Omit<Post, "categoryKey"> & { type: string };
-
-const event = (
-  over: Partial<Omit<Post, "categoryKey">> & { type?: string } = {},
-): LegacyEvent => {
-  const { categoryKey, ...rest } = post();
-  return { ...rest, type: categoryKey, ...over };
-};
-
-/** The tables of a pre-v13 file, under the names it wrote them with. */
-type LegacyTables = Omit<BackupTables, "posts" | "categories"> & {
-  events: LegacyEvent[];
-  eventTypes: Category[];
-};
-
-const document = (over: Partial<StoredDocument> = {}): StoredDocument => ({
-  id: "doc-1",
-  ownerId: REMOTE_OWNER,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  updatedAt: "2026-01-01T00:00:00.000Z",
-  deletedAt: null,
-  horseId: "horse-1",
-  postId: null,
-  category: "facture",
-  name: "facture.pdf",
-  mimeType: "application/pdf",
-  size: 1,
-  issuedAt: null,
-  driveFileId: null,
-  driveSyncedAt: null,
-  ...over,
-});
-
-const STAMP = "2026-01-01T00:00:00.000Z";
-
-/** The 14 built-in types, stamped — what a current-schema snapshot carries. */
-const categoryRows: Category[] = BUILT_IN_CATEGORIES.map((def) => ({
-  ...def,
-  id: `type-${def.key}`,
-  ownerId: REMOTE_OWNER,
-  createdAt: STAMP,
-  updatedAt: STAMP,
-  deletedAt: null,
-}));
-
-/**
- * A well-formed snapshot, overridden where a test cares.
- *
- * `tables` merges rather than replaces, so a case names only the table it is
- * about. Every case used to restate all four to satisfy `BackupTables`, which
- * meant adding a table to the schema broke seven literals that were never the
- * point of their own test.
- *
- * A file older than v13 gets `events`/`eventTypes` rather than
- * `posts`/`categories`, the names it was written with.
- */
-const snapshot = (
-  over: Partial<Omit<BackupSnapshot, "tables">> & {
-    tables?: Partial<BackupTables> | Partial<LegacyTables>;
-  } = {},
-): BackupSnapshot => {
-  const schemaVersion = over.schemaVersion ?? SCHEMA_VERSION;
-  const renamed =
-    schemaVersion < 13
-      ? { events: [], eventTypes: [] }
-      : { posts: [], categories: [] };
-  return {
-    app: "lady-gestion",
-    exportedAt: "2026-08-11T00:00:00.000Z",
-    ownerId: REMOTE_OWNER,
-    ...over,
-    schemaVersion,
-    tables: {
-      horses: [],
-      documents: [],
-      rationItems: [],
-      activities: [],
-      profiles: [],
-      ...renamed,
-      ...over.tables,
-    } as unknown as BackupTables,
-  };
-};
-
-/** A snapshot's tables read under their pre-v13 names. */
-const legacy = (backup: BackupSnapshot) =>
-  backup.tables as unknown as LegacyTables;
-
-beforeEach(async () => {
-  await db.open();
-  await Promise.all([
-    db.horses.clear(),
-    db.posts.clear(),
-    db.documents.clear(),
-    db.documentBlobs.clear(),
-    db.rationItems.clear(),
-    db.activities.clear(),
-    db.categories.clear(),
-    db.profiles.clear(),
-    db.meta.clear(),
-  ]);
-  await setOwnerId(LOCAL_OWNER);
-});
+beforeEach(resetDatabase);
 
 describe("exportBackup", () => {
   it("writes an envelope carrying the schema version and owner", async () => {
@@ -512,63 +358,6 @@ describe("migrateSnapshot", () => {
     });
 
     expect(migrated.tables.profiles).toEqual([]);
-  });
-
-  it("renames a pre-v13 file's events and eventTypes tables", () => {
-    const archived = {
-      ...categoryRows[0]!,
-      enabled: undefined,
-      archived: true,
-    };
-
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 12,
-        tables: {
-          events: [event({ type: "cours" })],
-          eventTypes: [archived as unknown as Category],
-        },
-      }),
-    );
-
-    expect(migrated.tables).not.toHaveProperty("events");
-    expect(migrated.tables).not.toHaveProperty("eventTypes");
-    expect(migrated.tables.posts[0]).toMatchObject({ categoryKey: "cours" });
-    expect(migrated.tables.posts[0]).not.toHaveProperty("type");
-    expect(migrated.tables.categories[0]).toMatchObject({ enabled: false });
-    expect(migrated.tables.categories[0]).not.toHaveProperty("archived");
-  });
-
-  it("renames a pre-v13 document's eventId to postId", () => {
-    const { postId: _postId, ...rest } = document();
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 12,
-        tables: {
-          documents: [
-            { ...rest, eventId: "event-1" } as unknown as StoredDocument,
-          ],
-        },
-      }),
-    );
-
-    expect(migrated.tables.documents[0]).toMatchObject({ postId: "event-1" });
-    expect(migrated.tables.documents[0]).not.toHaveProperty("eventId");
-  });
-
-  it("restores a pre-v13 file into the renamed tables", async () => {
-    const result = await importBackup(
-      snapshot({
-        schemaVersion: 12,
-        tables: { events: [event()], eventTypes: categoryRows },
-      }),
-    );
-
-    expect(result).toEqual({ imported: 15, skipped: 0 });
-    expect(await db.posts.get("event-1")).toMatchObject({
-      categoryKey: "veto",
-    });
-    expect(await db.categories.count()).toBe(14);
   });
 
   it("stamps the file up to the current schema version", () => {

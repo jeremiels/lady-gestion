@@ -212,14 +212,14 @@ export type CustomFieldDef = {
  * catalogue that never uses it behaves exactly as it did before v8.
  */
 export type Category = BaseRecord & {
-  /** Stable slug — what `Post.type` stores. Immutable once created. */
+  /** Stable slug — what `Post.categoryKey` stores. Immutable once created. */
   key: string;
   label: string;
   /**
    * The type this one is a variation of, by `id` — `null` for a root, which is
    * what the whole shipped catalogue is.
    *
-   * By `id`, not by `key`, unlike `Post.type` — the two are not the same
+   * By `id`, not by `key`, unlike `Post.categoryKey` — the two are not the same
    * kind of reference. An event keeps its type's *slug* so it survives that row
    * disappearing; that durability is the whole contract of that field. A
    * parent link is structural: a dangling pointer there is something to repair,
