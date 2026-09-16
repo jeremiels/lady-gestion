@@ -2,20 +2,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { HORSE_ID, makeRation, resetDb } from "../__tests__/factories.ts";
 import { db } from "../db.ts";
 import * as rationsRepo from "../repositories/rations.repo.ts";
-import { DEFAULT_SEASON } from "../seasons.ts";
 import type { RationItem } from "../types.ts";
 import {
   RATION_ADD_FIELDS,
   addRation,
-  rationFieldNames,
-  saveRationSheet,
+  updateRation,
 } from "./rations.service.ts";
 
 /**
- * What the feed sheet writes, and — mostly — what it must leave alone.
+ * What the ration form writes, and — for an edit — what it must leave alone.
  *
  * The rule worth the most coverage is the one with an invisible consequence: an
- * untouched line must not be re-saved, because `updatedAt` moving is what makes
+ * unchanged line must not be re-saved, because `updatedAt` moving is what makes
  * `clearUntouchedSeedData` stop recognising a demo row. Getting that wrong
  * costs the user a duplicate feed plan on their next restore, several steps
  * removed from anything they did here.
@@ -30,244 +28,124 @@ const seed = async (over: Partial<RationItem>[]): Promise<RationItem[]> => {
   return rationsRepo.listByHorse(HORSE_ID);
 };
 
-/** The sheet as submitted: a quantity per line, and the ticked checkboxes. */
-const submitted = (
-  entries: { id: string; quantity: string; seasonal?: boolean }[],
-): FormData => {
+/** The form as submitted; a blank month is what an untouched select sends. */
+const submitted = (fields: {
+  label?: string;
+  quantity?: string;
+  unit?: string;
+  seasonFrom?: string;
+  seasonTo?: string;
+}): FormData => {
   const form = new FormData();
-  for (const entry of entries) {
-    const names = rationFieldNames(entry.id);
-    form.set(names.quantity, entry.quantity);
-    // An unticked checkbox does not submit at all — that absence is the signal.
-    if (entry.seasonal) form.set(names.seasonal, "on");
+  for (const [key, name] of Object.entries(RATION_ADD_FIELDS)) {
+    form.set(name, fields[key as keyof typeof fields] ?? "");
   }
   return form;
 };
 
-describe("field names", () => {
-  it("are what the markup and the schema both read", async () => {
-    // Pinned because the round trip depends on the exact string: the sheet
-    // renders `name=${names.quantity}` and the schema parses the same key.
-    expect(rationFieldNames("r1")).toEqual({
-      quantity: "quantity-r1",
-      seasonal: "seasonal-r1",
+describe("editing a product", () => {
+  it("writes every field that moved", async () => {
+    const [ration] = await seed([
+      { id: "fib", label: "Fib", quantity: 1.5, unit: "kg", season: null },
+    ]);
+
+    const result = await updateRation(
+      ration!,
+      submitted({
+        label: "Fib & Fib",
+        quantity: "2,5",
+        unit: "L",
+        seasonFrom: "11",
+        seasonTo: "3",
+      }),
+    );
+
+    expect(result).toEqual({ ok: true, saved: true });
+    expect(await rationsRepo.get("fib")).toMatchObject({
+      label: "Fib & Fib",
+      quantity: 2.5,
+      unit: "L",
+      season: { from: 11, to: 3 },
     });
   });
-});
 
-describe("writing", () => {
-  it("saves a changed quantity", async () => {
-    const [ration] = await seed([{ id: "fib", quantity: 1.5 }]);
-
-    const result = await saveRationSheet(
-      [ration!],
-      submitted([{ id: "fib", quantity: "2" }]),
-    );
-
-    expect(result).toEqual({ ok: true, saved: 1 });
-    expect((await rationsRepo.get("fib"))?.quantity).toBe(2);
-  });
-
-  it("accepts a comma decimal — the separator a French keyboard gives", async () => {
-    const [ration] = await seed([{ id: "fib", quantity: 1 }]);
-
-    await saveRationSheet(
-      [ration!],
-      submitted([{ id: "fib", quantity: "1,5" }]),
-    );
-
-    expect((await rationsRepo.get("fib"))?.quantity).toBe(1.5);
-  });
-
-  it("writes only the lines that moved", async () => {
-    const rations = await seed([
-      { id: "fib", quantity: 1.5 },
-      { id: "cmv", quantity: 100 },
-      { id: "sel", quantity: 30 },
-    ]);
-
-    const result = await saveRationSheet(
-      rations,
-      submitted([
-        { id: "fib", quantity: "1.5" },
-        { id: "cmv", quantity: "150" },
-        { id: "sel", quantity: "30" },
-      ]),
-    );
-
-    expect(result).toEqual({ ok: true, saved: 1 });
-  });
-
-  it("leaves an untouched line’s updatedAt alone, so the seed purge still knows it", async () => {
-    // `clearUntouchedSeedData` recognises a demo row by createdAt === updatedAt.
-    // Restamping one the user never edited makes the whole plan look
-    // hand-entered and survive the restore it should have made room for.
-    const rations = await seed([
-      { id: "fib", quantity: 1.5 },
-      { id: "cmv", quantity: 100 },
-    ]);
-    const before = (await rationsRepo.get("cmv"))!;
-
-    await saveRationSheet(
-      rations,
-      submitted([
-        { id: "fib", quantity: "3" },
-        { id: "cmv", quantity: "100" },
-      ]),
-    );
-
-    const after = (await rationsRepo.get("cmv"))!;
-    expect(after.updatedAt).toBe(before.updatedAt);
-    expect(after.updatedAt).toBe(after.createdAt);
-  });
-
-  it("touches nothing at all when the sheet is submitted unchanged", async () => {
-    const rations = await seed([{ id: "fib", quantity: 1.5 }]);
-    const before = (await rationsRepo.get("fib"))!;
-
-    const result = await saveRationSheet(
-      [...rations],
-      submitted([{ id: "fib", quantity: "1.5" }]),
-    );
-
-    expect(result).toEqual({ ok: true, saved: 0 });
-    expect((await rationsRepo.get("fib"))?.updatedAt).toBe(before.updatedAt);
-  });
-});
-
-describe("seasonality", () => {
-  it("ticking the box opens the default window", async () => {
-    const [ration] = await seed([{ id: "huile", quantity: 40, season: null }]);
-
-    await saveRationSheet(
-      [ration!],
-      submitted([{ id: "huile", quantity: "40", seasonal: true }]),
-    );
-
-    expect((await rationsRepo.get("huile"))?.season).toEqual(DEFAULT_SEASON);
-  });
-
-  it("re-ticking restores the line’s own window rather than the default", async () => {
-    // A stored Nov→Mar must not be flattened to Oct→Avr by a round trip through
-    // a checkbox that can only say yes or no.
-    const own = { from: 11, to: 3 } as const;
-    const [ration] = await seed([{ id: "huile", quantity: 40, season: own }]);
-
-    const result = await saveRationSheet(
-      [ration!],
-      submitted([{ id: "huile", quantity: "40", seasonal: true }]),
-    );
-
-    expect(result).toEqual({ ok: true, saved: 0 });
-    expect((await rationsRepo.get("huile"))?.season).toEqual(own);
-  });
-
-  it("unticking clears the window", async () => {
+  it("clears the window when both months are blanked", async () => {
     const [ration] = await seed([
-      { id: "huile", quantity: 40, season: DEFAULT_SEASON },
+      { id: "fib", unit: "g", season: { from: 11, to: 3 } },
     ]);
 
-    await saveRationSheet(
-      [ration!],
-      submitted([{ id: "huile", quantity: "40" }]),
+    await updateRation(
+      ration!,
+      submitted({ label: ration!.label, quantity: "1", unit: "g" }),
     );
 
-    expect((await rationsRepo.get("huile"))?.season).toBeNull();
+    expect((await rationsRepo.get("fib"))?.season).toBeNull();
   });
-});
 
-describe("rejecting", () => {
-  it("reports the field and writes nothing when a quantity is not a number", async () => {
-    const rations = await seed([
-      { id: "fib", quantity: 1.5 },
-      { id: "cmv", quantity: 100 },
+  it("touches nothing when submitted unchanged, so the seed purge still knows it", async () => {
+    const [ration] = await seed([
+      {
+        id: "fib",
+        label: "Fib",
+        quantity: 1.5,
+        unit: "kg",
+        season: { from: 11, to: 3 },
+      },
     ]);
 
-    const result = await saveRationSheet(
-      rations,
-      submitted([
-        { id: "fib", quantity: "3" },
-        { id: "cmv", quantity: "beaucoup" },
-      ]),
+    const result = await updateRation(
+      ration!,
+      submitted({
+        label: "Fib",
+        quantity: "1.5",
+        unit: "kg",
+        seasonFrom: "11",
+        seasonTo: "3",
+      }),
     );
 
-    expect(result.ok).toBe(false);
-    expect(result.ok === false && result.errors["quantity-cmv"]).toBeTruthy();
-    // The valid line must not be written either — the plan is saved whole.
-    expect((await rationsRepo.get("fib"))?.quantity).toBe(1.5);
+    expect(result).toEqual({ ok: true, saved: false });
+    expect((await rationsRepo.get("fib"))?.updatedAt).toBe(ration!.updatedAt);
   });
 
-  it("rejects a negative quantity", async () => {
+  it("keeps a legacy unit the add form no longer offers", async () => {
+    const [ration] = await seed([{ id: "vit", unit: "dose", quantity: 1 }]);
+
+    const result = await updateRation(
+      ration!,
+      submitted({ label: ration!.label, quantity: "2", unit: "dose" }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(await rationsRepo.get("vit")).toMatchObject({
+      unit: "dose",
+      quantity: 2,
+    });
+  });
+
+  it("reports every problem and writes nothing", async () => {
     const [ration] = await seed([{ id: "fib", quantity: 1.5 }]);
 
-    const result = await saveRationSheet(
-      [ration!],
-      submitted([{ id: "fib", quantity: "-1" }]),
+    const result = await updateRation(
+      ration!,
+      submitted({ label: "", quantity: "-1", unit: "g", seasonFrom: "10" }),
     );
 
     expect(result.ok).toBe(false);
-    expect((await rationsRepo.get("fib"))?.quantity).toBe(1.5);
-  });
-
-  it("rejects a blank quantity rather than reading it as zero", async () => {
-    const [ration] = await seed([{ id: "fib", quantity: 1.5 }]);
-
-    const result = await saveRationSheet(
-      [ration!],
-      submitted([{ id: "fib", quantity: "" }]),
-    );
-
-    expect(result.ok).toBe(false);
-    expect((await rationsRepo.get("fib"))?.quantity).toBe(1.5);
-  });
-});
-
-describe("a line deleted underneath the sheet", () => {
-  it("is skipped rather than resurrected", async () => {
-    const rations = await seed([
-      { id: "fib", quantity: 1.5 },
-      { id: "cmv", quantity: 100 },
-    ]);
-    await rationsRepo.remove("cmv");
-
-    const result = await saveRationSheet(
-      rations,
-      submitted([
-        { id: "fib", quantity: "3" },
-        { id: "cmv", quantity: "150" },
-      ]),
-    );
-
-    // Both counted as patches — the service diffs against the list it was
-    // given — but `updateMany` drops the id it can no longer find.
-    expect(result).toEqual({ ok: true, saved: 2 });
-    expect((await rationsRepo.get("fib"))?.quantity).toBe(3);
-    expect(await rationsRepo.get("cmv")).toBeUndefined();
+    expect(result.ok === false && result.errors.label).toBeTruthy();
+    expect(result.ok === false && result.errors.quantity).toBeTruthy();
+    expect(result.ok === false && result.errors.seasonTo).toBeTruthy();
+    expect((await rationsRepo.get("fib"))?.updatedAt).toBe(ration!.updatedAt);
   });
 });
 
 describe("adding a product", () => {
-  /** The add form as submitted; a blank month is what an untouched select sends. */
-  const added = (fields: {
-    label?: string;
-    quantity?: string;
-    unit?: string;
-    seasonFrom?: string;
-    seasonTo?: string;
-  }): FormData => {
-    const form = new FormData();
-    for (const [key, name] of Object.entries(RATION_ADD_FIELDS)) {
-      form.set(name, fields[key as keyof typeof fields] ?? "");
-    }
-    return form;
-  };
-
   it("appends a line fed all year when no period is picked", async () => {
     await seed([{ id: "fib", quantity: 1.5 }]);
 
     const result = await addRation(
       HORSE_ID,
-      added({ label: " Sel ", quantity: "15", unit: "g" }),
+      submitted({ label: " Sel ", quantity: "15", unit: "g" }),
     );
 
     expect(result.ok).toBe(true);
@@ -279,7 +157,7 @@ describe("adding a product", () => {
   it("stores the picked window, including one that wraps the year", async () => {
     const result = await addRation(
       HORSE_ID,
-      added({
+      submitted({
         label: "Huile de lin",
         quantity: "40",
         unit: "mL",
@@ -294,7 +172,7 @@ describe("adding a product", () => {
   it("accepts a comma decimal", async () => {
     const result = await addRation(
       HORSE_ID,
-      added({ label: "Fib", quantity: "1,5", unit: "L" }),
+      submitted({ label: "Fib", quantity: "1,5", unit: "L" }),
     );
 
     expect(result.ok && result.item.quantity).toBe(1.5);
@@ -303,7 +181,7 @@ describe("adding a product", () => {
   it("rejects a period with only one month, alongside every other problem", async () => {
     const result = await addRation(
       HORSE_ID,
-      added({ label: "", quantity: "40", unit: "mL", seasonFrom: "10" }),
+      submitted({ label: "", quantity: "40", unit: "mL", seasonFrom: "10" }),
     );
 
     expect(result.ok).toBe(false);
@@ -315,7 +193,7 @@ describe("adding a product", () => {
   it("rejects a unit the form does not offer, and a missing quantity", async () => {
     const result = await addRation(
       HORSE_ID,
-      added({ label: "Vitamine E", quantity: "", unit: "dose" }),
+      submitted({ label: "Vitamine E", quantity: "", unit: "dose" }),
     );
 
     expect(result.ok).toBe(false);

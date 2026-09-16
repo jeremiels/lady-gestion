@@ -18,6 +18,7 @@ import type { AppInput } from "../components/app-input/app-input.ts";
 import type { AppSelect } from "../components/app-select/app-select.ts";
 import type { CustomizeRation } from "../components/customize-ration/customize-ration.ts";
 import type { HorseRation } from "../components/horse-ration/horse-ration.ts";
+import type { RationForm } from "../components/ration-form/ration-form.ts";
 import type { RationSheet } from "../components/ration-sheet/ration-sheet.ts";
 
 const mount = (current: CustomizeTab = "ration") =>
@@ -32,6 +33,11 @@ const list = (el: CustomizeView) =>
   tab(el).renderRoot.querySelector<HorseRation>("horse-ration")!;
 const sheet = (el: CustomizeView) =>
   el.querySelector<RationSheet>("ration-sheet")!;
+/** The add form's fields, one shadow root further down. */
+const addForm = (el: CustomizeView) =>
+  tab(el).renderRoot.querySelector<RationForm>("ration-form")!.renderRoot;
+const editForm = (el: CustomizeView) =>
+  sheet(el).renderRoot.querySelector<RationForm>("ration-form")!;
 
 const rows = (el: CustomizeView) =>
   list(el)?.renderRoot.querySelectorAll(".item").length ?? 0;
@@ -63,9 +69,9 @@ const typeInto = async (root: ParentNode, name: string, value: string) => {
 };
 
 const pickMonth = async (el: CustomizeView, name: string, month: string) => {
-  const field = [
-    ...tab(el).renderRoot.querySelectorAll<AppSelect>("app-select"),
-  ].find((select) => select.name === name)!;
+  const field = [...addForm(el).querySelectorAll<AppSelect>("app-select")].find(
+    (select) => select.name === name,
+  )!;
   const select = field.renderRoot.querySelector("select")!;
   select.value = month;
   select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -73,7 +79,7 @@ const pickMonth = async (el: CustomizeView, name: string, month: string) => {
 };
 
 const pickUnit = async (el: CustomizeView, unit: string) => {
-  const field = tab(el).renderRoot.querySelector("app-unit-select")!;
+  const field = addForm(el).querySelector("app-unit-select")!;
   field.renderRoot
     .querySelector<HTMLInputElement>(`input[value="${unit}"]`)!
     .click();
@@ -98,7 +104,7 @@ describe("customize-view › ration", () => {
     const el = await mount();
     await waitFor(el, () => rows(el) === 1);
 
-    const root = tab(el).renderRoot;
+    const root = addForm(el);
     await typeInto(root, "label", "Huile de lin");
     await typeInto(root, "quantity", "40");
     await pickUnit(el, "mL");
@@ -134,7 +140,7 @@ describe("customize-view › ration", () => {
     await waitFor(el, () => rows(el) === 1);
     await flush(el);
 
-    tab(el).renderRoot.querySelector("form")!.requestSubmit();
+    addForm(el).querySelector("form")!.requestSubmit();
     await flush(el);
 
     expect(await db.rationItems.count()).toBe(1);
@@ -143,12 +149,7 @@ describe("customize-view › ration", () => {
     expect(tab(el).errors.unit).toBeTruthy();
   });
 
-  /**
-   * The bug `AGENTS.md` records against the ration sheet: it once hardcoded
-   * five product names and read four keys, so saving wrote one unlabeled row
-   * and dropped the rest. This pins that a row nobody touched stays untouched.
-   */
-  it("the pencil opens the sheet, and saving writes only the lines that changed", async () => {
+  it("the pencil opens the sheet prefilled with that line, and saving writes only it", async () => {
     await db.rationItems.bulkAdd([
       makeRation({
         id: "ration-a",
@@ -160,6 +161,7 @@ describe("customize-view › ration", () => {
         id: "ration-b",
         label: "Huile de lin",
         quantity: 0.1,
+        unit: "L",
         season: DEFAULT_SEASON,
         sortOrder: 1,
       }),
@@ -167,21 +169,33 @@ describe("customize-view › ration", () => {
     const el = await mount();
     await waitFor(el, () => rows(el) === 2);
 
-    rowButton(el, "Modifier Fib & Fib").click();
+    rowButton(el, "Modifier Huile de lin").click();
     await settled(el);
     await settled(sheet(el));
     expect(sheet(el).open).toBe(true);
 
-    await typeInto(sheet(el).renderRoot, "quantity-ration-a", "2,5");
-    sheet(el)
-      .renderRoot.querySelector<HTMLFormElement>("#ration-form")!
-      .requestSubmit();
+    const form = editForm(el);
+    await settled(form);
+    const field = (name: string) =>
+      [
+        ...form.renderRoot.querySelectorAll<AppInput | AppSelect>(
+          "app-input, app-select",
+        ),
+      ].find((input) => input.name === name)!;
+    expect(field("label").value).toBe("Huile de lin");
+    expect(field("quantity").value).toBe("0,1");
+    expect(field("seasonFrom").value).toBe(String(DEFAULT_SEASON.from));
+    expect(field("seasonTo").value).toBe(String(DEFAULT_SEASON.to));
+
+    await typeInto(form.renderRoot, "quantity", "0,2");
+    form.requestSubmit();
     await flush(el);
 
     const a = await db.rationItems.get("ration-a");
     const b = await db.rationItems.get("ration-b");
-    expect(a?.quantity).toBe(2.5);
-    expect(b?.updatedAt).toBe("2026-01-01T00:00:00.000Z");
+    expect(b?.quantity).toBe(0.2);
+    expect(b?.label).toBe("Huile de lin");
+    expect(a?.updatedAt).toBe("2026-01-01T00:00:00.000Z");
     expect(sheet(el).open).toBe(false);
   });
 

@@ -177,11 +177,11 @@ Three consequences worth stating out loud:
 - **Build the schema and the field names from the same array.** For a form over
   a list of records, name fields from record ids (`quantity-<id>`) and generate
   the schema from that same list; then the markup and its reader cannot drift.
-  `rationsService` is the reference: `rationFieldNames(id)` is called by the
-  markup that renders each control _and_ by the schema that parses it back, so
-  neither half spells a name. The version before any of it hardcoded five
-  product names and read four different keys, and saving wrote one unlabeled row
-  and dropped the rest.
+  `rationsService` used to be the reference (`rationFieldNames(id)`); the
+  ration sheet now edits one line through `ration-form` and shares
+  `RATION_ADD_FIELDS` with "Ajouter un produit" instead. The version before any
+  of it hardcoded five product names and read four different keys, and saving
+  wrote one unlabeled row and dropped the rest.
 - **Skip unchanged rows rather than re-saving them.** `touch()` restamps
   `updatedAt`, and `clearUntouchedSeedData` tells demo rows from real ones by
   `createdAt === updatedAt` — a blanket save makes the whole seed look
@@ -323,9 +323,8 @@ src/data/
   Two today. `eventsService.saveEvent()` decides which column a counterparty
   lands in, whether a follow-up or an activity may be written at all, and what
   an edit carries over from the record it replaces.
-  `rationsService.saveRationSheet()` reads the whole feed plan back and writes
-  only the lines that moved, and owns the generated field names both halves of
-  that round trip depend on. Both lived in a submit handler — one in
+  `rationsService.updateRation()` parses the same form as `addRation()` and
+  writes a line only when something moved. Both lived in a submit handler — one in
   `event-sheet.ts`, one in `HorseView` — which put the definition of a record
   inside a dialog and left every one of those rules reachable only from the
   browser suite; they are record arithmetic and belong under the data-layer test

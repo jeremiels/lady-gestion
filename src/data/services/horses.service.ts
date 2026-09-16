@@ -48,7 +48,7 @@ export type HorseProfileResult =
  * moved, in one patch.
  *
  * **An unchanged submit writes nothing**, for the same reason
- * `saveRationSheet` skips untouched lines: `touch()` restamps `updatedAt`, and
+ * `rationsService.updateRation` skips an untouched line: `touch()` restamps `updatedAt`, and
  * `clearUntouchedSeedData` recognises the demo horse by
  * `createdAt === updatedAt`. Pressing Enregistrer on an untouched card would
  * otherwise keep the demo Ladympala alive through the next backup restore.

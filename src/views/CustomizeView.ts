@@ -77,6 +77,12 @@ export class CustomizeView extends LightElement {
 
   @state() private rationErrors: RationAddErrors = {};
   @state() private rationSheetOpen = false;
+  /**
+   * The line the edit sheet was last opened on. Kept after closing so the sheet
+   * does not empty while it animates out.
+   */
+  @state() private rationToEdit: RationItem | null = null;
+  @state() private rationEditErrors: RationAddErrors = {};
   /** The line waiting on the delete confirmation, or `null` when it is closed. */
   @state() private rationToDelete: RationItem | null = null;
 
@@ -136,8 +142,12 @@ export class CustomizeView extends LightElement {
     form.reset();
   };
 
-  #openRationSheet = () => {
-    this.rationSheetOpen = true;
+  #onRationEdit = (event: CustomEvent<RationRowDetail>) => {
+    this.rationEditErrors = {};
+    this.rationToEdit =
+      this.#rations.value?.find((ration) => ration.id === event.detail.id) ??
+      null;
+    this.rationSheetOpen = this.rationToEdit !== null;
   };
 
   #closeRationSheet = () => {
@@ -145,19 +155,21 @@ export class CustomizeView extends LightElement {
   };
 
   /**
-   * Hands the sheet's form to `rationsService.saveRationSheet`, against the
-   * same list that rendered it — the schema, the lookup and the diff all have
-   * to run against the lines the user was actually looking at. A failed parse
-   * leaves the sheet open: the inputs' own `required` and `pattern` already
-   * block every normal path.
+   * Hands the sheet's form to `rationsService.updateRation`, against the line
+   * the sheet was opened on. A failed parse leaves the sheet open with its
+   * errors.
    */
   #onRationSubmit = async (event: CustomEvent<RationSubmitDetail>) => {
-    const result = await rationsService.saveRationSheet(
-      this.#rations.value ?? [],
-      event.detail.form,
-    );
+    const ration = this.rationToEdit;
+    if (!ration) return;
 
-    if (result.ok) this.rationSheetOpen = false;
+    const result = await rationsService.updateRation(ration, event.detail.form);
+    if (!result.ok) {
+      this.rationEditErrors = result.errors;
+      return;
+    }
+
+    this.rationSheetOpen = false;
   };
 
   #onRationDelete = (event: CustomEvent<RationRowDetail>) => {
@@ -242,12 +254,13 @@ export class CustomizeView extends LightElement {
         .today=${todayISO()}
         .errors=${this.rationErrors}
         @ration-add=${this.#onRationAdd}
-        @ration-edit=${this.#openRationSheet}
+        @ration-edit=${this.#onRationEdit}
         @ration-delete=${this.#onRationDelete}
       ></customize-ration>
       <ration-sheet
         .open=${this.rationSheetOpen}
-        .rations=${rations}
+        .ration=${this.rationToEdit}
+        .errors=${this.rationEditErrors}
         @ration-submit=${this.#onRationSubmit}
         @sheet-close=${this.#closeRationSheet}
       ></ration-sheet>
