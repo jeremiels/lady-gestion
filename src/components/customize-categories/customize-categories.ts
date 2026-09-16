@@ -1,12 +1,10 @@
 import { css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
-import { styleMap } from "lit/directives/style-map.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import { customizeFormStyles } from "../../commons/customize-form.styles.ts";
 import { byOrder, type ResolvedCategory } from "../../data/categories.ts";
-import { THEME_META } from "../../theme/theme.ts";
-import { iconStyle } from "../app-icon/app-icon.ts";
+
 
 import "../app-icon/app-icon.ts";
 import "../app-switch/app-switch.ts";
@@ -37,17 +35,8 @@ export class CustomizeCategories extends BaseElement {
   static componentStyles = [
     customizeFormStyles,
     css`
-      :host {
-        display: grid;
-        gap: var(--spacing-8);
-      }
-
       .item {
-        column-gap: var(--spacing-12);
-      }
-
-      .item__icon {
-        --icon-size: 1rem;
+        display: block;
       }
     `,
   ];
@@ -65,19 +54,13 @@ export class CustomizeCategories extends BaseElement {
 
   render() {
     return html`
-      <h2 class="title">Catégories affichées</h2>
+    <section class="section">
       <ul class="list">
         ${repeat(
           byOrder(this.categories),
           (category) => category.id,
           (category) => html`
             <li class="item">
-              <app-icon
-                class="item__icon"
-                aria-hidden="true"
-                .icon=${category.icon}
-                style=${styleMap(iconStyle(THEME_META[category.theme]))}
-              ></app-icon>
               <app-switch
                 label=${category.label}
                 .checked=${category.enabled}
@@ -87,6 +70,7 @@ export class CustomizeCategories extends BaseElement {
           `,
         )}
       </ul>
+    </section>
     `;
   }
 }
