@@ -217,3 +217,41 @@ describe("remove", () => {
     );
   });
 });
+
+describe("setEnabled", () => {
+  it("switches a category off and back on, stamping updatedAt", async () => {
+    await seed([
+      { id: "v", key: "veto", updatedAt: "2026-01-01T00:00:00.000Z" },
+    ]);
+
+    const off = await categoriesRepo.setEnabled("v", false);
+    expect(off).toMatchObject({ enabled: false });
+    expect(off?.updatedAt).not.toBe("2026-01-01T00:00:00.000Z");
+
+    await categoriesRepo.setEnabled("v", true);
+    expect(await db.categories.get("v")).toMatchObject({ enabled: true });
+  });
+
+  it("leaves updatedAt alone when the flag already reads that way", async () => {
+    await seed([
+      { id: "v", key: "veto", updatedAt: "2026-01-01T00:00:00.000Z" },
+    ]);
+
+    await categoriesRepo.setEnabled("v", true);
+
+    expect((await db.categories.get("v"))?.updatedAt).toBe(
+      "2026-01-01T00:00:00.000Z",
+    );
+  });
+
+  it("does not reach a disabled parent's children", async () => {
+    await seed([PARENT, { id: "c", key: "osteo", parentId: "p", theme: null }]);
+
+    await categoriesRepo.setEnabled("p", false);
+
+    const enabled = await categoriesRepo.listEnabled();
+    expect(enabled.map((type) => type.id)).toEqual(["c"]);
+    // Still drawn in the colour it inherits from the hidden parent.
+    expect(enabled[0]).toMatchObject({ theme: "pink", parentId: "p" });
+  });
+});

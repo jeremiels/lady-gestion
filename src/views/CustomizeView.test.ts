@@ -13,6 +13,8 @@ import "./CustomizeView.ts";
 import type { CustomizeView } from "./CustomizeView.ts";
 
 import type { CustomizeTab } from "../commons/sections.ts";
+import type { AppSwitch } from "../components/app-switch/app-switch.ts";
+import type { CustomizeCategories } from "../components/customize-categories/customize-categories.ts";
 import type { CustomizeHorse } from "../components/customize-horse/customize-horse.ts";
 import type { AppInput } from "../components/app-input/app-input.ts";
 import type { AppSelect } from "../components/app-select/app-select.ts";
@@ -253,5 +255,37 @@ describe("customize-view › cheval", () => {
 
     await waitFor(el, () => card(el).status === "Modifications enregistrées.");
     expect((await db.horses.get(HORSE_ID))?.coat).toBe("Bai cerise");
+  });
+});
+
+describe("customize-view › categories", () => {
+  const switches = (el: CustomizeView) => [
+    ...(el
+      .querySelector<CustomizeCategories>("customize-categories")
+      ?.renderRoot.querySelectorAll<AppSwitch>("app-switch") ?? []),
+  ];
+
+  it("lists every category, children included, and switching one off writes it", async () => {
+    const el = await mount("categories");
+    await waitFor(el, () => switches(el).length === 14);
+
+    // Flat: a child sits in the list like any other row.
+    const labels = switches(el).map((one) => one.label);
+    expect(labels).toContain("Soins");
+    expect(labels).toContain("Massage");
+    expect(switches(el).every((one) => one.checked)).toBe(true);
+
+    const veto = switches(el).find((one) => one.label === "Vétérinaire")!;
+    veto.renderRoot.querySelector<HTMLInputElement>("input")!.click();
+
+    await waitFor(
+      el,
+      () =>
+        switches(el).find((one) => one.label === "Vétérinaire")?.checked ===
+        false,
+    );
+    expect(
+      (await db.categories.where("key").equals("veto").first())?.enabled,
+    ).toBe(false);
   });
 });

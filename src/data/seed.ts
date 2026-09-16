@@ -29,7 +29,7 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
  * row carrying its `key`, and one with no row yet is inserted. Adding or
  * editing a built-in is now an edit to that array and nothing else.
  *
- * Three things are deliberately left alone:
+ * Four things are deliberately left alone:
  *
  * - **A row the user made themselves** (`isBuiltIn: false`) — it is not ours.
  * - **A deleted one.** `remove` is a soft delete, so the row is still here
@@ -39,6 +39,9 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
  *   row's identity; `updatedAt` is what a backup restore arbitrates
  *   last-write-wins by, and shipping a new build is not an edit that should
  *   win that argument — the same rule `db.ts`'s migrations follow.
+ * - **`enabled`.** It is the user's switch in Personnaliser › Catégories, not
+ *   something the app ships; writing the seed's `true` back would turn a
+ *   hidden category on again at every launch.
  *
  * Once the type editor exists, this is the one place that has to learn the
  * difference between a built-in the user has customised and one they have not.
@@ -77,6 +80,7 @@ const reconcileCategories = async (): Promise<void> => {
         ownerId: current.ownerId,
         createdAt: current.createdAt,
         updatedAt: current.updatedAt,
+        enabled: current.enabled,
       },
     ];
   });

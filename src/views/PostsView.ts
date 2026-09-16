@@ -88,7 +88,7 @@ export class PostsView extends LightElement {
   );
 
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
-    categoriesRepo.listResolved(),
+    categoriesRepo.listEnabled(),
   );
 
   #onModeChange = (event: CustomEvent<{ value: string }>) => {
@@ -107,9 +107,23 @@ export class PostsView extends LightElement {
     this.#ui.patch({ categoryFilter: type });
   };
 
+  /**
+   * The chip filter, or `null` once the category it names has been switched
+   * off — a remembered filter on a hidden category would otherwise show an
+   * empty list with no chip lit to explain it. Trusted as-is until the
+   * catalogue's `LiveQuery` settles.
+   */
+  get #categoryFilter(): string | null {
+    const { categoryFilter } = this.#ui.value;
+    const types = this.#categories.value;
+    if (categoryFilter === null || types === undefined) return categoryFilter;
+    return findCategory(types, categoryFilter) ? categoryFilter : null;
+  }
+
   /** Cancelled events are hidden here for the same reason the calendar hides them. */
   #visiblePosts(types: ResolvedCategory[]): Post[] {
-    const { query, categoryFilter } = this.#ui.value;
+    const { query } = this.#ui.value;
+    const categoryFilter = this.#categoryFilter;
     const needle = normalize(query.trim());
 
     // A root chip covers its children too — `subtreeKeys` is a singleton for a
@@ -261,7 +275,7 @@ export class PostsView extends LightElement {
    * row it did before types could nest, and the second row never appears.
    */
   #renderFilters(types: ResolvedCategory[]) {
-    const { categoryFilter } = this.#ui.value;
+    const categoryFilter = this.#categoryFilter;
     const selected =
       categoryFilter === null ? undefined : findCategory(types, categoryFilter);
     const root = selected ? rootOf(types, selected) : undefined;

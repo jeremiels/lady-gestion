@@ -95,7 +95,7 @@ export class BudgetView extends LightElement {
   );
 
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
-    categoriesRepo.listResolved(),
+    categoriesRepo.listEnabled(),
   );
 
   #reducedMotion = new MediaQuery(this, "(prefers-reduced-motion: reduce)");

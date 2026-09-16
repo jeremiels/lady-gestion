@@ -34,7 +34,7 @@ export class HomeView extends LightElement {
   #profile = new LiveQuery(this, () => profileRepo.get());
 
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
-    categoriesRepo.listResolved(),
+    categoriesRepo.listEnabled(),
   );
 
   // Already filtered to still-to-happen `planned` events, soonest first — not

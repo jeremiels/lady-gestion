@@ -149,7 +149,13 @@ Three consequences worth stating out loud:
   `commons/customize-form.styles.ts`) and saves through
   `horsesService.saveHorseProfile`, which writes only the fields that moved —
   an untouched Enregistrer must not restamp the seeded horse. Âge is displayed,
-  the row holds `birthDate`. Catégories is a title-only placeholder for now.
+  the row holds `birthDate`. **Catégories** lists every category flat, each
+  with a switch (`categoriesRepo.setEnabled`). A category switched off
+  disappears from the whole UI along with its posts — pickers, chips, lists,
+  calendar, dashboard, budget totals — because views read
+  `categoriesRepo.listEnabled()` and `posts.repo.ts` filters posts inside its
+  queries. Nothing is deleted, and a parent's switch does not reach its
+  children. No way to add a category yet: there is no form builder.
 - Posts are **created** from `post-sheet`, opened by the `+` in the nav bar
   (which is a button, not a link — it opens a sheet, it does not navigate), and
   **edited** through the same sheet: setting its `post` property prefills the

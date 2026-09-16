@@ -797,6 +797,20 @@ export const resolveCatalogue = (types: Category[]): ResolvedCategory[] => {
   });
 };
 
+/**
+ * The categories switched on — what every view offers and draws.
+ *
+ * Takes a *resolved* catalogue on purpose: a child keeps the icon and theme it
+ * inherits from a parent that is switched off, because resolving happened on
+ * the whole table first. Its `parentId` still names that parent, which is no
+ * longer in the list — and `rootsOf` already reads a parent missing from the
+ * caller's list as "root", so the child stands on its own in pickers, chips
+ * and the budget ring without a special case. A parent's switch does not
+ * reach its children.
+ */
+export const enabledOf = <T extends Category>(types: T[]): T[] =>
+  types.filter((type) => type.enabled);
+
 /** The types with no parent, in `order` — the top level of the picker, the
  * chips and the budget ring. The whole shipped catalogue is one of these. */
 export const rootsOf = <T extends Category>(types: T[]): T[] => {

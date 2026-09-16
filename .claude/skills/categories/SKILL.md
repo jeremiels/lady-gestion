@@ -37,19 +37,19 @@ Three call sites seed, and they must agree: `src/data/seed.ts` (fresh install),
 
 One entry in `BUILT_IN_CATEGORIES`. Every field:
 
-| Field           | Notes                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------- |
-| `key`           | The slug `Post.categoryKey` stores. **Immutable once shipped** — an event keeps it after the row is gone |
-| `label`         | French, shown as-is. There is no i18n layer                                                       |
-| `parentId`      | The parent row's `id`, or `null`. See below                                                       |
-| `icon`          | An `IconName`, or `null` to inherit                                                               |
-| `theme`         | A `ThemeKey`, or `null` to inherit                                                                |
-| `isBuiltIn`     | `true` for anything in this array                                                                 |
-| `isAppointment` | Puts it in the home view's "Rendez-vous à venir"                                                  |
-| `tracksWork`    | Makes it the week strip's work session                                                            |
-| `archived`      | Declared and seeded; **nothing filters on it yet**                                                |
-| `order`         | Budget donut and legend order                                                                     |
-| `fields`        | Beyond the fixed date/status/location/notes                                                       |
+| Field           | Notes                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| `key`           | The slug `Post.categoryKey` stores. **Immutable once shipped** — an event keeps it after the row is gone        |
+| `label`         | French, shown as-is. There is no i18n layer                                                                     |
+| `parentId`      | The parent row's `id`, or `null`. See below                                                                     |
+| `icon`          | An `IconName`, or `null` to inherit                                                                             |
+| `theme`         | A `ThemeKey`, or `null` to inherit                                                                              |
+| `isBuiltIn`     | `true` for anything in this array                                                                               |
+| `isAppointment` | Puts it in the home view's "Rendez-vous à venir"                                                                |
+| `tracksWork`    | Makes it the week strip's work session                                                                          |
+| `enabled`       | `true` in the seed. The user's switch in Personnaliser › Catégories — `reconcileCategories` never overwrites it |
+| `order`         | Budget donut and legend order                                                                                   |
+| `fields`        | Beyond the fixed date/status/location/notes                                                                     |
 
 Reuse the field builders at the top of `categories.ts` rather than writing
 literals: `counterpartyField(label)`, `amountField()`, `followUpField()`,
@@ -180,8 +180,11 @@ If you must, six sites:
 - **`categories.ts` and `posts.ts` must not import each other.** Either
   direction is circular the moment the other reaches back. Join them at the call
   site.
-- **`archived` is seeded but not honoured.** `listAll` filters `deletedAt` only.
-  Do not rely on it to hide a type.
+- **`enabled: false` hides a category and its posts everywhere.** Views read
+  `categoriesRepo.listEnabled()`; the Catégories tab alone reads
+  `listResolved()`. Post lists and totals in `posts.repo.ts` drop posts of a
+  disabled category inside the query, so a `liveQuery` re-runs on a toggle. A
+  parent's switch does not reach its children.
 
 ## Verify
 

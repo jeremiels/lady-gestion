@@ -90,7 +90,7 @@ export class PostSheet extends BaseElement {
    * label and requiredness now come from here rather than a compile-time
    * table. */
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
-    categoriesRepo.listResolved(),
+    categoriesRepo.listEnabled(),
   );
 
   /**

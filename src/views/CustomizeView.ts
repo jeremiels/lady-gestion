@@ -11,6 +11,7 @@ import {
 import {
   LiveQuery,
   activeHorseQuery,
+  categoriesRepo,
   horsesRepo,
   horsesService,
   profileRepo,
@@ -22,6 +23,7 @@ import {
 } from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
 import type { RationItem } from "../data/types.ts";
+import type { CategoryToggleDetail } from "../components/customize-categories/customize-categories.ts";
 import type {
   HorseFieldErrors,
   HorseSubmitDetail,
@@ -94,7 +96,14 @@ export class CustomizeView extends LightElement {
     [],
   );
 
+  /** Every category, switched off or not — the one list that shows both. */
+  #categories = new LiveQuery(this, () => categoriesRepo.listResolved());
+
   #goBack = () => navigateTo(appHref(PROFILE));
+
+  #onCategoryToggle = async (event: CustomEvent<CategoryToggleDetail>) => {
+    await categoriesRepo.setEnabled(event.detail.id, event.detail.enabled);
+  };
 
   #onProfileSubmit = async (event: CustomEvent<ProfileSubmitDetail>) => {
     this.profileStatus = "";
@@ -233,7 +242,10 @@ export class CustomizeView extends LightElement {
       case "ration":
         return this.#renderRation();
       case "categories":
-        return html`<customize-categories></customize-categories>`;
+        return html`<customize-categories
+          .categories=${this.#categories.value ?? []}
+          @category-toggle=${this.#onCategoryToggle}
+        ></customize-categories>`;
       case "cheval":
         return html`<customize-horse
           .horse=${this.#horse.value ?? null}

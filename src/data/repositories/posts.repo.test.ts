@@ -1,3 +1,4 @@
+import { liveQuery } from "dexie";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db.ts";
 import { addDays, todayISO } from "../dates.ts";
@@ -7,6 +8,7 @@ import {
   makePost,
   resetDb,
 } from "../__tests__/factories.ts";
+import * as categoriesRepo from "./categories.repo.ts";
 import * as postsRepo from "./posts.repo.ts";
 
 /**
@@ -301,5 +303,68 @@ describe("write path", () => {
 
   it("is a no-op when removing an unknown id", async () => {
     await expect(postsRepo.remove("nope")).resolves.toBeUndefined();
+  });
+});
+
+describe("a category switched off", () => {
+  const seedMixed = () =>
+    seedEvents([
+      {
+        id: "vet",
+        categoryKey: "veto",
+        date: addDays(todayISO(), 3),
+        customFields: { amountCents: 5000 },
+      },
+      {
+        id: "shoe",
+        categoryKey: "marechal",
+        date: addDays(todayISO(), 4),
+        customFields: { amountCents: 7000 },
+      },
+    ]);
+
+  it("hides its posts from every list and every total", async () => {
+    await seedMixed();
+    await categoriesRepo.setEnabled("event-type-veto", false);
+
+    const ids = (posts: { id: string }[]) => posts.map((post) => post.id);
+    expect(ids(await postsRepo.listByHorse(HORSE_ID))).toEqual(["shoe"]);
+    expect(ids(await postsRepo.listUpcoming(HORSE_ID))).toEqual(["shoe"]);
+    expect(
+      ids(
+        await postsRepo.listInRange(
+          HORSE_ID,
+          todayISO(),
+          addDays(todayISO(), 7),
+        ),
+      ),
+    ).toEqual(["shoe"]);
+    expect(ids(await postsRepo.listBudget(HORSE_ID))).toEqual(["shoe"]);
+    expect(await postsRepo.totalSpent(HORSE_ID)).toBe(7000);
+    expect(await postsRepo.getVisible("vet")).toBeUndefined();
+    expect(await postsRepo.getVisible("shoe")).toBeDefined();
+  });
+
+  it("deletes nothing: switching it back on brings the posts back", async () => {
+    await seedMixed();
+    await categoriesRepo.setEnabled("event-type-veto", false);
+    await categoriesRepo.setEnabled("event-type-veto", true);
+
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
+    expect(await postsRepo.totalSpent(HORSE_ID)).toBe(12_000);
+  });
+
+  it("re-runs a live query on the post list when the switch flips", async () => {
+    await seedMixed();
+    const seen: number[] = [];
+    const subscription = liveQuery(() =>
+      postsRepo.listByHorse(HORSE_ID),
+    ).subscribe((posts) => seen.push(posts.length));
+
+    await expect.poll(() => seen.at(-1)).toBe(2);
+    await categoriesRepo.setEnabled("event-type-veto", false);
+    await expect.poll(() => seen.at(-1)).toBe(1);
+
+    subscription.unsubscribe();
   });
 });

@@ -2,6 +2,7 @@ import { db } from "../db.ts";
 import {
   canBeParentOf,
   childrenOf,
+  enabledOf,
   resolveCatalogue,
   type ResolvedCategory,
 } from "../categories.ts";
@@ -33,6 +34,35 @@ export const listAll = async (): Promise<Category[]> => {
  */
 export const listResolved = async (): Promise<ResolvedCategory[]> =>
   resolveCatalogue(await listAll());
+
+/**
+ * `listResolved`, less the categories switched off — what every view but the
+ * Catégories tab holds a `LiveQuery` on. Resolved before filtering, so a child
+ * of a disabled parent keeps its inherited presentation (`enabledOf`).
+ */
+export const listEnabled = async (): Promise<ResolvedCategory[]> =>
+  enabledOf(await listResolved());
+
+/**
+ * Switches a category on or off.
+ *
+ * A no-op when the flag already reads `enabled`: `updatedAt` is what a restore
+ * arbitrates last-write-wins by, and a write that changes nothing must not win
+ * that argument — the same rule `setParent` follows.
+ */
+export const setEnabled = async (
+  id: string,
+  enabled: boolean,
+): Promise<Category | undefined> =>
+  db.transaction("rw", db.categories, async () => {
+    const type = await db.categories.get(id);
+    if (!type || type.deletedAt !== null) return undefined;
+    if (type.enabled === enabled) return type;
+
+    const updated = touch(type, { enabled });
+    await db.categories.put(updated);
+    return updated;
+  });
 
 export const { get, update } = crud<Category>(db.categories);
 

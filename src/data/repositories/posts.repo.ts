@@ -6,7 +6,7 @@ import { createRecord, crud, liveOnly } from "../record.ts";
 import type { Category, Post, NewRecord } from "../types.ts";
 
 /**
- * Queries over the unified events table.
+ * Queries over the unified posts table.
  *
  * "Rendez-vous à venir" and "Dépenses" are two views of the same rows, not
  * two tables: an appointment is a future `date`, an budget is a non-null
@@ -25,18 +25,47 @@ const byHorseAndDateRange = (horseId: string, from: IsoDate, to: IsoDate) =>
 
 export const { get, update, remove } = crud<Post>(db.posts);
 
-/** Every live event for a horse, newest first. */
-export const listByHorse = async (horseId: string): Promise<Post[]> => {
-  const events = await byHorseAndDateRange(horseId, MIN_DATE, MAX_DATE);
-  return liveOnly(events).reverse();
+/**
+ * Live posts, less those filed under a category that is switched off.
+ *
+ * Every list below goes through this, because a disabled category hides its
+ * posts from the whole UI — lists, calendar, dashboard and budget totals alike.
+ * The catalogue is read *here*, inside the query, rather than handed in by the
+ * caller: a Dexie `liveQuery` re-runs only for tables its own query function
+ * reads, so this is what makes flipping a switch refresh every open view.
+ *
+ * A post whose key matches no category stays visible — nothing switched it off.
+ */
+const visible = async (posts: Post[]): Promise<Post[]> => {
+  const disabled = new Set(
+    liveOnly(await db.categories.toArray())
+      .filter((category) => !category.enabled)
+      .map((category) => category.key),
+  );
+  const live = liveOnly(posts);
+  return disabled.size === 0
+    ? live
+    : live.filter((post) => !disabled.has(post.categoryKey));
 };
 
-/** Events falling inside a calendar range, oldest first. */
+/** One post, or `undefined` when it is deleted or its category is switched off. */
+export const getVisible = async (id: string): Promise<Post | undefined> => {
+  const post = await db.posts.get(id);
+  return post ? (await visible([post]))[0] : undefined;
+};
+
+/** Every visible post for a horse, newest first. */
+export const listByHorse = async (horseId: string): Promise<Post[]> => {
+  const events = await byHorseAndDateRange(horseId, MIN_DATE, MAX_DATE);
+  return (await visible(events)).reverse();
+};
+
+/** Visible posts falling inside a calendar range, oldest first. */
 export const listInRange = async (
   horseId: string,
   from: IsoDate,
   to: IsoDate,
-): Promise<Post[]> => liveOnly(await byHorseAndDateRange(horseId, from, to));
+): Promise<Post[]> => visible(await byHorseAndDateRange(horseId, from, to));
 
 /**
  * Still-to-happen events, soonest first.
@@ -46,13 +75,13 @@ export const listInRange = async (
  * tables its own query function reads, and a catalogue received as a plain
  * argument is invisible to that tracking. Narrowing to appointments, and
  * capping to a limit, is `upcomingAppointments` (`categories.ts`)'s job
- * instead — the caller (`HomeView`) joins this against its own `eventTypes`
+ * instead — the caller (`HomeView`) joins this against its own `categories`
  * `LiveQuery` in `render()`, the same way `BudgetView`/`PostsView` already
  * join events against types, so either one updating re-renders correctly.
  */
 export const listUpcoming = async (horseId: string): Promise<Post[]> => {
   const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
-  return liveOnly(events).filter((event) => event.status === "planned");
+  return (await visible(events)).filter((event) => event.status === "planned");
 };
 
 /**

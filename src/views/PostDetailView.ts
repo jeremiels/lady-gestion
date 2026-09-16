@@ -51,12 +51,12 @@ export class PostDetailView extends LightElement {
 
   // Both read `this.postId`, which never changes for a given element: the
   // route keys this view by path, so a different event is a different element.
-  #event = new LiveQuery(this, () => postsRepo.get(this.postId));
+  #event = new LiveQuery(this, () => postsRepo.getVisible(this.postId));
   #documents = new LiveQuery<StoredDocument[]>(this, () =>
     documentsRepo.listByPost(this.postId),
   );
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
-    categoriesRepo.listResolved(),
+    categoriesRepo.listEnabled(),
   );
 
   /** Back to the calendar or the list, whichever this was opened from. */

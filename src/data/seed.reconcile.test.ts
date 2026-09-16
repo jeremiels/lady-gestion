@@ -55,6 +55,16 @@ describe("seed — reconciling the built-in types", () => {
     expect(after?.updatedAt).toBe(before?.updatedAt);
   });
 
+  it("keeps a category the user switched off switched off", async () => {
+    await seedIfEmpty();
+    const veto = (await db.categories.get({ key: "veto" }))!;
+    await db.categories.put({ ...veto, enabled: false });
+
+    await seedIfEmpty();
+
+    expect((await db.categories.get({ key: "veto" }))?.enabled).toBe(false);
+  });
+
   it("does not resurrect a built-in the user deleted", async () => {
     await db.categories.clear();
     await db.categories.bulkAdd(staleRows());

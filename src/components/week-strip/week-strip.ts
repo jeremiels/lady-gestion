@@ -66,7 +66,7 @@ export class WeekStrip extends BaseElement {
   );
 
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
-    categoriesRepo.listResolved(),
+    categoriesRepo.listEnabled(),
   );
 
   /** The type the day sheet writes to — the one type flagged `tracksWork`. */
@@ -132,6 +132,10 @@ export class WeekStrip extends BaseElement {
   `;
 
   #open = (date: IsoDate) => () => {
+    // No work type to record against once the catalogue has settled: `travail`
+    // is switched off in Personnaliser › Catégories, so there is nothing for
+    // the sheet to write. Before it settles, open as always.
+    if (this.#categories.value !== undefined && !this.#workType) return;
     this.selected = date;
     this.sheetOpen = true;
   };
