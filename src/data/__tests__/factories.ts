@@ -1,11 +1,11 @@
-import { BUILT_IN_EVENT_TYPES } from "../event-types.ts";
+import { BUILT_IN_CATEGORIES } from "../categories.ts";
 import { db, RECORD_TABLES } from "../db.ts";
 import { setOwnerId } from "../owner.ts";
 import { markDataReady } from "../ready.ts";
 import type {
-  EventTypeDef,
+  Category,
   Horse,
-  HorseEvent,
+  Post,
   RationItem,
   StoredDocument,
 } from "../types.ts";
@@ -49,10 +49,10 @@ export const makeHorse = (over: Partial<Horse> = {}): Horse => ({
   ...over,
 });
 
-export const makeEvent = (over: Partial<HorseEvent> = {}): HorseEvent => ({
+export const makePost = (over: Partial<Post> = {}): Post => ({
   ...base("event-1"),
   horseId: HORSE_ID,
-  type: "veto",
+  categoryKey: "veto",
   title: "Visite",
   date: "2026-06-15",
   time: null,
@@ -65,9 +65,7 @@ export const makeEvent = (over: Partial<HorseEvent> = {}): HorseEvent => ({
   ...over,
 });
 
-export const makeEventType = (
-  over: Partial<EventTypeDef> = {},
-): EventTypeDef => ({
+export const makeCategory = (over: Partial<Category> = {}): Category => ({
   ...base("event-type-1"),
   key: "veto",
   label: "Vétérinaire",
@@ -77,17 +75,17 @@ export const makeEventType = (
   isBuiltIn: true,
   isAppointment: true,
   tracksWork: false,
-  archived: false,
+  enabled: true,
   order: 0,
   fields: [],
   ...over,
 });
 
-const eventTypeId = (key: string) => `event-type-${key}`;
+const categoryId = (key: string) => `event-type-${key}`;
 
 /**
- * The 14 built-in `EventTypeDef` rows, stamped with fresh `BaseRecord` fields
- * — the same shape `seedEventTypeDefs` (`event-types.ts`) produces, but with
+ * The 14 built-in `Category` rows, stamped with fresh `BaseRecord` fields
+ * — the same shape `seedCategories` (`categories.ts`) produces, but with
  * stable, key-derived ids so a test can address one by name.
  *
  * `parentId` has to be remapped through the same prefix, and the reason is a
@@ -99,20 +97,21 @@ const eventTypeId = (key: string) => `event-type-${key}`;
  * would stay green while asserting against a flat catalogue the app does not
  * ship.
  */
-export const BUILT_IN_EVENT_TYPE_ROWS: EventTypeDef[] =
-  BUILT_IN_EVENT_TYPES.map((def) => ({
-    ...base(eventTypeId(def.key)),
+export const BUILT_IN_CATEGORY_ROWS: Category[] = BUILT_IN_CATEGORIES.map(
+  (def) => ({
+    ...base(categoryId(def.key)),
     ...def,
-    parentId: def.parentId === null ? null : eventTypeId(def.parentId),
-  }));
+    parentId: def.parentId === null ? null : categoryId(def.parentId),
+  }),
+);
 
 /**
- * Seeds the real 14 built-in types into `db.eventTypes` — what any component
+ * Seeds the real 14 built-in types into `db.categories` — what any component
  * test whose `LiveQuery` reads the live catalogue needs, the same way a real
  * install always has them from the schema v6 migration.
  */
-export const seedBuiltInEventTypes = (): Promise<unknown> =>
-  db.eventTypes.bulkAdd(BUILT_IN_EVENT_TYPE_ROWS);
+export const seedBuiltInCategories = (): Promise<unknown> =>
+  db.categories.bulkAdd(BUILT_IN_CATEGORY_ROWS);
 
 export const makeRation = (over: Partial<RationItem> = {}): RationItem => ({
   ...base("ration-1"),
@@ -130,7 +129,7 @@ export const makeDocument = (
 ): StoredDocument => ({
   ...base("document-1"),
   horseId: HORSE_ID,
-  eventId: null,
+  postId: null,
   category: "facture",
   name: "facture.pdf",
   mimeType: "application/pdf",
@@ -171,5 +170,5 @@ export const resetDb = async (): Promise<void> => {
   // entirely does not also have to seed the event-type catalogue just to keep
   // a `LiveQuery` over it from settling empty. A test with different types in
   // mind overrides by writing its own rows on top.
-  await seedBuiltInEventTypes();
+  await seedBuiltInCategories();
 };

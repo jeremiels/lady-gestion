@@ -22,7 +22,7 @@ describe("create", () => {
     const created = await documentsRepo.create(
       {
         horseId: HORSE_ID,
-        eventId: null,
+        postId: null,
         category: "facture",
         name: "facture.pdf",
         issuedAt: "2026-05-01",
@@ -39,7 +39,7 @@ describe("create", () => {
     const created = await documentsRepo.create(
       {
         horseId: HORSE_ID,
-        eventId: null,
+        postId: null,
         category: "autre",
         name: "scan",
         issuedAt: null,
@@ -54,7 +54,7 @@ describe("create", () => {
     const created = await documentsRepo.create(
       {
         horseId: HORSE_ID,
-        eventId: null,
+        postId: null,
         category: "autre",
         name: "scan",
         issuedAt: null,
@@ -128,14 +128,14 @@ describe("countByCategory", () => {
   });
 });
 
-describe("listByEvent", () => {
+describe("listByPost", () => {
   it("finds the documents attached to one event", async () => {
     await seedDocuments([
-      { id: "attached", eventId: "event-1" },
-      { id: "loose", eventId: null },
+      { id: "attached", postId: "event-1" },
+      { id: "loose", postId: null },
     ]);
 
-    const documents = await documentsRepo.listByEvent("event-1");
+    const documents = await documentsRepo.listByPost("event-1");
 
     expect(documents.map((document) => document.id)).toEqual(["attached"]);
   });
@@ -146,7 +146,7 @@ describe("remove", () => {
     const created = await documentsRepo.create(
       {
         horseId: HORSE_ID,
-        eventId: null,
+        postId: null,
         category: "facture",
         name: "f.pdf",
         issuedAt: null,

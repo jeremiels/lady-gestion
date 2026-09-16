@@ -2,27 +2,32 @@ import Dexie, { liveQuery, type Table } from "dexie";
 import { nowISO } from "./dates.ts";
 import {
   quantityField,
-  seedEventTypeDefs,
+  migrateCategoryRowV13,
+  seedCategories,
   SCHEMA_V9_NESTINGS,
   SCHEMA_V10_NESTINGS,
   SCHEMA_V10_NEW_TYPES,
-} from "./event-types.ts";
+  type LegacyCategoryRow,
+} from "./categories.ts";
 import {
+  migrateDocumentRowV13,
   migrateEventToCustomFields,
+  migratePostRowV13,
   SCHEMA_V11_ACTIVITY_RENAME,
   type FollowUpInterval,
   type LegacyEventColumns,
+  type LegacyPostRow,
   type WorkActivity,
-} from "./events.ts";
+} from "./posts.ts";
 import { newId } from "./ids.ts";
 import { seasonFromLegacyFlag, type RationSeason } from "./seasons.ts";
 import type {
   ActivityItem,
   DocumentBlob,
-  EventTypeDef,
+  Category,
   Horse,
-  HorseEvent,
   MetaEntry,
+  Post,
   RationItem,
   StoredDocument,
   UserProfile,
@@ -81,8 +86,14 @@ import type {
  *   until then the hardcoded `ACCOUNT` mock. Purely additive — no row is
  *   rewritten and none is created; the UI keeps showing `ACCOUNT` until the
  *   user saves, so an upgraded device looks exactly as it did.
+ * - v13 — the domain language catches up with the code: `eventTypes` becomes
+ *   `categories` and `events` becomes `posts`. Every row is copied across;
+ *   `HorseEvent.type` becomes `Post.categoryKey`, `EventTypeDef.archived`
+ *   becomes `Category.enabled` (inverted), `StoredDocument.eventId` becomes
+ *   `postId`. The two old stores are dropped. Every version above keeps its
+ *   own names: they describe what that version did to the tables it had.
  */
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -143,6 +154,26 @@ const STORES_V12 = {
   profiles: "id, updatedAt",
 } as const;
 
+/**
+ * v13 renames two stores and one indexed column, spread from `STORES_V12`.
+ *
+ * `enabled` is deliberately not indexed, unlike the `archived` it replaces: a
+ * boolean is not a valid IndexedDB key, so that index never held a single row.
+ * The catalogue is read whole and filtered in memory anyway.
+ */
+const {
+  events: _events,
+  eventTypes: _eventTypes,
+  ...STORES_V12_KEPT
+} = STORES_V12;
+const STORES_V13 = {
+  ...STORES_V12_KEPT,
+  posts:
+    "id, horseId, date, categoryKey, status, [horseId+date], [horseId+categoryKey], updatedAt",
+  documents: "id, horseId, postId, category, [horseId+category], updatedAt",
+  categories: "id, key, order, updatedAt",
+} as const;
+
 /** A v1 ration row, mid-upgrade: the old flag is still there, the window is not. */
 type LegacyRationItem = {
   seasonal?: boolean;
@@ -171,7 +202,7 @@ type LegacyEventRow = {
   type: string;
   notes?: string | null;
 } & Partial<LegacyEventColumns> & {
-    customFields?: HorseEvent["customFields"];
+    customFields?: Post["customFields"];
   };
 
 /** A pre-v8 event-type row: no `parentId`. */
@@ -181,12 +212,12 @@ type LegacyEventTypeRow = {
 
 export class LadyGestionDb extends Dexie {
   horses!: Table<Horse, string>;
-  events!: Table<HorseEvent, string>;
+  posts!: Table<Post, string>;
   documents!: Table<StoredDocument, string>;
   documentBlobs!: Table<DocumentBlob, string>;
   rationItems!: Table<RationItem, string>;
   activities!: Table<ActivityItem, string>;
-  eventTypes!: Table<EventTypeDef, string>;
+  categories!: Table<Category, string>;
   profiles!: Table<UserProfile, string>;
   meta!: Table<MetaEntry, string>;
 
@@ -272,8 +303,11 @@ export class LadyGestionDb extends Dexie {
           await metaTable.put({ key: "ownerId", value: ownerId });
         }
 
-        const types = seedEventTypeDefs(ownerId, nowISO());
-        await transaction.table<EventTypeDef>("eventTypes").bulkAdd(types);
+        // Rows in today's `Category` shape, `enabled` and all, written into a
+        // store v13 renames: that step accepts either flag, so a seed from any
+        // build lands the same way.
+        const types = seedCategories(ownerId, nowISO());
+        await transaction.table<Category>("eventTypes").bulkAdd(types);
 
         await transaction
           .table<LegacyEventRow>("events")
@@ -308,7 +342,7 @@ export class LadyGestionDb extends Dexie {
     // — same reason v2's comment gives. `alimentation` is addressed by `key`,
     // the stable slug `findEventType` and every other lookup in this app
     // already resolves a type by — not `id`, which happens to equal it for a
-    // freshly-seeded built-in (`seedEventTypeDefs`) but is not the field
+    // freshly-seeded built-in (`seedCategories`) but is not the field
     // anything else here treats as the type's identity. A device with no such
     // row (the type was since deleted) or one already carrying a `quantity`
     // field (seeded fresh, past this version) simply sees `.modify()` match
@@ -318,7 +352,7 @@ export class LadyGestionDb extends Dexie {
       .stores(STORES_V6)
       .upgrade((transaction) =>
         transaction
-          .table<EventTypeDef>("eventTypes")
+          .table<LegacyCategoryRow>("eventTypes")
           .where("key")
           .equals("alimentation")
           .modify((type) => {
@@ -353,7 +387,7 @@ export class LadyGestionDb extends Dexie {
     // No index changed once more, so the stores are repeated verbatim again.
     //
     // The parent's `id` is looked up from the table rather than assumed equal
-    // to its `key`. That equality holds for a row `seedEventTypeDefs` wrote,
+    // to its `key`. That equality holds for a row `seedCategories` wrote,
     // and `SCHEMA_V9_NESTINGS` is keyed by `key` precisely so this does not
     // have to rely on it: a file restored from a build that generated ids
     // differently would otherwise get a `parentId` pointing at nothing, which
@@ -369,7 +403,7 @@ export class LadyGestionDb extends Dexie {
     this.version(9)
       .stores(STORES_V6)
       .upgrade(async (transaction) => {
-        const table = transaction.table<EventTypeDef>("eventTypes");
+        const table = transaction.table<LegacyCategoryRow>("eventTypes");
         const rows = await table.toArray();
 
         for (const { key, parentKey } of SCHEMA_V9_NESTINGS) {
@@ -400,7 +434,7 @@ export class LadyGestionDb extends Dexie {
     this.version(10)
       .stores(STORES_V6)
       .upgrade(async (transaction) => {
-        const table = transaction.table<EventTypeDef>("eventTypes");
+        const table = transaction.table<LegacyCategoryRow>("eventTypes");
         const rows = await table.toArray();
 
         for (const { key, parentKey } of SCHEMA_V10_NESTINGS) {
@@ -418,13 +452,13 @@ export class LadyGestionDb extends Dexie {
         if (!ownerId) return;
 
         const existingKeys = new Set(rows.map((type) => type.key));
-        const additions = seedEventTypeDefs(ownerId, nowISO())
+        const additions = seedCategories(ownerId, nowISO())
           .filter(
             (type) =>
               SCHEMA_V10_NEW_TYPES.includes(type.key) &&
               !existingKeys.has(type.key),
           )
-          // `seedEventTypeDefs` stamps `parentId` as the literal key it is
+          // `seedCategories` stamps `parentId` as the literal key it is
           // written with in `BUILT_IN_EVENT_TYPES`, valid only under the
           // "built-in id === key" assumption a device seeded entirely by v6
           // satisfies but this insertion, running against rows already on
@@ -452,7 +486,7 @@ export class LadyGestionDb extends Dexie {
         const { type, field, from, to } = SCHEMA_V11_ACTIVITY_RENAME;
 
         return transaction
-          .table<HorseEvent>("events")
+          .table<LegacyPostRow>("events")
           .where("type")
           .equals(type)
           .modify((event) => {
@@ -465,6 +499,38 @@ export class LadyGestionDb extends Dexie {
     // A new store and nothing else: no upgrade callback, so every existing row
     // is left exactly where it is.
     this.version(12).stores(STORES_V12);
+
+    // Two stores renamed. Dexie keeps a store this version drops readable for
+    // the whole upgrade callback and deletes it only afterwards, so the copy
+    // and the drop share one version. Each row goes through the same transform
+    // `migrateSnapshot` applies to a file (`migratePostRowV13` and siblings),
+    // which is also what makes replaying it a no-op. `updatedAt` is copied as
+    // is: a rename every device runs must not win a restore's
+    // last-write-wins argument.
+    this.version(13)
+      .stores({ ...STORES_V13, events: null, eventTypes: null })
+      .upgrade(async (transaction) => {
+        const events = await transaction
+          .table<LegacyPostRow>("events")
+          .toArray();
+        await transaction
+          .table<Post>("posts")
+          .bulkPut(events.map(migratePostRowV13));
+
+        const types = await transaction
+          .table<LegacyCategoryRow>("eventTypes")
+          .toArray();
+        await transaction
+          .table<Category>("categories")
+          .bulkPut(types.map(migrateCategoryRowV13));
+
+        const documents = await transaction
+          .table<StoredDocument>("documents")
+          .toArray();
+        await transaction
+          .table<StoredDocument>("documents")
+          .bulkPut(documents.map(migrateDocumentRowV13));
+      });
   }
 }
 
@@ -493,17 +559,17 @@ export const db = new LadyGestionDb();
  */
 export const RECORD_TABLES = {
   horses: db.horses,
-  events: db.events,
+  posts: db.posts,
   documents: db.documents,
   rationItems: db.rationItems,
   activities: db.activities,
-  eventTypes: db.eventTypes,
+  categories: db.categories,
   profiles: db.profiles,
 } as const;
 
 export type RecordTableName = keyof typeof RECORD_TABLES;
 
-/** `{ horses: Horse[], events: HorseEvent[], … }`, derived rather than restated. */
+/** `{ horses: Horse[], posts: Post[], … }`, derived rather than restated. */
 export type BackupTables = {
   [K in RecordTableName]: (typeof RECORD_TABLES)[K] extends Table<
     infer T,

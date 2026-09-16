@@ -1,6 +1,6 @@
 import { html } from "lit";
 import { describe, expect, it } from "vitest";
-import type { WorkActivity } from "../../data/events.ts";
+import type { WorkActivity } from "../../data/posts.ts";
 import { fixture } from "../__tests__/fixture.ts";
 import "./day-card.ts";
 import type { DayCard } from "./day-card.ts";

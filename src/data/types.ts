@@ -63,7 +63,7 @@ export type Horse = BaseRecord & {
   archivedAt: string | null;
 };
 
-export type EventStatus = "planned" | "done" | "cancelled";
+export type PostStatus = "planned" | "done" | "cancelled";
 
 /**
  * The core record: one dated thing that happened (or will happen) to a horse.
@@ -74,20 +74,22 @@ export type EventStatus = "planned" | "done" | "cancelled";
  * would mean entering the same visit twice and joining it back together in
  * every summary.
  *
- * Named `HorseEvent` rather than `Event` on purpose: `Event` is a DOM global,
- * and shadowing it inside view files that also handle `SubmitEvent` is a trap.
+ * Named `Post` rather than `Event` on purpose: `Event` is a DOM global, and
+ * shadowing it inside view files that also handle `SubmitEvent` is a trap. It
+ * was `HorseEvent`, stored in an `events` table, until schema v13 aligned the
+ * code with the domain language: a post belongs to a category.
  */
-export type HorseEvent = BaseRecord & {
+export type Post = BaseRecord & {
   horseId: string;
-  /** Slug into `EventTypeDef.key` below — see `event-types.ts`. */
-  type: string;
+  /** Slug into `Category.key` below — see `categories.ts`. Was `type` before schema v13. */
+  categoryKey: string;
   /** Short user-facing label, e.g. "Ferrure". */
   title: string;
   /** Calendar date, `YYYY-MM-DD`. Local, timezone-free, sorts lexicographically. */
   date: string;
   /** `HH:mm`, or `null` for an all-day entry. */
   time: string | null;
-  status: EventStatus;
+  status: PostStatus;
   /** ISO 4217 code. Only meaningful for a type whose `fields` carry an amount. */
   currency: string;
   location: string | null;
@@ -97,18 +99,18 @@ export type HorseEvent = BaseRecord & {
   /**
    * Everything the event's *type* decides it needs: a practitioner or a
    * merchant, a follow-up interval, what was done in a schooling session, a
-   * budget. Keyed by `CustomFieldDef.id` (`event-types.ts`).
+   * budget. Keyed by `CustomFieldDef.id` (`categories.ts`).
    *
    * Replaces what used to be fixed columns — `providerName`, `vendor`,
    * `followUpInterval`, `activity`, `amountCents` — added in schema v6 when
    * event types stopped being a closed, compile-time union (see
-   * `EventTypeDef` below). Which of these a given event carries is now a
+   * `Category` below). Which of these a given event carries is now a
    * property of its type's `fields`, not of the record's own shape, so a field
    * one type needs no longer widens every event of every other type.
    *
    * Scalar values only: a structured one (the follow-up interval) is encoded
    * the same way the entry form already hands it over to the record
-   * (`followUpValue`/`parseFollowUpValue` in `events.ts`), so the bag never
+   * (`followUpValue`/`parseFollowUpValue` in `posts.ts`), so the bag never
    * holds anything a plain object literal couldn't survive a JSON round trip
    * as — which is what lets it travel through a backup file unchanged.
    */
@@ -140,7 +142,7 @@ export type FieldOption = { value: string; label: string };
 
 /** One field a type's entry form draws, beyond the fixed base fields above. */
 export type CustomFieldDef = {
-  /** Stable key into `HorseEvent.customFields`. Immutable once created. */
+  /** Stable key into `Post.customFields`. Immutable once created. */
   id: string;
   label: string;
   required: boolean;
@@ -209,20 +211,20 @@ export type CustomFieldDef = {
  * presentation. Optional in the strong sense: every seeded row is a root, so a
  * catalogue that never uses it behaves exactly as it did before v8.
  */
-export type EventTypeDef = BaseRecord & {
-  /** Stable slug — what `HorseEvent.type` stores. Immutable once created. */
+export type Category = BaseRecord & {
+  /** Stable slug — what `Post.type` stores. Immutable once created. */
   key: string;
   label: string;
   /**
    * The type this one is a variation of, by `id` — `null` for a root, which is
    * what the whole shipped catalogue is.
    *
-   * By `id`, not by `key`, unlike `HorseEvent.type` — the two are not the same
+   * By `id`, not by `key`, unlike `Post.type` — the two are not the same
    * kind of reference. An event keeps its type's *slug* so it survives that row
    * disappearing; that durability is the whole contract of that field. A
    * parent link is structural: a dangling pointer there is something to repair,
    * not to preserve, and `id` is what `crud()` and `importBackup`'s merge
-   * already address a row by. `event-types.repo.ts`'s `remove` does that
+   * already address a row by. `categories.repo.ts`'s `remove` does that
    * repair, promoting a deleted parent's children rather than leaving them
    * pointing at a ghost.
    *
@@ -231,14 +233,14 @@ export type EventTypeDef = BaseRecord & {
    * would buy nothing here and cost one more invariant to hold on every write.
    * Depth is capped at two — a child cannot itself be a parent — which is what
    * makes resolving the presentation below a single hop with no recursion and
-   * no cycle to detect; `canBeParentOf` (`event-types.ts`) is that rule.
+   * no cycle to detect; `canBeParentOf` (`categories.ts`) is that rule.
    */
   parentId: string | null;
   /**
    * The type's own icon, or `null` when it takes its parent's.
    *
    * `null` means "inherited" for both this and `theme` below — one sentinel,
-   * read through `resolveCatalogue` (`event-types.ts`), which is also where a
+   * read through `resolveCatalogue` (`categories.ts`), which is also where a
    * root that somehow has neither falls back to a documented default.
    */
   icon: IconName | null;
@@ -255,12 +257,18 @@ export type EventTypeDef = BaseRecord & {
   theme: ThemeKey | null;
   /** True for the seeded rows. Informative only — it does not block editing. */
   isBuiltIn: boolean;
-  /** Drives the dashboard's "Rendez-vous à venir" list — see `event-types.ts`. */
+  /** Drives the dashboard's "Rendez-vous à venir" list — see `categories.ts`. */
   isAppointment: boolean;
-  /** Drives the week strip's day-activity tracking — see `event-types.ts`. */
+  /** Drives the week strip's day-activity tracking — see `categories.ts`. */
   tracksWork: boolean;
-  /** Soft-hide from pickers; still resolves for historical events. */
-  archived: boolean;
+  /**
+   * `false` hides the category and every post filed under it from the whole
+   * UI — pickers, lists, calendar, dashboard, budget totals. Nothing is
+   * deleted: switching it back on brings everything back. A parent's flag does
+   * not reach its children; each category is switched on its own. Was
+   * `archived` (inverted, and filtered on by nothing) before schema v13.
+   */
+  enabled: boolean;
   /**
    * Explicit, stable order — drives the budget donut/legend order.
    *
@@ -274,7 +282,7 @@ export type EventTypeDef = BaseRecord & {
 
 /**
  * A work activity the user added themselves, on top of the built-ins
- * `events.ts` codes for. Its own catalogue row never renders as a chip on the
+ * `posts.ts` codes for. Its own catalogue row never renders as a chip on the
  * week strip's day sheet or the Nom combobox — both are built-ins only — but
  * still backs the dedup check that stops the same activity being typed in
  * twice under two spellings.
@@ -284,7 +292,7 @@ export type EventTypeDef = BaseRecord & {
  * and leaves every session that used it saying exactly what it always said.
  * That is what lets the list be edited freely without a cascade.
  *
- * The app's first user-editable taxonomy — `EventTypeDef` above is the second,
+ * The app's first user-editable taxonomy — `Category` above is the second,
  * added a schema version later. Every other closed list here — document
  * categories, ration units — is a TypeScript union with a hardcoded label
  * table, because the wording is a design decision. What the horse worked on
@@ -303,8 +311,8 @@ export type ActivityItem = BaseRecord & {
 
 export type StoredDocument = BaseRecord & {
   horseId: string;
-  /** The event this document supports (an invoice for a vet visit), if any. */
-  eventId: string | null;
+  /** The post this document supports (an invoice for a vet visit), if any. */
+  postId: string | null;
   category: DocumentCategory;
   /** File name as shown to the user. */
   name: string;

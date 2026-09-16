@@ -14,7 +14,7 @@ import type { RationItem, RationUnit } from "../types.ts";
  * edits a single line, so both writes parse through `parseRationForm` and
  * cannot disagree on what a valid line is.
  *
- * See `events.service.ts` for what a service is here and the rules one follows.
+ * See `posts.service.ts` for what a service is here and the rules one follows.
  */
 
 /**

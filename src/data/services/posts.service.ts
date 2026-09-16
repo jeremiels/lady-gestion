@@ -1,19 +1,14 @@
 import { todayISO, type IsoDate } from "../dates.ts";
-import { BASE_FIELD_IDS, fieldWithRole } from "../event-types.ts";
+import { BASE_FIELD_IDS, fieldWithRole } from "../categories.ts";
 import {
   formatWorkActivity,
   statusForDate,
   type WorkActivity,
   type WorkSession,
-} from "../events.ts";
+} from "../posts.ts";
 import { DEFAULT_CURRENCY } from "../money.ts";
-import * as eventsRepo from "../repositories/events.repo.ts";
-import type {
-  CustomFieldDef,
-  EventTypeDef,
-  HorseEvent,
-  NewRecord,
-} from "../types.ts";
+import * as postsRepo from "../repositories/posts.repo.ts";
+import type { CustomFieldDef, Category, Post, NewRecord } from "../types.ts";
 
 /**
  * Composing and writing an event record.
@@ -28,7 +23,7 @@ import type {
  * What belongs here is everything between "the form parsed" and "the row is
  * written": which column a counterparty lands in, which fields a layout is
  * allowed to contribute at all, what an edit carries over from the record it
- * replaces. All of it used to sit in `event-sheet.ts`'s submit handler, which
+ * replaces. All of it used to sit in `post-sheet.ts`'s submit handler, which
  * meant a dialog component owned the definition of an event and the only way to
  * test any of it was to drive a real form in a real browser. It is record
  * arithmetic, and it belongs under the data-layer test rule with the rest of it.
@@ -47,7 +42,7 @@ import type {
 
 /**
  * An event as the entry form describes it — the parsed output of
- * `EVENT_SCHEMA` in `event-sheet.ts`, before anything has been decided about
+ * `EVENT_SCHEMA` in `post-sheet.ts`, before anything has been decided about
  * what to store.
  *
  * Deliberately the *form's* shape rather than the record's: `counterparty` has
@@ -56,7 +51,7 @@ import type {
  * asked for them. Taking that as the input is what puts the sorting-out below
  * instead of in every caller.
  */
-export type EventInput = {
+export type PostInput = {
   /** The type's `key` — validated against the live catalogue by the sheet. */
   type: string;
   /**
@@ -64,38 +59,38 @@ export type EventInput = {
    *
    * The type's `fields` array describes the whole form — Nom, Date and Note
    * included — so there is nothing left for this type to name individually.
-   * Which of these lands on a `HorseEvent` column and which in `customFields`
+   * Which of these lands on a `Post` column and which in `customFields`
    * is decided below, by `BASE_FIELD_IDS`, not by the form.
    */
   values: Record<string, string | number | boolean | null>;
 };
 
-export type SaveEventCommand = {
+export type SavePostCommand = {
   /**
    * The horse a new event belongs to. Unused when `existing` is set — an event
    * does not change horse, so an edit must not be able to move one.
    */
   horseId: string;
   /** The record being edited, or `null`/absent to create one. */
-  existing?: HorseEvent | null;
+  existing?: Post | null;
   /**
    * The type `input.type` names, already resolved. Reading it back out of the
    * live catalogue is not this service's job — see the file's own rule above,
    * "No state": the sheet already holds the catalogue in a `LiveQuery` to
    * render the type picker, so it is the one place that resolution belongs.
    */
-  type: EventTypeDef;
-  input: EventInput;
+  type: Category;
+  input: PostInput;
 };
 
 /**
  * Everything an event row holds except its identity and its horse.
  *
  * Derived from the record rather than restated, so a column added to
- * `HorseEvent` is a type error here — in the one function that has to decide
+ * `Post` is a type error here — in the one function that has to decide
  * what to put in it — rather than a field silently left `undefined`.
  */
-type EventFields = Omit<NewRecord<HorseEvent>, "horseId" | "id">;
+type PostFields = Omit<NewRecord<Post>, "horseId" | "id">;
 
 /**
  * Creates or updates the event, whichever `existing` calls for.
@@ -105,29 +100,29 @@ type EventFields = Omit<NewRecord<HorseEvent>, "horseId" | "id">;
  * that way rather than throwing. There is nothing left to write and nothing for
  * the caller to do about it, so the sheet treats it as a save.
  */
-export const saveEvent = async ({
+export const savePost = async ({
   horseId,
   existing = null,
   type,
   input,
-}: SaveEventCommand): Promise<HorseEvent | undefined> => {
-  const fields = eventFields(type, input, existing);
+}: SavePostCommand): Promise<Post | undefined> => {
+  const fields = postFields(type, input, existing);
   return existing
-    ? eventsRepo.update(existing.id, fields)
-    : eventsRepo.create({ horseId, ...fields });
+    ? postsRepo.update(existing.id, fields)
+    : postsRepo.create({ horseId, ...fields });
 };
 
 export type SetDayActivityCommand = {
   horseId: string;
   date: IsoDate;
   /** The `tracksWork` type this session belongs to — resolved by the caller,
-   * the same way `SaveEventCommand.type` is. */
-  type: EventTypeDef;
+   * the same way `SavePostCommand.type` is. */
+  type: Category;
   activity: WorkActivity;
   /**
    * The day's session, or `null`/absent when it has none.
    *
-   * Passed in rather than looked up here, the same way `SaveEventCommand` takes
+   * Passed in rather than looked up here, the same way `SavePostCommand` takes
    * the record it is replacing: the week strip already holds the whole week in
    * a `LiveQuery`, so the row is in hand at the call site and a read from
    * inside a command would be a second source for the same answer.
@@ -148,13 +143,13 @@ export type SetDayActivityCommand = {
  * activity**: a session titled by an earlier tap gets the new label, and one
  * the user renamed in the event sheet ("Séance dressage") keeps their wording.
  * `status` is deliberately not recomputed — the date has not moved, and a
- * cancelled session stays cancelled, as `eventFields` has it.
+ * cancelled session stays cancelled, as `postFields` has it.
  *
  * A cancelled row is not a session, so `workSessionByDate` never hands one over
  * and a day whose only `travail` row was cancelled gets a new one. That is the
  * intent: the horse did work after all.
  *
- * Returns `undefined` under the same single condition `saveEvent` does — the
+ * Returns `undefined` under the same single condition `savePost` does — the
  * row was soft-deleted between the week being read and the chip being tapped.
  */
 export const setDayActivity = ({
@@ -163,14 +158,14 @@ export const setDayActivity = ({
   type,
   activity,
   existing = null,
-}: SetDayActivityCommand): Promise<HorseEvent | undefined> => {
+}: SetDayActivityCommand): Promise<Post | undefined> => {
   const title = formatWorkActivity(activity);
   // Guaranteed by `type.tracksWork` being true, by construction: a
   // `tracksWork` type always carries exactly one `workActivity` field.
   const fieldId = fieldWithRole(type, "workActivity")?.id ?? "activity";
 
   if (!existing) {
-    return eventsRepo.create({
+    return postsRepo.create({
       horseId,
       ...dayActivityFields(type, fieldId, date, activity, title),
     });
@@ -180,7 +175,7 @@ export const setDayActivity = ({
   // Merged rather than replaced: `existing.customFields` may hold other keys
   // in principle, and a plain overwrite would drop them.
   const customFields = { ...existing.customFields, [fieldId]: activity };
-  return eventsRepo.update(
+  return postsRepo.update(
     existing.id,
     renamed ? { customFields, title } : { customFields },
   );
@@ -189,19 +184,19 @@ export const setDayActivity = ({
 /**
  * A session as the sheet creates one: a date, an activity, and nothing else.
  *
- * Spelled out against `EventFields` rather than filled in loosely, for the same
- * reason `eventFields` is — the type is derived from the record, so a column
- * added to `HorseEvent` fails to compile here instead of arriving `undefined`
+ * Spelled out against `PostFields` rather than filled in loosely, for the same
+ * reason `postFields` is — the type is derived from the record, so a column
+ * added to `Post` fails to compile here instead of arriving `undefined`
  * on every event the strip writes.
  */
 const dayActivityFields = (
-  type: EventTypeDef,
+  type: Category,
   fieldId: string,
   date: IsoDate,
   activity: WorkActivity,
   title: string,
-): EventFields => ({
-  type: type.key,
+): PostFields => ({
+  categoryKey: type.key,
   title,
   date,
   time: null,
@@ -224,7 +219,7 @@ const dayActivityFields = (
  */
 const workTitle = (
   activityField: CustomFieldDef | undefined,
-  customFields: HorseEvent["customFields"],
+  customFields: Post["customFields"],
 ): string | null => {
   if (!activityField) return null;
   const value = customFields[activityField.id];
@@ -240,11 +235,11 @@ const workTitle = (
  * exactly this half without the write, and exporting it then is one line —
  * `db.ts` states the rule this follows: add it back with its caller, not before.
  */
-const eventFields = (
-  type: EventTypeDef,
-  input: EventInput,
-  existing: HorseEvent | null,
-): EventFields => {
+const postFields = (
+  type: Category,
+  input: PostInput,
+  existing: Post | null,
+): PostFields => {
   const activityField = fieldWithRole(type, "workActivity");
   const text = (id: string): string | null => {
     const value = input.values[id];
@@ -255,14 +250,14 @@ const eventFields = (
   // not declare can never reach the record, and a field it does declare is
   // always written — as `null` when left blank — so a row never carries a key
   // its type has no answer for.
-  const customFields: HorseEvent["customFields"] = {};
+  const customFields: Post["customFields"] = {};
   for (const field of type.fields) {
     if (BASE_FIELD_IDS.has(field.id)) continue;
     customFields[field.id] = input.values[field.id] ?? null;
   }
 
   return {
-    type: type.key,
+    categoryKey: type.key,
     // A `workActivity` field doubles as the record's title, so a type that has
     // one lists no Nom row at all.
     title: workTitle(activityField, customFields) ?? text("title") ?? "",

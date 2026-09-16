@@ -7,7 +7,7 @@
  * `send-keys` / `capture-pane`, but a heredoc pipe works too.
  *
  *   node .claude/skills/run-lady-gestion/driver.mjs <<'EOF'
- *   nav /events
+ *   nav /posts
  *   wait app-calendar .calendar__day
  *   ss
  *   quit
@@ -178,7 +178,7 @@ const commands = {
 
   /**
    * `fill <selector> | <value>`. The `|` is required: selectors here routinely
-   * contain spaces (`.events-view__search input`), so splitting on whitespace
+   * contain spaces (`.posts-view__search input`), so splitting on whitespace
    * would silently fill the wrong element with the rest of the selector.
    * An empty value clears the field.
    */

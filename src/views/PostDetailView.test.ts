@@ -9,10 +9,10 @@ import {
   it,
 } from "vitest";
 import { db } from "../data/db.ts";
-import { makeEvent, resetDb } from "../data/__tests__/factories.ts";
+import { makePost, resetDb } from "../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
-import "./EventDetailView.ts";
-import type { EventDetailView } from "./EventDetailView.ts";
+import "./PostDetailView.ts";
+import type { PostDetailView } from "./PostDetailView.ts";
 
 /**
  * Deleting navigates back to the list through the real Navigation API — see
@@ -45,41 +45,41 @@ afterEach(async () => {
   }
 });
 
-const mount = (eventId: string) =>
-  fixture<EventDetailView>(
-    html`<event-detail-view .eventId=${eventId}></event-detail-view>`,
+const mount = (postId: string) =>
+  fixture<PostDetailView>(
+    html`<post-detail-view .postId=${postId}></post-detail-view>`,
   );
 
-const actionLabeled = (el: EventDetailView, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>(".event-detail__action")].find(
+const actionLabeled = (el: PostDetailView, label: string) =>
+  [...el.querySelectorAll<HTMLButtonElement>(".post-detail__action")].find(
     (button) => button.textContent?.includes(label),
   )!;
 
-const dialogButtonLabeled = (el: EventDetailView, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>(".event-detail__button")].find(
+const dialogButtonLabeled = (el: PostDetailView, label: string) =>
+  [...el.querySelectorAll<HTMLButtonElement>(".post-detail__button")].find(
     (button) => button.textContent?.includes(label),
   )!;
 
 beforeEach(resetDb);
 
-describe("event-detail-view", () => {
+describe("post-detail-view", () => {
   it("shows a not-found state for an id with no matching event", async () => {
     const el = await mount("missing");
     await waitFor(el, () => el.textContent!.includes("introuvable"));
 
-    expect(el.querySelector(".event-detail__back-link")).not.toBeNull();
+    expect(el.querySelector(".post-detail__back-link")).not.toBeNull();
   });
 
   it("shows a care event’s practitioner and a purchase’s vendor, never the other", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "care-1",
-        type: "veto",
+        categoryKey: "veto",
         customFields: { counterparty: "Dr. Dupont", amountCents: 4500 },
       }),
-      makeEvent({
+      makePost({
         id: "purchase-1",
-        type: "achat",
+        categoryKey: "achat",
         customFields: { counterparty: "Décathlon", amountCents: 2000 },
       }),
     ]);
@@ -96,15 +96,15 @@ describe("event-detail-view", () => {
   });
 
   it("shows an alimentation event’s quantity, already display-ready", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "alimentation-1",
-        type: "alimentation",
+        categoryKey: "alimentation",
         customFields: { quantity: "40 mL" },
       }),
-      makeEvent({
+      makePost({
         id: "care-3",
-        type: "veto",
+        categoryKey: "veto",
         customFields: { counterparty: "Dr. Dupont" },
       }),
     ]);
@@ -121,15 +121,15 @@ describe("event-detail-view", () => {
   });
 
   it("shows a travail event’s activity by its label, not its stored key", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "work-1",
-        type: "travail",
+        categoryKey: "travail",
         customFields: { activity: "longe" },
       }),
-      makeEvent({
+      makePost({
         id: "care-2",
-        type: "veto",
+        categoryKey: "veto",
         customFields: { counterparty: "Dr. Dupont" },
       }),
     ]);
@@ -146,8 +146,8 @@ describe("event-detail-view", () => {
   });
 
   it("confirming delete soft-deletes the record and leaves the page", async () => {
-    await db.events.add(
-      makeEvent({ id: "to-delete", title: "Visite à supprimer" }),
+    await db.posts.add(
+      makePost({ id: "to-delete", title: "Visite à supprimer" }),
     );
     const el = await mount("to-delete");
     await waitFor(el, () => el.textContent!.includes("Visite à supprimer"));
@@ -156,10 +156,10 @@ describe("event-detail-view", () => {
     await settled(el);
     dialogButtonLabeled(el, "Supprimer").click();
 
-    let stored = await db.events.get("to-delete");
+    let stored = await db.posts.get("to-delete");
     for (let i = 0; i < 20 && stored?.deletedAt == null; i++) {
       await new Promise((resolve) => setTimeout(resolve, 0));
-      stored = await db.events.get("to-delete");
+      stored = await db.posts.get("to-delete");
     }
     expect(stored?.deletedAt).not.toBeNull();
   });

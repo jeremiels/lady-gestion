@@ -16,7 +16,7 @@ import "../app-modal/app-modal.ts";
  * is the only way that contract stays honoured wherever the viewer is used.
  *
  * The property is `doc`, not `document`: that name shadows the DOM global, the
- * same trap `HorseEvent` exists to avoid for `Event`.
+ * same trap `Post` exists to avoid for `Event`.
  *
  * @fires viewer-close - No detail. Dismissed by any route the modal offers.
  */

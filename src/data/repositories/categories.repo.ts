@@ -3,13 +3,13 @@ import {
   canBeParentOf,
   childrenOf,
   resolveCatalogue,
-  type ResolvedEventType,
-} from "../event-types.ts";
+  type ResolvedCategory,
+} from "../categories.ts";
 import { createRecord, crud, liveOnly, softDelete, touch } from "../record.ts";
-import type { EventTypeDef, NewRecord, RecordPatch } from "../types.ts";
+import type { Category, NewRecord, RecordPatch } from "../types.ts";
 
 /**
- * The event-type catalogue: what `HorseEvent.type` points at.
+ * The event-type catalogue: what `Post.type` points at.
  *
  * Not horse-scoped, unlike `activities.repo.ts`'s catalogue — a type applies
  * across every horse in the database, so there is no `listByHorse` here, only
@@ -18,8 +18,8 @@ import type { EventTypeDef, NewRecord, RecordPatch } from "../types.ts";
 
 /** Every live type, in `order` — the sequence the budget donut and a type
  * picker both want, so callers do not have to sort it themselves. */
-export const listAll = async (): Promise<EventTypeDef[]> => {
-  const types = await db.eventTypes.toArray();
+export const listAll = async (): Promise<Category[]> => {
+  const types = await db.categories.toArray();
   return liveOnly(types).sort((a, b) => a.order - b.order);
 };
 
@@ -31,17 +31,15 @@ export const listAll = async (): Promise<EventTypeDef[]> => {
  * must see the `null`: it is the difference between a swatch showing a chosen
  * colour and one saying "hérité".
  */
-export const listResolved = async (): Promise<ResolvedEventType[]> =>
+export const listResolved = async (): Promise<ResolvedCategory[]> =>
   resolveCatalogue(await listAll());
 
-export const { get, update } = crud<EventTypeDef>(db.eventTypes);
+export const { get, update } = crud<Category>(db.categories);
 
 /** Adds a type to the catalogue. */
-export const add = async (
-  fields: NewRecord<EventTypeDef>,
-): Promise<EventTypeDef> => {
-  const type = createRecord<EventTypeDef>(fields);
-  await db.eventTypes.add(type);
+export const add = async (fields: NewRecord<Category>): Promise<Category> => {
+  const type = createRecord<Category>(fields);
+  await db.categories.add(type);
   return type;
 };
 
@@ -49,15 +47,15 @@ export const add = async (
  * The patch that makes a child a root without changing how it looks.
  *
  * Whatever it was drawing thanks to its parent is written into its own
- * columns, which is what keeps `EventTypeDef.theme` meaningful on a child: it
+ * columns, which is what keeps `Category.theme` meaningful on a child: it
  * is the value the row takes back the moment it stops inheriting. Without
  * this, detaching or deleting a parent would repaint its children with the
  * fallback tone for no reason the user can see.
  */
 const detachment = (
-  resolved: ResolvedEventType[],
+  resolved: ResolvedCategory[],
   childId: string,
-): RecordPatch<EventTypeDef> => {
+): RecordPatch<Category> => {
   const child = resolved.find((type) => type.id === childId);
   return {
     parentId: null,
@@ -82,17 +80,17 @@ const detachment = (
  * outlives the row on purpose.
  */
 export const remove = async (id: string): Promise<void> => {
-  await db.transaction("rw", db.eventTypes, async () => {
-    const types = liveOnly(await db.eventTypes.toArray());
+  await db.transaction("rw", db.categories, async () => {
+    const types = liveOnly(await db.categories.toArray());
     const target = types.find((type) => type.id === id);
     if (!target) return;
 
     const resolved = resolveCatalogue(types);
     for (const child of childrenOf(types, id)) {
-      await db.eventTypes.put(touch(child, detachment(resolved, child.id)));
+      await db.categories.put(touch(child, detachment(resolved, child.id)));
     }
 
-    await db.eventTypes.put(softDelete(target));
+    await db.categories.put(softDelete(target));
   });
 };
 
@@ -114,9 +112,9 @@ export const remove = async (id: string): Promise<void> => {
 export const setParent = async (
   childId: string,
   parentId: string | null,
-): Promise<EventTypeDef | undefined> =>
-  db.transaction("rw", db.eventTypes, async () => {
-    const types = liveOnly(await db.eventTypes.toArray());
+): Promise<Category | undefined> =>
+  db.transaction("rw", db.categories, async () => {
+    const types = liveOnly(await db.categories.toArray());
     const child = types.find((type) => type.id === childId);
     if (!child) return undefined;
 
@@ -129,12 +127,12 @@ export const setParent = async (
       return undefined;
     }
 
-    const patch: RecordPatch<EventTypeDef> =
+    const patch: RecordPatch<Category> =
       parentId === null
         ? detachment(resolveCatalogue(types), childId)
         : { parentId, theme: null };
 
     const updated = touch(child, patch);
-    await db.eventTypes.put(updated);
+    await db.categories.put(updated);
     return updated;
   });

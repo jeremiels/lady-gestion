@@ -17,13 +17,13 @@ import {
  */
 
 /** Every section root, app-relative — what `Router` passes `isLateral`. */
-const ROOTS = ["/", "/events", "/budget", "/documents"];
+const ROOTS = ["/", "/posts", "/budget", "/documents"];
 
 describe("sectionOf", () => {
   it("claims each section root for its own section", () => {
     expect(ROOTS.map((path) => sectionOf(path)?.id)).toEqual([
       "home",
-      "events",
+      "posts",
       "budget",
       "documents",
     ]);
@@ -32,7 +32,7 @@ describe("sectionOf", () => {
   it("keeps a drill-down in the section it was reached from", () => {
     expect(sectionOf("/horse")?.id).toBe("home");
     expect(sectionOf("/horse/abc")?.id).toBe("home");
-    expect(sectionOf("/events/abc")?.id).toBe("events");
+    expect(sectionOf("/posts/abc")?.id).toBe("posts");
   });
 
   it("claims no section for a path outside the table", () => {
@@ -68,17 +68,17 @@ describe("isLateral", () => {
 
   it("is false landing a level down, even across sections", () => {
     // The deep-link case the predicate's "onto a root" half exists for.
-    expect(isLateral("/documents", "/events/abc")).toBe(false);
+    expect(isLateral("/documents", "/posts/abc")).toBe(false);
     expect(isLateral("/", "/horse/abc")).toBe(false);
   });
 
   it("is false within one section", () => {
     expect(isLateral("/horse", "/")).toBe(false);
-    expect(isLateral("/events/abc", "/events")).toBe(false);
+    expect(isLateral("/posts/abc", "/posts")).toBe(false);
   });
 
   it("is false leaving a path that belongs to no section", () => {
-    expect(isLateral("/nope", "/events")).toBe(false);
+    expect(isLateral("/nope", "/posts")).toBe(false);
   });
 });
 
@@ -102,9 +102,14 @@ describe("customizeRouteOf", () => {
 
   it("tags only moves between two of its tabs", () => {
     expect(
-      customizeTransitionType("/profile/interface", "/profile/interface/ration"),
+      customizeTransitionType(
+        "/profile/interface",
+        "/profile/interface/ration",
+      ),
     ).toBe("customize-subpage");
-    expect(customizeTransitionType("/profile", "/profile/interface")).toBeNull();
+    expect(
+      customizeTransitionType("/profile", "/profile/interface"),
+    ).toBeNull();
   });
 });
 
@@ -144,6 +149,6 @@ describe("horseTransitionType", () => {
   });
 
   it("is nothing for a navigation that never touches the horse", () => {
-    expect(horseTransitionType("/", "/events")).toBeNull();
+    expect(horseTransitionType("/", "/posts")).toBeNull();
   });
 });

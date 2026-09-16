@@ -9,7 +9,7 @@ import type { ThemeMeta } from "../../theme/theme.ts";
  * The mirror of `iconStyle` in `app-icon.ts`, and there for the same reason:
  * this component used to resolve an `EventTypeKey` itself, which meant the
  * event taxonomy could name a tag and the document taxonomy could not — so
- * `EventDetailView` already passed these two properties by hand for documents.
+ * `PostDetailView` already passed these two properties by hand for documents.
  * That hand-written path is now the only path, and it serves both.
  */
 export const tagStyle = (theme: ThemeMeta) => ({

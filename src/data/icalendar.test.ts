@@ -8,16 +8,16 @@ import {
   weekGrid,
   type CalendarEvent,
 } from "./icalendar.ts";
-import type { HorseEvent } from "./types.ts";
+import type { Post } from "./types.ts";
 
-const horseEvent = (fields: Partial<HorseEvent> = {}): HorseEvent => ({
+const horseEvent = (fields: Partial<Post> = {}): Post => ({
   id: "event-1",
   ownerId: "owner-1",
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
   deletedAt: null,
   horseId: "horse-1",
-  type: "veto",
+  categoryKey: "veto",
   title: "Contrôle œil",
   date: "2026-01-22",
   time: "14:00",

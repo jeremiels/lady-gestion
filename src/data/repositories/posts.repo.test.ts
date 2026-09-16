@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db.ts";
 import { addDays, todayISO } from "../dates.ts";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
+  BUILT_IN_CATEGORY_ROWS,
   HORSE_ID,
-  makeEvent,
+  makePost,
   resetDb,
 } from "../__tests__/factories.ts";
-import * as eventsRepo from "./events.repo.ts";
+import * as postsRepo from "./posts.repo.ts";
 
 /**
  * The unified events table is read through the `[horseId+date]` compound index,
@@ -18,11 +18,11 @@ import * as eventsRepo from "./events.repo.ts";
 
 beforeEach(resetDb);
 
-/** The real 14 built-ins — what `totalSpentByType` groups against. */
-const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+/** The real 14 built-ins — what `totalSpentByCategory` groups against. */
+const TYPES = BUILT_IN_CATEGORY_ROWS;
 
-const seedEvents = (events: Parameters<typeof makeEvent>[0][]) =>
-  db.events.bulkAdd(events.map((over) => makeEvent(over)));
+const seedEvents = (events: Parameters<typeof makePost>[0][]) =>
+  db.posts.bulkAdd(events.map((over) => makePost(over)));
 
 describe("listByHorse", () => {
   it("returns newest first — the order the list view groups on", async () => {
@@ -32,7 +32,7 @@ describe("listByHorse", () => {
       { id: "mid", date: "2026-05-20" },
     ]);
 
-    const events = await eventsRepo.listByHorse(HORSE_ID);
+    const events = await postsRepo.listByHorse(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["new", "mid", "old"]);
   });
@@ -45,7 +45,7 @@ describe("listByHorse", () => {
       { id: "distant", date: "2999-12-31" },
     ]);
 
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
   });
 
   it("excludes soft-deleted rows", async () => {
@@ -54,7 +54,7 @@ describe("listByHorse", () => {
       { id: "gone", date: "2026-05-02", deletedAt: "2026-06-01T00:00:00.000Z" },
     ]);
 
-    const events = await eventsRepo.listByHorse(HORSE_ID);
+    const events = await postsRepo.listByHorse(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["live"]);
   });
@@ -65,7 +65,7 @@ describe("listByHorse", () => {
       { id: "theirs", date: "2026-05-02", horseId: "horse-2" },
     ]);
 
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
   });
 });
 
@@ -79,7 +79,7 @@ describe("listInRange", () => {
       { id: "after", date: "2026-07-01" },
     ]);
 
-    const events = await eventsRepo.listInRange(
+    const events = await postsRepo.listInRange(
       HORSE_ID,
       "2026-06-01",
       "2026-06-30",
@@ -98,7 +98,7 @@ describe("listUpcoming", () => {
       { id: "tomorrow", date: addDays(today, 1) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await postsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["today", "tomorrow"]);
   });
@@ -110,7 +110,7 @@ describe("listUpcoming", () => {
       { id: "near", date: addDays(today, 2) },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await postsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["near", "far"]);
   });
@@ -123,7 +123,7 @@ describe("listUpcoming", () => {
       { id: "cancelled", date: addDays(today, 3), status: "cancelled" },
     ]);
 
-    const events = await eventsRepo.listUpcoming(HORSE_ID);
+    const events = await postsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["planned"]);
   });
@@ -141,7 +141,7 @@ describe("listBudget", () => {
       { id: "zero", date: "2026-05-03", customFields: { amountCents: 0 } },
     ]);
 
-    const budget = await eventsRepo.listBudget(HORSE_ID);
+    const budget = await postsRepo.listBudget(HORSE_ID);
 
     // A zero-cost row is still an budget: it was recorded deliberately, and
     // the field's *absence* is what means "costs nothing".
@@ -159,7 +159,7 @@ describe("listBudget", () => {
       },
     ]);
 
-    const budget = await eventsRepo.listBudget(HORSE_ID);
+    const budget = await postsRepo.listBudget(HORSE_ID);
 
     expect(budget.map((event) => event.id)).toEqual(["kept"]);
   });
@@ -173,7 +173,7 @@ describe("totalSpent", () => {
       { id: "c", date: "2026-05-03", customFields: { amountCents: 7500 } },
     ]);
 
-    expect(await eventsRepo.totalSpent(HORSE_ID)).toBe(51500);
+    expect(await postsRepo.totalSpent(HORSE_ID)).toBe(51500);
   });
 
   it("sums amounts that would drift as floats", async () => {
@@ -183,7 +183,7 @@ describe("totalSpent", () => {
       { id: "b", date: "2026-05-02", customFields: { amountCents: 20 } },
     ]);
 
-    expect(await eventsRepo.totalSpent(HORSE_ID)).toBe(30);
+    expect(await postsRepo.totalSpent(HORSE_ID)).toBe(30);
   });
 
   it("honours the date range", async () => {
@@ -201,39 +201,39 @@ describe("totalSpent", () => {
     ]);
 
     expect(
-      await eventsRepo.totalSpent(HORSE_ID, "2026-06-01", "2026-06-30"),
+      await postsRepo.totalSpent(HORSE_ID, "2026-06-01", "2026-06-30"),
     ).toBe(1000);
   });
 
   it("is 0, not NaN, when there is nothing to sum", async () => {
-    expect(await eventsRepo.totalSpent(HORSE_ID)).toBe(0);
+    expect(await postsRepo.totalSpent(HORSE_ID)).toBe(0);
   });
 });
 
-describe("totalSpentByType", () => {
+describe("totalSpentByCategory", () => {
   it("groups cents by category and omits types with no spend", async () => {
     await seedEvents([
       {
         id: "a",
         date: "2026-05-01",
-        type: "marechal",
+        categoryKey: "marechal",
         customFields: { amountCents: 9000 },
       },
       {
         id: "b",
         date: "2026-05-02",
-        type: "marechal",
+        categoryKey: "marechal",
         customFields: { amountCents: 1000 },
       },
       {
         id: "c",
         date: "2026-05-03",
-        type: "pension",
+        categoryKey: "pension",
         customFields: { amountCents: 35000 },
       },
     ]);
 
-    expect(await eventsRepo.totalSpentByType(HORSE_ID, TYPES)).toEqual({
+    expect(await postsRepo.totalSpentByCategory(HORSE_ID, TYPES)).toEqual({
       marechal: 10000,
       pension: 35000,
     });
@@ -242,9 +242,9 @@ describe("totalSpentByType", () => {
 
 describe("write path", () => {
   it("stamps a created event and reads it back", async () => {
-    const created = await eventsRepo.create({
+    const created = await postsRepo.create({
       horseId: HORSE_ID,
-      type: "veto",
+      categoryKey: "veto",
       title: "Vaccins",
       date: "2026-09-01",
       time: "09:30",
@@ -259,7 +259,7 @@ describe("write path", () => {
     expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(created.createdAt).toBe(created.updatedAt);
     expect(created.deletedAt).toBe(null);
-    expect(await eventsRepo.get(created.id)).toMatchObject({
+    expect(await postsRepo.get(created.id)).toMatchObject({
       title: "Vaccins",
     });
   });
@@ -267,7 +267,7 @@ describe("write path", () => {
   it("advances updatedAt on update but leaves createdAt alone", async () => {
     await seedEvents([{ id: "event-1" }]);
 
-    const updated = await eventsRepo.update("event-1", { title: "Renommé" });
+    const updated = await postsRepo.update("event-1", { title: "Renommé" });
     if (!updated) throw new Error("update returned undefined");
 
     expect(updated.title).toBe("Renommé");
@@ -283,23 +283,23 @@ describe("write path", () => {
     ]);
 
     expect(
-      await eventsRepo.update("event-1", { title: "Zombie" }),
+      await postsRepo.update("event-1", { title: "Zombie" }),
     ).toBeUndefined();
   });
 
   it("soft-deletes, leaving a tombstone a backup can propagate", async () => {
     await seedEvents([{ id: "event-1" }]);
 
-    await eventsRepo.remove("event-1");
+    await postsRepo.remove("event-1");
 
-    expect(await eventsRepo.get("event-1")).toBeUndefined();
+    expect(await postsRepo.get("event-1")).toBeUndefined();
     // The row itself must survive — an absence cannot be synced.
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       deletedAt: expect.any(String),
     });
   });
 
   it("is a no-op when removing an unknown id", async () => {
-    await expect(eventsRepo.remove("nope")).resolves.toBeUndefined();
+    await expect(postsRepo.remove("nope")).resolves.toBeUndefined();
   });
 });

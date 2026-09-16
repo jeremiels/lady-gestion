@@ -20,21 +20,21 @@ beforeEach(async () => {
   // clear it back out so these tests see the state a genuinely fresh install
   // starts from.
   await resetDb();
-  await db.eventTypes.clear();
+  await db.categories.clear();
 });
 
 describe("seedIfEmpty — event types", () => {
   it("seeds the 14 built-in types on a database with none", async () => {
     await seedIfEmpty();
 
-    expect(await db.eventTypes.count()).toBe(14);
+    expect(await db.categories.count()).toBe(14);
   });
 
   it("does not duplicate them on a second call", async () => {
     await seedIfEmpty();
     await seedIfEmpty();
 
-    expect(await db.eventTypes.count()).toBe(14);
+    expect(await db.categories.count()).toBe(14);
   });
 
   it("seeds types even when a horse already exists", async () => {
@@ -61,7 +61,7 @@ describe("seedIfEmpty — event types", () => {
 
     await seedIfEmpty();
 
-    expect(await db.eventTypes.count()).toBe(14);
+    expect(await db.categories.count()).toBe(14);
     // And it must not have also reseeded the demo horse/events on top of the
     // one already there.
     expect(await db.horses.count()).toBe(1);

@@ -81,10 +81,10 @@ Three consequences worth stating out loud:
   Navigation API (`navigation.addEventListener('navigate', ...)`) and
   swaps views with `document.startViewTransition`. Routes live in a `ROUTES`
   table whose `render(path)` receives the matched pathname — that is how
-  `/events/:id` gets its id to `EventDetailView`, and nothing else parses the
+  `/posts/:id` gets its id to `PostDetailView`, and nothing else parses the
   URL. A parameterised route **must** wrap its view in `keyed(path, ...)`:
   `LiveQuery` subscribes once in `hostConnected` and re-runs only on a Dexie
-  write, so without it, going from one event's page to another reuses the
+  write, so without it, going from one post's page to another reuses the
   element and leaves the previous record on screen.
 - **To go back, call `goBack(fallback)` from `commons/navigation.ts`** — never
   hand-roll it. It asks the Navigation API, not `history.length`:
@@ -127,7 +127,7 @@ Three consequences worth stating out loud:
   `LiveQuery` (`src/data/live.ts`), a Lit `ReactiveController` wrapping
   Dexie's `liveQuery` — see "Data layer" below.
 - **Dexie / IndexedDB** is the persistence layer (`src/data/`). No
-  localStorage, no fetch/API calls, no backend. `HorseView`, `EventsView`,
+  localStorage, no fetch/API calls, no backend. `HorseView`, `PostsView`,
   every view now reads real data. The user's name and email live in the
   `profiles` table (schema v12), edited on `/profile/interface` (Profil tab)
   and read everywhere through `displayProfile()` (`data/account.ts`), which
@@ -150,12 +150,12 @@ Three consequences worth stating out loud:
   `horsesService.saveHorseProfile`, which writes only the fields that moved —
   an untouched Enregistrer must not restamp the seeded horse. Âge is displayed,
   the row holds `birthDate`. Catégories is a title-only placeholder for now.
-- Events are **created** from `event-sheet`, opened by the `+` in the nav bar
+- Posts are **created** from `post-sheet`, opened by the `+` in the nav bar
   (which is a button, not a link — it opens a sheet, it does not navigate), and
-  **edited** through the same sheet: setting its `event` property prefills the
+  **edited** through the same sheet: setting its `post` property prefills the
   fields and switches the submit to `update`. One sheet, deliberately — a second
   form would be a second place for the variant rules to drift.
-  Deleting is `EventDetailView` → `app-modal` → the soft delete.
+  Deleting is `PostDetailView` → `app-modal` → the soft delete.
 - **Documents still have no upload path.** `seed.ts` writes exactly one — a PDF
   it generates itself, attached to the seeded "Contrôle œil" event — so the
   detail page's attachment block, viewer and share action have something real to
@@ -204,7 +204,7 @@ Three consequences worth stating out loud:
 - Every parser is **overloaded on `required`**: `text({ required: true })`
   returns `FieldParser<string>`, not `FieldParser<string | null>`, so a caller
   that marked a field required doesn't then have to null-check it.
-- **`event-sheet` shows one of four field layouts**, chosen from the type
+- **`post-sheet` shows one of four field layouts**, chosen from the type
   select at the top via `eventFormSpec(type)` (`event.types.ts`): `care`
   (véto/maréchal/dentiste/ostéo) adds Practicien and the follow-up interval;
   `purchase` (alimentation/achat) adds Site; `work` (travail) adds the Activité
@@ -215,17 +215,17 @@ Three consequences worth stating out loud:
   re-test the layout with `=== 'care'` at a call site. The column matters as
   much as the label: a field the current layout doesn't show must never reach
   the record, so `providerName`, `vendor` and `activity` are written from the
-  spec rather than from whatever the DOM still holds. `EventDetailView` reads
+  spec rather than from whatever the DOM still holds. `PostDetailView` reads
   the same table to label its Practicien/Site row, which is what keeps what is
   captured and what is displayed from drifting.
 
   `activity` is also the one field whose _parser_ varies: it is required on
-  `work` and absent everywhere else, so `event-sheet` swaps in the required
+  `work` and absent everywhere else, so `post-sheet` swaps in the required
   overload of `oneOf` for that layout rather than copying "Ce champ est requis."
   out of `forms.ts`. The schema's shape is the same either way.
 
-- **`HorseEvent.status` is derived, never asked for**: `statusForDate()` in
-  `events.ts` — a future date is `planned`, today or past is `done`. None of the
+- **`Post.status` is derived, never asked for**: `statusForDate()` in
+  `posts.ts` — a future date is `planned`, today or past is `done`. None of the
   entry forms has a status control because the date already says which is meant.
 - Scripts: `npm run dev` (Vite), `npm run build` (typecheck + lint +
   `vite build` — a lint error fails the build), `npm run typecheck`,
@@ -281,20 +281,21 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
   db.ts                # Dexie subclass + SCHEMA_VERSION (12) and its upgrades
-  types.ts             # BaseRecord, Horse, HorseEvent, StoredDocument, RationItem
+  types.ts             # BaseRecord, Horse, Post, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
   files.ts             # file size/kind formatting, PDF & image mime predicates
   budget.ts          # period/breakdown arithmetic for BudgetView — see below
   forms.ts             # readForm() + field parsers — the write path's front door
-  events.ts            # event rules that are neither persistence nor iCalendar
+  categories.ts        # the category catalogue: seed rows, pure helpers
+  posts.ts             # post rules that are neither persistence nor iCalendar
   seasons.ts           # RationSeason: recurring annual windows — see below
   icalendar.ts         # RFC 5545 boundary — see below
   live.ts              # LiveQuery ReactiveController
   active-horse.ts      # activeHorseQuery() — the standard view-level query
   ready.ts             # gate opened when initData() settles — see below
-  repositories/        # horses|events|documents|rations|meta.repo.ts
-  services/            # write-side commands — events|rations.service.ts
+  repositories/        # horses|posts|categories|documents|rations|meta.repo.ts
+  services/            # write-side commands — posts|rations.service.ts
   backup/snapshot.ts   # versioned export/import envelope
   seed.ts              # first-run data, only when no horse exists
 ```
@@ -305,7 +306,7 @@ src/data/
   file. A module is either public surface or it is not; `db.ts`, `ready.ts`,
   `record.ts`, `ids.ts`, `owner.ts` and `seed.ts` are not.
 - **A presentational component wanting only a formatter imports the module
-  directly**, not the barrel — `event-card` takes `formatDate` from `dates.ts`,
+  directly**, not the barrel — `post-card` takes `formatDate` from `dates.ts`,
   `app-calendar` takes `monthGrid` from `icalendar.ts`. That is the chunking
   working, not drift: `initData` pulls `db.ts`, which constructs
   `new LadyGestionDb()` at module scope, so going through the barrel for a pure
@@ -320,12 +321,12 @@ src/data/
 - **`services/` holds writes, never reads.** A repository reads and writes one
   table; a service owns a write that spans more than one decision or more than
   one table, as plain functions over plain objects with no state of its own.
-  Two today. `eventsService.saveEvent()` decides which column a counterparty
+  Two today. `postsService.savePost()` decides which column a counterparty
   lands in, whether a follow-up or an activity may be written at all, and what
   an edit carries over from the record it replaces.
   `rationsService.updateRation()` parses the same form as `addRation()` and
   writes a line only when something moved. Both lived in a submit handler — one in
-  `event-sheet.ts`, one in `HorseView` — which put the definition of a record
+  `post-sheet.ts`, one in `HorseView` — which put the definition of a record
   inside a dialog and left every one of those rules reachable only from the
   browser suite; they are record arithmetic and belong under the data-layer test
   rule. Reads do **not** get a service — a `LiveQuery` over a repository is
@@ -357,7 +358,7 @@ src/data/
   and returns the `empty` value when there is not:
 
   ```ts
-  activeHorseQuery(this, (horseId) => eventsRepo.listByHorse(horseId), []);
+  activeHorseQuery(this, (horseId) => postsRepo.listByHorse(horseId), []);
   ```
 
   **Pass `empty` deliberately, and give it the same shape the query returns.**
@@ -385,37 +386,46 @@ src/data/
   shifts to UTC.
 - **Money is integer cents** (`amountCents`), never a float. Format with
   `formatCents()` from `money.ts`.
-- `events` is one unified table: an appointment is a future `date`, an
+- **Domain language: a `Post` belongs to a `Category`.** Since schema v13 the
+  code, the tables and the URLs say so — `posts` / `categories` stores,
+  `postsRepo` / `categoriesRepo`, `post-card` / `post-sheet`, `/posts/:id` (an
+  old `/events…` link is redirected). They were `HorseEvent` / `EventTypeDef`,
+  `events` / `eventTypes` and `/events` before; migrations up to v12 keep the
+  old names on purpose, because they describe the tables that version had.
+  Calendar vocabulary (`CalendarEvent`, `VEVENT` in `icalendar.ts`) and DOM
+  events are a different "event" and were not renamed. French UI copy
+  ("Activités", "Rendez-vous") is unchanged.
+- `posts` is one unified table: an appointment is a future `date`, an
   budget is a non-null `amountCents`. Don't add a separate budget table.
-  `events.type` is the existing `EventTypeKey`.
+  `Post.categoryKey` is the category's `key` slug.
 - **`budget.ts` holds the budget view's arithmetic as pure functions over
   records the caller already fetched** — it is money maths, which is what the
   data-layer test rule exists for. A period there is a **date prefix**
   (`2026-01`, `2026`), not a start/end pair: stored dates are the same
   `YYYY-MM-DD` strings, so a prefix test is exact and cannot drift across a
-  timezone. `eventsRepo.totalSpentByType` delegates to its `sumByType`, so the
-  repository and the view cannot disagree about what a breakdown is. `sumByType`
+  timezone. `postsRepo.totalSpentByCategory` delegates to its `sumByCategory`, so the
+  repository and the view cannot disagree about what a breakdown is. `sumByCategory`
   returns slices in fixed `EVENT_TYPES` order and drops zero-spend categories —
   the fixed order is what keeps a category, and therefore its colour and its
   neighbours, in the same place in the donut from one month to the next.
 - **`BudgetView` reads every budget and filters in memory**, and that is
   forced, not lazy: `LiveQuery` subscribes once and Dexie re-runs it only on a
   _write_, so a query narrowed by the user-selected period would go stale the
-  moment the picker was touched. `EventsView` does the same for the same reason.
+  moment the picker was touched. `PostsView` does the same for the same reason.
   Its two period keys (`monthKey`, `yearKey`) are held separately rather than
   derived from each other, so flipping to Année and back returns to the month
-  that was selected — both of them, and `EventsView`'s four, now live in a
+  that was selected — both of them, and `PostsView`'s four, now live in a
   `ViewState` bag rather than in `@state()` fields, so they survive a drill-down
   too.
 - **The dashboard's week strip is two pure functions plus a card**: `weekGrid`
   (`icalendar.ts`) returns the seven days of a week as a _tuple_, so a caller
   reading the first and last day for a range query needs no `!` under
   `noUncheckedIndexedAccess` — `monthGrid` builds its rows from the same helper.
-  `workActivityByDate` (`events.ts`) buckets `travail` rows into one activity per
+  `workActivityByDate` (`posts.ts`) buckets `travail` rows into one activity per
   day, skipping cancelled ones and keeping the day's first session (all-day
   before timed), so a cell's height never depends on how much the horse did.
 - **`icalendar.ts` is the one place that speaks RFC 5545**, the format
-  Google/Apple/Outlook calendars exchange. It maps a `HorseEvent` onto a
+  Google/Apple/Outlook calendars exchange. It maps a `Post` onto a
   `VEVENT`-shaped `CalendarEvent` (`DTSTART` as a `DATE` when `time` is
   `null`, exclusive `DTEND`, `STATUS`, `WKST`) and owns `monthGrid()` and
   `occurrencesByDate()`. The stored record deliberately stays as it is; put
@@ -432,12 +442,12 @@ src/data/
   …" footnote. A view that renders both rows and the footnote must resolve
   `todayISO()` once and pass it to both, or the two can disagree across
   midnight.
-- `HorseEvent.vendor` is the shop or website behind a purchase, distinct from
+- `Post.vendor` is the shop or website behind a purchase, distinct from
   `providerName` (the practitioner) and `location` (a place). `followUpInterval`
   is `{ amount, unit }` — how long until a care event repeats. **Ticking
   "Planifier un rendez-vous" records the interval and creates no second event**;
   nothing derives a date from it yet, which is what reminders will add.
-  `activity` is a `WorkActivity` key (`events.ts`) — what was done in a
+  `activity` is a `WorkActivity` key (`posts.ts`) — what was done in a
   `travail` session, from a closed list with French labels, `null` on every
   other type.
 - **Bumping `SCHEMA_VERSION` means writing two migrations that agree**: a
@@ -447,13 +457,13 @@ src/data/
   without the second one an old file imports rows the current build silently
   misreads. `db.test.ts` covers the upgrade against a database really written
   by the previous version — keep its `V1_STORES` frozen.
-- **An event type may have a parent (`EventTypeDef.parentId`, schema v8), at
+- **A category may have a parent (`Category.parentId`, schema v8), at
   most one level deep, and a child inherits its presentation.** `parentId`
-  references a row `id`, not a `key` — unlike `HorseEvent.type`, which stores
+  references a row `id`, not a `key` — unlike `Post.categoryKey`, which stores
   the slug precisely so it outlives the row. `icon` and `theme` are nullable
   there, `null` meaning "take my parent's", and **nothing reads those columns
-  directly**: views hold `eventTypesRepo.listResolved()`, which runs
-  `resolveCatalogue` (`data/event-types.ts`) — the one place that resolves the
+  directly**: views hold `categoriesRepo.listResolved()`, which runs
+  `resolveCatalogue` (`data/categories.ts`) — the one place that resolves the
   inheritance, and the only guard against a theme string a backup file carries
   that this build cannot draw. `canBeParentOf` is the depth cap, enforced by
   `setParent`; `remove` promotes a deleted parent's children rather than
@@ -466,7 +476,7 @@ src/data/
   (`src/types/taxonomy.ts`)**, not hand-written: `documentCategory` is one call
   over `DOCUMENT_CATEGORY_META` and exposes `.keys`, `.label(k)`, `.icon(k)`,
   `.theme(k)`, and `DOCUMENT_CATEGORIES` is `.keys`, so a category added to the
-  table cannot be missing from the list. Event types left this pattern in
+  table cannot be missing from the list. Post categories left this pattern in
   schema v6 — `taxonomy()` only works over a key set known at compile time, and
   those are rows now. There is no `getThemeMeta` — read
   `THEME_META[key]`, which is all it ever was.
@@ -500,7 +510,7 @@ What's already in place:
   barrel and only ever see plain domain objects. Nothing outside `src/data/`
   references `db`, `dexie`, or `Table`.
 - **IDs are UUID v4** (`ids.ts`), not Dexie auto-increment integers, so
-  foreign keys (`horseId`, `eventId`, …) survive a move to server-assigned
+  foreign keys (`horseId`, `postId`, …) survive a move to server-assigned
   records.
 - **`BaseRecord` already carries `ownerId`, `createdAt`/`updatedAt`, and a
   soft-delete `deletedAt`** (`types.ts`) — put there so adopting a real
@@ -514,7 +524,7 @@ What's already in place:
 - **Reads and writes already flow through a narrow set of seams**: reads via
   `LiveQuery`/`activeHorseQuery` (`live.ts`, `active-horse.ts`), multi-table
   writes via `*.service.ts` rather than raw repo calls. Presentational leaf
-  components (`horse-card`, `event-card`, `day-card`, `budget-card`) never
+  components (`horse-card`, `post-card`, `day-card`, `budget-card`) never
   touch data at all — it arrives as properties.
 
 Watch these before an actual swap — none are bugs at IndexedDB latency, all
@@ -527,11 +537,11 @@ would surface under real network latency:
   `liveQuery` directly, only `LiveQuery`.
 - **Loading almost always collapses into empty.** Most consumers do
   `.value ?? []`/`?? {}` instead of branching on `LiveQuery.loading` (only
-  `EventDetailView` and `HorseView` do). Fine when reads are near-instant;
+  `PostDetailView` and `HorseView` do). Fine when reads are near-instant;
   would flash false-empty state otherwise.
 - **`LiveQuery.error` is never read** past the initial `initData()` failure
   in `app-root.ts`. A read that fails after startup has no UI path today.
-- **No pending/disabled state on writes.** `event-sheet.ts` and
+- **No pending/disabled state on writes.** `post-sheet.ts` and
   `activity-sheet.ts` await their service call without disabling the submit
   control, so double-submit risk grows with latency.
 - **`ProfileView`'s `metaRepo.setNotificationsEnabled` call is `void`**
@@ -579,7 +589,7 @@ would surface under real network latency:
   inheriting the reset and utilities there would promise something untrue.
 - A component that needs a colour from `THEME_META` reads it through a **custom
   property**, which pierces shadow boundaries. `app-tag` used to render light
-  and depend on global `.tag--<type>` rules, which forced `event-card` light and
+  and depend on global `.tag--<type>` rules, which forced `post-card` light and
   therefore every view too; it now sets `--app-tag-color`/`--app-tag-background`
   from `tagStyle(THEME_META[type.theme])`, and `styles/components/tag.css` is
   gone. Don't
@@ -659,7 +669,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   the same or it will look inert.
 
   **`input` is `composed: true`** and crosses the boundary on its own, which is
-  why `EventsView`'s search box binds `@input` straight onto `<app-input>` and
+  why `PostsView`'s search box binds `@input` straight onto `<app-input>` and
   works, with no re-dispatch anywhere in `app-input`. Don't "fix" that by
   adding an `input-change` event, and don't assume the two events behave alike:
   they don't, and the difference is in the spec, not in this codebase.
@@ -716,7 +726,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   tree. It also short-circuits on `prefers-reduced-motion: reduce` by setting
   its progress to 1 and never scheduling a frame — the global reduced-motion
   block in the reset only reaches CSS transitions, not JS animation.
-- **`event-card` has three layouts** (`layout="default" | "dashboard" |
+- **`post-card` has three layouts** (`layout="default" | "dashboard" |
 "budget"`), reflected so its styles can key off the attribute. `default` is
   everything; `dashboard` (HomeView) drops the notes, because a glance-list of
   three appointments should not carry a vet's paragraph; `budget`
@@ -735,7 +745,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   deliberately neither a link nor a button: the week strip is a glance, not a
   way through. `HomeView` holds the query and passes each day its activity.
 - **A component that adapts to its width queries itself**, rather than being
-  told. `event-card` sets `container-type: inline-size` on its own `:host` and
+  told. `post-card` sets `container-type: inline-size` on its own `:host` and
   reflows below `20rem` from an `@container` rule in its own stylesheet — no
   container has to be declared by whoever renders it, and no class describes
   where it sits. Safe there because the host is a block in a grid track, whose
@@ -743,7 +753,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   content-sized host (`app-tag`, `app-chip`, `app-segmented` are all
   `inline-flex`), which the inline-size containment would collapse to nothing.
 
-  This does **not** replace `event-card`'s `layout` attribute. Every list in the
+  This does **not** replace `post-card`'s `layout` attribute. Every list in the
   app is a single full-width column, so the card is exactly as wide on the
   dashboard as in the calendar — `layout` is an editorial choice about how much
   to say, which no measurement can stand in for. Reach for a container query
@@ -778,9 +788,9 @@ message }` for `fieldMessages()` and `describedBy()`.
   DOM typically announces nothing — and `hidden` (like `display: none`) takes an
   element out of the accessibility tree, so unhiding one is the same insertion
   by another name. Keep the region mounted, unhidden and empty, and change what
-  is _inside_ it: `app-update-toast`'s `.toast-region`, `event-sheet`'s
-  `.event-form__error-region` and `EventDetailView`'s
-  `.event-detail__error-region` are all `display: contents` wrappers that cost
+  is _inside_ it: `app-update-toast`'s `.toast-region`, `post-sheet`'s
+  `.post-form__error-region` and `PostDetailView`'s
+  `.post-detail__error-region` are all `display: contents` wrappers that cost
   no layout while empty — which is what makes never hiding them affordable, even
   inside a `flex` column with a `gap`.
 - **A field's error message is not a live region, and carries no role.**
@@ -798,11 +808,11 @@ message }` for `fieldMessages()` and `describedBy()`.
   normally gates the message. An `error` set from outside is not waiting on the
   user's turn: it is the app stating a verdict, so
   `FormControl.setExternalError()` marks the field touched itself. That is the
-  only reason a `novalidate` form works at all — and `event-sheet` is one, it
+  only reason a `novalidate` form works at all — and `post-sheet` is one, it
   has to be, because the reader in `data/forms.ts` owns the rules. Submitting it
   empty once did _nothing visible_: `readForm` produced every message, each
   reached its field as `error`, and not one was displayed.
-  `event-sheet.test.ts` pins that, including a `maxLength` failure the browser
+  `post-sheet.test.ts` pins that, including a `maxLength` failure the browser
   itself considers valid — reveal must not route through native validity.
   All a form still owns is focus: `#focusFirstError()`. Never
   `reportValidity()`, which stacks the browser's own bubble on top of the
@@ -859,7 +869,7 @@ message }` for `fieldMessages()` and `describedBy()`.
     bar's items stay lined up with the content above them on a wide window.
     `.main-content` is deliberately **not** also a `container-type: inline-size`
     container — that implies `contain: layout`, and `HorseView` and
-    `EventDetailView` render `<dialog>`-based components _inside_ `<main>`. Add
+    `PostDetailView` render `<dialog>`-based components _inside_ `<main>`. Add
     it when a rule needs it, with a test on the sheet's geometry.
   - Shadow-root utilities: `.visually-hidden` lives in one file,
     `styles/layers/component-utilities.css` — `main.css` imports it straight
@@ -984,7 +994,7 @@ public/
   from `commons/scroll-lock.ts` on open and releases it on close and on
   teardown. Nothing else should touch `html.scroll-locked`. It lives in the
   controller rather than in a `html:has(app-modal[open])` rule because
-  `event-sheet` and `document-viewer` both nest their dialog inside a shadow
+  `post-sheet` and `document-viewer` both nest their dialog inside a shadow
   root, where document CSS cannot see it. The companion half is
   `overscroll-behavior: contain` on `.dialog__body`, which stops a flick that
   runs out of dialog from chaining to the page.
@@ -1029,7 +1039,7 @@ chromium`; locally it is the same command, once.
   down. The `beforeRender` throws -> `location.href` fallback is deliberately
   left uncovered: it asks for a real page load, which no component fixture can
   survive. It needs a Playwright test against `npm run preview`.
-- `src/components/event-sheet/event-sheet.test.ts` covers the failed-submit
+- `src/components/post-sheet/post-sheet.test.ts` covers the failed-submit
   path — the one that used to fail _silently_, showing the user nothing while
   every field had been told it was wrong. It seeds a horse through
   `data/__tests__/factories.ts`; component tests run against the browser's real
@@ -1048,7 +1058,7 @@ by resolving`updateComplete`with`false`. Awaiting once lands mid-cascade.
   `occurrencesByDate` walks `end`, so a half-built literal fails inside date
   arithmetic rather than at the boundary. See `calendarEvent()` in
   `app-calendar.test.ts`.
-- Repository tests share `src/data/__tests__/factories.ts`: `makeHorse`/`makeEvent`
+- Repository tests share `src/data/__tests__/factories.ts`: `makeHorse`/`makePost`
   /`makeRation`/`makeDocument` build whole records, and `resetDb()` clears every
   table and re-establishes the owner id (`createRecord` throws without one).
   Build fixtures with the factories rather than the repositories — a test often

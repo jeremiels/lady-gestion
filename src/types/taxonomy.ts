@@ -8,7 +8,7 @@ import { THEME_META, type ThemeKey, type ThemeMeta } from "../theme/theme.ts";
  * `DocumentCategory` (`document.types.ts`) is a closed, compile-time taxonomy
  * with exactly this shape. Event types used to be the same — a
  * `Record<EventTypeKey, TaxonomyMeta>` in `event.types.ts` — until schema v6
- * turned them into user-visible data (`EventTypeDef` in `data/types.ts`,
+ * turned them into user-visible data (`Category` in `data/types.ts`,
  * which restates `label`/`icon`/`theme` as real columns rather than reading
  * this shared type, since a `taxonomy()` table only makes sense over a closed,
  * compile-time key set).

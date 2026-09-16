@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
 import { addMonths, todayISO } from "../data/index.ts";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
-  makeEvent,
+  BUILT_IN_CATEGORY_ROWS,
+  makePost,
   makeHorse,
   resetDb,
 } from "../data/__tests__/factories.ts";
@@ -15,14 +15,14 @@ import type { BudgetView } from "./BudgetView.ts";
 /** Label lookup for the real 14 built-ins, standing in for `eventType.label`
  * now that a type's label is data rather than a compile-time table. */
 const LABEL_OF = new Map(
-  BUILT_IN_EVENT_TYPE_ROWS.map((type) => [type.key, type.label]),
+  BUILT_IN_CATEGORY_ROWS.map((type) => [type.key, type.label]),
 );
 const labelOf = (key: string): string => LABEL_OF.get(key) ?? "";
 
 const mount = () => fixture<BudgetView>(html`<budget-view></budget-view>`);
 
 const ledgerIds = (el: BudgetView) =>
-  [...el.querySelectorAll("event-card")].map((card) => card.event?.id).sort();
+  [...el.querySelectorAll("post-card")].map((card) => card.post?.id).sort();
 
 const setGranularity = async (el: BudgetView, value: "month" | "year") => {
   el.querySelector("app-segmented")!.dispatchEvent(
@@ -58,9 +58,9 @@ const toggleLegend = async (el: BudgetView, type: string) => {
  * restore.
  */
 const nest = async (childKey: string, parentKey: string) => {
-  const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
-  const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
-  await db.eventTypes.put({ ...child, parentId: parent.id, theme: null });
+  const child = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === childKey)!;
+  const parent = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === parentKey)!;
+  await db.categories.put({ ...child, parentId: parent.id, theme: null });
 };
 
 const legendLabels = (el: BudgetView) =>
@@ -89,28 +89,28 @@ beforeEach(async () => {
 
 describe("budget-view", () => {
   it("defaults to this month, split by type, and drops a cancelled entry", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "this-month-veto",
-        type: "veto",
+        categoryKey: "veto",
         date: todayISO(),
         customFields: { amountCents: 4000 },
       }),
-      makeEvent({
+      makePost({
         id: "this-month-marechal",
-        type: "marechal",
+        categoryKey: "marechal",
         date: todayISO(),
         customFields: { amountCents: 6000 },
       }),
-      makeEvent({
+      makePost({
         id: "last-month",
-        type: "veto",
+        categoryKey: "veto",
         date: addMonths(todayISO(), -1),
         customFields: { amountCents: 9999 },
       }),
-      makeEvent({
+      makePost({
         id: "cancelled",
-        type: "veto",
+        categoryKey: "veto",
         date: todayISO(),
         customFields: { amountCents: 1000 },
         status: "cancelled",
@@ -121,7 +121,7 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
 
@@ -133,20 +133,20 @@ describe("budget-view", () => {
   });
 
   it("switching to year widens the period without reaching into last year", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "this-month",
         date: todayISO(),
         customFields: { amountCents: 1000 },
       }),
-      makeEvent({
+      makePost({
         id: "last-month",
         date: addMonths(todayISO(), -1),
         customFields: { amountCents: 2000 },
       }),
       // 13 months back always lands outside the current year, whatever month
       // this test happens to run in.
-      makeEvent({
+      makePost({
         id: "last-year",
         date: addMonths(todayISO(), -13),
         customFields: { amountCents: 3000 },
@@ -157,7 +157,7 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
     expect(ledgerIds(el)).toEqual(["this-month"]);
@@ -176,13 +176,13 @@ describe("budget-view", () => {
    */
   it("reopens on the period the visit was left on, month and year still held apart", async () => {
     const lastYear = addMonths(todayISO(), -13);
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "this-month",
         date: todayISO(),
         customFields: { amountCents: 1000 },
       }),
-      makeEvent({
+      makePost({
         id: "back-then",
         date: lastYear,
         customFields: { amountCents: 3000 },
@@ -193,7 +193,7 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
     await switchToYear(el);
@@ -203,7 +203,7 @@ describe("budget-view", () => {
     const reopened = await mount();
     await waitFor(
       reopened,
-      () => reopened.querySelectorAll("event-card").length > 0,
+      () => reopened.querySelectorAll("post-card").length > 0,
     );
     expect(ledgerIds(reopened)).toEqual(["back-then"]);
 
@@ -228,13 +228,13 @@ describe("budget-view", () => {
    * order is what proves it never had to move one.
    */
   it("keeps surviving rows as the same nodes, in order, when switching Mois to Année", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "this-month",
         date: todayISO(),
         customFields: { amountCents: 1000 },
       }),
-      makeEvent({
+      makePost({
         id: "last-month",
         date: addMonths(todayISO(), -1),
         customFields: { amountCents: 2000 },
@@ -245,13 +245,13 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
 
     const rowFor = (id: string) =>
       [...el.querySelectorAll(".budget-view__list > li")].find(
-        (li) => li.querySelector("event-card")?.event?.id === id,
+        (li) => li.querySelector("post-card")?.post?.id === id,
       );
     const before = rowFor("this-month");
     expect(before).toBeDefined();
@@ -259,9 +259,10 @@ describe("budget-view", () => {
     await switchToYear(el);
 
     const after = [...el.querySelectorAll(".budget-view__list > li")];
-    expect(
-      after.map((li) => li.querySelector("event-card")?.event?.id),
-    ).toEqual(["this-month", "last-month"]);
+    expect(after.map((li) => li.querySelector("post-card")?.post?.id)).toEqual([
+      "this-month",
+      "last-month",
+    ]);
     expect(after[0]).toBe(before);
   });
   /**
@@ -274,16 +275,16 @@ describe("budget-view", () => {
    * zero.
    */
   it("muting a legend category takes it out of the ring but not out of the ledger", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "veto",
-        type: "veto",
+        categoryKey: "veto",
         date: todayISO(),
         customFields: { amountCents: 4000 },
       }),
-      makeEvent({
+      makePost({
         id: "marechal",
-        type: "marechal",
+        categoryKey: "marechal",
         date: todayISO(),
         customFields: { amountCents: 6000 },
       }),
@@ -293,7 +294,7 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
     expect(legendFor(el, "veto").getAttribute("aria-pressed")).toBe("true");
@@ -312,16 +313,16 @@ describe("budget-view", () => {
   });
 
   it("tapping a muted category again brings it back", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "veto",
-        type: "veto",
+        categoryKey: "veto",
         date: todayISO(),
         customFields: { amountCents: 4000 },
       }),
-      makeEvent({
+      makePost({
         id: "marechal",
-        type: "marechal",
+        categoryKey: "marechal",
         date: todayISO(),
         customFields: { amountCents: 6000 },
       }),
@@ -331,7 +332,7 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
 
@@ -346,26 +347,26 @@ describe("budget-view", () => {
    * The other half of what `ViewState` buys, alongside the period: a category
    * muted here is still muted after drilling into a row and pressing Retour —
    * two mounts standing in for the element `app-root` tears down and rebuilds —
-   * and it survives a change of period, where `sumByType` simply never offers a
+   * and it survives a change of period, where `sumByCategory` simply never offers a
    * category the new period has nothing in.
    */
   it("remembers muted categories across a period change and a remount", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "this-month",
-        type: "veto",
+        categoryKey: "veto",
         date: todayISO(),
         customFields: { amountCents: 4000 },
       }),
-      makeEvent({
+      makePost({
         id: "last-month",
-        type: "veto",
+        categoryKey: "veto",
         date: addMonths(todayISO(), -1),
         customFields: { amountCents: 5000 },
       }),
-      makeEvent({
+      makePost({
         id: "marechal",
-        type: "marechal",
+        categoryKey: "marechal",
         date: todayISO(),
         customFields: { amountCents: 6000 },
       }),
@@ -375,7 +376,7 @@ describe("budget-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll(".budget-view__legend-item").length > 0,
     );
     await toggleLegend(el, "veto");
@@ -387,7 +388,7 @@ describe("budget-view", () => {
     await waitFor(
       reopened,
       () =>
-        reopened.querySelectorAll("event-card").length > 0 &&
+        reopened.querySelectorAll("post-card").length > 0 &&
         reopened.querySelectorAll(".budget-view__legend-item").length > 0,
     );
     expect(hiddenInChart(reopened)).toEqual(["veto"]);
@@ -398,7 +399,12 @@ describe("budget-view", () => {
 
   describe("with a nested type catalogue", () => {
     const spend = (id: string, type: string, amountCents: number) =>
-      makeEvent({ id, type, date: todayISO(), customFields: { amountCents } });
+      makePost({
+        id,
+        categoryKey: type,
+        date: todayISO(),
+        customFields: { amountCents },
+      });
 
     const openWithSpend = async () => {
       const el = await mount();
@@ -412,7 +418,7 @@ describe("budget-view", () => {
     beforeEach(async () => {
       await nest("osteo", "soins");
       await nest("dentiste", "soins");
-      await db.events.bulkAdd([
+      await db.posts.bulkAdd([
         spend("care", "soins", 1000),
         spend("checkup", "osteo", 2000),
         spend("teeth", "dentiste", 500),

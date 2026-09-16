@@ -106,7 +106,7 @@ const restore = <T extends object>(
  * Drops every view's stored bag from the current entry.
  *
  * For the test fixture, and load-bearing there: the whole run shares the
- * runner's one history entry, so a test that switches `EventsView` to list mode
+ * runner's one history entry, so a test that switches `PostsView` to list mode
  * would otherwise leave that behind for the next test's mount to restore —
  * breaking assertions about the default state, from a different file, with
  * nothing pointing at the cause.
@@ -122,7 +122,7 @@ export const clearViewState = (): void => {
  * Holds `T` for the host and keeps it on the history entry.
  *
  * A typed bag rather than a list of host property names to mirror: the fields
- * this replaces are `@state() private`, so they are not in `keyof EventsView`
+ * this replaces are `@state() private`, so they are not in `keyof PostsView`
  * and a "persist these properties" controller could only be written with casts
  * nothing checks. The bag being the state also means a field added to `T` is
  * persisted without anyone remembering to add it anywhere else.

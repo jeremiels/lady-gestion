@@ -1,10 +1,11 @@
 ---
-name: event-types
-description: Add, edit, nest, or re-theme an event type in lady-gestion's built-in catalogue. Use when asked to create a new event type, change a type's label/icon/colour/fields, file one type under another, give a type a new kind of form field, or when a change to `BUILT_IN_EVENT_TYPES` needs a schema migration to reach devices that already have the row.
+name: categories
+description: Add, edit, nest, or re-theme a post category (formerly "event type") in lady-gestion's built-in catalogue. Use when asked to create a new category, change a category's label/icon/colour/fields, file one type under another, give a type a new kind of form field, or when a change to `BUILT_IN_CATEGORIES` needs a schema migration to reach devices that already have the row.
 ---
 
-Event types stopped being a compile-time union in schema v6: they are rows in
-the `eventTypes` table, seeded from one array. Adding or editing one is
+Categories (called event types until schema v13) stopped being a compile-time
+union in schema v6: they are rows in the `categories` table (`eventTypes` up to
+v12), seeded from one array. A `Post` points at one through `categoryKey`. Adding or editing one is
 therefore a **data** change, not a code change — but only if you touch the four
 places that have to agree, and avoid the three traps below.
 
@@ -15,14 +16,14 @@ design this implements, and `AGENTS.md` for the repo's conventions.
 
 | What               | Where                                                                                                                |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| The row type       | `EventTypeDef`, `src/data/types.ts`                                                                                  |
-| The seed catalogue | `BUILT_IN_EVENT_TYPES`, `src/data/event-types.ts`                                                                    |
-| Seeding            | `seedEventTypeDefs`, same file                                                                                       |
+| The row type       | `Category`, `src/data/types.ts`                                                                                      |
+| The seed catalogue | `BUILT_IN_CATEGORIES`, `src/data/categories.ts`                                                                      |
+| Seeding            | `seedCategories`, same file                                                                                          |
 | Pure helpers       | `resolveCatalogue`, `rootsOf`, `childrenOf`, `subtreeKeys`, `canBeParentOf`, `fieldById`, `fieldWithRole`, same file |
-| Write paths        | `src/data/repositories/event-types.repo.ts` (`setParent`, `remove`)                                                  |
-| Test fixtures      | `BUILT_IN_EVENT_TYPE_ROWS`, `src/data/__tests__/factories.ts`                                                        |
+| Write paths        | `src/data/repositories/categories.repo.ts` (`setParent`, `remove`)                                                   |
+| Test fixtures      | `BUILT_IN_CATEGORY_ROWS`, `src/data/__tests__/factories.ts`                                                          |
 
-`seedEventTypeDefs` stamps each row with **`id = def.key`**, deliberately: a
+`seedCategories` stamps each row with **`id = def.key`**, deliberately: a
 fresh install, a live upgrade and a backup restore all seed the same catalogue,
 and `importBackup` merges per `id`. A random id would make those three produce
 three different rows for the same type and double them on restore.
@@ -30,27 +31,27 @@ three different rows for the same type and double them on restore.
 Three call sites seed, and they must agree: `src/data/seed.ts` (fresh install),
 `src/data/db.ts`'s v6 upgrade (live), `src/data/backup/snapshot.ts`'s
 `migrateSnapshot` (restore). They already do, because all three call
-`seedEventTypeDefs`. Keep it that way.
+`seedCategories`. Keep it that way.
 
 ## Adding a type
 
-One entry in `BUILT_IN_EVENT_TYPES`. Every field:
+One entry in `BUILT_IN_CATEGORIES`. Every field:
 
-| Field           | Notes                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `key`           | The slug `HorseEvent.type` stores. **Immutable once shipped** — an event keeps it after the row is gone |
-| `label`         | French, shown as-is. There is no i18n layer                                                             |
-| `parentId`      | The parent row's `id`, or `null`. See below                                                             |
-| `icon`          | An `IconName`, or `null` to inherit                                                                     |
-| `theme`         | A `ThemeKey`, or `null` to inherit                                                                      |
-| `isBuiltIn`     | `true` for anything in this array                                                                       |
-| `isAppointment` | Puts it in the home view's "Rendez-vous à venir"                                                        |
-| `tracksWork`    | Makes it the week strip's work session                                                                  |
-| `archived`      | Declared and seeded; **nothing filters on it yet**                                                      |
-| `order`         | Budget donut and legend order                                                                           |
-| `fields`        | Beyond the fixed date/status/location/notes                                                             |
+| Field           | Notes                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| `key`           | The slug `Post.categoryKey` stores. **Immutable once shipped** — an event keeps it after the row is gone |
+| `label`         | French, shown as-is. There is no i18n layer                                                       |
+| `parentId`      | The parent row's `id`, or `null`. See below                                                       |
+| `icon`          | An `IconName`, or `null` to inherit                                                               |
+| `theme`         | A `ThemeKey`, or `null` to inherit                                                                |
+| `isBuiltIn`     | `true` for anything in this array                                                                 |
+| `isAppointment` | Puts it in the home view's "Rendez-vous à venir"                                                  |
+| `tracksWork`    | Makes it the week strip's work session                                                            |
+| `archived`      | Declared and seeded; **nothing filters on it yet**                                                |
+| `order`         | Budget donut and legend order                                                                     |
+| `fields`        | Beyond the fixed date/status/location/notes                                                       |
 
-Reuse the field builders at the top of `event-types.ts` rather than writing
+Reuse the field builders at the top of `categories.ts` rather than writing
 literals: `counterpartyField(label)`, `amountField()`, `followUpField()`,
 `activityField()`, `quantityField()`, and `careFields()` for the
 practitioner + follow-up + budget trio the six care types share.
@@ -62,8 +63,8 @@ They replaced a hardcoded `APPOINTMENT_TYPES` set and hardcoded
 ## Nesting a type
 
 `parentId` holds the parent's **`id`**, not its `key` — unlike
-`HorseEvent.type`, and the difference is deliberate (`src/data/types.ts` says
-why). In `BUILT_IN_EVENT_TYPES` a literal slug works only because a seeded
+`Post.categoryKey`, and the difference is deliberate (`src/data/types.ts` says
+why). In `BUILT_IN_CATEGORIES` a literal slug works only because a seeded
 built-in has `id === key`; say so in a comment where you write one.
 
 Rules, all enforced by `canBeParentOf`:
@@ -78,7 +79,7 @@ Rules, all enforced by `canBeParentOf`:
   tells siblings apart inside a group. Overriding later is a data edit, not a
   migration.
 
-At runtime, `eventTypesRepo.setParent` is the only path that may create a link,
+At runtime, `categoriesRepo.setParent` is the only path that may create a link,
 and `remove` promotes children back to roots (materialising the presentation
 they were inheriting) so deleting a parent never repaints its children.
 
@@ -105,7 +106,7 @@ Two worked templates, both still in the tree:
 - **v7** — the content of one seeded row changes (`alimentation` gains a
   `quantity` field). Addressed by `key`; guarded against double-adding.
 - **v9** — two rows gain a parent. Payload shared as `SCHEMA_V9_NESTINGS`
-  (`event-types.ts`) so the two halves cannot drift, the same way v6 shares
+  (`categories.ts`) so the two halves cannot drift, the same way v6 shares
   `migrateEventToCustomFields`.
 
 Non-negotiables in a migration step:
@@ -150,17 +151,17 @@ do" — `text`, `cents` and `bool` are the general-purpose three.
 If you must, six sites:
 
 1. `FieldControl`, `src/data/types.ts`
-2. `EVENT_SCHEMA` (the flat parser table) in `src/components/event-sheet/event-sheet.ts`
+2. `EVENT_SCHEMA` (the flat parser table) in `src/components/post-sheet/post-sheet.ts`
 3. a render branch and a `#render*` method in the same file
-4. `eventFields`, `src/data/services/events.service.ts` — which `customFields`
+4. `postFields`, `src/data/services/posts.service.ts` — which `customFields`
    key the value lands in
-5. `#infoRows`, `src/views/EventDetailView.ts` — reading it back for display
-6. a parser in `src/data/forms.ts`; cross-field rules go in `src/data/events.ts`
+5. `#infoRows`, `src/views/PostDetailView.ts` — reading it back for display
+6. a parser in `src/data/forms.ts`; cross-field rules go in `src/data/posts.ts`
    as pure functions, on the model of `quantityPairErrors`
 
 ## Gotchas
 
-- **`BUILT_IN_EVENT_TYPE_ROWS` prefixes every id.** Test fixtures use
+- **`BUILT_IN_CATEGORY_ROWS` prefixes every id.** Test fixtures use
   `event-type-<key>`, so `parentId` has to be remapped through the same prefix
   (`factories.ts` does this). Skipping it leaves a dangling link, and the
   failure is **silent**: `resolveCatalogue` reads an unresolvable parent as a
@@ -176,7 +177,7 @@ If you must, six sites:
   only safe for `followUp` and `workActivity`, which are singletons by
   construction; for `counterparty`, `amountCents` and `quantity` it resolves to
   whichever field of that kind comes first.
-- **`event-types.ts` and `events.ts` must not import each other.** Either
+- **`categories.ts` and `posts.ts` must not import each other.** Either
   direction is circular the moment the other reaches back. Join them at the call
   site.
 - **`archived` is seeded but not honoured.** `listAll` filters `deletedAt` only.
@@ -202,11 +203,11 @@ things a unit test sees:
 
 ```bash
 node .claude/skills/run-lady-gestion/driver.mjs <<'EOF'
-nav /events
+nav /posts
 wait app-chip
-$ .events-view__filters app-chip
+$ .posts-view__filters app-chip
 click app-chip[label="Alimentation"]
-$ .events-view__filters--nested app-chip
+$ .posts-view__filters--nested app-chip
 ss chips
 nav /budget
 wait app-donut-chart

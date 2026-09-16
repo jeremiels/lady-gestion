@@ -5,7 +5,7 @@ import * as horsesRepo from "./repositories/horses.repo.ts";
 /**
  * A `LiveQuery` over something the active horse owns.
  *
- *     activeHorseQuery(this, (horseId) => eventsRepo.listByHorse(horseId), []);
+ *     activeHorseQuery(this, (horseId) => postsRepo.listByHorse(horseId), []);
  *
  * @param host  The view subscribing to the query.
  * @param query Runs only when there is an active horse.

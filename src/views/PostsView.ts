@@ -6,9 +6,9 @@ import { ViewState } from "../commons/controllers/view-state.ts";
 import {
   activeHorseQuery,
   byLabel,
-  eventsRepo,
-  eventTypesRepo,
-  findEventType,
+  postsRepo,
+  categoriesRepo,
+  findCategory,
   formatDayLong,
   formatMonthYear,
   LiveQuery,
@@ -20,16 +20,16 @@ import {
   subtreeKeys,
   todayISO,
   type IsoDate,
-  type ResolvedEventType,
+  type ResolvedCategory,
 } from "../data/index.ts";
-import type { HorseEvent } from "../data/types.ts";
+import type { Post } from "../data/types.ts";
 import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
 
 import "../components/app-calendar/app-calendar.ts";
 import "../components/app-chip/app-chip.ts";
 import "../components/app-input/app-input.ts";
 import "../components/app-segmented/app-segmented.ts";
-import "../components/event-card/event-card.ts";
+import "../components/post-card/post-card.ts";
 
 type ViewMode = "calendar" | "list";
 
@@ -39,12 +39,12 @@ type ViewMode = "calendar" | "list";
  * opening an event and pressing Retour; a fresh visit from the nav bar is a new
  * history entry and so starts from the defaults below.
  */
-type EventsUiState = {
+type PostsUiState = {
   mode: ViewMode;
   selected: IsoDate;
   query: string;
   /** `null` is the "Tous" chip. */
-  typeFilter: string | null;
+  categoryFilter: string | null;
 };
 
 const VIEW_MODES: SegmentedOption[] = [
@@ -62,13 +62,13 @@ const normalize = (value: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase();
 
-@customElement("events-view")
-export class EventsView extends LightElement {
-  #ui = new ViewState<EventsUiState>(this, "events", () => ({
+@customElement("posts-view")
+export class PostsView extends LightElement {
+  #ui = new ViewState<PostsUiState>(this, "posts", () => ({
     mode: "calendar",
     selected: todayISO(),
     query: "",
-    typeFilter: null,
+    categoryFilter: null,
   }));
 
   /**
@@ -78,17 +78,17 @@ export class EventsView extends LightElement {
    * read is written to — paging to another month, typing in the search box or
    * picking a chip is component state, not a write, so a query narrowed by any
    * of those would go stale. Filtering in memory is correct and cheap at this
-   * size; swap in `eventsRepo.listInRange` with an explicit re-subscribe if the
+   * size; swap in `postsRepo.listInRange` with an explicit re-subscribe if the
    * row count ever makes that worthwhile.
    */
-  #events = activeHorseQuery<HorseEvent[]>(
+  #events = activeHorseQuery<Post[]>(
     this,
-    (horseId) => eventsRepo.listByHorse(horseId),
+    (horseId) => postsRepo.listByHorse(horseId),
     [],
   );
 
-  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
-    eventTypesRepo.listResolved(),
+  #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
+    categoriesRepo.listResolved(),
   );
 
   #onModeChange = (event: CustomEvent<{ value: string }>) => {
@@ -104,22 +104,23 @@ export class EventsView extends LightElement {
   };
 
   #onFilter = (type: string | null) => () => {
-    this.#ui.patch({ typeFilter: type });
+    this.#ui.patch({ categoryFilter: type });
   };
 
   /** Cancelled events are hidden here for the same reason the calendar hides them. */
-  #visibleEvents(types: ResolvedEventType[]): HorseEvent[] {
-    const { query, typeFilter } = this.#ui.value;
+  #visiblePosts(types: ResolvedCategory[]): Post[] {
+    const { query, categoryFilter } = this.#ui.value;
     const needle = normalize(query.trim());
 
     // A root chip covers its children too — `subtreeKeys` is a singleton for a
-    // type with none, which is exactly the `event.type === typeFilter` this
+    // type with none, which is exactly the `event.categoryKey === categoryFilter` this
     // replaces on a flat catalogue.
-    const keys = typeFilter === null ? null : subtreeKeys(types, typeFilter);
+    const keys =
+      categoryFilter === null ? null : subtreeKeys(types, categoryFilter);
 
     return (this.#events.value ?? []).filter((event) => {
       if (event.status === "cancelled") return false;
-      if (keys && !keys.has(event.type)) return false;
+      if (keys && !keys.has(event.categoryKey)) return false;
       if (!needle) return true;
 
       const haystack = [
@@ -129,18 +130,18 @@ export class EventsView extends LightElement {
           ? event.customFields.counterparty
           : "",
         event.location ?? "",
-        findEventType(types, event.type)?.label ?? "",
+        findCategory(types, event.categoryKey)?.label ?? "",
       ].join(" ");
       return normalize(haystack).includes(needle);
     });
   }
 
   render() {
-    const types = this.#eventTypes.value ?? [];
+    const types = this.#categories.value ?? [];
 
     return html`
-      <section class="events-view">
-        <header class="events-view__header">
+      <section class="posts-view">
+        <header class="posts-view__header">
           <hgroup class="section-group">
             <h1 class="section-title" tabindex="-1">Activités</h1>
             <p class="section-subtitle">Récap des activités</p>
@@ -165,7 +166,7 @@ export class EventsView extends LightElement {
     `;
   }
 
-  #renderCalendar(types: ResolvedEventType[]) {
+  #renderCalendar(types: ResolvedCategory[]) {
     const { selected } = this.#ui.value;
     const events = this.#events.value ?? [];
     const calendarEvents = events.map(toCalendarEvent);
@@ -176,36 +177,34 @@ export class EventsView extends LightElement {
     const byUid = new Map(events.map((event) => [event.id, event]));
     const dayEvents = (occurrences.get(selected) ?? [])
       .map((occurrence) => byUid.get(occurrence.uid))
-      .filter((event): event is HorseEvent => event !== undefined);
+      .filter((event): event is Post => event !== undefined);
 
     return html`
       <app-calendar
-        class="container events-view__calendar"
+        class="container posts-view__calendar"
         .events=${calendarEvents}
         .value=${selected}
         @date-select=${this.#onDateSelect}
       ></app-calendar>
 
-      <section class="events-view__day">
-        <h2 class="events-view__group-title">${formatDayLong(selected)}</h2>
+      <section class="posts-view__day">
+        <h2 class="posts-view__group-title">${formatDayLong(selected)}</h2>
         ${
           dayEvents.length === 0
-            ? html`<p class="events-view__empty">
-                Aucun évènement ce jour-là.
-              </p>`
+            ? html`<p class="posts-view__empty">Aucun évènement ce jour-là.</p>`
             : this.#renderCards(dayEvents, types)
         }
       </section>
     `;
   }
 
-  #renderList(types: ResolvedEventType[]) {
+  #renderList(types: ResolvedCategory[]) {
     const { query } = this.#ui.value;
-    const events = this.#visibleEvents(types);
+    const events = this.#visiblePosts(types);
 
     // `listByHorse` already returns newest first, so grouping in order gives
     // months descending and, inside each, days descending.
-    const months = new Map<string, HorseEvent[]>();
+    const months = new Map<string, Post[]>();
     for (const event of events) {
       const month = event.date.slice(0, 7);
       const group = months.get(month);
@@ -215,7 +214,7 @@ export class EventsView extends LightElement {
 
     return html`
       <app-input
-        class="events-view__search"
+        class="posts-view__search"
         label="Rechercher un évènement"
         hide-label
         type="search"
@@ -228,15 +227,15 @@ export class EventsView extends LightElement {
       ${this.#renderFilters(types)}
       ${
         months.size === 0
-          ? html`<p class="events-view__empty">
+          ? html`<p class="posts-view__empty">
               Aucun évènement ne correspond.
             </p>`
           : repeat(
               months,
               ([month]) => month,
               ([month, group]) => html`
-                <section class="events-view__group">
-                  <h2 class="events-view__group-title">
+                <section class="posts-view__group">
+                  <h2 class="posts-view__group-title">
                     ${formatMonthYear(`${month}-01`)}
                   </h2>
                   ${this.#renderCards(group, types)}
@@ -254,29 +253,29 @@ export class EventsView extends LightElement {
    * Roots only on the first row because a child's chip beside its parent's
    * would filter a subset of what the parent already covers, in the same
    * colour, in a row that is already wide enough to scroll. Selecting a root
-   * takes its whole subtree (`#visibleEvents`), and the second row is how you
+   * takes its whole subtree (`#visiblePosts`), and the second row is how you
    * narrow to one child from there — so nothing becomes unreachable, it moves
    * one tap away.
    *
    * A flat catalogue is every type being a root, so this renders exactly the
    * row it did before types could nest, and the second row never appears.
    */
-  #renderFilters(types: ResolvedEventType[]) {
-    const { typeFilter } = this.#ui.value;
+  #renderFilters(types: ResolvedCategory[]) {
+    const { categoryFilter } = this.#ui.value;
     const selected =
-      typeFilter === null ? undefined : findEventType(types, typeFilter);
+      categoryFilter === null ? undefined : findCategory(types, categoryFilter);
     const root = selected ? rootOf(types, selected) : undefined;
     const children = root ? childrenOf(types, root.id) : [];
 
     return html`
       <div
-        class="events-view__filters"
+        class="posts-view__filters"
         role="group"
         aria-label="Filtrer par type"
       >
         <app-chip
           label="Tous"
-          ?selected=${typeFilter === null}
+          ?selected=${categoryFilter === null}
           @click=${this.#onFilter(null)}
         ></app-chip>
         ${byLabel(rootsOf(types)).map(
@@ -295,20 +294,20 @@ export class EventsView extends LightElement {
           ? nothing
           : html`
               <div
-                class="events-view__filters events-view__filters--nested"
+                class="posts-view__filters posts-view__filters--nested"
                 role="group"
                 aria-label="Filtrer dans ${root.label}"
               >
                 <app-chip
                   label="Tous"
-                  ?selected=${typeFilter === root.key}
+                  ?selected=${categoryFilter === root.key}
                   @click=${this.#onFilter(root.key)}
                 ></app-chip>
                 ${byLabel(children).map(
                   (child) => html`
                     <app-chip
                       label=${child.label}
-                      ?selected=${typeFilter === child.key}
+                      ?selected=${categoryFilter === child.key}
                       @click=${this.#onFilter(child.key)}
                     ></app-chip>
                   `,
@@ -328,18 +327,18 @@ export class EventsView extends LightElement {
    * record and re-renders all of them, rather than dropping the handful that
    * stopped matching. `repeat()` moves the DOM instead.
    */
-  #renderCards(events: HorseEvent[], types: ResolvedEventType[]) {
+  #renderCards(events: Post[], types: ResolvedCategory[]) {
     return html`
-      <ul class="events-view__list">
+      <ul class="posts-view__list">
         ${repeat(
           events,
           (event) => event.id,
           (event) => html`
             <li>
-              <event-card
-                .event=${event}
-                .type=${findEventType(types, event.type) ?? null}
-              ></event-card>
+              <post-card
+                .post=${event}
+                .category=${findCategory(types, event.categoryKey) ?? null}
+              ></post-card>
             </li>
           `,
         )}

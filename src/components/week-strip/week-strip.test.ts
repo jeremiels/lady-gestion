@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../data/db.ts";
 import { addDays, startOfWeek, todayISO } from "../../data/index.ts";
 import {
-  makeEvent,
+  makePost,
   makeHorse,
   resetDb,
 } from "../../data/__tests__/factories.ts";
@@ -58,19 +58,19 @@ describe("week-strip", () => {
     const monday = startOfWeek(todayISO(), 1);
     const wednesday = addDays(monday, 2);
 
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "work",
-        type: "travail",
+        categoryKey: "travail",
         date: wednesday,
         customFields: { activity: "trotting" },
       }),
       // Same day, not a session: the strip is about work, not the whole agenda.
-      makeEvent({ id: "care", type: "veto", date: wednesday }),
+      makePost({ id: "care", categoryKey: "veto", date: wednesday }),
       // Next week — outside the range the query asks for.
-      makeEvent({
+      makePost({
         id: "next-week",
-        type: "travail",
+        categoryKey: "travail",
         date: addDays(monday, 7),
         customFields: { activity: "liberte" },
       }),
@@ -90,12 +90,12 @@ describe("week-strip", () => {
     const monday = startOfWeek(todayISO(), 1);
     const wednesday = addDays(monday, 2);
 
-    await db.events.bulkAdd([
-      makeEvent({ id: "lesson", type: "cours", date: wednesday }),
+    await db.posts.bulkAdd([
+      makePost({ id: "lesson", categoryKey: "cours", date: wednesday }),
       // A cancelled lesson did not happen — must not light up its day.
-      makeEvent({
+      makePost({
         id: "cancelled-lesson",
-        type: "cours",
+        categoryKey: "cours",
         date: addDays(monday, 4),
         status: "cancelled",
       }),
@@ -111,10 +111,10 @@ describe("week-strip", () => {
 
   it("shows a user’s own activity by the label it stores", async () => {
     const wednesday = addDays(startOfWeek(todayISO(), 1), 2);
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "work",
-        type: "travail",
+        categoryKey: "travail",
         date: wednesday,
         customFields: { activity: "Carrière" },
       }),
@@ -149,10 +149,10 @@ describe("week-strip", () => {
 
   it("hands the sheet the session the tapped day is showing", async () => {
     const wednesday = addDays(startOfWeek(todayISO(), 1), 2);
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "work",
-        type: "travail",
+        categoryKey: "travail",
         date: wednesday,
         customFields: { activity: "trotting" },
       }),

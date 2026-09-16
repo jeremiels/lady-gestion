@@ -10,7 +10,7 @@ import { Router } from "./commons/controllers/router.ts";
 import { initData } from "./data/index.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
-import { appHref } from "./commons/base-path.ts";
+import { appHref, toAppPath } from "./commons/base-path.ts";
 import {
   customizeRouteOf,
   customizeTransitionType,
@@ -49,8 +49,14 @@ type Route = {
   render: (path: string) => TemplateResult;
 };
 
-/** `/events/<id>`. Also how the view's id is sliced back off the path. */
-const EVENT_DETAIL_PREFIX = "/events/";
+/** `/posts/<id>`. Also how the view's id is sliced back off the path. */
+const POST_DETAIL_PREFIX = "/posts/";
+
+/**
+ * Where posts lived before schema v13 renamed them. Kept routable so a
+ * bookmark, a shared link or an installed manifest shortcut still lands.
+ */
+const LEGACY_POSTS_ROOT = "/events";
 
 /**
  * Where the `+` sits in the bar — between Calendrier and Documents.
@@ -65,7 +71,7 @@ const ADD_BUTTON_BEFORE = "budget";
 /**
  * The route table.
  *
- * A list rather than a `switch`, so adding `/events/:id` is a new entry with
+ * A list rather than a `switch`, so adding `/posts/:id` is a new entry with
  * its own matcher instead of another branch in a chain — and so the 404 below
  * can be a real miss rather than the `default:` case silently rendering the
  * dashboard under whatever URL the user actually asked for.
@@ -77,16 +83,16 @@ const ROUTES: Route[] = [
     render: () => html`<home-view></home-view>`,
   },
   {
-    match: (path) => path === "/events",
+    match: (path) => path === "/posts",
     title: "Évènements",
-    load: () => import("./views/EventsView.ts"),
-    render: () => html`<events-view></events-view>`,
+    load: () => import("./views/PostsView.ts"),
+    render: () => html`<posts-view></posts-view>`,
   },
   {
-    // After the exact `/events` above, so the list keeps its own entry.
-    match: (path) => path.startsWith(`${EVENT_DETAIL_PREFIX}`),
+    // After the exact `/posts` above, so the list keeps its own entry.
+    match: (path) => path.startsWith(`${POST_DETAIL_PREFIX}`),
     title: "Évènement",
-    load: () => import("./views/EventDetailView.ts"),
+    load: () => import("./views/PostDetailView.ts"),
     // `keyed` is load-bearing, not decoration: `LiveQuery` subscribes once in
     // `hostConnected` and re-runs only when Dexie writes, so going from one
     // event's page straight to another would reuse this element and leave the
@@ -96,11 +102,27 @@ const ROUTES: Route[] = [
     render: (path) => html`
       ${keyed(
         path,
-        html`<event-detail-view
-          .eventId=${path.slice(EVENT_DETAIL_PREFIX.length)}
-        ></event-detail-view>`,
+        html`<post-detail-view
+          .postId=${path.slice(POST_DETAIL_PREFIX.length)}
+        ></post-detail-view>`,
       )}
     `,
+  },
+  {
+    // `/events` and `/events/<id>` → the same page under `/posts`. Only a cold
+    // load can arrive here — nothing in the app links to the old paths — so a
+    // `location.replace` into the cached shell is simpler than teaching the
+    // router a redirect, and keeps the old URL out of history.
+    match: (path) =>
+      path === LEGACY_POSTS_ROOT || path.startsWith(`${LEGACY_POSTS_ROOT}/`),
+    title: "Activités",
+    load: async () => {
+      const path = toAppPath(decodeURI(location.pathname));
+      location.replace(
+        appHref(`/posts${path.slice(LEGACY_POSTS_ROOT.length)}`),
+      );
+    },
+    render: () => html``,
   },
   {
     // A drill-down from the dashboard's budget card, not a section of its
@@ -132,7 +154,9 @@ const ROUTES: Route[] = [
     title: "Personnaliser mon interface",
     load: () => import("./views/CustomizeView.ts"),
     render: (path) =>
-      html`<customize-view .tab=${customizeRouteOf(path)!.tab}></customize-view>`,
+      html`<customize-view
+        .tab=${customizeRouteOf(path)!.tab}
+      ></customize-view>`,
   },
   {
     // `/horse`, `/horse/<id>` and `/horse/<id>/<tab>`; an unknown tab falls
@@ -190,19 +214,19 @@ export class AppRoot extends LightElement {
   /** Set when `initData()` rejects; replaces the whole view with an explanation. */
   @state() private dataError = "";
 
-  @state() private eventSheetOpen = false;
+  @state() private postSheetOpen = false;
 
   /**
    * False until the `+` is pressed for the first time.
    *
-   * `event-sheet` is mounted in the shell so the `+` works from every route,
+   * `post-sheet` is mounted in the shell so the `+` works from every route,
    * but it pulls in every form field — `app-input`, `app-select`,
    * `app-checkbox` and `FormControl` — roughly 10 kB gzip that no route
    * renders until someone actually opens it. Loading it on first use keeps it
    * off the first paint of every session that never adds an event. The chunk
    * is precached, so the wait is a cache read rather than a network hop.
    */
-  @state() private eventSheetLoaded = false;
+  @state() private postSheetLoaded = false;
 
   /**
    * The Navigation API listener, the path, and the view transition around the
@@ -295,14 +319,14 @@ export class AppRoot extends LightElement {
 
       <!-- Mounted in the shell, not in a view: the + is in the nav bar, so the
            sheet has to be reachable from every route. Rendered only once its
-           chunk has arrived — see eventSheetLoaded. -->
+           chunk has arrived — see postSheetLoaded. -->
       ${
-        this.eventSheetLoaded
+        this.postSheetLoaded
           ? html`
-              <event-sheet
-                .open=${this.eventSheetOpen}
-                @sheet-close=${this.closeEventSheet}
-              ></event-sheet>
+              <post-sheet
+                .open=${this.postSheetOpen}
+                @sheet-close=${this.closePostSheet}
+              ></post-sheet>
             `
           : nothing
       }
@@ -323,27 +347,27 @@ export class AppRoot extends LightElement {
         type="button"
         aria-label="Ajouter un évènement"
         aria-haspopup="dialog"
-        aria-expanded=${this.eventSheetOpen ? "true" : "false"}
-        @click=${this.openEventSheet}
+        aria-expanded=${this.postSheetOpen ? "true" : "false"}
+        @click=${this.openPostSheet}
       >
         <app-icon class="nav-button__icon" icon="plus"></app-icon>
       </button>
     `;
   }
 
-  private openEventSheet = async () => {
+  private openPostSheet = async () => {
     // Both flags land in the same update, so the sheet's first render already
     // has `open` — `ModalDialog.hostUpdated` calls `showModal()` from there and
     // the @starting-style entry animation plays as normal.
-    if (!this.eventSheetLoaded) {
-      await import("./components/event-sheet/event-sheet.ts");
-      this.eventSheetLoaded = true;
+    if (!this.postSheetLoaded) {
+      await import("./components/post-sheet/post-sheet.ts");
+      this.postSheetLoaded = true;
     }
-    this.eventSheetOpen = true;
+    this.postSheetOpen = true;
   };
 
-  private closeEventSheet = () => {
-    this.eventSheetOpen = false;
+  private closePostSheet = () => {
+    this.postSheetOpen = false;
   };
 
   /**

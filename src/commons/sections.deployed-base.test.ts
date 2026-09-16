@@ -30,18 +30,18 @@ beforeAll(async () => {
   // tests would quietly go back to exercising the root base and passing for the
   // wrong reason — the exact failure this file is here to rule out.
   const { appHref } = await import("./base-path.ts");
-  expect(appHref("/events")).toBe("/lady-gestion/events");
+  expect(appHref("/posts")).toBe("/lady-gestion/posts");
 });
 
 it("recognises a sideways move between section roots", () => {
-  expect(sections.isLateral("/", "/events")).toBe(true);
+  expect(sections.isLateral("/", "/posts")).toBe(true);
   expect(sections.isLateral("/budget", "/documents")).toBe(true);
 });
 
 it("keeps section roots app-relative", () => {
   expect(sections.SECTIONS.map((section) => section.root)).toEqual([
     "/",
-    "/events",
+    "/posts",
     "/budget",
     "/documents",
   ]);

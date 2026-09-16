@@ -280,7 +280,7 @@ describe.each(CASES)("ModalDialog on $tag", (dialogCase) => {
  * `showModal()` makes the rest of the document inert — clicks and focus are
  * blocked — but leaves it scrollable, so a finger on the backdrop still pans
  * the page underneath. `ModalDialog` takes the lock because it is the only
- * thing that knows a real `<dialog>` is showing: `event-sheet` and
+ * thing that knows a real `<dialog>` is showing: `post-sheet` and
  * `document-viewer` both nest theirs inside a shadow root, out of reach of any
  * `html:has(app-modal[open])` rule the document could write.
  *
@@ -317,7 +317,7 @@ describe("ModalDialog scroll lock", () => {
   });
 
   it("stays locked until the last of two dialogs closes", async () => {
-    // The case a plain boolean gets wrong: `EventDetailView` mounts an edit
+    // The case a plain boolean gets wrong: `PostDetailView` mounts an edit
     // sheet, a delete modal and a document viewer side by side, and the inner
     // one closing must not hand the page back while another is still up.
     const first = await openSheet("Ration");

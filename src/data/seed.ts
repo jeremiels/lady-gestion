@@ -1,15 +1,15 @@
 import { RECORD_TABLES, db, type RecordTableName } from "./db.ts";
 import { todayISO, toIsoDate, nowISO } from "./dates.ts";
-import { seedEventTypeDefs } from "./event-types.ts";
-import { followUpValue } from "./events.ts";
+import { seedCategories } from "./categories.ts";
+import { followUpValue } from "./posts.ts";
 import { getOwnerId } from "./owner.ts";
 import * as horsesRepo from "./repositories/horses.repo.ts";
 import * as rationsRepo from "./repositories/rations.repo.ts";
-import * as eventsRepo from "./repositories/events.repo.ts";
+import * as postsRepo from "./repositories/posts.repo.ts";
 import * as documentsRepo from "./repositories/documents.repo.ts";
 import * as metaRepo from "./repositories/meta.repo.ts";
 import { DEFAULT_SEASON, type RationSeason } from "./seasons.ts";
-import type { HorseEvent, RationUnit } from "./types.ts";
+import type { Post, RationUnit } from "./types.ts";
 
 /** The seeded event the demo document hangs off. Matched by title below. */
 const REPORT_EVENT_TITLE = "Contrôle œil";
@@ -18,7 +18,7 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
  * Brings the built-in event types on this device up to what the app ships.
  *
  * Inserting only when the table is empty — which is all this did — meant a
- * device seeded once never saw another edit to `BUILT_IN_EVENT_TYPES` again:
+ * device seeded once never saw another edit to `BUILT_IN_CATEGORIES` again:
  * adding a type, relabelling one, recolouring one or changing the fields its
  * form draws all reached a fresh install and nothing else. That is what forced
  * schema versions v7, v9 and v10, none of which changed a table's shape; it is
@@ -43,12 +43,12 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
  * Once the type editor exists, this is the one place that has to learn the
  * difference between a built-in the user has customised and one they have not.
  */
-const reconcileEventTypes = async (): Promise<void> => {
-  const shipped = seedEventTypeDefs(getOwnerId(), nowISO());
-  const existing = await db.eventTypes.toArray();
+const reconcileCategories = async (): Promise<void> => {
+  const shipped = seedCategories(getOwnerId(), nowISO());
+  const existing = await db.categories.toArray();
 
   if (existing.length === 0) {
-    await db.eventTypes.bulkAdd(shipped);
+    await db.categories.bulkAdd(shipped);
     return;
   }
 
@@ -59,7 +59,7 @@ const reconcileEventTypes = async (): Promise<void> => {
   const writes = shipped.flatMap((type) => {
     const current = byKey.get(type.key);
 
-    // `seedEventTypeDefs` stamps `parentId` with the literal key the array is
+    // `seedCategories` stamps `parentId` with the literal key the array is
     // written with, which only resolves because a freshly seeded row's `id`
     // *is* its key. Against rows already on the device that does not hold, so
     // the parent is looked up — the same resolution `db.ts`'s v9 and v10
@@ -81,7 +81,7 @@ const reconcileEventTypes = async (): Promise<void> => {
     ];
   });
 
-  if (writes.length > 0) await db.eventTypes.bulkPut(writes);
+  if (writes.length > 0) await db.categories.bulkPut(writes);
 };
 
 /**
@@ -92,10 +92,10 @@ const reconcileEventTypes = async (): Promise<void> => {
  * The demo horse/rations/events/document are gated on the database holding no
  * horse at all, so they can never overwrite real data or reappear after the
  * user deletes it. The event-type catalogue has its own gate — see
- * `reconcileEventTypes`.
+ * `reconcileCategories`.
  */
 export const seedIfEmpty = async (): Promise<void> => {
-  await reconcileEventTypes();
+  await reconcileCategories();
 
   const count = await db.horses.count();
   if (count > 0) return;
@@ -141,9 +141,9 @@ export const seedIfEmpty = async (): Promise<void> => {
     seedRecordIds.push(item.id);
   }
 
-  const events: HorseEvent[] = [];
-  for (const event of sampleEvents(horse.id)) {
-    const created = await eventsRepo.create(event);
+  const events: Post[] = [];
+  for (const event of samplePosts(horse.id)) {
+    const created = await postsRepo.create(event);
     seedRecordIds.push(created.id);
     events.push(created);
   }
@@ -157,7 +157,7 @@ export const seedIfEmpty = async (): Promise<void> => {
     const document = await documentsRepo.create(
       {
         horseId: horse.id,
-        eventId: report.id,
+        postId: report.id,
         category: "compte-rendu",
         name: "Controle_oeil.pdf",
         issuedAt: report.date,
@@ -216,7 +216,7 @@ export const clearUntouchedSeedData = async (): Promise<void> => {
 };
 
 /** A handful of events either side of today, so every view has something to show. */
-const sampleEvents = (horseId: string) => {
+const samplePosts = (horseId: string) => {
   const inDays = (days: number) => {
     const date = new Date();
     date.setDate(date.getDate() + days);
@@ -226,7 +226,7 @@ const sampleEvents = (horseId: string) => {
   return [
     {
       horseId,
-      type: "marechal",
+      categoryKey: "marechal",
       title: "Ferrure",
       date: inDays(6),
       time: "14:00",
@@ -239,7 +239,7 @@ const sampleEvents = (horseId: string) => {
     },
     {
       horseId,
-      type: "veto",
+      categoryKey: "veto",
       title: "Rappel vaccins",
       date: inDays(19),
       time: "09:30",
@@ -252,7 +252,7 @@ const sampleEvents = (horseId: string) => {
     },
     {
       horseId,
-      type: "marechal",
+      categoryKey: "marechal",
       title: "Ferrure",
       date: inDays(-34),
       time: "14:00",
@@ -265,7 +265,7 @@ const sampleEvents = (horseId: string) => {
     },
     {
       horseId,
-      type: "pension",
+      categoryKey: "pension",
       title: "Pension mensuelle",
       date: inDays(-11),
       time: null,
@@ -278,7 +278,7 @@ const sampleEvents = (horseId: string) => {
     },
     {
       horseId,
-      type: "osteo",
+      categoryKey: "osteo",
       title: "Séance ostéopathie",
       date: inDays(-52),
       time: "11:00",
@@ -294,7 +294,7 @@ const sampleEvents = (horseId: string) => {
     // having to be entered by hand first. Also the document's anchor.
     {
       horseId,
-      type: "veto",
+      categoryKey: "veto",
       title: REPORT_EVENT_TITLE,
       date: inDays(-26),
       time: null,

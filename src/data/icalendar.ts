@@ -5,13 +5,13 @@ import {
   startOfWeek,
   type IsoDate,
 } from "./dates.ts";
-import type { HorseEvent } from "./types.ts";
+import type { Post } from "./types.ts";
 
 /**
  * The calendar's view of an event, shaped after RFC 5545 (iCalendar) — the
  * format Google Calendar, Apple Calendar and Outlook all speak.
  *
- * The stored `HorseEvent` deliberately isn't iCalendar-shaped: it keeps a
+ * The stored `Post` deliberately isn't iCalendar-shaped: it keeps a
  * `date` string, a nullable `time` and a French-flavoured `status`, which is
  * the right shape for a form and for an IndexedDB range index. This module is
  * the one place that translates, so the calendar UI works in standard terms
@@ -19,7 +19,7 @@ import type { HorseEvent } from "./types.ts";
  * touching a component.
  *
  * Only the properties the month view actually needs are modelled. Everything
- * else on the record (amount, provider, notes) stays on `HorseEvent`, which
+ * else on the record (amount, provider, notes) stays on `Post`, which
  * the day list renders directly.
  */
 
@@ -40,13 +40,13 @@ export const DEFAULT_WEEK_START: WeekDay = "MO";
 export type VEventStatus = "TENTATIVE" | "CONFIRMED" | "CANCELLED";
 
 /**
- * `HorseEvent.status` -> `STATUS`.
+ * `Post.status` -> `STATUS`.
  *
  * `planned` and `done` both map to `CONFIRMED`: the RFC has no notion of an
  * event being in the past, that is just the date. `TENTATIVE` has no source
  * value yet — it is what an "à confirmer" state would map to.
  */
-const V_EVENT_STATUS: Record<HorseEvent["status"], VEventStatus> = {
+const V_EVENT_STATUS: Record<Post["status"], VEventStatus> = {
   planned: "CONFIRMED",
   done: "CONFIRMED",
   cancelled: "CANCELLED",
@@ -74,14 +74,14 @@ export type CalendarEvent = {
   categories: string[];
 };
 
-export const toCalendarEvent = (event: HorseEvent): CalendarEvent => ({
+export const toCalendarEvent = (event: Post): CalendarEvent => ({
   uid: event.id,
   start: event.date,
   startTime: event.time,
   end: null,
   status: V_EVENT_STATUS[event.status],
   summary: event.title,
-  categories: [event.type],
+  categories: [event.categoryKey],
 });
 
 /**

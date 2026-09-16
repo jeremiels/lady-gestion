@@ -1,5 +1,5 @@
 # Single-page app: every path is served by the same shell, which then routes
-# client-side. Without this a cold deep link — a manifest shortcut to /events, a
+# client-side. Without this a cold deep link — a manifest shortcut to /posts, a
 # shared /horse/<id> link, or a refresh on any route — 404s before the service
 # worker has ever been installed to answer it from cache.
 #

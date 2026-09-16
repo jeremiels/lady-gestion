@@ -64,11 +64,11 @@ describe("profile-view", () => {
       ownerId: OWNER,
       tables: {
         horses: [],
-        events: [],
+        posts: [],
         documents: [],
         rationItems: [],
         activities: [],
-        eventTypes: [],
+        categories: [],
         profiles: [],
       },
     };

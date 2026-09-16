@@ -241,8 +241,8 @@
     list-style: none;
   }
 
-  /* Same reasoning, and the same measured 84px, as `.events-view__list > li`
-     in views/events.css — read the note there. This ledger is every budget in
+  /* Same reasoning, and the same measured 84px, as `.posts-view__list > li`
+     in views/posts.css — read the note there. This ledger is every budget in
      the period and grows without bound, and the `budget` layout is the same
      two rows as a default card with no notes. */
   .budget-view__list > li {

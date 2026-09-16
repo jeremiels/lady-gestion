@@ -1,24 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
-  makeEvent,
-  makeEventType,
+  BUILT_IN_CATEGORY_ROWS,
+  makePost,
+  makeCategory,
 } from "./__tests__/factories.ts";
 import { addDays, todayISO } from "./dates.ts";
 import {
-  BUILT_IN_EVENT_TYPES,
+  BUILT_IN_CATEGORIES,
   canBeParentOf,
   childrenOf,
   fieldById,
   fieldWithRole,
-  isAppointmentType,
+  isAppointmentCategory,
   quantityField,
   resolveCatalogue,
   rootOf,
   rootsOf,
   subtreeKeys,
   upcomingAppointments,
-} from "./event-types.ts";
+} from "./categories.ts";
 
 /**
  * Pure functions over the event-type catalogue — the shape `budget.test.ts`
@@ -26,18 +26,18 @@ import {
  * fixtures built straight from the factories.
  */
 
-const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+const TYPES = BUILT_IN_CATEGORY_ROWS;
 
 /**
  * Pins the exact `CustomFieldDef` shape the generic `input*Field`/`comboBoxField`
  * constructors produce for a couple of representative built-ins — a
- * regression net on the constructors themselves, not on `BUILT_IN_EVENT_TYPES`
+ * regression net on the constructors themselves, not on `BUILT_IN_CATEGORIES`
  * (which the rest of the suite, `field-order.test.ts` and
  * `backup/snapshot.test.ts` already exercise thoroughly).
  */
 describe("the generic field constructors reproduce the old fixed shapes", () => {
   it("Vétérinaire's fields — text, date, money, checkbox+reveals", () => {
-    const veto = BUILT_IN_EVENT_TYPES.find((type) => type.key === "veto")!;
+    const veto = BUILT_IN_CATEGORIES.find((type) => type.key === "veto")!;
     expect(veto.fields).toEqual([
       { id: "title", control: "text", label: "Nom", required: true },
       { id: "date", control: "date", label: "Date", required: true },
@@ -94,9 +94,7 @@ describe("the generic field constructors reproduce the old fixed shapes", () => 
   });
 
   it("Travail's activity field — combobox with role and suggestions", () => {
-    const travail = BUILT_IN_EVENT_TYPES.find(
-      (type) => type.key === "travail",
-    )!;
+    const travail = BUILT_IN_CATEGORIES.find((type) => type.key === "travail")!;
     expect(
       travail.fields.find((field) => field.role === "workActivity"),
     ).toEqual({
@@ -137,7 +135,7 @@ describe("fieldById", () => {
     // The scenario `fieldWithRole` cannot handle: a future field-builder UI
     // could add a second `text` field to a type. `fieldById` must still find
     // "counterparty" specifically, not whichever `text` field comes first.
-    const type = makeEventType({
+    const type = makeCategory({
       fields: [
         { id: "other", control: "text", label: "Autre", required: false },
         {
@@ -153,17 +151,17 @@ describe("fieldById", () => {
   });
 });
 
-describe("isAppointmentType", () => {
+describe("isAppointmentCategory", () => {
   it("is true for a type flagged isAppointment", () => {
-    expect(isAppointmentType(TYPES, "veto")).toBe(true);
+    expect(isAppointmentCategory(TYPES, "veto")).toBe(true);
   });
 
   it("is false for a type not flagged isAppointment", () => {
-    expect(isAppointmentType(TYPES, "achat")).toBe(false);
+    expect(isAppointmentCategory(TYPES, "achat")).toBe(false);
   });
 
   it("is false for a key not in the list — an empty catalogue tick", () => {
-    expect(isAppointmentType([], "veto")).toBe(false);
+    expect(isAppointmentCategory([], "veto")).toBe(false);
   });
 });
 
@@ -174,11 +172,19 @@ describe("upcomingAppointments", () => {
     // The dashboard's list is "Rendez-vous à venir", not "everything ahead":
     // a planned purchase or lesson is logged, not booked.
     const events = [
-      makeEvent({ id: "veto", date: addDays(today, 1), type: "veto" }),
-      makeEvent({ id: "achat", date: addDays(today, 2), type: "achat" }),
-      makeEvent({ id: "cours", date: addDays(today, 3), type: "cours" }),
-      makeEvent({ id: "travail", date: addDays(today, 4), type: "travail" }),
-      makeEvent({ id: "marechal", date: addDays(today, 5), type: "marechal" }),
+      makePost({ id: "veto", date: addDays(today, 1), categoryKey: "veto" }),
+      makePost({ id: "achat", date: addDays(today, 2), categoryKey: "achat" }),
+      makePost({ id: "cours", date: addDays(today, 3), categoryKey: "cours" }),
+      makePost({
+        id: "travail",
+        date: addDays(today, 4),
+        categoryKey: "travail",
+      }),
+      makePost({
+        id: "marechal",
+        date: addDays(today, 5),
+        categoryKey: "marechal",
+      }),
     ];
 
     expect(
@@ -191,9 +197,9 @@ describe("upcomingAppointments", () => {
     // limit's slots — the dashboard would then show fewer appointments than
     // it asked for.
     const events = [
-      makeEvent({ id: "achat", date: addDays(today, 1), type: "achat" }),
-      makeEvent({ id: "a", date: addDays(today, 2), type: "veto" }),
-      makeEvent({ id: "b", date: addDays(today, 3), type: "marechal" }),
+      makePost({ id: "achat", date: addDays(today, 1), categoryKey: "achat" }),
+      makePost({ id: "a", date: addDays(today, 2), categoryKey: "veto" }),
+      makePost({ id: "b", date: addDays(today, 3), categoryKey: "marechal" }),
     ];
 
     expect(
@@ -206,10 +212,10 @@ describe("upcomingAppointments", () => {
   });
 
   it("keeps nothing before the type catalogue has loaded", () => {
-    // The tick before `eventTypesRepo.listAll()`'s `LiveQuery` settles —
+    // The tick before `categoriesRepo.listAll()`'s `LiveQuery` settles —
     // `HomeView` passes `[]`, and every event must be filtered out rather
     // than shown against a catalogue that has no `isAppointment` flags yet.
-    const events = [makeEvent({ id: "veto", date: today, type: "veto" })];
+    const events = [makePost({ id: "veto", date: today, categoryKey: "veto" })];
 
     expect(upcomingAppointments(events, [])).toEqual([]);
   });
@@ -217,12 +223,12 @@ describe("upcomingAppointments", () => {
 
 /**
  * The hierarchy helpers. Fixtures are hand-built rather than taken from
- * `BUILT_IN_EVENT_TYPE_ROWS`, which nests only `cures` and `traitement` and
+ * `BUILT_IN_CATEGORY_ROWS`, which nests only `cures` and `traitement` and
  * would make every case below depend on that one shape — these want a parent
  * with a child that keeps its own icon and one that keeps nothing.
  */
 describe("the type hierarchy", () => {
-  const parent = makeEventType({
+  const parent = makeCategory({
     id: "p",
     key: "soins",
     label: "Soins",
@@ -232,7 +238,7 @@ describe("the type hierarchy", () => {
   });
 
   /** A child the way `setParent` writes one: theme cleared, own icon kept. */
-  const child = makeEventType({
+  const child = makeCategory({
     id: "c",
     key: "veto",
     label: "Vétérinaire",
@@ -243,7 +249,7 @@ describe("the type hierarchy", () => {
   });
 
   /** A child that inherits both halves of its presentation. */
-  const bare = makeEventType({
+  const bare = makeCategory({
     id: "b",
     key: "dentiste",
     label: "Dentiste",
@@ -284,7 +290,7 @@ describe("the type hierarchy", () => {
     });
 
     it("falls back to the defaults for a root carrying no presentation", () => {
-      const orphan = makeEventType({ id: "o", icon: null, theme: null });
+      const orphan = makeCategory({ id: "o", icon: null, theme: null });
       const [resolved] = resolveCatalogue([orphan]);
       expect(resolved).toMatchObject({ icon: "info", theme: "taupe" });
     });
@@ -294,7 +300,7 @@ describe("the type hierarchy", () => {
       // `assertSnapshot` checks `id` and `updatedAt` and nothing else, and
       // `THEME_META[key]` is a mapped type, so this used to be a TypeError at
       // render rather than a missing colour.
-      const alien = makeEventType({
+      const alien = makeCategory({
         id: "a",
         theme: "octarine" as never,
         icon: "trophy" as never,
@@ -357,7 +363,7 @@ describe("the type hierarchy", () => {
 
   describe("canBeParentOf", () => {
     const catalogue = [parent, child, bare];
-    const other = makeEventType({ id: "x", key: "cours", order: 3 });
+    const other = makeCategory({ id: "x", key: "cours", order: 3 });
 
     it("allows a root under another root", () => {
       expect(canBeParentOf([parent, other], "x", "p")).toBe(true);

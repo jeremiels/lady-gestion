@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { seedEventTypeDefs } from "./event-types.ts";
+import { seedCategories } from "./categories.ts";
 import {
   FOLLOW_UP_INTERVALS,
   activityChoices,
@@ -17,11 +17,11 @@ import {
   statusForDate,
   workActivityByDate,
   workSessionByDate,
-} from "./events.ts";
-import { BUILT_IN_EVENT_TYPE_ROWS, makeEvent } from "./__tests__/factories.ts";
+} from "./posts.ts";
+import { BUILT_IN_CATEGORY_ROWS, makePost } from "./__tests__/factories.ts";
 
 /** The real 14 built-ins — `travail` is the one `tracksWork` type. */
-const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+const TYPES = BUILT_IN_CATEGORY_ROWS;
 
 describe("statusForDate", () => {
   const TODAY = "2026-08-12";
@@ -162,9 +162,9 @@ describe("workActivityByDate", () => {
   it("answers with the activity of a day that has a session", () => {
     const byDate = workActivityByDate(
       [
-        makeEvent({
+        makePost({
           id: "a",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-10",
           customFields: { activity: "longe" },
         }),
@@ -178,18 +178,18 @@ describe("workActivityByDate", () => {
   it("ignores everything that is not a live work session", () => {
     const byDate = workActivityByDate(
       [
-        makeEvent({ id: "care", type: "veto", date: "2026-08-10" }),
+        makePost({ id: "care", categoryKey: "veto", date: "2026-08-10" }),
         // A `travail` row with no activity cannot exist through the form, but a
         // restored backup predating schema v4 carries exactly that.
-        makeEvent({
+        makePost({
           id: "blank",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-11",
           customFields: { activity: null },
         }),
-        makeEvent({
+        makePost({
           id: "cancelled",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-12",
           customFields: { activity: "plat" },
           status: "cancelled",
@@ -204,16 +204,16 @@ describe("workActivityByDate", () => {
   it("keeps the first session of a day: all-day before timed", () => {
     const byDate = workActivityByDate(
       [
-        makeEvent({
+        makePost({
           id: "timed",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-10",
           time: "09:00",
           customFields: { activity: "plat" },
         }),
-        makeEvent({
+        makePost({
           id: "all-day",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-10",
           time: null,
           customFields: { activity: "longe" },
@@ -228,16 +228,16 @@ describe("workActivityByDate", () => {
   it("then keeps the earlier of two timed sessions, whatever order they arrive in", () => {
     const byDate = workActivityByDate(
       [
-        makeEvent({
+        makePost({
           id: "late",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-10",
           time: "17:30",
           customFields: { activity: "plat" },
         }),
-        makeEvent({
+        makePost({
           id: "early",
-          type: "travail",
+          categoryKey: "travail",
           date: "2026-08-10",
           time: "08:15",
           customFields: { activity: "tap" },
@@ -252,9 +252,9 @@ describe("workActivityByDate", () => {
 
 describe("workSessionByDate", () => {
   it("answers with the row, not just its activity", () => {
-    const session = makeEvent({
+    const session = makePost({
       id: "a",
-      type: "travail",
+      categoryKey: "travail",
       date: "2026-08-10",
       customFields: { activity: "longe" },
     });
@@ -266,16 +266,16 @@ describe("workSessionByDate", () => {
     // The two must not be able to disagree: the strip draws one and its sheet
     // writes to the other, so a day would edit a row it never showed.
     const events = [
-      makeEvent({
+      makePost({
         id: "timed",
-        type: "travail",
+        categoryKey: "travail",
         date: "2026-08-10",
         time: "09:00",
         customFields: { activity: "plat" },
       }),
-      makeEvent({
+      makePost({
         id: "all-day",
-        type: "travail",
+        categoryKey: "travail",
         date: "2026-08-10",
         customFields: { activity: "longe" },
       }),
@@ -292,8 +292,8 @@ describe("workSessionByDate", () => {
 describe("courseDatesThisWeek", () => {
   it("names the day of a cours event, and no other event’s", () => {
     const dates = courseDatesThisWeek([
-      makeEvent({ id: "lesson", type: "cours", date: "2026-08-10" }),
-      makeEvent({ id: "care", type: "veto", date: "2026-08-11" }),
+      makePost({ id: "lesson", categoryKey: "cours", date: "2026-08-10" }),
+      makePost({ id: "care", categoryKey: "veto", date: "2026-08-11" }),
     ]);
 
     expect(dates).toEqual(new Set(["2026-08-10"]));
@@ -301,9 +301,9 @@ describe("courseDatesThisWeek", () => {
 
   it("skips a cancelled lesson — it did not happen", () => {
     const dates = courseDatesThisWeek([
-      makeEvent({
+      makePost({
         id: "lesson",
-        type: "cours",
+        categoryKey: "cours",
         date: "2026-08-10",
         status: "cancelled",
       }),
@@ -404,7 +404,7 @@ describe("matchActivity", () => {
 });
 
 describe("migrateEventToCustomFields", () => {
-  const types = seedEventTypeDefs("owner-1", "2026-01-01T00:00:00.000Z");
+  const types = seedCategories("owner-1", "2026-01-01T00:00:00.000Z");
 
   const legacy = (
     over: Partial<Parameters<typeof migrateEventToCustomFields>[0]> = {},

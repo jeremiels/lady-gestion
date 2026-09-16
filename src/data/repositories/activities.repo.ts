@@ -7,7 +7,7 @@ import type { ActivityItem, NewRecord } from "../types.ts";
  * week strip's day sheet.
  *
  * A list of chips to offer, not a parent table: a `travail` event stores the
- * label rather than a row id (see `WorkActivity` in `events.ts`), so removing a
+ * label rather than a row id (see `WorkActivity` in `posts.ts`), so removing a
  * line here retires a chip and touches nothing else.
  */
 

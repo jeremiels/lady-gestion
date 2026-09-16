@@ -34,7 +34,7 @@ const PRECACHE_MANIFEST = __PRECACHE_MANIFEST__;
  */
 const BASE = new URL("./", self.location.href).pathname;
 
-/** Deep links (`/events`, `/horse/…`) are all served by the same shell. */
+/** Deep links (`/posts`, `/horse/…`) are all served by the same shell. */
 const APP_SHELL = BASE;
 
 /**

@@ -67,8 +67,8 @@ export const THEME_META: Record<ThemeKey, ThemeMeta> = {
  * `| undefined` — an unknown theme string reaching a read site is a `TypeError`
  * at render, not a missing colour. A string genuinely can arrive: a restored
  * backup file is validated for `id` and `updatedAt` only
- * (`assertSnapshot`), and `EventTypeDef.theme` is written straight from it.
- * `resolveCatalogue` (`data/event-types.ts`) is the one place that guards it.
+ * (`assertSnapshot`), and `Category.theme` is written straight from it.
+ * `resolveCatalogue` (`data/categories.ts`) is the one place that guards it.
  *
  * Mirrors `ICON_NAMES` / `isIconName` in `components/app-icon/icons.ts`, which
  * exists for the same reason on the other half of a type's presentation.

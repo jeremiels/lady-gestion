@@ -24,7 +24,7 @@ import "../app-segmented/app-segmented.ts";
  *
  * `app-input` is deliberately in the table with a *native* event name: `input`
  * is `composed: true` and crosses the boundary on its own, which is why
- * `EventsView`'s search box binds `@input` straight onto `<app-input>` with no
+ * `PostsView`'s search box binds `@input` straight onto `<app-input>` with no
  * re-dispatch anywhere. That difference is in the spec, not in this codebase,
  * and the test says so in the one place someone would think to "fix" it.
  */

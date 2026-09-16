@@ -21,13 +21,8 @@ export const listByHorse = async (
   return sortByIssueDate(liveOnly(documents));
 };
 
-export const listByEvent = async (
-  eventId: string,
-): Promise<StoredDocument[]> => {
-  const documents = await db.documents
-    .where("eventId")
-    .equals(eventId)
-    .toArray();
+export const listByPost = async (postId: string): Promise<StoredDocument[]> => {
+  const documents = await db.documents.where("postId").equals(postId).toArray();
   return sortByIssueDate(liveOnly(documents));
 };
 

@@ -29,7 +29,7 @@ import { seedIfEmpty } from "./seed.ts";
  * a `LiveQuery` over a repository is already the right shape.
  *
  * **A presentational component wanting only a formatter imports the module
- * directly, not this file.** `event-card` takes `formatDate` from `dates.ts`
+ * directly, not this file.** `post-card` takes `formatDate` from `dates.ts`
  * and `formatCents` from `money.ts`; `app-calendar` takes `monthGrid` from
  * `icalendar.ts`. That is not drift, it is the chunking working: `initData`
  * below needs `db.ts`, which constructs `new LadyGestionDb()` at module scope,
@@ -40,15 +40,15 @@ import { seedIfEmpty } from "./seed.ts";
  */
 
 export * as horsesRepo from "./repositories/horses.repo.ts";
-export * as eventsRepo from "./repositories/events.repo.ts";
+export * as postsRepo from "./repositories/posts.repo.ts";
 export * as documentsRepo from "./repositories/documents.repo.ts";
 export * as rationsRepo from "./repositories/rations.repo.ts";
 export * as activitiesRepo from "./repositories/activities.repo.ts";
-export * as eventTypesRepo from "./repositories/event-types.repo.ts";
+export * as categoriesRepo from "./repositories/categories.repo.ts";
 export * as profileRepo from "./repositories/profile.repo.ts";
 export * as metaRepo from "./repositories/meta.repo.ts";
 
-export * as eventsService from "./services/events.service.ts";
+export * as postsService from "./services/posts.service.ts";
 export * as horsesService from "./services/horses.service.ts";
 export * as rationsService from "./services/rations.service.ts";
 
@@ -61,11 +61,11 @@ export * from "./money.ts";
 export * from "./dates.ts";
 export * from "./icalendar.ts";
 export * from "./seasons.ts";
-export * from "./events.ts";
-export * from "./event-types.ts";
+export * from "./posts.ts";
+export * from "./categories.ts";
 export * from "./files.ts";
 export * from "./budget.ts";
-export * from "./event-form.ts";
+export * from "./post-form.ts";
 export * from "./forms.ts";
 
 let ready: Promise<void> | undefined;

@@ -5,8 +5,8 @@ import {
   activeHorseQuery,
   activitiesRepo,
   activityChoices,
-  eventsRepo,
-  eventsService,
+  postsRepo,
+  postsService,
   formatDayShortMonth,
   formatWorkActivity,
   horsesRepo,
@@ -18,7 +18,7 @@ import {
   type WorkActivity,
   type WorkSession,
 } from "../../data/index.ts";
-import type { ActivityItem, EventTypeDef } from "../../data/types.ts";
+import type { ActivityItem, Category } from "../../data/types.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-chip/app-chip.ts";
@@ -60,7 +60,7 @@ export class ActivitySheet extends BaseElement {
 
   /** The `tracksWork` type a tap writes to — resolved by the strip, the same
    * way `existing` is. `null` for the tick before its `LiveQuery` settles. */
-  @property({ attribute: false }) type: EventTypeDef | null = null;
+  @property({ attribute: false }) type: Category | null = null;
 
   /** The day's session, or `null` for a day with none. */
   @property({ attribute: false }) existing: WorkSession | null = null;
@@ -125,7 +125,7 @@ export class ActivitySheet extends BaseElement {
 
     /* Assertive and always mounted — a live region has to be in the
        accessibility tree before its contents change, so it can never be
-       toggled with the hidden attribute. The same shape event-sheet uses.
+       toggled with the hidden attribute. The same shape post-sheet uses.
        No backticks in here: this is a css template literal and one would
        close it, with the error pointing at whatever line the parser gave up
        on rather than at the comment. */
@@ -232,7 +232,7 @@ export class ActivitySheet extends BaseElement {
       if (add !== null)
         await activitiesRepo.add({ horseId: horse.id, label: add });
 
-      await eventsService.setDayActivity({
+      await postsService.setDayActivity({
         horseId: horse.id,
         date: this.date,
         type,
@@ -251,7 +251,7 @@ export class ActivitySheet extends BaseElement {
   /**
    * Clears the day back to no activity — the other half of the chip gesture.
    *
-   * A soft delete of the whole row, the same one `EventDetailView`'s own
+   * A soft delete of the whole row, the same one `PostDetailView`'s own
    * delete does, not a second write path: the day sheet's model is one row
    * per day, so retracting the activity retracts the session.
    */
@@ -259,7 +259,7 @@ export class ActivitySheet extends BaseElement {
     if (!this.existing) return;
 
     try {
-      await eventsRepo.remove(this.existing.id);
+      await postsRepo.remove(this.existing.id);
     } catch (error: unknown) {
       this.error =
         error instanceof Error ? error.message : "Suppression impossible.";

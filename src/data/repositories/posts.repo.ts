@@ -1,9 +1,9 @@
 import { db } from "../db.ts";
 import { todayISO, type IsoDate } from "../dates.ts";
-import { sumByType } from "../budget.ts";
+import { sumByCategory } from "../budget.ts";
 import { sumCents } from "../money.ts";
 import { createRecord, crud, liveOnly } from "../record.ts";
-import type { EventTypeDef, HorseEvent, NewRecord } from "../types.ts";
+import type { Category, Post, NewRecord } from "../types.ts";
 
 /**
  * Queries over the unified events table.
@@ -18,15 +18,15 @@ const MIN_DATE = "";
 const MAX_DATE = "￿";
 
 const byHorseAndDateRange = (horseId: string, from: IsoDate, to: IsoDate) =>
-  db.events
+  db.posts
     .where("[horseId+date]")
     .between([horseId, from], [horseId, to], true, true)
     .toArray();
 
-export const { get, update, remove } = crud<HorseEvent>(db.events);
+export const { get, update, remove } = crud<Post>(db.posts);
 
 /** Every live event for a horse, newest first. */
-export const listByHorse = async (horseId: string): Promise<HorseEvent[]> => {
+export const listByHorse = async (horseId: string): Promise<Post[]> => {
   const events = await byHorseAndDateRange(horseId, MIN_DATE, MAX_DATE);
   return liveOnly(events).reverse();
 };
@@ -36,8 +36,7 @@ export const listInRange = async (
   horseId: string,
   from: IsoDate,
   to: IsoDate,
-): Promise<HorseEvent[]> =>
-  liveOnly(await byHorseAndDateRange(horseId, from, to));
+): Promise<Post[]> => liveOnly(await byHorseAndDateRange(horseId, from, to));
 
 /**
  * Still-to-happen events, soonest first.
@@ -46,12 +45,12 @@ export const listInRange = async (
  * catalogue inside this query, but a Dexie `liveQuery` only re-runs for
  * tables its own query function reads, and a catalogue received as a plain
  * argument is invisible to that tracking. Narrowing to appointments, and
- * capping to a limit, is `upcomingAppointments` (`event-types.ts`)'s job
+ * capping to a limit, is `upcomingAppointments` (`categories.ts`)'s job
  * instead — the caller (`HomeView`) joins this against its own `eventTypes`
- * `LiveQuery` in `render()`, the same way `BudgetView`/`EventsView` already
+ * `LiveQuery` in `render()`, the same way `BudgetView`/`PostsView` already
  * join events against types, so either one updating re-renders correctly.
  */
-export const listUpcoming = async (horseId: string): Promise<HorseEvent[]> => {
+export const listUpcoming = async (horseId: string): Promise<Post[]> => {
   const events = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
   return liveOnly(events).filter((event) => event.status === "planned");
 };
@@ -69,7 +68,7 @@ export const listBudget = async (
   horseId: string,
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
-): Promise<HorseEvent[]> => {
+): Promise<Post[]> => {
   const events = await listInRange(horseId, from, to);
   return events.filter(
     (event) =>
@@ -100,22 +99,20 @@ export const totalSpent = async (
  * aggregates in memory, because a `liveQuery` narrowed by a user-selected period
  * would go stale — and this query cannot disagree about what a breakdown is.
  * Returned as a record because that is the shape callers of this repository
- * expect; the ordered slice list is `sumByType`'s own return.
+ * expect; the ordered slice list is `sumByCategory`'s own return.
  */
-export const totalSpentByType = async (
+export const totalSpentByCategory = async (
   horseId: string,
-  types: EventTypeDef[],
+  types: Category[],
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
 ): Promise<Partial<Record<string, number>>> => {
-  const slices = sumByType(await listBudget(horseId, from, to), types);
+  const slices = sumByCategory(await listBudget(horseId, from, to), types);
   return Object.fromEntries(slices.map((slice) => [slice.type, slice.cents]));
 };
 
-export const create = async (
-  fields: NewRecord<HorseEvent>,
-): Promise<HorseEvent> => {
-  const event = createRecord<HorseEvent>(fields);
-  await db.events.add(event);
+export const create = async (fields: NewRecord<Post>): Promise<Post> => {
+  const event = createRecord<Post>(fields);
+  await db.posts.add(event);
   return event;
 };

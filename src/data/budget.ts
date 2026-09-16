@@ -1,7 +1,7 @@
 import { todayISO, type IsoDate } from "./dates.ts";
-import { childrenOf, rootsOf } from "./event-types.ts";
+import { childrenOf, rootsOf } from "./categories.ts";
 import { formatMonthLong, formatMonthShort, monthOf } from "./seasons.ts";
-import type { EventTypeDef, HorseEvent } from "./types.ts";
+import type { Category, Post } from "./types.ts";
 
 /**
  * The arithmetic behind the budget view.
@@ -34,7 +34,7 @@ export type BudgetLeaf = { type: string; cents: number };
  * ring's total need to know nothing about the hierarchy. `children` is the
  * breakdown the legend expands to, and it is a `BudgetLeaf[]` rather than a
  * `BudgetSlice[]` on purpose: that is the depth cap (`canBeParentOf` in
- * `event-types.ts`) stated in the type, so a grandchild is not merely absent
+ * `categories.ts`) stated in the type, so a grandchild is not merely absent
  * here, it is unrepresentable.
  *
  * Empty for a type with no children, which is the entire shipped catalogue.
@@ -56,10 +56,8 @@ export const periodOf = (
 });
 
 /** The events falling inside a period, order preserved. */
-export const inPeriod = (
-  events: HorseEvent[],
-  period: BudgetPeriod,
-): HorseEvent[] => events.filter((event) => event.date.startsWith(period.key));
+export const inPeriod = (events: Post[], period: BudgetPeriod): Post[] =>
+  events.filter((event) => event.date.startsWith(period.key));
 
 /**
  * Spend per root category, in the type catalogue's `order`, categories with
@@ -81,15 +79,18 @@ export const inPeriod = (
  * amount at all. A missing or non-numeric entry (the field simply not offered,
  * or left blank) contributes nothing, the same as a `null` column used to.
  */
-export const sumByType = (
-  events: HorseEvent[],
-  types: EventTypeDef[],
+export const sumByCategory = (
+  events: Post[],
+  types: Category[],
 ): BudgetSlice[] => {
   const totals = new Map<string, number>();
   for (const event of events) {
     const amount = event.customFields.amountCents;
     if (typeof amount !== "number") continue;
-    totals.set(event.type, (totals.get(event.type) ?? 0) + amount);
+    totals.set(
+      event.categoryKey,
+      (totals.get(event.categoryKey) ?? 0) + amount,
+    );
   }
 
   return rootsOf(types).flatMap((root) => {
@@ -123,7 +124,7 @@ export const sumSlices = (slices: BudgetSlice[]): number =>
  * view is already showing.
  */
 export const periodOptions = (
-  events: HorseEvent[],
+  events: Post[],
   granularity: BudgetGranularity,
   on: IsoDate = todayISO(),
 ): BudgetPeriod[] => {
@@ -179,5 +180,5 @@ export const formatPeriodHeading = (granularity: BudgetGranularity): string =>
  * of how a ledger reads. Ties break on `createdAt` so two events on the same day
  * keep a stable order instead of depending on index insertion.
  */
-export const byDateDescending = (a: HorseEvent, b: HorseEvent): number =>
+export const byDateDescending = (a: Post, b: Post): number =>
   b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt);

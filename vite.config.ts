@@ -139,7 +139,7 @@ function serviceWorker(): Plugin {
  *
  * `404.html` is the SPA fallback. Pages serves static files and has no rewrite
  * rules — `public/_redirects` is read by Netlify and Cloudflare, and is inert
- * here — so a cold load of `/events`, a manifest shortcut, a shared
+ * here — so a cold load of `/posts`, a manifest shortcut, a shared
  * `/horse/<id>` link or a refresh on any route is a request for a file that
  * does not exist. What Pages does have is a convention: it returns `404.html`
  * for every unmatched path. A byte copy of the built shell there boots the app,

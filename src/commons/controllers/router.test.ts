@@ -425,7 +425,7 @@ describe("Router — history fallback", () => {
     const done = committed(el);
     // What `navigateTo` dispatches. Unclaimed it falls through to
     // `location.href`, which reboots the shell — correct, but it is a whole
-    // page load where a view transition would do, and `EventDetailView` takes
+    // page load where a view transition would do, and `PostDetailView` takes
     // this path every time a record is deleted.
     const claimed = requestNavigate("/documents");
     await done;

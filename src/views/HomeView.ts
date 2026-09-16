@@ -7,22 +7,22 @@ import {
   activeHorseQuery,
   LiveQuery,
   endOfMonth,
-  eventsRepo,
-  eventTypesRepo,
-  findEventType,
+  postsRepo,
+  categoriesRepo,
+  findCategory,
   horsesRepo,
   profileRepo,
   startOfMonth,
   todayISO,
   upcomingAppointments,
-  type ResolvedEventType,
+  type ResolvedCategory,
 } from "../data/index.ts";
-import type { HorseEvent } from "../data/types.ts";
+import type { Post } from "../data/types.ts";
 import { displayProfile } from "../data/account.ts";
 import "../components/horse-card/horse-card.ts";
 import "../components/budget-card/budget-card.ts";
 import "../components/week-strip/week-strip.ts";
-import "../components/event-card/event-card.ts";
+import "../components/post-card/post-card.ts";
 import "../components/app-avatar/app-avatar.ts";
 
 /** The dashboard shows the next few appointments, not the whole agenda. */
@@ -33,18 +33,18 @@ export class HomeView extends LightElement {
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
   #profile = new LiveQuery(this, () => profileRepo.get());
 
-  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
-    eventTypesRepo.listResolved(),
+  #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
+    categoriesRepo.listResolved(),
   );
 
   // Already filtered to still-to-happen `planned` events, soonest first — not
   // yet narrowed to appointments or capped to `UPCOMING_LIMIT`; `render()`
-  // does both, joined against `#eventTypes` fresh on every render. See
+  // does both, joined against `#categories` fresh on every render. See
   // `upcomingAppointments`'s doc comment for why that join cannot live inside
   // this query instead.
-  #upcoming = activeHorseQuery<HorseEvent[]>(
+  #upcoming = activeHorseQuery<Post[]>(
     this,
-    (horseId) => eventsRepo.listUpcoming(horseId),
+    (horseId) => postsRepo.listUpcoming(horseId),
     [],
   );
 
@@ -59,7 +59,7 @@ export class HomeView extends LightElement {
     this,
     (horseId) => {
       const today = todayISO();
-      return eventsRepo.totalSpent(
+      return postsRepo.totalSpent(
         horseId,
         startOfMonth(today),
         endOfMonth(today),
@@ -69,7 +69,7 @@ export class HomeView extends LightElement {
   );
 
   render() {
-    const types = this.#eventTypes.value ?? [];
+    const types = this.#categories.value ?? [];
     const upcoming = upcomingAppointments(
       this.#upcoming.value ?? [],
       types,
@@ -116,11 +116,11 @@ export class HomeView extends LightElement {
                       (event) => event.id,
                       (event) => html`
                         <li>
-                          <event-card
+                          <post-card
                             layout="dashboard"
-                            .event=${event}
-                            .type=${findEventType(types, event.type) ?? null}
-                          ></event-card>
+                            .post=${event}
+                            .category=${findCategory(types, event.categoryKey) ?? null}
+                          ></post-card>
                         </li>
                       `,
                     )}

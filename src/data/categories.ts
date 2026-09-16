@@ -2,21 +2,16 @@ import { isIconName, type IconName } from "../components/app-icon/icons.ts";
 import { isThemeKey } from "../theme/theme.ts";
 import type { ThemeKey } from "../theme/theme.types.ts";
 import type { IsoTimestamp } from "./dates.ts";
-import type {
-  CustomFieldDef,
-  FieldOption,
-  EventTypeDef,
-  HorseEvent,
-} from "./types.ts";
+import type { CustomFieldDef, FieldOption, Category, Post } from "./types.ts";
 
 /**
  * Pure functions over the event-type catalogue, and its built-in seed data.
  *
- * Mirrors `events.ts`: that file holds pure functions over `HorseEvent`, this
- * one holds pure functions over `EventTypeDef` — the row `HorseEvent.type`
- * points at (`types.ts`). Deliberately does not import `events.ts` and is not
+ * Mirrors `posts.ts`: that file holds pure functions over `Post`, this
+ * one holds pure functions over `Category` — the row `Post.type`
+ * points at (`types.ts`). Deliberately does not import `posts.ts` and is not
  * imported by it, even though both are needed together by the day-sheet write
- * path and the week strip: `events.ts` already owns the `FollowUpInterval`
+ * path and the week strip: `posts.ts` already owns the `FollowUpInterval`
  * encoding schema v6's migration needs, and either direction of import between
  * the two would be circular the moment the other reaches back.
  */
@@ -24,7 +19,7 @@ import type {
 /**
  * The follow-up intervals, and the units a quantity is measured in.
  *
- * Restated here rather than imported from `events.ts`: this module
+ * Restated here rather than imported from `posts.ts`: this module
  * deliberately does not depend on that one (see the file's own note), and
  * these are seed data — the whole point of the descriptor is that a type's
  * options live in its row rather than in the code that draws it.
@@ -42,7 +37,7 @@ const FOLLOW_UP_OPTIONS: FieldOption[] = [
 const QUANTITY_UNIT_NAMES = ["mL", "kg", "L"] as const;
 
 /**
- * The three fields that land on a `HorseEvent` column rather than in
+ * The three fields that land on a `Post` column rather than in
  * `customFields`. A type lists them in its own `fields` like any other row —
  * that is what makes the array the whole form and not just its variable part.
  */
@@ -123,7 +118,7 @@ export const quantityField = () =>
  * the four built-in layouts its meaning is closest to. `coucours`, that
  * table's misspelled key, is corrected to `concours` here and by the same
  * migration step that seeds this list (`migrateEventToCustomFields` in
- * `events.ts`).
+ * `posts.ts`).
  *
  * Two of those four stopped being roots in schema v9: `cures` files under
  * `alimentation` and `traitement` under `veto`, so both inherit their parent's
@@ -140,13 +135,13 @@ export const quantityField = () =>
  * the fourteen rows are roots today.
  *
  * Read by both halves of the schema v6 migration — `db.ts`'s live upgrade and
- * `backup/snapshot.ts`'s `migrateSnapshot` — via `seedEventTypeDefs` below, so
+ * `backup/snapshot.ts`'s `migrateSnapshot` — via `seedCategories` below, so
  * a database upgraded in place and a backup file restored from an older build
  * seed identically. One array, the same rule `db.ts`'s `RECORD_TABLES` gives
  * for existing.
  */
-export const BUILT_IN_EVENT_TYPES: Omit<
-  EventTypeDef,
+export const BUILT_IN_CATEGORIES: Omit<
+  Category,
   "id" | "ownerId" | "createdAt" | "updatedAt" | "deletedAt"
 >[] = [
   {
@@ -158,7 +153,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: false,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 0,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -177,7 +172,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: false,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 1,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -197,7 +192,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: false,
     tracksWork: true,
-    archived: false,
+    enabled: true,
     order: 2,
     fields: [
       inputDateField({ id: "date", label: "Date", required: true }),
@@ -220,7 +215,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: false,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 3,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -243,7 +238,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 4,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -279,7 +274,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 5,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -315,7 +310,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 6,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -359,7 +354,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 7,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -394,7 +389,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: false,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 8,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -415,7 +410,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: false,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 9,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -453,7 +448,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 10,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -485,7 +480,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     // A child of `alimentation`: a cure is a course of supplements, which is
     // what the group reads as. `parentId` holds the parent's `id`, not its
     // `key` — the two happen to be equal for a built-in because
-    // `seedEventTypeDefs` below stamps `id: def.key` on purpose, and that is
+    // `seedCategories` below stamps `id: def.key` on purpose, and that is
     // the only reason a literal slug is writable here.
     parentId: "alimentation",
     // Both null: inherited from the parent. `theme` always is — a group reads
@@ -498,7 +493,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 11,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -534,7 +529,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 12,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -575,7 +570,7 @@ export const BUILT_IN_EVENT_TYPES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
-    archived: false,
+    enabled: true,
     order: 13,
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
@@ -654,8 +649,8 @@ export const SCHEMA_V10_NESTINGS: readonly {
  * way `SCHEMA_V10_NESTINGS` moves `osteo`.
  *
  * Unlike an edit to an already-shipped row, inserting a row that never
- * existed before is safe to source straight from `BUILT_IN_EVENT_TYPES` (via
- * `seedEventTypeDefs`) rather than a frozen duplicate: nothing about editing
+ * existed before is safe to source straight from `BUILT_IN_CATEGORIES` (via
+ * `seedCategories`) rather than a frozen duplicate: nothing about editing
  * `massage`'s definition *after* it ships can retroactively change what this
  * key list did, because any such edit needs its own version and its own
  * migration step, addressed by `key`, the same way v7 edited `alimentation`.
@@ -665,7 +660,31 @@ export const SCHEMA_V10_NESTINGS: readonly {
 export const SCHEMA_V10_NEW_TYPES: readonly string[] = ["massage"];
 
 /**
- * Stamps `BUILT_IN_EVENT_TYPES` into real rows.
+ * A category row as a pre-v13 build wrote it, in the `eventTypes` store:
+ * `archived` where `enabled` is now. Both optional, for the same reason as
+ * `LegacyPostRow` (`posts.ts`) — and because schema v6 and v10 seed today's
+ * shape into that old store.
+ */
+export type LegacyCategoryRow = Omit<Category, "enabled"> & {
+  enabled?: boolean;
+  archived?: boolean;
+};
+
+/**
+ * Schema v13's rename of one category row: `archived` becomes its inverse,
+ * `enabled`. Shared by `db.ts`'s live upgrade and `migrateSnapshot`, frozen,
+ * and a no-op on a row already carrying `enabled`.
+ */
+export const migrateCategoryRowV13 = (row: LegacyCategoryRow): Category => {
+  const { archived, enabled, ...rest } = row;
+  return {
+    ...rest,
+    enabled: typeof enabled === "boolean" ? enabled : archived !== true,
+  };
+};
+
+/**
+ * Stamps `BUILT_IN_CATEGORIES` into real rows.
  *
  * Called from both halves of the schema v6 migration with whichever owner id
  * and timestamp that caller has to hand — `db.ts`'s live upgrade resolves the
@@ -687,11 +706,11 @@ export const SCHEMA_V10_NEW_TYPES: readonly string[] = ["massage"];
  * Deriving `id` from `key` is what makes two independent seed calls agree on
  * what the row *is* without either one having to ask the other first.
  */
-export const seedEventTypeDefs = (
+export const seedCategories = (
   ownerId: string,
   timestamp: IsoTimestamp,
-): EventTypeDef[] =>
-  BUILT_IN_EVENT_TYPES.map((def) => ({
+): Category[] =>
+  BUILT_IN_CATEGORIES.map((def) => ({
     ...def,
     id: def.key,
     ownerId,
@@ -703,12 +722,12 @@ export const seedEventTypeDefs = (
 /**
  * A type whose presentation is settled: no `null` left to think about.
  *
- * What every view consumes — `event-types.repo.ts`'s `listResolved` produces
- * it, and it stays assignable to `EventTypeDef`, so the accessors below take
+ * What every view consumes — `categories.repo.ts`'s `listResolved` produces
+ * it, and it stays assignable to `Category`, so the accessors below take
  * either. The raw row is still what the type editor wants: only it needs to
  * see the `null` that means "inherited" in order to say so.
  */
-export type ResolvedEventType = Omit<EventTypeDef, "icon" | "theme"> & {
+export type ResolvedCategory = Omit<Category, "icon" | "theme"> & {
   icon: IconName;
   theme: ThemeKey;
 };
@@ -719,17 +738,17 @@ export type ResolvedEventType = Omit<EventTypeDef, "icon" | "theme"> & {
  * Not reachable from the app's own write paths — the editor requires both on a
  * root — but very reachable from a restored backup, which `assertSnapshot`
  * checks for `id` and `updatedAt` and nothing else. `"info"` is already what
- * `event-card` fell back to in that case before this file did; `"taupe"` is the
+ * `post-card` fell back to in that case before this file did; `"taupe"` is the
  * catalogue's most neutral tone.
  */
 const DEFAULT_ICON: IconName = "info";
 const DEFAULT_THEME: ThemeKey = "taupe";
 
 /** The stored value if it is one this build can actually draw, else nothing. */
-const ownIcon = (type: EventTypeDef): IconName | undefined =>
+const ownIcon = (type: Category): IconName | undefined =>
   type.icon !== null && isIconName(type.icon) ? type.icon : undefined;
 
-const ownTheme = (type: EventTypeDef): ThemeKey | undefined =>
+const ownTheme = (type: Category): ThemeKey | undefined =>
   type.theme !== null && isThemeKey(type.theme) ? type.theme : undefined;
 
 /**
@@ -742,10 +761,7 @@ const ownTheme = (type: EventTypeDef): ThemeKey | undefined =>
  * editable — dropping it, or throwing, loses it. `rootsOf` applies the same
  * rule from the other side, so the two can never disagree about what a root is.
  */
-const parentOf = <T extends EventTypeDef>(
-  types: T[],
-  type: T,
-): T | undefined =>
+const parentOf = <T extends Category>(types: T[], type: T): T | undefined =>
   type.parentId === null
     ? undefined
     : types.find((candidate) => candidate.id === type.parentId);
@@ -764,9 +780,7 @@ const parentOf = <T extends EventTypeDef>(
  * at render rather than a missing colour; `ownTheme`/`ownIcon` above turn it
  * into the default here instead, once, for every read site at the same time.
  */
-export const resolveCatalogue = (
-  types: EventTypeDef[],
-): ResolvedEventType[] => {
+export const resolveCatalogue = (types: Category[]): ResolvedCategory[] => {
   const byId = new Map(types.map((type) => [type.id, type]));
 
   return types.map((type) => {
@@ -785,7 +799,7 @@ export const resolveCatalogue = (
 
 /** The types with no parent, in `order` — the top level of the picker, the
  * chips and the budget ring. The whole shipped catalogue is one of these. */
-export const rootsOf = <T extends EventTypeDef>(types: T[]): T[] => {
+export const rootsOf = <T extends Category>(types: T[]): T[] => {
   const ids = new Set(types.map((type) => type.id));
   return byOrder(
     types.filter((type) => type.parentId === null || !ids.has(type.parentId)),
@@ -793,28 +807,25 @@ export const rootsOf = <T extends EventTypeDef>(types: T[]): T[] => {
 };
 
 /** The direct children of `parentId`, in `order`. Empty for a leaf. */
-export const childrenOf = <T extends EventTypeDef>(
+export const childrenOf = <T extends Category>(
   types: T[],
   parentId: string,
 ): T[] => byOrder(types.filter((type) => type.parentId === parentId));
 
 /** The root this type hangs under — itself when it is one. */
-export const rootOf = <T extends EventTypeDef>(types: T[], type: T): T =>
+export const rootOf = <T extends Category>(types: T[], type: T): T =>
   parentOf(types, type) ?? type;
 
 /**
- * The `HorseEvent.type` slugs a filter on `key` should match: the type's own,
+ * The `Post.type` slugs a filter on `key` should match: the type's own,
  * plus its children's.
  *
- * Keys rather than ids because this is compared against `HorseEvent.type`,
+ * Keys rather than ids because this is compared against `Post.type`,
  * which stores the slug. A flat catalogue makes this a singleton, which is
- * exactly today's `event.type === filter`.
+ * exactly today's `event.categoryKey === filter`.
  */
-export const subtreeKeys = (
-  types: EventTypeDef[],
-  key: string,
-): Set<string> => {
-  const type = findEventType(types, key);
+export const subtreeKeys = (types: Category[], key: string): Set<string> => {
+  const type = findCategory(types, key);
   if (!type) return new Set([key]);
   return new Set([
     key,
@@ -833,7 +844,7 @@ export const subtreeKeys = (
  * dropping either would let a three-deep chain in.
  */
 export const canBeParentOf = (
-  types: EventTypeDef[],
+  types: Category[],
   childId: string,
   parentId: string,
 ): boolean => {
@@ -850,27 +861,27 @@ export const canBeParentOf = (
 /**
  * The type whose `key` matches, or `undefined` if the caller's list has none.
  *
- * Generic over the row rather than fixed to `EventTypeDef` — the views hand it
- * a `ResolvedEventType[]` and would otherwise get a raw `EventTypeDef` back,
+ * Generic over the row rather than fixed to `Category` — the views hand it
+ * a `ResolvedCategory[]` and would otherwise get a raw `Category` back,
  * losing exactly the non-null `icon`/`theme` they resolved the catalogue for.
  * Same reason for `byLabel` and `byOrder` below.
  */
-export const findEventType = <T extends EventTypeDef>(
+export const findCategory = <T extends Category>(
   types: T[],
   key: string,
 ): T | undefined => types.find((type) => type.key === key);
 
 /** Alphabetical by label — the order a filter list or a type picker offers them in. */
-export const byLabel = <T extends EventTypeDef>(types: T[]): T[] =>
+export const byLabel = <T extends Category>(types: T[]): T[] =>
   [...types].sort((a, b) => a.label.localeCompare(b.label, "fr"));
 
 /**
  * By `order` — the stable sequence that keeps a category, and therefore its
  * colour and its neighbours, in the same place in the budget donut from one
- * month to the next. Replaces the fixed `EVENT_TYPES` array `sumByType` used
+ * month to the next. Replaces the fixed `EVENT_TYPES` array `sumByCategory` used
  * to iterate before types became data.
  */
-export const byOrder = <T extends EventTypeDef>(types: T[]): T[] =>
+export const byOrder = <T extends Category>(types: T[]): T[] =>
   [...types].sort((a, b) => a.order - b.order);
 
 /**
@@ -885,7 +896,7 @@ export const byOrder = <T extends EventTypeDef>(types: T[]): T[] =>
  * up by kind would silently resolve to whichever field happens to be first.
  */
 export const fieldWithRole = (
-  type: EventTypeDef,
+  type: Category,
   role: NonNullable<CustomFieldDef["role"]>,
 ): CustomFieldDef | undefined =>
   type.fields.find((field) => field.role === role);
@@ -898,41 +909,41 @@ export const fieldWithRole = (
  * a *different* field of the same kind once a type can carry more than one.
  */
 export const fieldById = (
-  type: EventTypeDef,
+  type: Category,
   id: string,
 ): CustomFieldDef | undefined => type.fields.find((field) => field.id === id);
 
 /**
  * The types the dashboard's "Rendez-vous à venir" list is about.
  *
- * Replaces the hardcoded `APPOINTMENT_TYPES` Set `events.ts` used to keep: a
+ * Replaces the hardcoded `APPOINTMENT_TYPES` Set `posts.ts` used to keep: a
  * rendez-vous is booked with someone, and which types that is is now a
  * property of the type itself (`isAppointment`) rather than a closed list in
- * code — `event-types.repo.ts`'s seed sets it exactly the way the old Set did.
+ * code — `categories.repo.ts`'s seed sets it exactly the way the old Set did.
  */
-export const isAppointmentType = (
-  types: EventTypeDef[],
+export const isAppointmentCategory = (
+  types: Category[],
   key: string,
-): boolean => findEventType(types, key)?.isAppointment ?? false;
+): boolean => findCategory(types, key)?.isAppointment ?? false;
 
 /**
  * Narrows a list of events to the ones that are actually *appointments* — see
- * `isAppointmentType` — capped to `limit`.
+ * `isAppointmentCategory` — capped to `limit`.
  *
  * Pure, over events and types the caller already fetched: `HomeView` holds
  * both in their own `LiveQuery`, and joining them here rather than inside
- * `eventsRepo.listUpcoming`'s own query is what keeps the dashboard reactive
+ * `postsRepo.listUpcoming`'s own query is what keeps the dashboard reactive
  * to a type's `isAppointment` flag changing — a Dexie `liveQuery` only re-runs
  * for tables its own query function reads, and `eventTypes` is not one of
  * them for a query that receives the catalogue as a plain argument instead.
  */
 export const upcomingAppointments = (
-  events: HorseEvent[],
-  types: EventTypeDef[],
+  events: Post[],
+  types: Category[],
   limit?: number,
-): HorseEvent[] => {
+): Post[] => {
   const appointments = events.filter((event) =>
-    isAppointmentType(types, event.type),
+    isAppointmentCategory(types, event.categoryKey),
   );
   return limit === undefined ? appointments : appointments.slice(0, limit);
 };

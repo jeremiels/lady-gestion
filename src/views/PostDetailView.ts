@@ -5,13 +5,13 @@ import { styleMap } from "lit/directives/style-map.js";
 import { LightElement } from "../commons/base-element.ts";
 import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
-  eventTypesRepo,
+  categoriesRepo,
   fieldById,
   fieldWithRole,
-  findEventType,
+  findCategory,
   LiveQuery,
   documentsRepo,
-  eventsRepo,
+  postsRepo,
   formatCents,
   formatDateMedium,
   formatFileKind,
@@ -20,9 +20,9 @@ import {
   formatTime,
   formatWorkActivity,
   parseFollowUpValue,
-  type ResolvedEventType,
+  type ResolvedCategory,
 } from "../data/index.ts";
-import type { HorseEvent, StoredDocument } from "../data/types.ts";
+import type { Post, StoredDocument } from "../data/types.ts";
 import { THEME_META } from "../theme/theme.ts";
 import type { IconName } from "../components/app-icon/icons.ts";
 import { documentCategory } from "../types/document.types.ts";
@@ -31,63 +31,63 @@ import "../components/app-icon/app-icon.ts";
 import { tagStyle } from "../components/app-tag/app-tag.ts";
 import "../components/app-modal/app-modal.ts";
 import "../components/document-viewer/document-viewer.ts";
-import "../components/event-sheet/event-sheet.ts";
+import "../components/post-sheet/post-sheet.ts";
 
 /** Where back falls to, and where a delete lands. */
-const EVENTS_LIST = "/events";
+const POSTS_LIST = "/posts";
 
 /** One row of the Informations card. `null` values are dropped, not shown blank. */
 type InfoRow = { label: string; value: TemplateResult | string };
 
-@customElement("event-detail-view")
-export class EventDetailView extends LightElement {
+@customElement("post-detail-view")
+export class PostDetailView extends LightElement {
   /** Sliced out of the pathname by the route table; nothing else parses the URL. */
-  @property({ attribute: false }) eventId = "";
+  @property({ attribute: false }) postId = "";
 
   @state() private editOpen = false;
   @state() private deleteOpen = false;
   @state() private viewing: StoredDocument | null = null;
   @state() private actionError = "";
 
-  // Both read `this.eventId`, which never changes for a given element: the
+  // Both read `this.postId`, which never changes for a given element: the
   // route keys this view by path, so a different event is a different element.
-  #event = new LiveQuery(this, () => eventsRepo.get(this.eventId));
+  #event = new LiveQuery(this, () => postsRepo.get(this.postId));
   #documents = new LiveQuery<StoredDocument[]>(this, () =>
-    documentsRepo.listByEvent(this.eventId),
+    documentsRepo.listByPost(this.postId),
   );
-  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
-    eventTypesRepo.listResolved(),
+  #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
+    categoriesRepo.listResolved(),
   );
 
   /** Back to the calendar or the list, whichever this was opened from. */
-  #goBack = () => goBack(EVENTS_LIST);
+  #goBack = () => goBack(POSTS_LIST);
 
   render() {
     if (this.#event.loading) {
-      return html`<section class="event-detail">
-        <p class="event-detail__empty">Chargement…</p>
+      return html`<section class="post-detail">
+        <p class="post-detail__empty">Chargement…</p>
       </section>`;
     }
 
     const event = this.#event.value;
     if (!event) return this.#renderNotFound();
-    const type = findEventType(this.#eventTypes.value ?? [], event.type);
+    const type = findCategory(this.#categories.value ?? [], event.categoryKey);
 
     return html`
-      <section class="event-detail">
-        <header class="event-detail__header">
+      <section class="post-detail">
+        <header class="post-detail__header">
           <button
-            class="event-detail__back pressable pressable--small"
+            class="post-detail__back pressable pressable--small"
             type="button"
             aria-label="Retour"
             @click=${this.#goBack}
           >
             <app-icon icon="chevronLeft"></app-icon>
           </button>
-          <h1 class="event-detail__title" tabindex="-1">${event.title}</h1>
+          <h1 class="post-detail__title" tabindex="-1">${event.title}</h1>
         </header>
 
-        <section class="event-detail__section">
+        <section class="post-detail__section">
           <h2 class="section-title-small">Informations</h2>
           <!-- The card is a wrapper, not the list itself: .meta-list zeroes its
                own padding and sits in a later sub-layer than .container, so
@@ -108,10 +108,10 @@ export class EventDetailView extends LightElement {
 
         ${this.#renderDocuments()}
 
-        <section class="event-detail__section">
+        <section class="post-detail__section">
           <h2 class="section-title-small">Actions</h2>
           <div class="container">
-            <ul class="event-detail__actions">
+            <ul class="post-detail__actions">
               ${this.#renderActions(event, type)}
             </ul>
           </div>
@@ -121,12 +121,12 @@ export class EventDetailView extends LightElement {
             tree at the moment it has something to say is typically announced as
             nothing, and \`hidden\` takes a region out of that tree just as
             surely as never rendering it. Same shape as \`app-update-toast\`'s
-            status region and \`event-sheet\`'s.
+            status region and \`post-sheet\`'s.
           -->
-          <div class="event-detail__error-region" role="alert">
+          <div class="post-detail__error-region" role="alert">
             ${
               this.actionError
-                ? html`<p class="event-detail__error">${this.actionError}</p>`
+                ? html`<p class="post-detail__error">${this.actionError}</p>`
                 : nothing
             }
           </div>
@@ -139,13 +139,13 @@ export class EventDetailView extends LightElement {
 
   #renderNotFound() {
     return html`
-      <section class="event-detail">
+      <section class="post-detail">
         <hgroup class="section-group">
           <h1 class="section-title" tabindex="-1">Évènement introuvable</h1>
           <p class="section-subtitle">Il a peut-être été supprimé.</p>
         </hgroup>
         <button
-          class="event-detail__back-link pressable"
+          class="post-detail__back-link pressable"
           type="button"
           @click=${this.#goBack}
         >
@@ -169,7 +169,7 @@ export class EventDetailView extends LightElement {
    * field actually being found, so the card degrades to its bare minimum
    * rather than throwing.
    */
-  #infoRows(event: HorseEvent, type: ResolvedEventType | undefined): InfoRow[] {
+  #infoRows(event: Post, type: ResolvedCategory | undefined): InfoRow[] {
     const rows: InfoRow[] = [
       // `app-tag` resolves both the label and the colours from the type alone.
       {
@@ -217,7 +217,7 @@ export class EventDetailView extends LightElement {
       });
     }
 
-    // Already display-ready — `formatQuantity` (`events.ts`) is what wrote
+    // Already display-ready — `formatQuantity` (`posts.ts`) is what wrote
     // this string in the first place, so there is nothing left to format.
     const quantityField = type && fieldById(type, "quantity");
     const quantityValue = quantityField && event.customFields[quantityField.id];
@@ -250,27 +250,24 @@ export class EventDetailView extends LightElement {
     if (documents.length === 0) return nothing;
 
     return html`
-      <ul class="event-detail__files">
+      <ul class="post-detail__files">
         ${repeat(
           documents,
           (doc) => doc.id,
           (doc) => html`
             <li>
               <button
-                class="container event-detail__file pressable"
+                class="container post-detail__file pressable"
                 type="button"
                 @click=${() => this.#openViewer(doc)}
               >
-                <app-icon
-                  class="event-detail__file-icon"
-                  icon="file"
-                ></app-icon>
-                <span class="event-detail__file-name">${doc.name}</span>
-                <span class="event-detail__file-meta">
+                <app-icon class="post-detail__file-icon" icon="file"></app-icon>
+                <span class="post-detail__file-name">${doc.name}</span>
+                <span class="post-detail__file-meta">
                   ${formatFileKind(doc.mimeType)} • ${formatFileSize(doc.size)}
                 </span>
                 <app-tag
-                  class="event-detail__file-tag"
+                  class="post-detail__file-tag"
                   label=${documentCategory.label(doc.category)}
                   style=${styleMap(tagStyle(documentCategory.theme(doc.category)))}
                 ></app-tag>
@@ -282,7 +279,7 @@ export class EventDetailView extends LightElement {
     `;
   }
 
-  #renderActions(event: HorseEvent, type: ResolvedEventType | undefined) {
+  #renderActions(event: Post, type: ResolvedCategory | undefined) {
     const doc = this.#documents.value?.[0] ?? null;
 
     return html`
@@ -334,19 +331,19 @@ export class EventDetailView extends LightElement {
     return html`
       <li>
         <button
-          class="event-detail__action pressable ${action.destructive ? "event-detail__action--danger" : ""}"
+          class="post-detail__action pressable ${action.destructive ? "post-detail__action--danger" : ""}"
           type="button"
           ?disabled=${action.disabled ?? false}
           @click=${action.onClick}
         >
           <app-icon
-            class="event-detail__action-icon"
+            class="post-detail__action-icon"
             icon=${action.icon}
           ></app-icon>
-          <span class="event-detail__action-label">${action.label}</span>
+          <span class="post-detail__action-label">${action.label}</span>
           ${
             action.hint
-              ? html`<span class="event-detail__action-hint"
+              ? html`<span class="post-detail__action-hint"
                   >${action.hint}</span
                 >`
               : nothing
@@ -356,15 +353,15 @@ export class EventDetailView extends LightElement {
     `;
   }
 
-  #renderOverlays(event: HorseEvent) {
+  #renderOverlays(event: Post) {
     return html`
-      <event-sheet
-        .event=${event}
+      <post-sheet
+        .post=${event}
         .open=${this.editOpen}
         @sheet-close=${() => {
           this.editOpen = false;
         }}
-      ></event-sheet>
+      ></post-sheet>
 
       <document-viewer
         .doc=${this.viewing}
@@ -382,12 +379,12 @@ export class EventDetailView extends LightElement {
           this.deleteOpen = false;
         }}
       >
-        <p class="event-detail__confirm">
+        <p class="post-detail__confirm">
           Les fichiers qui y sont attachés restent dans vos documents.
         </p>
-        <div slot="footer" class="event-detail__confirm-actions">
+        <div slot="footer" class="post-detail__confirm-actions">
           <button
-            class="event-detail__button"
+            class="post-detail__button"
             type="button"
             @click=${() => {
               this.deleteOpen = false;
@@ -396,7 +393,7 @@ export class EventDetailView extends LightElement {
             Annuler
           </button>
           <button
-            class="event-detail__button event-detail__button--danger"
+            class="post-detail__button post-detail__button--danger"
             type="button"
             @click=${this.#confirmDelete}
           >
@@ -417,8 +414,8 @@ export class EventDetailView extends LightElement {
    * less useful half, but it beats an action that silently does nothing.
    */
   async #share(
-    event: HorseEvent,
-    type: ResolvedEventType | undefined,
+    event: Post,
+    type: ResolvedCategory | undefined,
     doc: StoredDocument | null,
   ) {
     this.actionError = "";
@@ -464,19 +461,19 @@ export class EventDetailView extends LightElement {
   #confirmDelete = async () => {
     this.deleteOpen = false;
     try {
-      await eventsRepo.remove(this.eventId);
+      await postsRepo.remove(this.postId);
     } catch {
       this.actionError = "La suppression a échoué.";
       return;
     }
     // The record is gone from every read path, so staying here would only show
     // this view's own not-found state.
-    navigateTo(EVENTS_LIST);
+    navigateTo(POSTS_LIST);
   };
 }
 
 declare global {
   interface HTMLElementTagNameMap {
-    "event-detail-view": EventDetailView;
+    "post-detail-view": PostDetailView;
   }
 }

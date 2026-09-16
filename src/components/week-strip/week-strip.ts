@@ -3,17 +3,17 @@ import { customElement, state } from "lit/decorators.js";
 import {
   activeHorseQuery,
   courseDatesThisWeek,
-  eventsRepo,
-  eventTypesRepo,
+  postsRepo,
+  categoriesRepo,
   formatDayLong,
   LiveQuery,
   todayISO,
   weekGrid,
   workSessionByDate,
   type IsoDate,
-  type ResolvedEventType,
+  type ResolvedCategory,
 } from "../../data/index.ts";
-import type { HorseEvent } from "../../data/types.ts";
+import type { Post } from "../../data/types.ts";
 import { BaseElement } from "../../commons/base-element.ts";
 
 import "../day-card/day-card.ts";
@@ -40,7 +40,7 @@ export class WeekStrip extends BaseElement {
    * than standing in for one. The sheet animates itself out over
    * `--duration-slow`, so a day cleared on close would re-title the heading
    * mid-exit; unmounting it outright would skip the exit entirely. Same shape
-   * `EventDetailView` uses for the event sheet — a value property that persists
+   * `PostDetailView` uses for the event sheet — a value property that persists
    * and an open flag beside it.
    */
   @state() private selected: IsoDate | null = null;
@@ -56,23 +56,23 @@ export class WeekStrip extends BaseElement {
    * keeps showing the old week until the next write — the trade already made
    * one query up.
    */
-  #week = activeHorseQuery<HorseEvent[]>(
+  #week = activeHorseQuery<Post[]>(
     this,
     (horseId) => {
       const days = weekGrid(todayISO());
-      return eventsRepo.listInRange(horseId, days[0], days[6]);
+      return postsRepo.listInRange(horseId, days[0], days[6]);
     },
     [],
   );
 
-  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
-    eventTypesRepo.listResolved(),
+  #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
+    categoriesRepo.listResolved(),
   );
 
   /** The type the day sheet writes to — the one type flagged `tracksWork`. */
-  get #workType(): ResolvedEventType | null {
+  get #workType(): ResolvedCategory | null {
     return (
-      (this.#eventTypes.value ?? []).find((type) => type.tracksWork) ?? null
+      (this.#categories.value ?? []).find((type) => type.tracksWork) ?? null
     );
   }
 
@@ -147,7 +147,7 @@ export class WeekStrip extends BaseElement {
     const days = weekGrid(today);
     const sessions = workSessionByDate(
       this.#week.value ?? [],
-      this.#eventTypes.value ?? [],
+      this.#categories.value ?? [],
     );
     const courseDates = courseDatesThisWeek(this.#week.value ?? []);
     const { selected, sheetOpen } = this;

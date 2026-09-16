@@ -71,7 +71,7 @@ export interface DialogHost extends ReactiveElement {
  *   document inert, which blocks clicks and focus but *not* scrolling, so the
  *   lock is ours to take — see `commons/scroll-lock.ts`. This controller is the
  *   only thing that knows when a real `<dialog>` is showing, which is why it
- *   holds the lock rather than a CSS rule on the document: `event-sheet` and
+ *   holds the lock rather than a CSS rule on the document: `post-sheet` and
  *   `document-viewer` both nest their dialog inside a shadow root, where a
  *   `html:has(app-modal[open])` rule cannot see it.
  *

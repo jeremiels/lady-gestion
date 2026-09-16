@@ -136,7 +136,7 @@ export const customizeTabPath = (tab: CustomizeTab): string =>
 export type Section = {
   id: string;
   /**
-   * The section's root, **app-relative** — `/events`, never `/lady-gestion/events`.
+   * The section's root, **app-relative** — `/posts`, never `/lady-gestion/posts`.
    *
    * App-relative and not an `href`, because this field is read as well as
    * written. `appHref()` belongs at the one place it is rendered into a link;
@@ -173,12 +173,12 @@ export const SECTIONS: Section[] = [
     matches: (path) => path === "/" || isHorsePath(path),
   },
   {
-    id: "events",
-    root: "/events",
+    id: "posts",
+    root: "/posts",
     label: "Activités",
     icon: "date",
-    // A prefix match: an event's own page is still the Calendrier section.
-    matches: (path) => path.startsWith("/events"),
+    // A prefix match: a post's own page is still the Activités section.
+    matches: (path) => path.startsWith("/posts"),
   },
   {
     id: "budget",
@@ -204,7 +204,7 @@ export const sectionOf = (path: string): Section | undefined =>
  * A sideways move: out of one section and onto the root of another.
  *
  * The "onto a root" half matters as much as the section comparison. Leaving
- * `/profile` for `/events/<id>` via a deep link changes section but still lands
+ * `/profile` for `/posts/<id>` via a deep link changes section but still lands
  * a level down, and should still push.
  *
  * Both arguments are app-relative paths, the form `Router` works in — which is

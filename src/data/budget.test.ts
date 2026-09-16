@@ -7,30 +7,30 @@ import {
   inPeriod,
   periodOf,
   periodOptions,
-  sumByType,
+  sumByCategory,
   sumSlices,
   type BudgetPeriod,
 } from "./budget.ts";
-import { BUILT_IN_EVENT_TYPE_ROWS, makeEvent } from "./__tests__/factories.ts";
-import type { HorseEvent } from "./types.ts";
+import { BUILT_IN_CATEGORY_ROWS, makePost } from "./__tests__/factories.ts";
+import type { Post } from "./types.ts";
 
 /**
  * These are pure functions over records the caller fetched, so the fixtures are
  * built straight from the factory — no database, no `resetDb`. `TYPES` is the
- * real 14 built-ins, in their real `order` — the sequence `sumByType` sorts by.
+ * real 14 built-ins, in their real `order` — the sequence `sumByCategory` sorts by.
  */
-const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+const TYPES = BUILT_IN_CATEGORY_ROWS;
 
 const budget = (
   date: string,
-  type: HorseEvent["type"],
+  type: Post["categoryKey"],
   amountCents: number,
-  over: Partial<HorseEvent> = {},
-): HorseEvent =>
-  makeEvent({
+  over: Partial<Post> = {},
+): Post =>
+  makePost({
     id: `${date}-${type}`,
     date,
-    type,
+    categoryKey: type,
     customFields: { amountCents },
     ...over,
   });
@@ -80,9 +80,9 @@ describe("inPeriod", () => {
   });
 });
 
-describe("sumByType", () => {
+describe("sumByCategory", () => {
   it("adds up several events of the same category", () => {
-    const slices = sumByType(
+    const slices = sumByCategory(
       [
         budget("2026-01-05", "veto", 10_000),
         budget("2026-01-20", "veto", 2500),
@@ -93,13 +93,13 @@ describe("sumByType", () => {
   });
 
   it("omits categories with nothing spent on them", () => {
-    const slices = sumByType([budget("2026-01-05", "veto", 10_000)], TYPES);
+    const slices = sumByCategory([budget("2026-01-05", "veto", 10_000)], TYPES);
     expect(slices).toHaveLength(1);
     expect(slices.map((slice) => slice.type)).not.toContain("pension");
   });
 
   it("omits a category whose events cancel out to zero", () => {
-    const slices = sumByType(
+    const slices = sumByCategory(
       [
         budget("2026-01-05", "achat", 5000),
         budget("2026-01-06", "achat", -5000, { id: "refund" }),
@@ -112,7 +112,7 @@ describe("sumByType", () => {
 
   it("orders by the type catalogue's order, not by amount, so the ring never reshuffles", () => {
     // `pension` comes after `veto` in the seeded order and is the bigger of the two here.
-    const slices = sumByType(
+    const slices = sumByCategory(
       [
         budget("2026-01-05", "pension", 35_000),
         budget("2026-01-06", "veto", 100),
@@ -123,13 +123,13 @@ describe("sumByType", () => {
   });
 
   it("treats a missing or non-numeric amount as nothing rather than NaN", () => {
-    const slices = sumByType(
+    const slices = sumByCategory(
       [
         budget("2026-01-05", "veto", 1000),
-        makeEvent({
+        makePost({
           id: "no-amount",
           date: "2026-01-06",
-          type: "veto",
+          categoryKey: "veto",
           customFields: {},
         }),
       ],
@@ -139,7 +139,7 @@ describe("sumByType", () => {
   });
 
   it("returns nothing for no events", () => {
-    expect(sumByType([], TYPES)).toEqual([]);
+    expect(sumByCategory([], TYPES)).toEqual([]);
   });
 
   /**
@@ -162,7 +162,7 @@ describe("sumByType", () => {
     const NESTED = TYPES.map(nest("marechal")).map(nest("dentiste"));
 
     it("rolls a child's spend into its root's wedge", () => {
-      const slices = sumByType(
+      const slices = sumByCategory(
         [
           budget("2026-01-05", "soins", 1000),
           budget("2026-01-06", "marechal", 2000, { id: "v" }),
@@ -184,7 +184,7 @@ describe("sumByType", () => {
     });
 
     it("gives a root a wedge for its children alone, even spending nothing itself", () => {
-      const slices = sumByType(
+      const slices = sumByCategory(
         [budget("2026-01-06", "marechal", 2000)],
         NESTED,
       );
@@ -199,7 +199,7 @@ describe("sumByType", () => {
     });
 
     it("never gives a child a wedge of its own — it would repeat its parent's colour", () => {
-      const slices = sumByType(
+      const slices = sumByCategory(
         [budget("2026-01-06", "marechal", 2000)],
         NESTED,
       );
@@ -207,7 +207,7 @@ describe("sumByType", () => {
     });
 
     it("drops a child that spent nothing from the breakdown", () => {
-      const slices = sumByType(
+      const slices = sumByCategory(
         [budget("2026-01-06", "marechal", 2000)],
         NESTED,
       );
@@ -216,7 +216,7 @@ describe("sumByType", () => {
 
     it("orders children by their own order within the group", () => {
       // `dentiste` is order 4 and `marechal` order 5 in the seeded catalogue.
-      const slices = sumByType(
+      const slices = sumByCategory(
         [
           budget("2026-01-06", "marechal", 1, { id: "v" }),
           budget("2026-01-07", "dentiste", 1, { id: "d" }),
@@ -230,7 +230,7 @@ describe("sumByType", () => {
     });
 
     it("keeps sumSlices counting each event exactly once", () => {
-      const slices = sumByType(
+      const slices = sumByCategory(
         [
           budget("2026-01-05", "soins", 1000),
           budget("2026-01-06", "marechal", 2000, { id: "v" }),
@@ -245,7 +245,7 @@ describe("sumByType", () => {
 describe("sumSlices", () => {
   it("totals the slices, and reads 0 for none", () => {
     expect(
-      sumSlices(sumByType([budget("2026-01-05", "veto", 10_000)], TYPES)),
+      sumSlices(sumByCategory([budget("2026-01-05", "veto", 10_000)], TYPES)),
     ).toBe(10_000);
     expect(sumSlices([])).toBe(0);
   });

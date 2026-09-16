@@ -16,10 +16,10 @@ import {
   activityChoices,
   byLabel,
   childrenOf,
-  eventsService,
-  eventTypesRepo,
+  postsService,
+  categoriesRepo,
   fieldWithRole,
-  findEventType,
+  findCategory,
   formatWorkActivity,
   todayISO,
   fromCents,
@@ -28,9 +28,9 @@ import {
   oneOf,
   readForm,
   rootsOf,
-  type ResolvedEventType,
+  type ResolvedCategory,
 } from "../../data/index.ts";
-import type { ActivityItem, HorseEvent } from "../../data/types.ts";
+import type { ActivityItem, Post } from "../../data/types.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
@@ -48,7 +48,7 @@ import "../app-unit-select/app-unit-select.ts";
  * can record a repeat interval; a purchase has a merchant; a `workActivity`
  * type has the kind of work that was done; a type with none of those needs
  * none of it. Schema v6 moved this from a compile-time table in
- * `event.types.ts` to the `EventTypeDef` rows `#eventTypes` reads live, so a
+ * `event.types.ts` to the `Category` rows `#categories` reads live, so a
  * type's shape and its label/icon/theme stay one row rather than two tables
  * that could drift.
  *
@@ -59,12 +59,12 @@ import "../app-unit-select/app-unit-select.ts";
  * @fires sheet-close - No detail. Fired on dismissal and after a successful
  * save; the owner clears `open` in response.
  */
-@customElement("event-sheet")
-export class EventSheet extends BaseElement {
+@customElement("post-sheet")
+export class PostSheet extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
 
   /** The record being edited, or `null` to create a new one. */
-  @property({ attribute: false }) event: HorseEvent | null = null;
+  @property({ attribute: false }) post: Post | null = null;
 
   /** `''` until a type is picked; the select is `required`, so submit is blocked. */
   @state() private type: string = "";
@@ -89,8 +89,8 @@ export class EventSheet extends BaseElement {
   /** The event-type catalogue — the type picker and every field's presence,
    * label and requiredness now come from here rather than a compile-time
    * table. */
-  #eventTypes = new LiveQuery<ResolvedEventType[]>(this, () =>
-    eventTypesRepo.listResolved(),
+  #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
+    categoriesRepo.listResolved(),
   );
 
   /**
@@ -113,8 +113,8 @@ export class EventSheet extends BaseElement {
    */
   get #recordActivityFieldId(): string {
     const recordType =
-      this.event &&
-      findEventType(this.#eventTypes.value ?? [], this.event.type);
+      this.post &&
+      findCategory(this.#categories.value ?? [], this.post.categoryKey);
     return (
       (recordType && fieldWithRole(recordType, "workActivity")?.id) ??
       "activity"
@@ -139,7 +139,7 @@ export class EventSheet extends BaseElement {
    */
   get #activityChoices(): WorkActivity[] {
     const choices = activityChoices([]);
-    const stored = this.event?.customFields[this.#recordActivityFieldId];
+    const stored = this.post?.customFields[this.#recordActivityFieldId];
     const current = typeof stored === "string" ? stored : null;
     return current !== null && !choices.includes(current)
       ? [...choices, current]
@@ -167,7 +167,7 @@ export class EventSheet extends BaseElement {
     /* Fields sit straight on the sheet background rather than each getting its
        own card — the ration sheet is the one that wants cards. Inputs are
        tinted a shade darker than the surface so they still read as recessed. */
-    .event-form {
+    .post-form {
       display: flex;
       flex-direction: column;
       gap: var(--spacing-16);
@@ -186,7 +186,7 @@ export class EventSheet extends BaseElement {
        \`layers/reset.css\` and inherited in here through the host — is what lets
        \`auto\` interpolate; where it is unsupported the declaration is dropped
        and the field appears instantly, exactly as it does today. */
-    .event-form__follow-up {
+    .post-form__follow-up {
       display: flex;
       flex-direction: column;
       gap: var(--spacing-16);
@@ -201,25 +201,25 @@ export class EventSheet extends BaseElement {
 
     /* Arrives with the space, not into it: without this the gap opens on an
        empty box and the field lands a beat later. */
-    .event-form__follow-up app-select {
+    .post-form__follow-up app-select {
       transition: opacity var(--duration-medium) var(--easing-out);
     }
 
     @starting-style {
-      .event-form__follow-up app-select {
+      .post-form__follow-up app-select {
         opacity: 0;
       }
     }
 
     /* The amount grows, the unit stays exactly as wide as "mL"/"kg"/"L" need —
        matching how the two read together in the mockup. */
-    .event-form__quantity {
+    .post-form__quantity {
       display: flex;
       align-items: flex-end;
       gap: var(--spacing-16);
     }
 
-    .event-form__quantity app-input {
+    .post-form__quantity app-input {
       flex: 1;
       min-width: 0;
     }
@@ -227,19 +227,19 @@ export class EventSheet extends BaseElement {
     /* The live region itself, always in the DOM and never hidden — see the note
        on render(). display:contents is what lets it be permanent without
        costing anything: an empty box here would still draw one of
-       .event-form's gaps under the last field. */
-    .event-form__error-region {
+       .post-form's gaps under the last field. */
+    .post-form__error-region {
       display: contents;
     }
 
-    .event-form__error {
+    .post-form__error {
       margin: 0;
       font-size: var(--font-size-sm);
       font-weight: 500;
       color: var(--color-danger);
     }
 
-    .event-form__submit {
+    .post-form__submit {
       appearance: none;
       width: 100%;
       background: var(--color-brown-dark);
@@ -252,7 +252,7 @@ export class EventSheet extends BaseElement {
       cursor: pointer;
     }
 
-    .event-form__submit:disabled {
+    .post-form__submit:disabled {
       background: var(--color-brown-disabled);
       cursor: not-allowed;
     }
@@ -260,9 +260,9 @@ export class EventSheet extends BaseElement {
 
   /** The picked type, resolved from the live catalogue — `null` before one is
    * picked, or for the tick before the catalogue's `LiveQuery` settles. */
-  get #type(): ResolvedEventType | null {
+  get #type(): ResolvedCategory | null {
     return this.type
-      ? (findEventType(this.#eventTypes.value ?? [], this.type) ?? null)
+      ? (findCategory(this.#categories.value ?? [], this.type) ?? null)
       : null;
   }
 
@@ -275,7 +275,7 @@ export class EventSheet extends BaseElement {
    * `event` directly and need nothing here.
    */
   protected willUpdate(changed: PropertyValues<this>) {
-    if (changed.has("event")) this.#seedFromEvent();
+    if (changed.has("post")) this.#seedFromPost();
   }
 
   /**
@@ -285,17 +285,17 @@ export class EventSheet extends BaseElement {
    * thing, and had the same four assignments each. The plain inputs are
    * prefilled from `event` in the template and need nothing here.
    */
-  #seedFromEvent() {
-    this.type = this.event?.type ?? "";
+  #seedFromPost() {
+    this.type = this.post?.categoryKey ?? "";
 
     const recordType =
-      this.event &&
-      findEventType(this.#eventTypes.value ?? [], this.event.type);
+      this.post &&
+      findCategory(this.#categories.value ?? [], this.post.categoryKey);
     // A checkbox opens ticked when the record stored something under it.
     this.revealed = Object.fromEntries(
       (recordType?.fields ?? [])
         .filter((field) => field.reveals?.length)
-        .map((field) => [field.id, this.event?.customFields[field.id] != null]),
+        .map((field) => [field.id, this.post?.customFields[field.id] != null]),
     );
     this.errors = {};
     this.saveError = "";
@@ -362,11 +362,11 @@ export class EventSheet extends BaseElement {
    */
   #reset() {
     this.formEl?.reset();
-    this.#seedFromEvent();
+    this.#seedFromPost();
   }
 
   /**
-   * Reads the form and hands the answers to `eventsService.saveEvent`.
+   * Reads the form and hands the answers to `postsService.savePost`.
    *
    * The reading is type-independent — `EVENT_SCHEMA` covers every field any
    * type's fields can call for, and one the current type omits arrives absent,
@@ -393,7 +393,7 @@ export class EventSheet extends BaseElement {
       return;
     }
 
-    const types = this.#eventTypes.value ?? [];
+    const types = this.#categories.value ?? [];
     const type = this.#type;
     const activityField = type
       ? fieldWithRole(type, "workActivity")
@@ -424,7 +424,7 @@ export class EventSheet extends BaseElement {
 
     const values = result.value as Record<string, unknown>;
     // `oneOf` above already guarantees this names a live type.
-    const resolvedType = findEventType(types, values.type as string)!;
+    const resolvedType = findCategory(types, values.type as string)!;
 
     // Amount and unit are parsed independently — a type with no quantity field
     // submits both blank — so "both or neither" is enforced here, against the
@@ -446,9 +446,9 @@ export class EventSheet extends BaseElement {
     }
 
     try {
-      await eventsService.saveEvent({
+      await postsService.savePost({
         horseId: horse.id,
-        existing: this.event,
+        existing: this.post,
         type: resolvedType,
         input: { type: values.type as string, values: answers },
       });
@@ -524,7 +524,7 @@ export class EventSheet extends BaseElement {
    * flat list `byLabel` produced before types could nest.
    */
   #typeOptions(): AppSelectOption[] {
-    const catalogue = this.#eventTypes.value ?? [];
+    const catalogue = this.#categories.value ?? [];
 
     return byLabel(rootsOf(catalogue)).flatMap((root) => {
       const children = byLabel(childrenOf(catalogue, root.id));
@@ -543,9 +543,9 @@ export class EventSheet extends BaseElement {
   render() {
     const type = this.#type;
     const options = this.#typeOptions();
-    const event = this.event;
+    const event = this.post;
 
-    // `.event-form__error-region` is mounted with the form and never hidden —
+    // `.post-form__error-region` is mounted with the form and never hidden —
     // only its contents change. A live region has to be in the accessibility
     // tree *before* what is inside it changes, and `hidden` (like `display:
     // none`) takes it back out, so toggling one is indistinguishable from
@@ -568,8 +568,8 @@ export class EventSheet extends BaseElement {
         @sheet-close=${this.#close}
       >
         <form
-          id="event-form"
-          class="event-form"
+          id="post-form"
+          class="post-form"
           novalidate
           @submit=${this.#onSubmit}
         >
@@ -594,16 +594,16 @@ export class EventSheet extends BaseElement {
               : nothing
           }
 
-          <div class="event-form__error-region" role="alert">
-            ${this.saveError ? html`<p class="event-form__error">${this.saveError}</p>` : nothing}
+          <div class="post-form__error-region" role="alert">
+            ${this.saveError ? html`<p class="post-form__error">${this.saveError}</p>` : nothing}
           </div>
         </form>
 
         <button
           slot="footer"
-          class="event-form__submit pressable"
+          class="post-form__submit pressable"
           type="submit"
-          form="event-form"
+          form="post-form"
           ?disabled=${this.#horse.value === undefined}
         >
           Enregistrer
@@ -615,7 +615,7 @@ export class EventSheet extends BaseElement {
   /**
    * Whatever the record stored for this field, as text.
    *
-   * The three base rows read their `HorseEvent` column rather than the bag —
+   * The three base rows read their `Post` column rather than the bag —
    * they are fields in the type's array like any other, but they are not
    * `customFields` entries. A new event's date opens on today: every other
    * control opens blank unless its field carries a `defaultValue`, but a date
@@ -626,7 +626,7 @@ export class EventSheet extends BaseElement {
    * field the user genuinely left empty.
    */
   #stored(field: CustomFieldDef): string {
-    const event = this.event;
+    const event = this.post;
     if (field.id === "title") return event?.title ?? "";
     if (field.id === "notes") return event?.notes ?? "";
     if (field.id === "date") return event?.date ?? todayISO();
@@ -645,7 +645,7 @@ export class EventSheet extends BaseElement {
    */
   #renderInput(field: CustomFieldDef) {
     const numeric = field.control === "money" || field.control === "number";
-    const event = this.event;
+    const event = this.post;
     const split = field.units
       ? splitUnitValue(
           event?.customFields[field.id] ??
@@ -682,7 +682,7 @@ export class EventSheet extends BaseElement {
     if (!field.units) return input;
 
     return html`
-      <div class="event-form__quantity">
+      <div class="post-form__quantity">
         ${input}
         <app-unit-select
           label="Unités"
@@ -697,7 +697,7 @@ export class EventSheet extends BaseElement {
 
   /** Cents are stored as an integer and shown as a decimal. */
   #storedAmount(field: CustomFieldDef): string {
-    const event = this.event;
+    const event = this.post;
     const value =
       event?.customFields[field.id] ?? (event ? undefined : field.defaultValue);
     return typeof value === "number" ? String(fromCents(value)) : "";
@@ -714,7 +714,7 @@ export class EventSheet extends BaseElement {
     const on = this.revealed[field.id] ?? this.#stored(field) !== "";
 
     return html`
-      <div class="event-form__follow-up">
+      <div class="post-form__follow-up">
         <app-checkbox
           label=${field.label}
           name=${field.id}
@@ -792,6 +792,6 @@ export class EventSheet extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "event-sheet": EventSheet;
+    "post-sheet": PostSheet;
   }
 }

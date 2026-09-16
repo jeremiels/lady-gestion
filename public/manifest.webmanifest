@@ -48,7 +48,7 @@
     {
       "name": "Calendrier",
       "short_name": "Calendrier",
-      "url": "./events",
+      "url": "./posts",
       "icons": [
         {
           "src": "./icons/icon-192.png",

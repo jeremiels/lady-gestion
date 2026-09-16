@@ -80,7 +80,7 @@ afterEach(() => {
 
   // The whole run shares the runner's one history entry, and `ViewState` keeps
   // a view's UI state there deliberately — so without this, a test that
-  // switches `EventsView` to list mode leaves that behind for the *next* test's
+  // switches `PostsView` to list mode leaves that behind for the *next* test's
   // mount to restore, breaking a default-state assertion in another file with
   // nothing pointing at the cause. Here rather than in each view's suite, so a
   // view added later cannot forget it.

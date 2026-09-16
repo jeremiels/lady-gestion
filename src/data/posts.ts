@@ -1,12 +1,12 @@
 import { todayISO, type IsoDate } from "./dates.ts";
 import type { FieldError } from "./forms.ts";
 import { formatCents } from "./money.ts";
-import type { EventStatus, EventTypeDef, HorseEvent } from "./types.ts";
+import type { PostStatus, Category, Post, StoredDocument } from "./types.ts";
 
 /**
  * Event rules that are neither persistence nor iCalendar.
  *
- * `repositories/events.repo.ts` owns reading and writing rows; `icalendar.ts`
+ * `repositories/posts.repo.ts` owns reading and writing rows; `icalendar.ts`
  * owns the RFC 5545 view of them. This is the small set of decisions the entry
  * forms and the views make about an event's meaning.
  */
@@ -22,7 +22,7 @@ import type { EventStatus, EventTypeDef, HorseEvent } from "./types.ts";
 export const statusForDate = (
   date: IsoDate,
   on: IsoDate = todayISO(),
-): EventStatus => (date > on ? "planned" : "done");
+): PostStatus => (date > on ? "planned" : "done");
 
 /**
  * How long until a care event should be repeated — a six-week farrier cycle, a
@@ -69,7 +69,7 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
 
 /**
  * What was done in a schooling session — the entry form's Nom field on a
- * `travail` event (`#renderActivity` in `event-sheet.ts`).
+ * `travail` event (`#renderActivity` in `post-sheet.ts`).
  *
  * Six built-in keys, short and stable in storage with French labels on screen:
  * the same split `EventTypeKey` makes, where the wording is presentation and may
@@ -81,7 +81,7 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
  *
  * - a session stays readable on its own, so deleting a row from the catalogue
  *   (`ActivityItem` in `types.ts`) retires a chip and never orphans an event;
- * - nothing joins — `day-card`, `EventDetailView` and `workActivityByDate` keep
+ * - nothing joins — `day-card`, `PostDetailView` and `workActivityByDate` keep
  *   the shape they had when this was a closed union.
  *
  * What it gives up is what the closed list used to buy: two spellings of
@@ -143,6 +143,43 @@ export const SCHEMA_V11_ACTIVITY_RENAME = {
   from: "balade",
   to: "baladeApied",
 } as const;
+
+/**
+ * A post row as a pre-v13 build wrote it, in the `events` store: `type` where
+ * `categoryKey` is now. Both optional, because a row can reach schema v13's
+ * transform from either side — a v12 file, or one already renamed and then
+ * restored onto itself.
+ */
+export type LegacyPostRow = Omit<Post, "categoryKey"> & {
+  categoryKey?: string;
+  type?: string;
+};
+
+/**
+ * Schema v13's rename of one post row: `type` becomes `categoryKey`.
+ *
+ * Shared by `db.ts`'s live upgrade and `migrateSnapshot`, like
+ * `migrateEventToCustomFields`. **Frozen** — it describes what v13 did.
+ * A row already carrying `categoryKey` keeps it, so replaying is a no-op.
+ */
+export const migratePostRowV13 = (row: LegacyPostRow): Post => {
+  const { type, categoryKey, ...rest } = row;
+  return { ...rest, categoryKey: categoryKey ?? type ?? "" };
+};
+
+/**
+ * Schema v13's rename of one document row: `eventId` becomes `postId`. Same
+ * sharing, freezing and replay rule as `migratePostRowV13`.
+ */
+export const migrateDocumentRowV13 = (
+  row: Omit<StoredDocument, "postId"> & {
+    postId?: string | null;
+    eventId?: string | null;
+  },
+): StoredDocument => {
+  const { eventId, postId, ...rest } = row;
+  return { ...rest, postId: postId ?? eventId ?? null };
+};
 
 /**
  * A `Map` rather than indexing the `Record` above.
@@ -231,7 +268,7 @@ export const matchActivity = (
  * `[horseId+date]` index order — by day, then by whatever IndexedDB kept — so
  * without it "the first session of the day" is not a stable answer.
  */
-const compareSessions = (a: HorseEvent, b: HorseEvent): number => {
+const compareSessions = (a: Post, b: Post): number => {
   if (a.time === null || b.time === null) {
     if (a.time !== b.time) return a.time === null ? -1 : 1;
     return 0;
@@ -245,7 +282,7 @@ const compareSessions = (a: HorseEvent, b: HorseEvent): number => {
  * from whichever `customFields` key the row's own type uses for it — not a
  * passthrough of a fixed column, since schema v6 stopped events having one.
  */
-export type WorkSession = HorseEvent & { activity: WorkActivity };
+export type WorkSession = Post & { activity: WorkActivity };
 
 /**
  * The session each day's activity comes from — the dashboard's week strip.
@@ -267,8 +304,8 @@ export type WorkSession = HorseEvent & { activity: WorkActivity };
  * under the data-layer test rule rather than a component suite.
  */
 export const workSessionByDate = (
-  events: HorseEvent[],
-  types: EventTypeDef[],
+  events: Post[],
+  types: Category[],
 ): Map<IsoDate, WorkSession> => {
   const activityFieldIdByType = new Map(
     types
@@ -285,7 +322,7 @@ export const workSessionByDate = (
 
   const sessions = events
     .flatMap((event) => {
-      const fieldId = activityFieldIdByType.get(event.type);
+      const fieldId = activityFieldIdByType.get(event.categoryKey);
       if (!fieldId || event.status === "cancelled") return [];
 
       const activity = event.customFields[fieldId];
@@ -309,8 +346,8 @@ export const workSessionByDate = (
  * card and the sheet editing it cannot disagree about which row is the day's.
  */
 export const workActivityByDate = (
-  events: HorseEvent[],
-  types: EventTypeDef[],
+  events: Post[],
+  types: Category[],
 ): Map<IsoDate, WorkActivity> =>
   new Map(
     [...workSessionByDate(events, types)].map(([date, session]) => [
@@ -329,10 +366,13 @@ export const workActivityByDate = (
  * Cancelled events are skipped, as `workSessionByDate` skips them: a
  * cancelled lesson did not happen.
  */
-export const courseDatesThisWeek = (events: HorseEvent[]): Set<IsoDate> =>
+export const courseDatesThisWeek = (events: Post[]): Set<IsoDate> =>
   new Set(
     events
-      .filter((event) => event.type === "cours" && event.status !== "cancelled")
+      .filter(
+        (event) =>
+          event.categoryKey === "cours" && event.status !== "cancelled",
+      )
       .map((event) => event.date),
   );
 
@@ -430,8 +470,8 @@ export const parseQuantity = (
  * bare number with no unit, or a unit with nothing to measure, is worse than
  * asking again. `{}` when both or neither are present.
  *
- * A pure function rather than inline in `event-sheet.ts`'s submit handler, for
- * the same reason `events.service.ts` exists at all: this is record
+ * A pure function rather than inline in `post-sheet.ts`'s submit handler, for
+ * the same reason `posts.service.ts` exists at all: this is record
  * arithmetic, and belongs under the data-layer test rule rather than reachable
  * only from a browser suite.
  */
@@ -496,7 +536,7 @@ const strandedAmountNotes = (
 /**
  * Folds a pre-v6 event's fixed columns into a `customFields` bag, and
  * corrects the one built-in type whose key changed shape in the same
- * migration (`coucours` → `concours`, see `event-types.ts`).
+ * migration (`coucours` → `concours`, see `categories.ts`).
  *
  * Takes and returns only the columns that change — `type` and the bag — so
  * `db.ts`'s live upgrade can assign the result onto a row it is mutating in
@@ -507,16 +547,16 @@ const strandedAmountNotes = (
  * file restored from an older build have to fold identically.
  *
  * `types` is the *target* schema's type list, with `BaseRecord` fields already
- * filled in (`seedEventTypeDefs` in `event-types.ts`): whether `amountCents`
+ * filled in (`seedCategories` in `categories.ts`): whether `amountCents`
  * survives depends on whether the row's type still has an amount field, which
  * only the new schema can say — the old one had no such concept.
  */
 export const migrateEventToCustomFields = (
   row: { type: string; notes: string | null } & LegacyEventColumns,
-  types: EventTypeDef[],
+  types: Category[],
 ): {
   type: string;
-  customFields: HorseEvent["customFields"];
+  customFields: Post["customFields"];
   notes: string | null;
 } => {
   const type = row.type === "coucours" ? "concours" : row.type;
@@ -524,7 +564,7 @@ export const migrateEventToCustomFields = (
   const has = (fieldId: string) =>
     def?.fields.some((field) => field.id === fieldId) ?? false;
 
-  const customFields: HorseEvent["customFields"] = {};
+  const customFields: Post["customFields"] = {};
   if (has("counterparty")) {
     customFields.counterparty = row.providerName ?? row.vendor ?? null;
   }

@@ -145,7 +145,7 @@ describe("app-input", () => {
       // No live-region role: the message reaches the user through
       // `aria-describedby` on the control, read on focus. An assertive region
       // firing on every blur is noise, and the form-level failure path focuses
-      // the offending field instead — see `event-sheet`.
+      // the offending field instead — see `post-sheet`.
       expect(error?.hasAttribute("role")).toBe(false);
       expect(
         el.renderRoot.querySelector("input")?.getAttribute("aria-describedby"),

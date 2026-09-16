@@ -9,7 +9,7 @@
  * `DialogElement`'s `overscroll-behavior: contain`, because it is a property of
  * the inner scroller rather than of the document.
  *
- * **Holders, not a counter.** Two dialogs can be open at once — `EventDetailView`
+ * **Holders, not a counter.** Two dialogs can be open at once — `PostDetailView`
  * mounts an edit sheet, a delete modal and a document viewer side by side — so
  * the lock has to survive the inner one closing. A count would do that, until
  * something released twice and drove it negative, or a dialog was torn down

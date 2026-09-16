@@ -1,13 +1,13 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../data/db.ts";
-import { workSessionByDate } from "../../data/events.ts";
+import { workSessionByDate } from "../../data/posts.ts";
 import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
-import * as eventsRepo from "../../data/repositories/events.repo.ts";
+import * as postsRepo from "../../data/repositories/posts.repo.ts";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
+  BUILT_IN_CATEGORY_ROWS,
   HORSE_ID,
-  makeEvent,
+  makePost,
   makeHorse,
   resetDb,
 } from "../../data/__tests__/factories.ts";
@@ -20,10 +20,10 @@ import type { AppInput } from "../app-input/app-input.ts";
 /** A day with no session on it unless a test puts one there. */
 const DATE = "2026-06-15";
 
-const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
+const TYPES = BUILT_IN_CATEGORY_ROWS;
 const TRAVAIL = TYPES.find((type) => type.key === "travail")!;
 
-const mount = (over: { existing?: ReturnType<typeof makeEvent> } = {}) =>
+const mount = (over: { existing?: ReturnType<typeof makePost> } = {}) =>
   fixture<ActivitySheet>(
     html`<activity-sheet
       open
@@ -76,7 +76,7 @@ const submitLabel = async (el: ActivitySheet, value: string) => {
 };
 
 const sessionOn = async (date: string) =>
-  workSessionByDate(await eventsRepo.listByHorse(HORSE_ID), TYPES).get(date) ??
+  workSessionByDate(await postsRepo.listByHorse(HORSE_ID), TYPES).get(date) ??
   null;
 
 beforeEach(async () => {
@@ -141,13 +141,13 @@ describe("activity-sheet", () => {
     const el = await ready(
       await mount({
         existing: {
-          ...makeEvent({
-            type: "travail",
+          ...makePost({
+            categoryKey: "travail",
             date: DATE,
             customFields: { activity: "longe" },
           }),
           activity: "longe",
-        } as ReturnType<typeof makeEvent>,
+        } as ReturnType<typeof makePost>,
       }),
     );
 
@@ -171,10 +171,10 @@ describe("activity-sheet", () => {
   });
 
   it("replaces the day’s session rather than adding a second", async () => {
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "work",
-        type: "travail",
+        categoryKey: "travail",
         date: DATE,
         customFields: { activity: "longe" },
       }),
@@ -184,17 +184,17 @@ describe("activity-sheet", () => {
     chipNamed(el, "TAP").click();
     await waitFor(el, () => el.open === false);
 
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
     expect(await sessionOn(DATE)).toMatchObject({
       customFields: { activity: "tap" },
     });
   });
 
   it("retracts the day’s activity on a second tap of the same chip", async () => {
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "work",
-        type: "travail",
+        categoryKey: "travail",
         date: DATE,
         customFields: { activity: "longe" },
       }),
@@ -205,14 +205,14 @@ describe("activity-sheet", () => {
     await waitFor(el, () => el.open === false);
 
     expect(await sessionOn(DATE)).toBeNull();
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
   });
 
   it("applies rather than retracts when a different chip is tapped", async () => {
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "work",
-        type: "travail",
+        categoryKey: "travail",
         date: DATE,
         customFields: { activity: "longe" },
       }),
@@ -295,7 +295,7 @@ describe("activity-sheet", () => {
     expect(
       el.renderRoot.querySelector(".activity-sheet__error")?.textContent,
     ).toContain("requis");
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
     expect(el.open).toBe(true);
   });
 

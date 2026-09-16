@@ -1,10 +1,10 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDb } from "../../data/__tests__/factories.ts";
-import { BUILT_IN_EVENT_TYPES } from "../../data/event-types.ts";
+import { BUILT_IN_CATEGORIES } from "../../data/categories.ts";
 import { fixture, settled, waitFor } from "../__tests__/fixture.ts";
-import "./event-sheet.ts";
-import type { EventSheet } from "./event-sheet.ts";
+import "./post-sheet.ts";
+import type { PostSheet } from "./post-sheet.ts";
 
 /**
  * The order the form actually draws, read back off the DOM.
@@ -18,7 +18,7 @@ import type { EventSheet } from "./event-sheet.ts";
 beforeEach(resetDb);
 
 const openSheet = async () => {
-  const el = await fixture<EventSheet>(html`<event-sheet open></event-sheet>`);
+  const el = await fixture<PostSheet>(html`<post-sheet open></post-sheet>`);
   const button = () => el.renderRoot.querySelector('button[type="submit"]')!;
   for (let i = 0; i < 20 && button().hasAttribute("disabled"); i++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -39,11 +39,11 @@ const drawTypeNamed = async (key: string) => {
 
 /** The field ids a type declares, in declaration order. */
 const declared = (key: string) =>
-  BUILT_IN_EVENT_TYPES.find((type) => type.key === key)!
+  BUILT_IN_CATEGORIES.find((type) => type.key === key)!
     .fields.filter((field) => field.role !== "workActivity")
     .map((field) => field.id);
 
-describe("event-sheet — field order comes from the type's `fields`", () => {
+describe("post-sheet — field order comes from the type's `fields`", () => {
   for (const key of ["achat", "alimentation", "veto"]) {
     it(`draws ${key}'s fields in the order its \`fields\` array lists them`, async () => {
       const names = await drawTypeNamed(key);

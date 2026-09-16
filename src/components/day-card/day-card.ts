@@ -8,7 +8,7 @@ import {
   todayISO,
   type IsoDate,
 } from "../../data/dates.ts";
-import { formatWorkActivity, type WorkActivity } from "../../data/events.ts";
+import { formatWorkActivity, type WorkActivity } from "../../data/posts.ts";
 
 /**
  * One day of the dashboard's week strip: the weekday, the date, and what the
@@ -23,7 +23,7 @@ import { formatWorkActivity, type WorkActivity } from "../../data/events.ts";
  * Deliberately not a link or a button. The strip is a glance at the week, not a
  * way through to anything, so it takes no focus and offers no target.
  *
- * The formatter comes straight from `data/events.ts` rather than the barrel:
+ * The formatter comes straight from `data/posts.ts` rather than the barrel:
  * `data/index.ts` pulls `db.ts`, which constructs Dexie at module scope, and
  * that would land the whole database in this card's chunk.
  */

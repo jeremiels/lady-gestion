@@ -7,7 +7,7 @@ import type { Horse, HorseSex, RecordPatch } from "../types.ts";
  * Reading the horse's record card back — Personnaliser mon interface › Cheval —
  * and writing what actually changed.
  *
- * See `events.service.ts` for what a service is here and the rules one follows.
+ * See `posts.service.ts` for what a service is here and the rules one follows.
  */
 
 /** The form's field names, read by `customize-horse`'s markup and the schema. */

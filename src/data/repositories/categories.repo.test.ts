@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db.ts";
-import { makeEventType, resetDb } from "../__tests__/factories.ts";
-import { BUILT_IN_EVENT_TYPES } from "../event-types.ts";
-import * as eventTypesRepo from "./event-types.repo.ts";
+import { makeCategory, resetDb } from "../__tests__/factories.ts";
+import { BUILT_IN_CATEGORIES } from "../categories.ts";
+import * as categoriesRepo from "./categories.repo.ts";
 
 /**
  * The catalogue's own writes. What is worth guarding here is everything the
- * pure helpers in `event-types.ts` cannot check on their own: that the depth
+ * pure helpers in `categories.ts` cannot check on their own: that the depth
  * cap survives a write, and that removing or detaching a parent leaves its
  * children looking exactly as they did — `resolveCatalogue` treats a dangling
  * parent as a root, but only as a safety net, and a test that relied on it
@@ -16,9 +16,9 @@ import * as eventTypesRepo from "./event-types.repo.ts";
 beforeEach(resetDb);
 
 /** Replaces `resetDb`'s 14 built-ins with just what a case is about. */
-const seed = async (types: Parameters<typeof makeEventType>[0][]) => {
-  await db.eventTypes.clear();
-  await db.eventTypes.bulkAdd(types.map((over) => makeEventType(over)));
+const seed = async (types: Parameters<typeof makeCategory>[0][]) => {
+  await db.categories.clear();
+  await db.categories.bulkAdd(types.map((over) => makeCategory(over)));
 };
 
 const PARENT = {
@@ -37,7 +37,7 @@ describe("listResolved", () => {
       { id: "c", key: "veto", parentId: "p", icon: "pawPrint", theme: null },
     ]);
 
-    const types = await eventTypesRepo.listResolved();
+    const types = await categoriesRepo.listResolved();
 
     expect(types.find((type) => type.id === "c")).toMatchObject({
       icon: "pawPrint",
@@ -46,7 +46,7 @@ describe("listResolved", () => {
   });
 
   it("resolves the shipped catalogue, roots and the four nested types alike", async () => {
-    const types = await eventTypesRepo.listResolved();
+    const types = await categoriesRepo.listResolved();
 
     expect(types).toHaveLength(14);
     expect(
@@ -62,7 +62,7 @@ describe("listResolved", () => {
     // re-theming or re-iconing of a built-in breaks a test that is not about
     // either. The relationship is the rule; the colours are a design decision.
     const shipped = (key: string) =>
-      BUILT_IN_EVENT_TYPES.find((type) => type.key === key)!;
+      BUILT_IN_CATEGORIES.find((type) => type.key === key)!;
     const resolved = (key: string) => types.find((type) => type.key === key)!;
 
     const inherits = (childKey: string, parentKey: string) => {
@@ -94,17 +94,17 @@ describe("setParent", () => {
   it("attaches a type and clears its theme, so the group reads as one colour", async () => {
     await seed([PARENT, { id: "c", key: "veto", theme: "green" }]);
 
-    const updated = await eventTypesRepo.setParent("c", "p");
+    const updated = await categoriesRepo.setParent("c", "p");
 
     expect(updated).toMatchObject({ parentId: "p", theme: null });
-    const resolved = await eventTypesRepo.listResolved();
+    const resolved = await categoriesRepo.listResolved();
     expect(resolved.find((type) => type.id === "c")?.theme).toBe("pink");
   });
 
   it("leaves the icon alone — it is what tells a child from its siblings", async () => {
     await seed([PARENT, { id: "c", key: "veto", icon: "pawPrint" }]);
 
-    const updated = await eventTypesRepo.setParent("c", "p");
+    const updated = await categoriesRepo.setParent("c", "p");
 
     expect(updated?.icon).toBe("pawPrint");
   });
@@ -116,15 +116,15 @@ describe("setParent", () => {
       { id: "x", key: "cours" },
     ]);
 
-    expect(await eventTypesRepo.setParent("x", "c")).toBeUndefined();
-    expect((await db.eventTypes.get("x"))?.parentId).toBeNull();
+    expect(await categoriesRepo.setParent("x", "c")).toBeUndefined();
+    expect((await db.categories.get("x"))?.parentId).toBeNull();
   });
 
   it("refuses a type as its own parent", async () => {
     await seed([PARENT]);
 
-    expect(await eventTypesRepo.setParent("p", "p")).toBeUndefined();
-    expect((await db.eventTypes.get("p"))?.parentId).toBeNull();
+    expect(await categoriesRepo.setParent("p", "p")).toBeUndefined();
+    expect((await db.categories.get("p"))?.parentId).toBeNull();
   });
 
   it("refuses to give a parent to a type that already has children", async () => {
@@ -134,13 +134,13 @@ describe("setParent", () => {
       { id: "x", key: "cours" },
     ]);
 
-    expect(await eventTypesRepo.setParent("p", "x")).toBeUndefined();
+    expect(await categoriesRepo.setParent("p", "x")).toBeUndefined();
   });
 
   it("answers undefined for a type that is not there", async () => {
     await seed([PARENT]);
 
-    expect(await eventTypesRepo.setParent("gone", "p")).toBeUndefined();
+    expect(await categoriesRepo.setParent("gone", "p")).toBeUndefined();
   });
 
   it("materialises the inherited presentation when detaching, so nothing repaints", async () => {
@@ -149,7 +149,7 @@ describe("setParent", () => {
       { id: "c", key: "veto", parentId: "p", icon: null, theme: null },
     ]);
 
-    const detached = await eventTypesRepo.setParent("c", null);
+    const detached = await categoriesRepo.setParent("c", null);
 
     expect(detached).toMatchObject({
       parentId: null,
@@ -160,11 +160,11 @@ describe("setParent", () => {
 
   it("does not re-stamp a root that is already detached", async () => {
     await seed([PARENT]);
-    const before = await db.eventTypes.get("p");
+    const before = await db.categories.get("p");
 
-    await eventTypesRepo.setParent("p", null);
+    await categoriesRepo.setParent("p", null);
 
-    expect((await db.eventTypes.get("p"))?.updatedAt).toBe(before?.updatedAt);
+    expect((await db.categories.get("p"))?.updatedAt).toBe(before?.updatedAt);
   });
 });
 
@@ -175,9 +175,9 @@ describe("remove", () => {
       { id: "c", key: "veto", parentId: "p", icon: null, theme: null },
     ]);
 
-    await eventTypesRepo.remove("p");
+    await categoriesRepo.remove("p");
 
-    expect((await db.eventTypes.get("c"))?.parentId).toBeNull();
+    expect((await db.categories.get("c"))?.parentId).toBeNull();
   });
 
   it("keeps a promoted child looking exactly as it did", async () => {
@@ -186,11 +186,11 @@ describe("remove", () => {
       { id: "c", key: "veto", parentId: "p", icon: null, theme: null },
     ]);
 
-    await eventTypesRepo.remove("p");
+    await categoriesRepo.remove("p");
 
     // Not `resolveCatalogue` falling back — the values are on the row now, so
     // a backup carrying both rows cannot merge them back into disagreement.
-    expect(await db.eventTypes.get("c")).toMatchObject({
+    expect(await db.categories.get("c")).toMatchObject({
       icon: "firstAidKit",
       theme: "pink",
     });
@@ -199,20 +199,20 @@ describe("remove", () => {
   it("writes the parent's tombstone rather than dropping the row", async () => {
     await seed([PARENT]);
 
-    await eventTypesRepo.remove("p");
+    await categoriesRepo.remove("p");
 
-    expect((await db.eventTypes.get("p"))?.deletedAt).not.toBeNull();
-    expect(await eventTypesRepo.get("p")).toBeUndefined();
+    expect((await db.categories.get("p"))?.deletedAt).not.toBeNull();
+    expect(await categoriesRepo.get("p")).toBeUndefined();
   });
 
   it("is a no-op on a type that is already gone", async () => {
     await seed([PARENT]);
-    await eventTypesRepo.remove("p");
-    const tombstoned = await db.eventTypes.get("p");
+    await categoriesRepo.remove("p");
+    const tombstoned = await db.categories.get("p");
 
-    await eventTypesRepo.remove("p");
+    await categoriesRepo.remove("p");
 
-    expect((await db.eventTypes.get("p"))?.deletedAt).toBe(
+    expect((await db.categories.get("p"))?.deletedAt).toBe(
       tombstoned?.deletedAt,
     );
   });

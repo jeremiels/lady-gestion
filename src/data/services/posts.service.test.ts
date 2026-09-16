@@ -1,32 +1,28 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
+  BUILT_IN_CATEGORY_ROWS,
   HORSE_ID,
-  makeEvent,
+  makePost,
   resetDb,
 } from "../__tests__/factories.ts";
 import { addDays, todayISO } from "../dates.ts";
 import { db } from "../db.ts";
-import * as eventsRepo from "../repositories/events.repo.ts";
+import * as postsRepo from "../repositories/posts.repo.ts";
 import {
   workSessionByDate,
   type QuantityUnit,
   type WorkActivity,
   type WorkSession,
-} from "../events.ts";
-import { unitNameOf, valueOf } from "../event-form.ts";
+} from "../posts.ts";
+import { unitNameOf, valueOf } from "../post-form.ts";
 import type { IsoDate } from "../dates.ts";
-import type { EventTypeDef, HorseEvent } from "../types.ts";
-import {
-  saveEvent,
-  setDayActivity,
-  type EventInput,
-} from "./events.service.ts";
+import type { Category, Post } from "../types.ts";
+import { savePost, setDayActivity, type PostInput } from "./posts.service.ts";
 
 /**
  * What the entry form is allowed to write, and what it must not.
  *
- * These rules lived in `event-sheet.ts`'s submit handler, where the only way to
+ * These rules lived in `post-sheet.ts`'s submit handler, where the only way to
  * reach any of them was to drive a real form in a real browser — so what the
  * component suite actually covers is the *display* of a failed submit, and none
  * of this. The interesting cases are all the same shape: a value that is
@@ -37,10 +33,10 @@ import {
 
 beforeEach(resetDb);
 
-/** The real 14 built-ins, resolved by key — the shape `event-sheet.ts` already
- * hands `saveEvent`/`setDayActivity`, so these tests do the same resolution. */
-const TYPES = BUILT_IN_EVENT_TYPE_ROWS;
-const typeFor = (key: string): EventTypeDef => {
+/** The real 14 built-ins, resolved by key — the shape `post-sheet.ts` already
+ * hands `savePost`/`setDayActivity`, so these tests do the same resolution. */
+const TYPES = BUILT_IN_CATEGORY_ROWS;
+const typeFor = (key: string): Category => {
   const type = TYPES.find((candidate) => candidate.key === key);
   if (!type) throw new Error(`No built-in type named "${key}" in fixtures`);
   return type;
@@ -123,11 +119,11 @@ const controlsFor = (answers: FormAnswers): Record<string, unknown> => {
  * that function's, and a copy of it in this file is exactly the drift these
  * tests exist to catch.
  */
-const input = (over: Partial<FormAnswers> = {}): EventInput => {
+const input = (over: Partial<FormAnswers> = {}): PostInput => {
   const answers = { ...ANSWERS, ...over };
   const controls = controlsFor(answers);
 
-  const customFields: HorseEvent["customFields"] = {};
+  const customFields: Post["customFields"] = {};
   for (const [id, field] of FIELDS) {
     customFields[id] = valueOf(field, controls);
   }
@@ -144,7 +140,7 @@ const input = (over: Partial<FormAnswers> = {}): EventInput => {
 
 const create = async (over: Partial<FormAnswers> = {}) => {
   const merged = input(over);
-  const saved = await saveEvent({
+  const saved = await savePost({
     horseId: HORSE_ID,
     type: typeFor(merged.type),
     input: merged,
@@ -178,7 +174,7 @@ describe("counterparty field", () => {
     // view — which reads `customFields` off the record's own type — shows an
     // empty row over data that is still there.
     const purchase = await create({ type: "achat", counterparty: "Horze" });
-    const edited = await saveEvent({
+    const edited = await savePost({
       horseId: HORSE_ID,
       existing: purchase,
       type: typeFor("veto"),
@@ -261,7 +257,7 @@ describe("activity", () => {
 
 describe("travail title", () => {
   // The sheet's Nom field on this layout is the Activité combobox
-  // (`#renderActivity` in `event-sheet.ts`), not a text field of its own, so
+  // (`#renderActivity` in `post-sheet.ts`), not a text field of its own, so
   // whatever `title` the form happened to submit must not reach the record —
   // only what the combobox held should.
 
@@ -314,7 +310,7 @@ describe("amount", () => {
     // must not carry over a value the current type has nowhere to show.
     const purchase = await create({ type: "achat", amountCents: 4500 });
 
-    const edited = await saveEvent({
+    const edited = await savePost({
       horseId: HORSE_ID,
       existing: purchase,
       type: typeFor("travail"),
@@ -337,12 +333,12 @@ describe("status", () => {
   it("leaves a cancelled event cancelled", async () => {
     // Re-deriving would bring it back to life on any edit that touches nothing
     // else — the form has no status control to put it back with.
-    await db.events.add(
-      makeEvent({ id: "off", status: "cancelled", date: "2026-06-15" }),
+    await db.posts.add(
+      makePost({ id: "off", status: "cancelled", date: "2026-06-15" }),
     );
-    const existing = (await eventsRepo.get("off"))!;
+    const existing = (await postsRepo.get("off"))!;
 
-    const edited = await saveEvent({
+    const edited = await savePost({
       horseId: HORSE_ID,
       existing,
       type: typeFor("veto"),
@@ -358,8 +354,8 @@ describe("editing", () => {
   it("keeps the fields no type can show", async () => {
     // Nothing in the sheet draws a time, a location or a recurrence, so an edit
     // must carry them rather than blank them.
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "kept",
         time: "09:30",
         location: "Écurie du Pré",
@@ -367,9 +363,9 @@ describe("editing", () => {
         currency: "CHF",
       }),
     );
-    const existing = (await eventsRepo.get("kept"))!;
+    const existing = (await postsRepo.get("kept"))!;
 
-    const edited = await saveEvent({
+    const edited = await savePost({
       horseId: HORSE_ID,
       existing,
       type: typeFor("veto"),
@@ -387,14 +383,14 @@ describe("editing", () => {
   it("updates in place rather than adding a second row", async () => {
     const created = await create();
 
-    await saveEvent({
+    await savePost({
       horseId: HORSE_ID,
       existing: created,
       type: typeFor("veto"),
       input: input({ title: "Rappel" }),
     });
 
-    const events = await eventsRepo.listByHorse(HORSE_ID);
+    const events = await postsRepo.listByHorse(HORSE_ID);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ id: created.id, title: "Rappel" });
   });
@@ -402,7 +398,7 @@ describe("editing", () => {
   it("cannot move an event to another horse", async () => {
     const created = await create();
 
-    const edited = await saveEvent({
+    const edited = await savePost({
       horseId: "horse-2",
       existing: created,
       type: typeFor("veto"),
@@ -414,17 +410,17 @@ describe("editing", () => {
 
   it("reports a record deleted underneath it rather than resurrecting it", async () => {
     const created = await create();
-    await eventsRepo.remove(created.id);
+    await postsRepo.remove(created.id);
 
     expect(
-      await saveEvent({
+      await savePost({
         horseId: HORSE_ID,
         existing: created,
         type: typeFor("veto"),
         input: input(),
       }),
     ).toBeUndefined();
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
   });
 });
 
@@ -447,9 +443,8 @@ describe("setDayActivity", () => {
 
   /** The row the week strip would hand over, resolved the way the strip does. */
   const sessionOn = async (date: string): Promise<WorkSession | null> =>
-    workSessionByDate(await eventsRepo.listByHorse(HORSE_ID), TYPES).get(
-      date,
-    ) ?? null;
+    workSessionByDate(await postsRepo.listByHorse(HORSE_ID), TYPES).get(date) ??
+    null;
 
   it("creates a session titled after the activity", async () => {
     const event = await setDayActivity({
@@ -460,7 +455,7 @@ describe("setDayActivity", () => {
     });
 
     expect(event).toMatchObject({
-      type: "travail",
+      categoryKey: "travail",
       title: "Longe",
       date: "2026-06-15",
       customFields: { activity: "longe" },
@@ -517,7 +512,7 @@ describe("setDayActivity", () => {
       existing,
     });
 
-    const rows = await eventsRepo.listByHorse(HORSE_ID);
+    const rows = await postsRepo.listByHorse(HORSE_ID);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       title: "TAP",
@@ -528,10 +523,10 @@ describe("setDayActivity", () => {
   it("keeps a title the user wrote themselves", async () => {
     // Renamed in the event sheet: the tap changes what was done, not what the
     // user chose to call it.
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "renamed",
-        type: "travail",
+        categoryKey: "travail",
         date: "2026-06-15",
         customFields: { activity: "longe" },
         title: "Séance dressage",
@@ -546,7 +541,7 @@ describe("setDayActivity", () => {
       existing: await sessionOn("2026-06-15"),
     });
 
-    expect(await eventsRepo.get("renamed")).toMatchObject({
+    expect(await postsRepo.get("renamed")).toMatchObject({
       customFields: { activity: "tap" },
       title: "Séance dressage",
     });
@@ -555,10 +550,10 @@ describe("setDayActivity", () => {
   it("leaves a cancelled session alone and records the work beside it", async () => {
     // A cancelled row is not the day's session, so the strip never offers it as
     // `existing` — and the horse did work after all.
-    await db.events.add(
-      makeEvent({
+    await db.posts.add(
+      makePost({
         id: "cancelled",
-        type: "travail",
+        categoryKey: "travail",
         date: "2026-06-15",
         customFields: { activity: "longe" },
         status: "cancelled",
@@ -573,8 +568,8 @@ describe("setDayActivity", () => {
       existing: await sessionOn("2026-06-15"),
     });
 
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
-    expect(await eventsRepo.get("cancelled")).toMatchObject({
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
+    expect(await postsRepo.get("cancelled")).toMatchObject({
       status: "cancelled",
       customFields: { activity: "longe" },
     });
@@ -588,7 +583,7 @@ describe("setDayActivity", () => {
       activity: "longe",
     });
     const existing = await sessionOn("2026-06-15");
-    await eventsRepo.remove(existing!.id);
+    await postsRepo.remove(existing!.id);
 
     expect(
       await setDayActivity({
@@ -599,6 +594,6 @@ describe("setDayActivity", () => {
         existing,
       }),
     ).toBeUndefined();
-    expect(await eventsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
   });
 });

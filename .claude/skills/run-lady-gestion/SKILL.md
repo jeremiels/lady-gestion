@@ -36,7 +36,7 @@ and kills it on `quit`.
 
 ```bash
 node .claude/skills/run-lady-gestion/driver.mjs <<'EOF'
-nav /events
+nav /posts
 wait app-calendar .calendar__day
 $ app-calendar .calendar__day--today
 ss today
@@ -50,7 +50,7 @@ order: `01-today.png`. Point the driver at another port with `PORT=4173`.
 
 | command                      | what it does                                                                                                                                                                                                              |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nav <path>`                 | Takes an **app path**, the one `app-root.ts` matches: `/`, `/events`, `/budget`, `/horse`, `/horse/<id>`, `/event/<id>`, `/documents`, `/profile`. The driver puts Vite's `base` back on the front — see the gotcha below |
+| `nav <path>`                 | Takes an **app path**, the one `app-root.ts` matches: `/`, `/posts`, `/budget`, `/horse`, `/horse/<id>`, `/posts/<id>`, `/documents`, `/profile`. The driver puts Vite's `base` back on the front — see the gotcha below |
 | `wait <selector>`            | `waitForSelector`, 15s cap. Selectors pierce shadow DOM                                                                                                                                                                   |
 | `click <selector>`           | Click first match, then wait for transitions                                                                                                                                                                              |
 | `fill <selector> \| <value>` | Type into a field. The `\|` is required — selectors here contain spaces                                                                                                                                                   |
@@ -74,7 +74,7 @@ sane way to get the app into a specific state.
 
 ```bash
 node .claude/skills/run-lady-gestion/driver.mjs <<'EOF'
-nav /events
+nav /posts
 wait app-calendar .calendar__day
 seed const h = await data.horsesRepo.getActive(); await data.eventsRepo.create({ horseId: h.id, type: 'veto', title: 'Contrôle œil', date: data.todayISO(), time: null, status: 'planned', amountCents: 10000, currency: 'EUR', providerName: null, location: null, notes: 'Une note', recurrenceId: null }); return 'created';
 wait event-card
@@ -96,7 +96,7 @@ first launch also installs Playwright.
 tmux new-session -d -s lady -x 200 -y 50 -c /home/skzc/code/lady-gestion
 tmux send-keys -t lady 'node .claude/skills/run-lady-gestion/driver.mjs' Enter
 timeout 90 bash -c 'until tmux capture-pane -t lady -p | grep -q "driver ready"; do sleep 0.3; done'
-tmux send-keys -t lady 'nav /events' Enter
+tmux send-keys -t lady 'nav /posts' Enter
 tmux send-keys -t lady 'wait app-calendar .calendar__day' Enter
 tmux capture-pane -t lady -p | tail -20
 ```
@@ -143,7 +143,7 @@ npm run build
 npm run preview &
 timeout 30 bash -c 'until curl -sf http://localhost:4173/lady-gestion/ >/dev/null; do sleep 0.5; done'
 PORT=4173 node .claude/skills/run-lady-gestion/driver.mjs <<'EOF'
-nav /events
+nav /posts
 eval navigator.serviceWorker.getRegistrations().then(r => r.length)
 eval caches.keys()
 quit

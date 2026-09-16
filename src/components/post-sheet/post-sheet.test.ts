@@ -2,10 +2,10 @@ import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../../data/db.ts";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
+  BUILT_IN_CATEGORY_ROWS,
   HORSE_ID,
-  makeEvent,
-  makeEventType,
+  makePost,
+  makeCategory,
   makeHorse,
   resetDb,
 } from "../../data/__tests__/factories.ts";
@@ -15,8 +15,8 @@ import type { AppCombobox } from "../app-combobox/app-combobox.ts";
 import type { AppInput } from "../app-input/app-input.ts";
 import type { AppSelect } from "../app-select/app-select.ts";
 import type { AppUnitSelect } from "../app-unit-select/app-unit-select.ts";
-import "./event-sheet.ts";
-import type { EventSheet } from "./event-sheet.ts";
+import "./post-sheet.ts";
+import type { PostSheet } from "./post-sheet.ts";
 
 /**
  * The submit path, and specifically what a *failed* submit shows.
@@ -35,7 +35,7 @@ import type { EventSheet } from "./event-sheet.ts";
 
 /** Mounts the sheet and waits for its horse — `#onSubmit` bails out without one. */
 const openSheet = async () => {
-  const el = await fixture<EventSheet>(html`<event-sheet open></event-sheet>`);
+  const el = await fixture<PostSheet>(html`<post-sheet open></post-sheet>`);
 
   // The horse arrives through a `LiveQuery`, which settles a tick or two after
   // mount. The submit button is disabled until it does, so that is the signal
@@ -52,7 +52,7 @@ const openSheet = async () => {
   return el;
 };
 
-const submit = async (el: EventSheet) => {
+const submit = async (el: PostSheet) => {
   const form = el.renderRoot.querySelector("form")!;
   form.requestSubmit();
   await settled(el);
@@ -66,7 +66,7 @@ const fieldNamed = <T extends Element>(form: HTMLFormElement, name: string) =>
   form.querySelector<T>(`[name="${name}"]`)!;
 
 /** Picks a value the way a user does, so the sheet's own state follows. */
-const pick = async (el: EventSheet, name: string, value: string) => {
+const pick = async (el: PostSheet, name: string, value: string) => {
   const field = fieldNamed<AppSelect>(
     el.renderRoot.querySelector("form")!,
     name,
@@ -77,7 +77,7 @@ const pick = async (el: EventSheet, name: string, value: string) => {
   await settled(el);
 };
 
-const fill = async (el: EventSheet, name: string, value: string) => {
+const fill = async (el: PostSheet, name: string, value: string) => {
   const field = fieldNamed<AppInput>(
     el.renderRoot.querySelector("form")!,
     name,
@@ -97,7 +97,7 @@ const fill = async (el: EventSheet, name: string, value: string) => {
  * `AppCombobox#commit` — so a built-in's French label ends up submitting its
  * key, exactly as clicking the suggestion would.
  */
-const pickActivity = async (el: EventSheet, label: string) => {
+const pickActivity = async (el: PostSheet, label: string) => {
   const field = fieldNamed<AppCombobox>(
     el.renderRoot.querySelector("form")!,
     "activity",
@@ -116,11 +116,11 @@ const pickActivity = async (el: EventSheet, label: string) => {
  * The saved row, once the repository write has landed — `fixture`'s `waitFor`
  * takes a synchronous predicate and this condition has to await the database.
  */
-const savedEvent = async () => {
-  for (let i = 0; i < 20 && (await db.events.count()) === 0; i++) {
+const savedPost = async () => {
+  for (let i = 0; i < 20 && (await db.posts.count()) === 0; i++) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
-  const [stored] = await db.events.toArray();
+  const [stored] = await db.posts.toArray();
   return stored;
 };
 
@@ -137,7 +137,7 @@ beforeEach(async () => {
   await db.horses.add(makeHorse());
 });
 
-describe("event-sheet submit", () => {
+describe("post-sheet submit", () => {
   it("shows a message on every required field left empty", async () => {
     const el = await openSheet();
 
@@ -251,7 +251,7 @@ describe("event-sheet submit", () => {
     // change, so this one is never conditional and never hidden — only what is
     // inside it changes. Rendering it into existence alongside its message is
     // the shape screen readers announce as nothing.
-    const region = el.renderRoot.querySelector(".event-form__error-region")!;
+    const region = el.renderRoot.querySelector(".post-form__error-region")!;
     expect(region).not.toBeNull();
     expect(region.getAttribute("role")).toBe("alert");
     expect(region.hasAttribute("hidden")).toBe(false);
@@ -265,7 +265,7 @@ describe("event-sheet submit", () => {
  * whose activity (and the title derived from it) has to be dropped again on
  * the way out when the user changes their mind about the type.
  */
-describe("event-sheet — the travail layout", () => {
+describe("post-sheet — the travail layout", () => {
   it("shows the Nom combobox and hides Nom’s text field and Budget for Travail", async () => {
     const el = await openSheet();
     await pick(el, "type", "travail");
@@ -297,7 +297,7 @@ describe("event-sheet — the travail layout", () => {
     // The message comes from `forms.ts`, not from a copy in the sheet — the
     // parser is simply the required overload on this layout.
     expect(errorTextOf(fieldNamed<AppCombobox>(form, "activity"))).not.toBe("");
-    expect(await db.events.count()).toBe(0);
+    expect(await db.posts.count()).toBe(0);
   });
 
   it("stores the activity key and derives the record’s Nom from its label", async () => {
@@ -307,8 +307,8 @@ describe("event-sheet — the travail layout", () => {
 
     await submit(el);
 
-    expect(await savedEvent()).toMatchObject({
-      type: "travail",
+    expect(await savedPost()).toMatchObject({
+      categoryKey: "travail",
       customFields: { activity: "longe" },
       title: "Longe",
     });
@@ -359,8 +359,8 @@ describe("event-sheet — the travail layout", () => {
 
     await submit(el);
 
-    const saved = await savedEvent();
-    expect(saved).toMatchObject({ type: "cours" });
+    const saved = await savedPost();
+    expect(saved).toMatchObject({ categoryKey: "cours" });
     // `cours` has no `workActivity` field at all, so the key is absent rather
     // than present-and-null — `veto` (with a field but nothing entered) would
     // be the `null` case instead.
@@ -371,10 +371,10 @@ describe("event-sheet — the travail layout", () => {
 /**
  * `alimentation`'s quantity field — a decimal amount next to `app-unit-select`
  * (mL/kg/L), required together even though neither is required on its own at
- * the schema level (see `quantityPairErrors` in `data/events.ts`).
+ * the schema level (see `quantityPairErrors` in `data/posts.ts`).
  */
-describe("event-sheet — the alimentation quantity field", () => {
-  const pickUnit = async (el: EventSheet, value: string) => {
+describe("post-sheet — the alimentation quantity field", () => {
+  const pickUnit = async (el: PostSheet, value: string) => {
     const field = fieldNamed<AppUnitSelect>(
       el.renderRoot.querySelector("form")!,
       "quantity-unit",
@@ -410,7 +410,7 @@ describe("event-sheet — the alimentation quantity field", () => {
     expect(
       errorTextOf(fieldNamed<AppUnitSelect>(form, "quantity-unit")),
     ).not.toBe("");
-    expect(await db.events.count()).toBe(0);
+    expect(await db.posts.count()).toBe(0);
   });
 
   it("refuses a unit picked with no quantity typed", async () => {
@@ -422,7 +422,7 @@ describe("event-sheet — the alimentation quantity field", () => {
     const form = await submit(el);
 
     expect(errorTextOf(fieldNamed<AppInput>(form, "quantity"))).not.toBe("");
-    expect(await db.events.count()).toBe(0);
+    expect(await db.posts.count()).toBe(0);
   });
 
   it("saves the amount and unit concatenated when both are filled in", async () => {
@@ -434,7 +434,7 @@ describe("event-sheet — the alimentation quantity field", () => {
 
     await submit(el);
 
-    expect((await savedEvent())?.customFields.quantity).toBe("40 mL");
+    expect((await savedPost())?.customFields.quantity).toBe("40 mL");
   });
 
   it("is not required on its own — Alimentation saves fine with neither filled in", async () => {
@@ -444,16 +444,16 @@ describe("event-sheet — the alimentation quantity field", () => {
 
     await submit(el);
 
-    expect((await savedEvent())?.customFields.quantity).toBeNull();
+    expect((await savedPost())?.customFields.quantity).toBeNull();
   });
 
   it("prefills the amount and the unit when editing a record that has one", async () => {
-    const event = makeEvent({
-      type: "alimentation",
+    const event = makePost({
+      categoryKey: "alimentation",
       customFields: { quantity: "1,5 L" },
     });
-    const el = await fixture<EventSheet>(
-      html`<event-sheet open .event=${event}></event-sheet>`,
+    const el = await fixture<PostSheet>(
+      html`<post-sheet open .post=${event}></post-sheet>`,
     );
     // The type catalogue is its own `LiveQuery`, settling on its own tick —
     // unlike `openSheet`'s wait for the horse, there is no submit button
@@ -480,8 +480,8 @@ describe("a field's defaultValue", () => {
    * own fallback (`#storedAmount`; the `units` split doesn't apply here).
    */
   const withDefaultedType = () =>
-    db.eventTypes.add(
-      makeEventType({
+    db.categories.add(
+      makeCategory({
         id: "event-type-defaulted",
         key: "defaulted",
         label: "Testé",
@@ -524,12 +524,12 @@ describe("a field's defaultValue", () => {
 
   it("never overrides an existing event's own value, including a blank one", async () => {
     await withDefaultedType();
-    const event = makeEvent({
-      type: "defaulted",
+    const event = makePost({
+      categoryKey: "defaulted",
       customFields: { note: "", amountCents: null },
     });
-    const el = await fixture<EventSheet>(
-      html`<event-sheet open .event=${event}></event-sheet>`,
+    const el = await fixture<PostSheet>(
+      html`<post-sheet open .post=${event}></post-sheet>`,
     );
     await waitFor(
       el,
@@ -559,15 +559,15 @@ describe("the type picker", () => {
    * looks one hop down, cannot draw.
    */
   const nest = async (childKey: string, parentKey: string) => {
-    const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
-    const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
-    await db.eventTypes.put({ ...child, parentId: parent.id, theme: null });
+    const child = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === childKey)!;
+    const parent = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === parentKey)!;
+    await db.categories.put({ ...child, parentId: parent.id, theme: null });
   };
 
-  const typeSelect = (el: EventSheet) =>
+  const typeSelect = (el: PostSheet) =>
     el.renderRoot.querySelector<AppSelect>('app-select[name="type"]')!;
 
-  const waitForOptions = async (el: EventSheet) =>
+  const waitForOptions = async (el: PostSheet) =>
     waitFor(el, () => typeSelect(el).options.length > 0);
 
   it("groups the shipped catalogue's nested types under their parent", async () => {

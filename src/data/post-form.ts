@@ -16,7 +16,7 @@ import type { CustomFieldDef } from "./types.ts";
  * In `src/data/` for the reason `forms.ts` gives for being here: this is the
  * last step before a value reaches a repository, which puts it under the
  * data-layer test rule rather than only reachable by driving a real form in a
- * real browser. `event-sheet.ts` renders the controls these describe; nothing
+ * real browser. `post-sheet.ts` renders the controls these describe; nothing
  * here touches the DOM.
  *
  * Everything below reads `control` and the modifiers beside it, never a field

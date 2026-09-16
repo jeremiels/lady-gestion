@@ -3,26 +3,26 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
 import { addMonths, todayISO } from "../data/index.ts";
 import {
-  BUILT_IN_EVENT_TYPE_ROWS,
-  makeEvent,
+  BUILT_IN_CATEGORY_ROWS,
+  makePost,
   makeHorse,
   resetDb,
 } from "../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import type { AppChip } from "../components/app-chip/app-chip.ts";
-import "./EventsView.ts";
-import type { EventsView } from "./EventsView.ts";
+import "./PostsView.ts";
+import type { PostsView } from "./PostsView.ts";
 
 /** Label lookup for the real 14 built-ins, standing in for `eventType.label`
  * now that a type's label is data rather than a compile-time table. */
 const LABEL_OF = new Map(
-  BUILT_IN_EVENT_TYPE_ROWS.map((type) => [type.key, type.label]),
+  BUILT_IN_CATEGORY_ROWS.map((type) => [type.key, type.label]),
 );
 const labelOf = (key: string): string => LABEL_OF.get(key) ?? "";
 
-const mount = () => fixture<EventsView>(html`<events-view></events-view>`);
+const mount = () => fixture<PostsView>(html`<posts-view></posts-view>`);
 
-const switchToList = async (el: EventsView) => {
+const switchToList = async (el: PostsView) => {
   el.querySelector("app-segmented")!.dispatchEvent(
     new CustomEvent("segment-change", {
       detail: { value: "list" },
@@ -33,7 +33,7 @@ const switchToList = async (el: EventsView) => {
   await settled(el);
 };
 
-const search = async (el: EventsView, text: string) => {
+const search = async (el: PostsView, text: string) => {
   const input = el
     .querySelector("app-input")!
     .renderRoot.querySelector("input")!;
@@ -44,17 +44,17 @@ const search = async (el: EventsView, text: string) => {
   await settled(el);
 };
 
-const chipLabeled = (el: EventsView, label: string) =>
+const chipLabeled = (el: PostsView, label: string) =>
   [...el.querySelectorAll("app-chip")].find((chip) => chip.label === label)!;
 
-const cardIds = (el: EventsView) =>
-  [...el.querySelectorAll("event-card")].map((card) => card.event?.id).sort();
+const cardIds = (el: PostsView) =>
+  [...el.querySelectorAll("post-card")].map((card) => card.post?.id).sort();
 
-const chipsIn = (el: EventsView, selector: string) => [
+const chipsIn = (el: PostsView, selector: string) => [
   ...el.querySelectorAll<AppChip>(`${selector} app-chip`),
 ];
 
-const chipLabels = (el: EventsView, selector = ".events-view__filters") =>
+const chipLabels = (el: PostsView, selector = ".posts-view__filters") =>
   chipsIn(el, selector).map((chip) => chip.label);
 
 /**
@@ -67,9 +67,9 @@ const chipLabels = (el: EventsView, selector = ".events-view__filters") =>
  * `setParent` refuses and `resolveCatalogue`, a single hop, cannot read.
  */
 const nest = async (childKey: string, parentKey: string) => {
-  const child = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === childKey)!;
-  const parent = BUILT_IN_EVENT_TYPE_ROWS.find((t) => t.key === parentKey)!;
-  await db.eventTypes.put({ ...child, parentId: parent.id, theme: null });
+  const child = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === childKey)!;
+  const parent = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === parentKey)!;
+  await db.categories.put({ ...child, parentId: parent.id, theme: null });
 };
 
 beforeEach(async () => {
@@ -77,33 +77,33 @@ beforeEach(async () => {
   await db.horses.add(makeHorse());
 });
 
-describe("events-view", () => {
+describe("posts-view", () => {
   it("calendar mode shows an empty day, then that day’s appointments once one is added", async () => {
     const el = await mount();
-    await waitFor(el, () => el.querySelector(".events-view__day") !== null);
+    await waitFor(el, () => el.querySelector(".posts-view__day") !== null);
     expect(el.textContent).toContain("Aucun évènement ce jour-là.");
 
-    await db.events.add(makeEvent({ id: "today-visit", date: todayISO() }));
-    await waitFor(el, () => el.querySelector("event-card") !== null);
+    await db.posts.add(makePost({ id: "today-visit", date: todayISO() }));
+    await waitFor(el, () => el.querySelector("post-card") !== null);
 
     expect(cardIds(el)).toEqual(["today-visit"]);
   });
 
   it("list mode hides cancelled events and finds the rest through search, folding accents and case", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "checkup",
-        type: "veto",
+        categoryKey: "veto",
         title: "Contrôle œil",
         date: todayISO(),
       }),
-      makeEvent({
+      makePost({
         id: "shoeing",
-        type: "marechal",
+        categoryKey: "marechal",
         title: "Ferrure",
         date: addMonths(todayISO(), -1),
       }),
-      makeEvent({
+      makePost({
         id: "called-off",
         title: "Annulé",
         date: todayISO(),
@@ -113,7 +113,7 @@ describe("events-view", () => {
 
     const el = await mount();
     await switchToList(el);
-    await waitFor(el, () => el.querySelectorAll("event-card").length > 0);
+    await waitFor(el, () => el.querySelectorAll("post-card").length > 0);
 
     expect(cardIds(el)).toEqual(["checkup", "shoeing"]);
 
@@ -122,9 +122,9 @@ describe("events-view", () => {
   });
 
   it("a type chip narrows the list, and Tous clears it again", async () => {
-    await db.events.bulkAdd([
-      makeEvent({ id: "checkup", type: "veto", date: todayISO() }),
-      makeEvent({ id: "shoeing", type: "marechal", date: todayISO() }),
+    await db.posts.bulkAdd([
+      makePost({ id: "checkup", categoryKey: "veto", date: todayISO() }),
+      makePost({ id: "shoeing", categoryKey: "marechal", date: todayISO() }),
     ]);
 
     const el = await mount();
@@ -132,7 +132,7 @@ describe("events-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll("app-chip").length > 1,
     );
 
@@ -155,22 +155,22 @@ describe("events-view", () => {
    * second element rather than on the first one surviving.
    */
   it("reopens on the list, with the chip and the search text the visit was left on", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "checkup",
-        type: "veto",
+        categoryKey: "veto",
         title: "Contrôle œil",
         date: todayISO(),
       }),
-      makeEvent({
+      makePost({
         id: "vaccine",
-        type: "veto",
+        categoryKey: "veto",
         title: "Vaccin",
         date: todayISO(),
       }),
-      makeEvent({
+      makePost({
         id: "shoeing",
-        type: "marechal",
+        categoryKey: "marechal",
         title: "Ferrure",
         date: todayISO(),
       }),
@@ -181,7 +181,7 @@ describe("events-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length > 0 &&
+        el.querySelectorAll("post-card").length > 0 &&
         el.querySelectorAll("app-chip").length > 1,
     );
     chipLabeled(el, labelOf("veto")).click();
@@ -191,11 +191,11 @@ describe("events-view", () => {
 
     const reopened = await mount();
     // The type chips come from a second, independent `LiveQuery` over the
-    // type catalogue — waits for `event-card` alone can resolve first.
+    // type catalogue — waits for `post-card` alone can resolve first.
     await waitFor(
       reopened,
       () =>
-        reopened.querySelector("event-card") !== null &&
+        reopened.querySelector("post-card") !== null &&
         reopened.querySelectorAll("app-chip").length > 1,
     );
 
@@ -207,7 +207,7 @@ describe("events-view", () => {
 
   it("reopens on the day the calendar was left on", async () => {
     const day = addMonths(todayISO(), -2);
-    await db.events.add(makeEvent({ id: "back-then", date: day }));
+    await db.posts.add(makePost({ id: "back-then", date: day }));
 
     const el = await mount();
     await waitFor(el, () => el.querySelector("app-calendar") !== null);
@@ -221,10 +221,7 @@ describe("events-view", () => {
     await settled(el);
 
     const reopened = await mount();
-    await waitFor(
-      reopened,
-      () => reopened.querySelector("event-card") !== null,
-    );
+    await waitFor(reopened, () => reopened.querySelector("post-card") !== null);
 
     // The calendar pages itself to follow `value` in its own `willUpdate`, so
     // restoring the selected day restores the month on screen with it.
@@ -233,7 +230,7 @@ describe("events-view", () => {
   });
 
   /**
-   * The invariant `views/events.css` leans on for its `@starting-style` fade.
+   * The invariant `views/posts.css` leans on for its `@starting-style` fade.
    *
    * A row only fades in when it is newly rendered — and an element that
    * `repeat()` *moves* counts as newly rendered, because a move is an
@@ -248,22 +245,22 @@ describe("events-view", () => {
    * strobing on every keystroke.
    */
   it("keeps surviving rows as the same nodes, in order, when a filter narrows the list", async () => {
-    await db.events.bulkAdd([
-      makeEvent({
+    await db.posts.bulkAdd([
+      makePost({
         id: "newest",
-        type: "veto",
+        categoryKey: "veto",
         title: "Vaccin",
         date: todayISO(),
       }),
-      makeEvent({
+      makePost({
         id: "middle",
-        type: "marechal",
+        categoryKey: "marechal",
         title: "Ferrure",
         date: addMonths(todayISO(), -1),
       }),
-      makeEvent({
+      makePost({
         id: "oldest",
-        type: "veto",
+        categoryKey: "veto",
         title: "Dentiste",
         date: addMonths(todayISO(), -2),
       }),
@@ -274,13 +271,13 @@ describe("events-view", () => {
     await waitFor(
       el,
       () =>
-        el.querySelectorAll("event-card").length === 3 &&
+        el.querySelectorAll("post-card").length === 3 &&
         el.querySelectorAll("app-chip").length > 1,
     );
 
     const rowFor = (id: string) =>
-      [...el.querySelectorAll(".events-view__list > li")].find(
-        (li) => li.querySelector("event-card")?.event?.id === id,
+      [...el.querySelectorAll(".posts-view__list > li")].find(
+        (li) => li.querySelector("post-card")?.post?.id === id,
       );
     const before = { newest: rowFor("newest"), oldest: rowFor("oldest") };
     expect(before.newest).toBeDefined();
@@ -294,7 +291,7 @@ describe("events-view", () => {
     // order. `toEqual` deep-compares DOM elements structurally, so two freshly
     // rebuilt rows with the same markup would satisfy it — which is precisely
     // the case this test exists to catch.
-    const after = [...el.querySelectorAll(".events-view__list > li")];
+    const after = [...el.querySelectorAll(".posts-view__list > li")];
     expect(after).toHaveLength(2);
     expect(after[0]).toBe(before.newest);
     expect(after[1]).toBe(before.oldest);
@@ -307,7 +304,7 @@ describe("events-view", () => {
       await waitFor(
         el,
         () =>
-          el.querySelectorAll("event-card").length > 0 &&
+          el.querySelectorAll("post-card").length > 0 &&
           el.querySelectorAll("app-chip").length > 1,
       );
       return el;
@@ -316,11 +313,11 @@ describe("events-view", () => {
     beforeEach(async () => {
       await nest("osteo", "soins");
       await nest("dentiste", "soins");
-      await db.events.bulkAdd([
-        makeEvent({ id: "care", type: "soins", date: todayISO() }),
-        makeEvent({ id: "checkup", type: "osteo", date: todayISO() }),
-        makeEvent({ id: "teeth", type: "dentiste", date: todayISO() }),
-        makeEvent({ id: "shoeing", type: "marechal", date: todayISO() }),
+      await db.posts.bulkAdd([
+        makePost({ id: "care", categoryKey: "soins", date: todayISO() }),
+        makePost({ id: "checkup", categoryKey: "osteo", date: todayISO() }),
+        makePost({ id: "teeth", categoryKey: "dentiste", date: todayISO() }),
+        makePost({ id: "shoeing", categoryKey: "marechal", date: todayISO() }),
       ]);
     });
 
@@ -344,14 +341,14 @@ describe("events-view", () => {
 
     it("reveals the group's own chips once its root is selected", async () => {
       const el = await openList();
-      expect(el.querySelector(".events-view__filters--nested")).toBeNull();
+      expect(el.querySelector(".posts-view__filters--nested")).toBeNull();
 
       chipLabeled(el, labelOf("soins")).click();
       await settled(el);
 
       // `massage` is a third child here too — shipped under `soins` since
       // v10, alongside `osteo`, without this test having to nest it itself.
-      expect(chipLabels(el, ".events-view__filters--nested")).toEqual([
+      expect(chipLabels(el, ".posts-view__filters--nested")).toEqual([
         "Tous",
         labelOf("dentiste"),
         labelOf("massage"),
@@ -364,7 +361,7 @@ describe("events-view", () => {
       chipLabeled(el, labelOf("soins")).click();
       await settled(el);
 
-      chipsIn(el, ".events-view__filters--nested")
+      chipsIn(el, ".posts-view__filters--nested")
         .find((chip) => chip.label === labelOf("osteo"))!
         .click();
       await settled(el);
@@ -376,7 +373,7 @@ describe("events-view", () => {
       const el = await openList();
       chipLabeled(el, labelOf("soins")).click();
       await settled(el);
-      chipsIn(el, ".events-view__filters--nested")
+      chipsIn(el, ".posts-view__filters--nested")
         .find((chip) => chip.label === labelOf("osteo"))!
         .click();
       await settled(el);
@@ -384,7 +381,7 @@ describe("events-view", () => {
       // Otherwise the second row would be showing children of a group that
       // reads as switched off.
       expect(chipLabeled(el, labelOf("soins")).selected).toBe(true);
-      expect(el.querySelector(".events-view__filters--nested")).not.toBeNull();
+      expect(el.querySelector(".posts-view__filters--nested")).not.toBeNull();
     });
 
     it("shows no second row for a root with no children", async () => {
@@ -394,7 +391,7 @@ describe("events-view", () => {
       await settled(el);
 
       expect(cardIds(el)).toEqual(["shoeing"]);
-      expect(el.querySelector(".events-view__filters--nested")).toBeNull();
+      expect(el.querySelector(".posts-view__filters--nested")).toBeNull();
     });
   });
 });

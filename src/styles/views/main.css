@@ -110,13 +110,13 @@
        * Deliberately *not* `container-type: inline-size` as well. That would be
        * the natural next step for making views adapt to this column rather than
        * to the viewport, but it implies `contain: layout`, and `HorseView`
-       * renders an `app-bottom-sheet` — and `EventDetailView` an `app-modal`
+       * renders an `app-bottom-sheet` — and `PostDetailView` an `app-modal`
        * and a `document-viewer` — inside `<main>`. Their `<dialog>`s are
        * `position: fixed` and reach the top layer through `showModal()`, which
        * is specified to escape ancestor containment but has a history of not
        * doing so. Add the container when there is an `@container main (...)`
        * rule that needs it, and pin the sheet's geometry with a test at the
-       * same time. `event-card` queries itself and is unaffected either way.
+       * same time. `post-card` queries itself and is unaffected either way.
        */
     max-width: var(--content-max-width);
     margin-inline: auto;

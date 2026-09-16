@@ -5,8 +5,8 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { appHref } from "../../commons/base-path.ts";
 import { formatDate, formatTime } from "../../data/dates.ts";
 import { formatCents } from "../../data/money.ts";
-import type { ResolvedEventType } from "../../data/event-types.ts";
-import type { HorseEvent } from "../../data/types.ts";
+import type { ResolvedCategory } from "../../data/categories.ts";
+import type { Post } from "../../data/types.ts";
 import { THEME_META } from "../../theme/theme.ts";
 
 import { iconStyle } from "../app-icon/app-icon.ts";
@@ -22,7 +22,7 @@ import { tagStyle } from "../app-tag/app-tag.ts";
  * - `budget` — the price leaves the meta line for its own right-aligned cell,
  *   and the notes go, because a ledger is read down the amounts column.
  */
-export type EventCardLayout = "default" | "dashboard" | "budget";
+export type PostCardLayout = "default" | "dashboard" | "budget";
 
 /**
  * One event in a list: category icon, title, date and price, its type as a tag
@@ -30,22 +30,21 @@ export type EventCardLayout = "default" | "dashboard" | "budget";
  *
  * Presentational — the owning view holds the query and passes the record down.
  */
-@customElement("event-card")
-export class EventCard extends BaseElement {
-  @property({ attribute: false }) event: HorseEvent | null = null;
+@customElement("post-card")
+export class PostCard extends BaseElement {
+  @property({ attribute: false }) post: Post | null = null;
 
   /**
    * The event's own type, already resolved — the owning view holds the type
    * catalogue in a `LiveQuery` alongside its events, the same way it already
-   * holds the query for `event`'s own list. `null` for the tick before that
+   * holds the query for `post`'s own list. `null` for the tick before that
    * query settles, or if the type has since been deleted; the card renders a
    * neutral placeholder rather than nothing so the row does not jump.
    */
-  @property({ attribute: false }) type: ResolvedEventType | null = null;
+  @property({ attribute: false }) category: ResolvedCategory | null = null;
 
   /** Reflected so the styles below can key off it. */
-  @property({ type: String, reflect: true }) layout: EventCardLayout =
-    "default";
+  @property({ type: String, reflect: true }) layout: PostCardLayout = "default";
 
   static componentStyles = css`
     :host {
@@ -76,23 +75,23 @@ export class EventCard extends BaseElement {
     /* The whole card is the target — a phone-sized tap area, and it means the
        link text a screen reader announces is the event's own title rather than
        a "voir" tacked on the end. */
-    .event-card__link {
+    .post-card__link {
       display: block;
       color: inherit;
       text-decoration: none;
       border-radius: var(--radius-12);
     }
 
-    .event-card__link:focus-visible {
+    .post-card__link:focus-visible {
       outline: 2px solid var(--color-brown-dark);
       outline-offset: 2px;
     }
 
     /* Was the global .container class plus an override in
-       styles/components/event-card.css. Both live here now that the card owns
+       styles/components/post-card.css. Both live here now that the card owns
        its own shadow root, so the padding no longer has to out-specify a shared
        class on the same element. */
-    .event-card {
+    .post-card {
       display: grid;
       grid-template-columns: auto 1fr auto;
       grid-template-areas:
@@ -107,14 +106,14 @@ export class EventCard extends BaseElement {
       background-color: var(--color-white);
     }
 
-    .event-card__icon {
+    .post-card__icon {
       grid-area: icon;
       width: 2rem;
       height: 2rem;
       border-radius: var(--radius-8);
     }
 
-    .event-card__title {
+    .post-card__title {
       grid-area: title;
       align-self: center;
       font-size: 0.875rem;
@@ -123,13 +122,13 @@ export class EventCard extends BaseElement {
       color: var(--color-dark);
     }
 
-    .event-card__tag {
+    .post-card__tag {
       grid-area: tag;
       align-self: center;
       justify-self: end;
     }
 
-    .event-card__meta {
+    .post-card__meta {
       grid-area: meta;
       display: flex;
       flex-wrap: wrap;
@@ -140,12 +139,12 @@ export class EventCard extends BaseElement {
       color: var(--color-text-muted);
     }
 
-    .event-card__meta span + span::before {
+    .post-card__meta span + span::before {
       content: "•";
       margin: 0 var(--spacing-6);
     }
 
-    .event-card__notes {
+    .post-card__notes {
       grid-area: notes;
       font-size: 0.75rem;
       line-height: 1.35;
@@ -154,20 +153,20 @@ export class EventCard extends BaseElement {
 
     /* The amount moves out of the meta line and under the tag, which is what
        makes a column of them scannable down the right edge. */
-    :host([layout="budget"]) .event-card {
+    :host([layout="budget"]) .post-card {
       grid-template-areas:
         "icon title  tag"
         "icon meta   amount";
     }
 
-    :host([layout="dashboard"]) .event-card {
+    :host([layout="dashboard"]) .post-card {
       align-items: center;
       grid-template-areas:
         "icon title  tag"
         "icon meta   tag";
     }
 
-    .event-card__amount {
+    .post-card__amount {
       grid-area: amount;
       align-self: center;
       justify-self: end;
@@ -192,7 +191,7 @@ export class EventCard extends BaseElement {
      * moment one of these is ever rendered somewhere narrower than the page.
      */
     @container (max-inline-size: 20rem) {
-      .event-card {
+      .post-card {
         grid-template-columns: auto 1fr;
         grid-template-areas:
           "icon title"
@@ -201,11 +200,11 @@ export class EventCard extends BaseElement {
           "icon notes";
       }
 
-      .event-card__tag {
+      .post-card__tag {
         justify-self: start;
       }
 
-      :host([layout="budget"]) .event-card {
+      :host([layout="budget"]) .post-card {
         grid-template-areas:
           "icon title"
           "icon tag"
@@ -213,20 +212,20 @@ export class EventCard extends BaseElement {
           "icon amount";
       }
 
-      :host([layout="budget"]) .event-card__amount {
+      :host([layout="budget"]) .post-card__amount {
         justify-self: start;
       }
     }
   `;
 
   render() {
-    const event = this.event;
+    const event = this.post;
     if (!event) return nothing;
 
     // Resolved here rather than inside app-icon/app-tag: those two are
     // domain-free, so the view that knows what an event *is* supplies the glyph,
     // the wording and the colours.
-    const type = this.type;
+    const type = this.category;
     const theme = type ? THEME_META[type.theme] : null;
     // `amountCents` moved into `customFields` in schema v6 — present only for
     // a type whose fields carry an amount at all.
@@ -241,24 +240,24 @@ export class EventCard extends BaseElement {
     // load — the service worker answers any path with the cached shell.
     return html`
       <a
-        class="event-card__link pressable"
-        href="${appHref(`/events/${event.id}`)}"
+        class="post-card__link pressable"
+        href="${appHref(`/posts/${event.id}`)}"
       >
-        <article class="event-card">
+        <article class="post-card">
           <app-icon
-            class="event-card__icon"
+            class="post-card__icon"
             .icon=${type?.icon ?? "info"}
             style=${styleMap(theme ? iconStyle(theme) : {})}
           ></app-icon>
 
-          <h3 class="event-card__title">${event.title}</h3>
+          <h3 class="post-card__title">${event.title}</h3>
           <app-tag
-            class="event-card__tag"
+            class="post-card__tag"
             label=${type?.label ?? ""}
             style=${styleMap(theme ? tagStyle(theme) : {})}
           ></app-tag>
 
-          <p class="event-card__meta">
+          <p class="post-card__meta">
             <span>${formatDate(event.date)}</span>
             ${event.time ? html`<span>${formatTime(event.time)}</span>` : nothing}
             ${price && !trailingAmount ? html`<span>${price}</span>` : nothing}
@@ -268,10 +267,10 @@ export class EventCard extends BaseElement {
                it, so a column of amounts stays aligned. -->
           ${
             price && trailingAmount
-              ? html`<span class="event-card__amount">−&nbsp;${price}</span>`
+              ? html`<span class="post-card__amount">−&nbsp;${price}</span>`
               : nothing
           }
-          ${showNotes ? html`<p class="event-card__notes">${event.notes}</p>` : nothing}
+          ${showNotes ? html`<p class="post-card__notes">${event.notes}</p>` : nothing}
         </article>
       </a>
     `;
@@ -280,6 +279,6 @@ export class EventCard extends BaseElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    "event-card": EventCard;
+    "post-card": PostCard;
   }
 }

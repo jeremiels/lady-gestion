@@ -206,7 +206,7 @@ export class AppCombobox extends FormFieldElement {
    *
    * The listbox is a `popover="manual"`, promoted to the top layer, because
    * `position: absolute` inside `.field__wrapper` was clipped by any ancestor
-   * that clips overflow — `event-form__follow-up` does, to animate its own
+   * that clips overflow — `post-form__follow-up` does, to animate its own
    * height — and had no idea a keyboard had eaten the bottom of the viewport.
    * Showing/hiding it here, alongside the viewport tracking, is what a plain
    * `?hidden` binding can no longer do once the element lives in the top layer.
@@ -260,8 +260,7 @@ export class AppCombobox extends FormFieldElement {
     const rect = control.getBoundingClientRect();
     const viewport = window.visualViewport;
     const visibleTop = origin.top + (viewport?.offsetTop ?? 0);
-    const visibleBottom =
-      visibleTop + (viewport?.height ?? window.innerHeight);
+    const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
     const gap = 4;
     const rootFontSize =
       parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -484,7 +483,7 @@ export class AppCombobox extends FormFieldElement {
 
     /*
      * A popover, not position: absolute inside .field__wrapper: this field can
-     * sit inside .event-form__follow-up, which clips overflow to animate its
+     * sit inside .post-form__follow-up, which clips overflow to animate its
      * own height, and an absolutely-positioned list was clipped along with it.
      * position: fixed here, with left/width/top written by
      * #reposition, is what lets the list escape that clip and still track the

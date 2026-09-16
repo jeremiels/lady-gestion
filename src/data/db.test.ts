@@ -112,7 +112,7 @@ const V6_STORES = {
 
 /**
  * The `alimentation` `eventTypes` row exactly as v6 wrote it — no `quantity`
- * field yet. Hand-frozen rather than read off the live `BUILT_IN_EVENT_TYPES`,
+ * field yet. Hand-frozen rather than read off the live `BUILT_IN_CATEGORIES`,
  * which now includes it — the same trap `LEGACY_STORES`'s own note warns
  * against for the stores above.
  */
@@ -181,11 +181,11 @@ const V8_STORES = { ...V7_STORES };
  * them: roots, each with its own icon and theme.
  *
  * Hand-frozen for the reason the fixtures above give — reading them off
- * `BUILT_IN_EVENT_TYPES` would exercise the upgrade against its own output,
+ * `BUILT_IN_CATEGORIES` would exercise the upgrade against its own output,
  * since that array already carries the nesting.
  *
  * The ids are deliberately *not* the keys. A seeded built-in has `id === key`
- * (`seedEventTypeDefs`), so a fixture that repeated that would pass whether the
+ * (`seedCategories`), so a fixture that repeated that would pass whether the
  * migration resolved the parent's id or just assumed the key was one.
  */
 const preV9Types = () => [
@@ -257,7 +257,7 @@ const V9_STORES = { ...V8_STORES };
  * migration since it was never one of the two rows that touched.
  *
  * Hand-frozen for the reason `preV9Types` gives: reading either off
- * `BUILT_IN_EVENT_TYPES` would exercise the upgrade against its own output,
+ * `BUILT_IN_CATEGORIES` would exercise the upgrade against its own output,
  * since that array already carries both the nesting and `massage` itself.
  */
 const preV10Types = () => [
@@ -445,7 +445,7 @@ describe("v2 -> v3: events gain vendor and followUpInterval", () => {
 
     await db.open();
 
-    const event = await db.events.get("event-1");
+    const event = await db.posts.get("event-1");
     expect(event?.customFields).toHaveProperty("counterparty", null);
     expect(event?.customFields).toHaveProperty("followUp", null);
   });
@@ -457,7 +457,7 @@ describe("v2 -> v3: events gain vendor and followUpInterval", () => {
 
     await db.open();
 
-    const events = await db.events.orderBy("id").toArray();
+    const events = await db.posts.orderBy("id").toArray();
     expect(
       events.every((event) => event.customFields.counterparty === null),
     ).toBe(true);
@@ -468,7 +468,7 @@ describe("v2 -> v3: events gain vendor and followUpInterval", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       title: "event-1",
       date: "2026-06-15",
       currency: "EUR",
@@ -489,7 +489,7 @@ describe("v3 -> v4: events gain activity", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toHaveProperty(
+    expect(await db.posts.get("event-1")).toHaveProperty(
       "customFields.activity",
       null,
     );
@@ -506,7 +506,7 @@ describe("v3 -> v4: events gain activity", () => {
 
     await db.open();
 
-    const events = await db.events.orderBy("id").toArray();
+    const events = await db.posts.orderBy("id").toArray();
     expect(events.every((event) => event.customFields.activity === null)).toBe(
       true,
     );
@@ -517,7 +517,7 @@ describe("v3 -> v4: events gain activity", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       title: "event-1",
       date: "2026-06-15",
       currency: "EUR",
@@ -549,7 +549,7 @@ describe("v4 -> v5: the activities table appears", () => {
     // A new store means no rows to rewrite, and so no `.upgrade()` — which is
     // exactly what could silently drop data if one were added later. `activity`
     // has since folded into `customFields` by v6, run in the same chain.
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       title: "event-1",
       date: "2026-06-15",
       customFields: { activity: "longe" },
@@ -563,7 +563,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    expect(await db.eventTypes.count()).toBe(14);
+    expect(await db.categories.count()).toBe(14);
   });
 
   it("gives a seeded type the fields the app already offered under that type", async () => {
@@ -571,7 +571,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    const veto = await db.eventTypes.where("key").equals("veto").first();
+    const veto = await db.categories.where("key").equals("veto").first();
     expect(veto).toMatchObject({
       label: "Vétérinaire",
       isBuiltIn: true,
@@ -593,7 +593,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    const keys = (await db.eventTypes.toArray()).map((type) => type.key).sort();
+    const keys = (await db.categories.toArray()).map((type) => type.key).sort();
     expect(keys).toEqual([
       "achat",
       "alimentation",
@@ -625,7 +625,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    const event = await db.events.get("event-1");
+    const event = await db.posts.get("event-1");
     expect(event?.customFields.counterparty).toBe("Dr Martin");
     expect(event?.customFields.followUp).toBe("6w");
   });
@@ -637,7 +637,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    expect((await db.events.get("event-1"))?.customFields.counterparty).toBe(
+    expect((await db.posts.get("event-1"))?.customFields.counterparty).toBe(
       "Décathlon",
     );
   });
@@ -655,7 +655,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    const event = await db.events.get("event-1");
+    const event = await db.posts.get("event-1");
     expect(event?.customFields).not.toHaveProperty("amountCents");
     expect(event?.customFields.activity).toBe("longe");
   });
@@ -665,7 +665,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    expect((await db.events.get("event-1"))?.type).toBe("concours");
+    expect((await db.posts.get("event-1"))?.categoryKey).toBe("concours");
   });
 
   it("removes the legacy columns from every migrated row", async () => {
@@ -673,7 +673,7 @@ describe("v5 -> v6: event types become data, events fold into customFields", () 
 
     await db.open();
 
-    const event = await db.events.get("event-1");
+    const event = await db.posts.get("event-1");
     expect(event).not.toHaveProperty("providerName");
     expect(event).not.toHaveProperty("vendor");
     expect(event).not.toHaveProperty("followUpInterval");
@@ -688,7 +688,7 @@ describe("v6 -> v7: alimentation gains a quantity field", () => {
 
     await db.open();
 
-    const alimentation = await db.eventTypes
+    const alimentation = await db.categories
       .where("id")
       .equals("alimentation")
       .first();
@@ -725,7 +725,7 @@ describe("v6 -> v7: alimentation gains a quantity field", () => {
 
     await db.open();
 
-    const stored = await db.eventTypes.where("id").equals("veto").first();
+    const stored = await db.categories.where("id").equals("veto").first();
     expect(stored?.fields).toEqual(veto.fields);
   });
 });
@@ -736,7 +736,7 @@ describe("v7 -> v8: event types gain a parent", () => {
 
     await db.open();
 
-    const stored = await db.eventTypes.get("veto");
+    const stored = await db.categories.get("veto");
     // `null`, not absent: `undefined` contradicts the declared type and is
     // dropped by `JSON.stringify` on the next backup export, so the file would
     // never carry the column and never heal itself.
@@ -748,7 +748,7 @@ describe("v7 -> v8: event types gain a parent", () => {
 
     await db.open();
 
-    expect(await db.eventTypes.get("veto")).toMatchObject({
+    expect(await db.categories.get("veto")).toMatchObject({
       icon: "firstAidKit",
       theme: "pink",
     });
@@ -766,7 +766,7 @@ describe("v7 -> v8: event types gain a parent", () => {
 
     await db.open();
 
-    expect((await db.eventTypes.get("veto"))?.parentId).toBe("soins");
+    expect((await db.categories.get("veto"))?.parentId).toBe("soins");
   });
 });
 
@@ -778,12 +778,12 @@ describe("v8 -> v9: cures and traitement file under a parent", () => {
 
     // The parent's `id`, resolved from the table — not its `key`, which these
     // fixtures deliberately differ from.
-    expect(await db.eventTypes.get("type-cures")).toMatchObject({
+    expect(await db.categories.get("type-cures")).toMatchObject({
       parentId: "type-alimentation",
       icon: null,
       theme: null,
     });
-    expect(await db.eventTypes.get("type-traitement")).toMatchObject({
+    expect(await db.categories.get("type-traitement")).toMatchObject({
       parentId: "type-veto",
       icon: null,
       theme: null,
@@ -795,12 +795,12 @@ describe("v8 -> v9: cures and traitement file under a parent", () => {
 
     await db.open();
 
-    expect(await db.eventTypes.get("type-alimentation")).toMatchObject({
+    expect(await db.categories.get("type-alimentation")).toMatchObject({
       parentId: null,
       icon: "carrot",
       theme: "yellow",
     });
-    expect(await db.eventTypes.get("type-veto")).toMatchObject({
+    expect(await db.categories.get("type-veto")).toMatchObject({
       parentId: null,
       icon: "firstAidKit",
       theme: "pink",
@@ -817,8 +817,8 @@ describe("v8 -> v9: cures and traitement file under a parent", () => {
 
     await db.open();
 
-    expect((await db.eventTypes.get("type-cures"))?.parentId).toBe("type-veto");
-    expect((await db.eventTypes.get("type-cures"))?.theme).toBe("purple");
+    expect((await db.categories.get("type-cures"))?.parentId).toBe("type-veto");
+    expect((await db.categories.get("type-cures"))?.theme).toBe("purple");
   });
 
   it("does nothing when the parent is not in the catalogue at all", async () => {
@@ -830,7 +830,7 @@ describe("v8 -> v9: cures and traitement file under a parent", () => {
 
     await db.open();
 
-    expect(await db.eventTypes.get("type-cures")).toMatchObject({
+    expect(await db.categories.get("type-cures")).toMatchObject({
       parentId: null,
       icon: "pawPrint",
       theme: "purple",
@@ -846,7 +846,7 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
 
     // Unlike v9's own `cures`/`traitement`, `osteo`'s icon is kept rather
     // than nulled — it is a real, already-shipped icon, not a placeholder.
-    expect(await db.eventTypes.get("type-osteo")).toMatchObject({
+    expect(await db.categories.get("type-osteo")).toMatchObject({
       parentId: "type-soins",
       icon: "pawPrint",
       theme: null,
@@ -858,7 +858,7 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
 
     await db.open();
 
-    expect(await db.eventTypes.get("type-soins")).toMatchObject({
+    expect(await db.categories.get("type-soins")).toMatchObject({
       parentId: null,
       icon: "firstAidKit",
       theme: "pink",
@@ -876,7 +876,7 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
 
     await db.open();
 
-    expect((await db.eventTypes.get("type-osteo"))?.theme).toBe("orange");
+    expect((await db.categories.get("type-osteo"))?.theme).toBe("orange");
   });
 
   it("does nothing when the parent is not in the catalogue at all", async () => {
@@ -887,7 +887,7 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
 
     await db.open();
 
-    expect(await db.eventTypes.get("type-osteo")).toMatchObject({
+    expect(await db.categories.get("type-osteo")).toMatchObject({
       parentId: null,
       icon: "pawPrint",
       theme: "orange",
@@ -899,13 +899,13 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
 
     await db.open();
 
-    const massage = await db.eventTypes.where("key").equals("massage").first();
+    const massage = await db.categories.where("key").equals("massage").first();
     expect(massage).toMatchObject({
       label: "Massage",
       isBuiltIn: true,
       isAppointment: true,
     });
-    const soins = await db.eventTypes.where("key").equals("soins").first();
+    const soins = await db.categories.where("key").equals("soins").first();
     expect(massage?.parentId).toBe(soins?.id);
   });
 
@@ -930,7 +930,7 @@ describe("v9 -> v10: osteo files under soins, massage is seeded as its sibling",
 
     await db.open();
 
-    expect(await db.eventTypes.where("key").equals("massage").count()).toBe(1);
+    expect(await db.categories.where("key").equals("massage").count()).toBe(1);
   });
 });
 
@@ -940,7 +940,7 @@ describe("v10 -> v11: balade splits into two activities", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       customFields: { activity: "baladeApied" },
     });
   });
@@ -954,7 +954,7 @@ describe("v10 -> v11: balade splits into two activities", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       customFields: { activity: "longe" },
     });
   });
@@ -971,7 +971,7 @@ describe("v10 -> v11: balade splits into two activities", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       customFields: { activity: "balade" },
     });
   });
@@ -987,7 +987,7 @@ describe("v10 -> v11: balade splits into two activities", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toMatchObject({
+    expect(await db.posts.get("event-1")).toMatchObject({
       customFields: { activity: "baladeApied" },
     });
   });
@@ -1004,12 +1004,130 @@ describe("v11 -> v12: a profiles table is added", () => {
 
     await db.open();
 
-    expect(await db.events.get("event-1")).toBeDefined();
+    expect(await db.posts.get("event-1")).toBeDefined();
     expect(await db.meta.get("ownerId")).toEqual({
       key: "ownerId",
       value: "owner-1",
     });
     expect(await db.profiles.count()).toBe(0);
+  });
+});
+
+/** The stores a real v12 device's IndexedDB actually has — the last schema
+ * with `events` and `eventTypes`. Restated, not derived from `db.ts`. */
+const V12_STORES = { ...V10_STORES, profiles: "id, updatedAt" };
+
+/** A category row as v12 wrote it: `archived`, no `enabled`. */
+const v12Category = (key: string, archived: boolean) => ({
+  ...stamps,
+  id: key,
+  key,
+  label: key,
+  parentId: null,
+  icon: "carrot",
+  theme: "coral",
+  isBuiltIn: true,
+  isAppointment: false,
+  tracksWork: false,
+  archived,
+  order: 0,
+  fields: [],
+});
+
+/** A document row as v12 wrote it: `eventId`, no `postId`. */
+const v12Document = (id: string, eventId: string | null) => ({
+  ...stamps,
+  id,
+  horseId: "horse-1",
+  eventId,
+  category: "facture",
+  name: `${id}.pdf`,
+  mimeType: "application/pdf",
+  size: 1,
+  issuedAt: null,
+  driveFileId: null,
+  driveSyncedAt: null,
+});
+
+const writeV12Database = async (rows: {
+  events?: unknown[];
+  eventTypes?: unknown[];
+  documents?: unknown[];
+}) => {
+  const legacy = new Dexie(DB_NAME);
+  legacy.version(12).stores(V12_STORES);
+  await legacy.open();
+  if (rows.events?.length) await legacy.table("events").bulkAdd(rows.events);
+  if (rows.eventTypes?.length) {
+    await legacy.table("eventTypes").bulkAdd(rows.eventTypes);
+  }
+  if (rows.documents?.length) {
+    await legacy.table("documents").bulkAdd(rows.documents);
+  }
+  legacy.close();
+};
+
+describe("v12 -> v13: events become posts, event types become categories", () => {
+  it("moves every event into posts, renaming type to categoryKey", async () => {
+    await writeV12Database({ events: [preV11BaladeEvent("event-1")] });
+
+    await db.open();
+
+    const post = await db.posts.get("event-1");
+    expect(post).toMatchObject({
+      categoryKey: "travail",
+      customFields: { activity: "balade" },
+      updatedAt: stamps.updatedAt,
+    });
+    expect(post).not.toHaveProperty("type");
+    // Queryable through the renamed compound index, not just by id.
+    expect(
+      await db.posts
+        .where("[horseId+categoryKey]")
+        .equals(["horse-1", "travail"])
+        .count(),
+    ).toBe(1);
+  });
+
+  it("turns archived into its inverse, enabled", async () => {
+    await writeV12Database({
+      eventTypes: [v12Category("veto", false), v12Category("achat", true)],
+    });
+
+    await db.open();
+
+    const veto = await db.categories.get("veto");
+    expect(veto).toMatchObject({ enabled: true, updatedAt: stamps.updatedAt });
+    expect(veto).not.toHaveProperty("archived");
+    expect(await db.categories.get("achat")).toMatchObject({ enabled: false });
+  });
+
+  it("renames a document's eventId to postId", async () => {
+    await writeV12Database({
+      documents: [v12Document("doc-1", "event-1"), v12Document("doc-2", null)],
+    });
+
+    await db.open();
+
+    const linked = await db.documents.get("doc-1");
+    expect(linked).toMatchObject({ postId: "event-1" });
+    expect(linked).not.toHaveProperty("eventId");
+    expect(await db.documents.get("doc-2")).toMatchObject({ postId: null });
+    expect(await db.documents.where("postId").equals("event-1").count()).toBe(
+      1,
+    );
+  });
+
+  it("drops the old stores", async () => {
+    await writeV12Database({ events: [preV11BaladeEvent("event-1")] });
+
+    await db.open();
+
+    const names = db.tables.map((table) => table.name);
+    expect(names).toContain("posts");
+    expect(names).toContain("categories");
+    expect(names).not.toContain("events");
+    expect(names).not.toContain("eventTypes");
   });
 });
 
@@ -1025,18 +1143,18 @@ describe("a v1 database upgrading all the way", () => {
     expect((await db.rationItems.get("ration-1"))?.season).toEqual(
       DEFAULT_SEASON,
     );
-    expect(await db.events.get("event-1")).toHaveProperty(
+    expect(await db.posts.get("event-1")).toHaveProperty(
       "customFields.counterparty",
       null,
     );
     expect(await db.activities.count()).toBe(0);
-    expect(await db.eventTypes.count()).toBe(14);
+    expect(await db.categories.count()).toBe(14);
     // Seeded by v6 — from the current catalogue, so already nested — and left
     // alone by v9 and v10, whose guards each skip a row that is not a root.
     // Both routes to the same four children is the point: a fresh seed and a
     // device that upgraded all the way through have to agree on the finished
     // shape.
-    const catalogue = await db.eventTypes.toArray();
+    const catalogue = await db.categories.toArray();
     expect(
       catalogue
         .filter((type) => type.parentId !== null)

@@ -1,10 +1,10 @@
 @layer views.events {
-  .events-view {
+  .posts-view {
     display: grid;
     gap: var(--spacing-24);
   }
 
-  .events-view__header {
+  .posts-view__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -13,21 +13,21 @@
 
   /* `.container` gives the white card; the calendar wants more room inside it
      than the shared 12px. `views` sits after `components`, so this wins. */
-  .events-view__calendar {
+  .posts-view__calendar {
     padding: var(--spacing-16);
   }
 
-  .events-view__search {
+  .posts-view__search {
     --app-input-background: var(--color-brown-light-bg);
   }
 
-  .events-view__search::part(control) {
+  .posts-view__search::part(control) {
     border-radius: var(--radius-16);
   }
 
   /* Bleeds past the page padding so the row scrolls edge to edge and the last
      chip is visibly cut off, which is what says "there are more". */
-  .events-view__filters {
+  .posts-view__filters {
     display: flex;
     gap: var(--spacing-8);
     overflow-x: auto;
@@ -36,31 +36,31 @@
     padding-inline: var(--spacing-20);
   }
 
-  .events-view__filters::-webkit-scrollbar {
+  .posts-view__filters::-webkit-scrollbar {
     display: none;
   }
 
   /* Pulled up against the row it drills into. The page grid's 24px gap reads
      as "another section", and these two rows are one control. */
-  .events-view__filters--nested {
+  .posts-view__filters--nested {
     margin-top: calc(var(--spacing-8) - var(--spacing-24));
   }
 
-  .events-view__day,
-  .events-view__group {
+  .posts-view__day,
+  .posts-view__group {
     display: grid;
     gap: var(--spacing-8);
     margin-top: var(--spacing-8);
   }
 
-  .events-view__group-title {
+  .posts-view__group-title {
     font-size: 0.75rem;
     line-height: 0.938rem;
     font-weight: 600;
     color: var(--color-brown-dark);
   }
 
-  .events-view__list {
+  .posts-view__list {
     display: grid;
     gap: var(--spacing-12);
     margin: 0;
@@ -71,10 +71,10 @@
   /*
    * This list is every event the horse has ever had.
    *
-   * `EventsView` deliberately loads them all and filters in memory — a query
+   * `PostsView` deliberately loads them all and filters in memory — a query
    * narrowed by the search box or the chips would go stale, since neither is a
    * Dexie write. That is correct, but it means the row count only ever grows,
-   * and each row is an event-card: its own shadow root, its own container
+   * and each row is an post-card: its own shadow root, its own container
    * query, and an app-icon and app-tag inside it.
    *
    * `content-visibility: auto` skips style, layout and paint for the rows that
@@ -97,7 +97,7 @@
    * NOTE: this makes each row a stacking context, which is why `.navigation`
    * carries a z-index — see views/main.css.
    */
-  .events-view__list > li {
+  .posts-view__list > li {
     content-visibility: auto;
     contain-intrinsic-size: auto 5.25rem;
     /* Opacity only. A row that also travelled would be movement on a frequent
@@ -119,21 +119,21 @@
      That invariant is the whole load-bearing part. Give this list a sort
      control, or change the order `listByHorse` returns, and every visible row
      re-fades on every keystroke — pinned by the reorder case in
-     `EventsView.test.ts`. */
+     `PostsView.test.ts`. */
   @starting-style {
-    .events-view__list > li {
+    .posts-view__list > li {
       opacity: 0;
     }
   }
 
-  .events-view__empty {
+  .posts-view__empty {
     font-size: 0.875rem;
     color: var(--color-brown-light);
     transition: opacity var(--duration-fast) var(--easing-out);
   }
 
   @starting-style {
-    .events-view__empty {
+    .posts-view__empty {
       opacity: 0;
     }
   }

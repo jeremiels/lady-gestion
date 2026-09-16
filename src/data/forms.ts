@@ -23,7 +23,7 @@ import { toCents } from "./money.ts";
  *       seasonal: bool(),
  *     });
  *     if (!result.ok) return showErrors(result.errors);
- *     await eventsRepo.create({ ...result.value });
+ *     await postsRepo.create({ ...result.value });
  *
  * Native constraint validation still runs first and covers every normal path —
  * these parsers exist for the paths that skip it, where a `NaN` written to

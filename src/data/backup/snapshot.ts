@@ -8,22 +8,32 @@ import {
 import { nowISO, type IsoTimestamp } from "../dates.ts";
 import {
   quantityField,
-  seedEventTypeDefs,
+  migrateCategoryRowV13,
+  seedCategories,
   SCHEMA_V9_NESTINGS,
   SCHEMA_V10_NESTINGS,
   SCHEMA_V10_NEW_TYPES,
-} from "../event-types.ts";
+  type LegacyCategoryRow,
+} from "../categories.ts";
 import {
+  migrateDocumentRowV13,
   migrateEventToCustomFields,
+  migratePostRowV13,
   SCHEMA_V11_ACTIVITY_RENAME,
   type LegacyEventColumns,
-} from "../events.ts";
+} from "../posts.ts";
 import { newerOf } from "../record.ts";
 import { getOwnerId, setOwnerId } from "../owner.ts";
 import { seasonFromLegacyFlag } from "../seasons.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
 import { clearUntouchedSeedData } from "../seed.ts";
-import type { BaseRecord, HorseEvent, RationItem } from "../types.ts";
+import type {
+  BaseRecord,
+  Category,
+  Post,
+  RationItem,
+  StoredDocument,
+} from "../types.ts";
 
 /**
  * Whole-database snapshot, used today for manual file export/import and
@@ -150,13 +160,33 @@ export const importBackup = async (
  * exist in `db.ts`: a shape used only mid-migration, never the real shape a
  * snapshot or a store holds before or after.
  */
-type MigratingEventRow = Omit<HorseEvent, "customFields"> &
+type MigratingEventRow = Omit<Post, "customFields" | "categoryKey"> &
   Partial<LegacyEventColumns> & {
-    customFields?: HorseEvent["customFields"];
+    type: string;
+    customFields?: Post["customFields"];
   };
 
-type MigratingTables = Omit<BackupTables, "events"> & {
+/**
+ * The tables of a pre-v13 file, under the names it wrote them with: `events`
+ * and `eventTypes` rather than `posts` and `categories`. Every step before
+ * v12 -> v13 works on these; that step renames them.
+ */
+type MigratingTables = Omit<
+  BackupTables,
+  "posts" | "categories" | "documents"
+> & {
   events: MigratingEventRow[];
+  eventTypes: LegacyCategoryRow[];
+  documents: (Omit<StoredDocument, "postId"> & { eventId?: string | null })[];
+};
+
+/**
+ * The names a pre-v13 file stores two tables under. Read by `assertSnapshot`,
+ * which validates a file before `migrateSnapshot` renames them.
+ */
+const PRE_V13_TABLE_NAMES: Partial<Record<RecordTableName, string>> = {
+  posts: "events",
+  categories: "eventTypes",
 };
 
 /**
@@ -181,7 +211,10 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
   // `BackupTables` — the type `backup.tables` already satisfies, and the one
   // this function returns — states the *finished* shape, not the shape a
   // half-migrated file is in partway through this function's own body.
-  let tables: MigratingTables = backup.tables;
+  //
+  // Any file that reaches this point predates v13, so its tables are still
+  // under their old names — cast accordingly.
+  let tables = backup.tables as unknown as MigratingTables;
 
   // v1 -> v2: `seasonal: boolean` becomes a `season` window.
   if (backup.schemaVersion < 2) {
@@ -240,8 +273,7 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
   // absent from a pre-v5 one, is supplied with the same built-in rows a fresh
   // device seeds.
   if (backup.schemaVersion < 6) {
-    const types =
-      tables.eventTypes ?? seedEventTypeDefs(backup.ownerId, nowISO());
+    const types = tables.eventTypes ?? seedCategories(backup.ownerId, nowISO());
     tables = {
       ...tables,
       eventTypes: types,
@@ -256,7 +288,8 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
             activity: row.activity ?? null,
             amountCents: row.amountCents ?? null,
           },
-          types,
+          // Only `key` and `fields` are read, which a pre-v13 row has too.
+          types as Category[],
         );
         const {
           providerName: _providerName,
@@ -361,10 +394,10 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     });
 
     const existingKeys = new Set(nested.map((type) => type.key));
-    // `seedEventTypeDefs` stamps `parentId` as the literal key it is written
+    // `seedCategories` stamps `parentId` as the literal key it is written
     // with in `BUILT_IN_EVENT_TYPES`, resolved to a real `id` below off the
     // file's own rows for the same reason the reparenting above does.
-    const additions = seedEventTypeDefs(backup.ownerId, nowISO())
+    const additions = seedCategories(backup.ownerId, nowISO())
       .filter(
         (type) =>
           SCHEMA_V10_NEW_TYPES.includes(type.key) &&
@@ -406,10 +439,24 @@ export const migrateSnapshot = (backup: BackupSnapshot): BackupSnapshot => {
     tables = { ...tables, profiles: tables.profiles ?? [] };
   }
 
+  // v12 -> v13: `events` becomes `posts` and `eventTypes` becomes
+  // `categories`, with `type` -> `categoryKey`, `archived` -> `enabled` and
+  // `eventId` -> `postId`. Same transforms as `db.ts`'s v13 upgrade, shared so
+  // the two cannot drift.
+  const { events, eventTypes, documents, ...rest } = tables;
+  const renamed: BackupTables = {
+    ...rest,
+    posts: events.map((row) =>
+      migratePostRowV13(row as Parameters<typeof migratePostRowV13>[0]),
+    ),
+    categories: eventTypes.map(migrateCategoryRowV13),
+    documents: documents.map(migrateDocumentRowV13),
+  };
+
   return {
     ...backup,
     schemaVersion: SCHEMA_VERSION,
-    tables: tables as BackupTables,
+    tables: renamed,
   };
 };
 
@@ -492,7 +539,12 @@ const assertSnapshot = (value: unknown): BackupSnapshot => {
   // malformed file surface as a TypeError from inside the merge.
   const tables = snapshot.tables as Record<string, unknown>;
 
-  for (const name of TABLE_NAMES) {
+  for (const current of TABLE_NAMES) {
+    // A pre-v13 file carries two tables under their old names.
+    const name =
+      snapshot.schemaVersion < 13
+        ? (PRE_V13_TABLE_NAMES[current] ?? current)
+        : current;
     const rows = tables[name];
 
     // A table introduced by a later schema is simply absent from an older file,
