@@ -976,7 +976,8 @@ public/
   `npm run build && npm run preview`.
 - `initPwa()` also calls `navigator.storage.persist()`: IndexedDB is
   evictable by default and it holds the only copy of the user's data.
-- Icons are **generated and committed**, not built. `sharp` is deliberately
+- Icons are **generated and committed**, not built, from
+  `scripts/icon-source.png`. `sharp` is deliberately
   not a dependency — regenerate with
   `npm i -D sharp && node scripts/generate-icons.mjs && npm un sharp`.
 - Any host serving this must fall back to `index.html` for unknown paths,
