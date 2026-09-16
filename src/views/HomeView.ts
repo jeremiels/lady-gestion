@@ -1,16 +1,18 @@
-import { html } from "lit";
+import { html, nothing } from "lit";
 import { customElement } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { LightElement } from "../commons/base-element.ts";
 import { appHref } from "../commons/base-path.ts";
 import {
   activeHorseQuery,
+  COURSE_CATEGORY_KEYS,
   LiveQuery,
   endOfMonth,
   postsRepo,
   categoriesRepo,
   findCategory,
   horsesRepo,
+  isCourseOngoing,
   profileRepo,
   startOfMonth,
   todayISO,
@@ -23,6 +25,7 @@ import "../components/horse-card/horse-card.ts";
 import "../components/budget-card/budget-card.ts";
 import "../components/week-strip/week-strip.ts";
 import "../components/post-card/post-card.ts";
+import "../components/course-card/course-card.ts";
 import "../components/app-avatar/app-avatar.ts";
 
 /** The dashboard shows the next few appointments, not the whole agenda. */
@@ -45,6 +48,14 @@ export class HomeView extends LightElement {
   #upcoming = activeHorseQuery<Post[]>(
     this,
     (horseId) => postsRepo.listUpcoming(horseId),
+    [],
+  );
+
+  // Every cure and traitement, not only the running ones: which have ended
+  // depends on today, so `render()` narrows it rather than the query.
+  #courses = activeHorseQuery<Post[]>(
+    this,
+    (horseId) => postsRepo.listByCategory(horseId, COURSE_CATEGORY_KEYS),
     [],
   );
 
@@ -74,6 +85,10 @@ export class HomeView extends LightElement {
       this.#upcoming.value ?? [],
       types,
       UPCOMING_LIMIT,
+    );
+    const today = todayISO();
+    const ongoing = (this.#courses.value ?? []).filter((post) =>
+      isCourseOngoing(post, today),
     );
 
     return html`
@@ -128,6 +143,34 @@ export class HomeView extends LightElement {
                 `
           }
         </section>
+
+        ${
+          // Left out entirely when nothing is running, rather than an empty
+          // block on the dashboard.
+          ongoing.length > 0
+            ? html`
+                <section class="section-courses">
+                  <h2 class="section-title">En cours</h2>
+                  <ul class="course-list">
+                    ${repeat(
+                      ongoing,
+                      (post) => post.id,
+                      (post) => html`
+                        <li>
+                          <course-card
+                            layout="compact"
+                            .post=${post}
+                            .category=${findCategory(types, post.categoryKey) ?? null}
+                            .today=${today}
+                          ></course-card>
+                        </li>
+                      `,
+                    )}
+                  </ul>
+                </section>
+              `
+            : nothing
+        }
 
         <horse-card .horse=${this.#horse.value ?? null}></horse-card>
         <budget-card .totalCents=${this.#monthSpend.value ?? 0}></budget-card>

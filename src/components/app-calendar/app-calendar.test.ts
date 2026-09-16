@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { CalendarEvent } from "../../data/icalendar.ts";
 import { fixture, settled } from "../__tests__/fixture.ts";
 import "./app-calendar.ts";
-import type { AppCalendar } from "./app-calendar.ts";
+import {
+  spanLanes,
+  type AppCalendar,
+  type CalendarSpan,
+} from "./app-calendar.ts";
 
 /** A Sunday mid-month, so every arrow key has somewhere to go in both directions. */
 const ANCHOR = "2026-03-15";
@@ -402,5 +406,69 @@ describe("app-calendar", () => {
       ).toBe("Avril 2026");
       expect(pillAt(el)).toEqual(selectedAt(el));
     });
+  });
+});
+
+const span = (id: string, start: string, end: string): CalendarSpan => ({
+  id,
+  start,
+  end,
+  color: "rgb(200, 120, 120)",
+  label: `Cure ${id}`,
+});
+
+describe("spanLanes", () => {
+  it("shares a lane between spans that do not overlap, and stacks the rest", () => {
+    const { lanes, count } = spanLanes(
+      [
+        span("a", "2026-03-02", "2026-03-10"),
+        span("b", "2026-03-05", "2026-03-06"),
+        span("c", "2026-03-11", "2026-03-20"),
+      ],
+      "2026-03-01",
+      "2026-03-31",
+    );
+
+    expect(count).toBe(2);
+    expect(lanes.get("a")).toBe(0);
+    expect(lanes.get("b")).toBe(1);
+    expect(lanes.get("c")).toBe(0);
+  });
+
+  it("ignores spans entirely outside the range", () => {
+    const { lanes, count } = spanLanes(
+      [span("old", "2026-01-01", "2026-01-31")],
+      "2026-03-01",
+      "2026-03-31",
+    );
+
+    expect(count).toBe(0);
+    expect(lanes.size).toBe(0);
+  });
+});
+
+describe("app-calendar spans", () => {
+  it("draws a bar under each covered day, rounded at its two ends, and names it", async () => {
+    const el = await fixture<AppCalendar>(
+      html`<app-calendar
+        .value=${ANCHOR}
+        .today=${ANCHOR}
+        .spans=${[span("a", "2026-03-10", "2026-03-12")]}
+        week-start="MO"
+      ></app-calendar>`,
+    );
+
+    const bars = [...el.renderRoot.querySelectorAll(".calendar__span")];
+    expect(bars).toHaveLength(3);
+    expect(bars[0]!.classList.contains("calendar__span--start")).toBe(true);
+    expect(bars[1]!.className).not.toMatch(/--start|--end/);
+    expect(bars[2]!.classList.contains("calendar__span--end")).toBe(true);
+
+    const labels = [
+      ...el.renderRoot.querySelectorAll<HTMLButtonElement>(".calendar__day"),
+    ]
+      .map((day) => day.getAttribute("aria-label"))
+      .filter((label) => label?.includes("Cure a"));
+    expect(labels).toHaveLength(3);
   });
 });

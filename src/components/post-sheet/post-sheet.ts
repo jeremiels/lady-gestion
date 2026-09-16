@@ -18,6 +18,8 @@ import {
   childrenOf,
   postsService,
   categoriesRepo,
+  endDateErrors,
+  fieldById,
   fieldWithRole,
   findCategory,
   formatWorkActivity,
@@ -433,6 +435,17 @@ export class PostSheet extends BaseElement {
       const pairErrors = pairErrorsOf(field, values);
       if (Object.keys(pairErrors).length > 0) {
         this.errors = { ...this.errors, ...pairErrors };
+        void this.#focusFirstError();
+        return;
+      }
+    }
+
+    // Two independent date controls, so their order can only be checked once
+    // both are parsed. Only a course type (cures, traitement) has an end date.
+    if (fieldById(resolvedType, "endDate")) {
+      const dateErrors = endDateErrors(values.date, values.endDate);
+      if (Object.keys(dateErrors).length > 0) {
+        this.errors = { ...this.errors, ...dateErrors };
         void this.#focusFirstError();
         return;
       }

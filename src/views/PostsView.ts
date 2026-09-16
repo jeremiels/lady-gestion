@@ -15,6 +15,9 @@ import {
   occurrencesByDate,
   toCalendarEvent,
   childrenOf,
+  courseLastDay,
+  isCourse,
+  isCourseOnDay,
   rootOf,
   rootsOf,
   subtreeKeys,
@@ -24,11 +27,14 @@ import {
 } from "../data/index.ts";
 import type { Post } from "../data/types.ts";
 import type { SegmentedOption } from "../components/app-segmented/app-segmented.ts";
+import type { CalendarSpan } from "../components/app-calendar/app-calendar.ts";
+import { THEME_META } from "../theme/theme.ts";
 
 import "../components/app-calendar/app-calendar.ts";
 import "../components/app-chip/app-chip.ts";
 import "../components/app-input/app-input.ts";
 import "../components/app-segmented/app-segmented.ts";
+import "../components/course-card/course-card.ts";
 import "../components/post-card/post-card.ts";
 
 type ViewMode = "calendar" | "list";
@@ -184,8 +190,30 @@ export class PostsView extends LightElement {
 
   #renderCalendar(types: ResolvedCategory[]) {
     const { selected } = this.#ui.value;
-    const events = this.#events.value ?? [];
+    const today = todayISO();
+    const all = this.#events.value ?? [];
+    // A cure or a traitement is drawn as a bar over the days it runs, not as a
+    // dot on the day it started — and listed under every one of those days,
+    // not only the first. Cancelled ones go, as cancelled events do.
+    const courses = all.filter(
+      (event) => isCourse(event) && event.status !== "cancelled",
+    );
+    const events = all.filter((event) => !isCourse(event));
     const calendarEvents = events.map(toCalendarEvent);
+    const spans = courses.flatMap((course): CalendarSpan[] => {
+      const type = findCategory(types, course.categoryKey);
+      return type
+        ? [
+            {
+              id: course.id,
+              start: course.date,
+              end: courseLastDay(course, today),
+              color: THEME_META[type.theme].color,
+              label: course.title,
+            },
+          ]
+        : [];
+    });
 
     // One pass feeds both the dots and the list below, so the two can never
     // disagree about which events fall on the selected day.
@@ -194,11 +222,17 @@ export class PostsView extends LightElement {
     const dayEvents = (occurrences.get(selected) ?? [])
       .map((occurrence) => byUid.get(occurrence.uid))
       .filter((event): event is Post => event !== undefined);
+    // After the day's own events, oldest course first.
+    const dayCourses = courses
+      .filter((course) => isCourseOnDay(course, selected, today))
+      .reverse();
+    const dayPosts = [...dayEvents, ...dayCourses];
 
     return html`
       <app-calendar
         class="container posts-view__calendar"
         .events=${calendarEvents}
+        .spans=${spans}
         .value=${selected}
         @date-select=${this.#onDateSelect}
       ></app-calendar>
@@ -206,9 +240,9 @@ export class PostsView extends LightElement {
       <section class="posts-view__day">
         <h2 class="posts-view__group-title">${formatDayLong(selected)}</h2>
         ${
-          dayEvents.length === 0
+          dayPosts.length === 0
             ? html`<p class="posts-view__empty">Aucun évènement ce jour-là.</p>`
-            : this.#renderCards(dayEvents, types)
+            : this.#renderCards(dayPosts, types)
         }
       </section>
     `;
@@ -351,10 +385,17 @@ export class PostsView extends LightElement {
           (event) => event.id,
           (event) => html`
             <li>
-              <post-card
-                .post=${event}
-                .category=${findCategory(types, event.categoryKey) ?? null}
-              ></post-card>
+              ${
+                isCourse(event)
+                  ? html`<course-card
+                      .post=${event}
+                      .category=${findCategory(types, event.categoryKey) ?? null}
+                    ></course-card>`
+                  : html`<post-card
+                      .post=${event}
+                      .category=${findCategory(types, event.categoryKey) ?? null}
+                    ></post-card>`
+              }
             </li>
           `,
         )}

@@ -30,6 +30,58 @@ import {
 import "../app-icon/app-icon.ts";
 
 /**
+ * Something that lasts several days, drawn as a bar under every day it covers
+ * rather than as a dot. Domain-free like the rest of this component: the
+ * owning view decides what a span is, how long it runs and its colour.
+ */
+export type CalendarSpan = {
+  id: string;
+  /** First day covered. */
+  start: IsoDate;
+  /** Last day covered — **inclusive**, unlike a `CalendarEvent`'s `end`. */
+  end: IsoDate;
+  /** Any CSS colour. */
+  color: string;
+  /** Read out in the label of every day the span covers. */
+  label: string;
+};
+
+/**
+ * Which row ("lane") each span is drawn in, over the days `from`..`to`, and
+ * how many lanes that takes.
+ *
+ * Greedy, earliest start first: a span takes the first lane whose previous
+ * span has already ended. Assigned once for the whole visible grid rather
+ * than per week, so a span that wraps onto the next row stays at the same
+ * height and reads as one bar. Spans entirely outside the range get no lane.
+ */
+export const spanLanes = (
+  spans: readonly CalendarSpan[],
+  from: IsoDate,
+  to: IsoDate,
+): { lanes: Map<string, number>; count: number } => {
+  const visible = spans
+    .filter((span) => span.start <= to && span.end >= from)
+    .toSorted(
+      (a, b) =>
+        a.start.localeCompare(b.start) ||
+        b.end.localeCompare(a.end) ||
+        a.id.localeCompare(b.id),
+    );
+
+  const laneEnds: IsoDate[] = [];
+  const lanes = new Map<string, number>();
+  for (const span of visible) {
+    let lane = laneEnds.findIndex((end) => end < span.start);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = span.end;
+    lanes.set(span.id, lane);
+  }
+
+  return { lanes, count: laneEnds.length };
+};
+
+/**
  * A month calendar: one dot under every day that has events, a filled circle on
  * the selected day and a tinted one on today.
  *
@@ -51,6 +103,9 @@ import "../app-icon/app-icon.ts";
 export class AppCalendar extends BaseElement {
   /** Occurrences to mark. Days outside the visible month are simply ignored. */
   @property({ attribute: false }) events: CalendarEvent[] = [];
+
+  /** Multi-day bars, drawn between the day number and its dot. */
+  @property({ attribute: false }) spans: CalendarSpan[] = [];
 
   /** The selected day, `YYYY-MM-DD`. */
   @property({ type: String }) value: IsoDate | null = null;
@@ -165,7 +220,7 @@ export class AppCalendar extends BaseElement {
          events. */
       .calendar__cell {
         display: grid;
-        grid-template-rows: auto 0.625rem;
+        grid-template-rows: auto auto 0.625rem;
         justify-items: center;
         align-content: start;
       }
@@ -279,6 +334,39 @@ export class AppCalendar extends BaseElement {
         margin-top: 0.1875rem;
         border-radius: var(--radius-pill);
         background: var(--color-brown-light);
+      }
+
+      /* One strip per cell, as tall as the grid's busiest day needs, so every
+         row of the month keeps the same height and a bar never shifts the
+         numbers. Zero lanes collapses it and the grid is exactly what it was
+         before spans existed. Stretched across the whole cell, and the grid
+         has no column gap, so a bar's pieces in neighbouring cells meet. */
+      .calendar__spans {
+        position: relative;
+        justify-self: stretch;
+        height: calc(var(--calendar-span-lanes, 0) * 0.375rem);
+      }
+
+      .calendar__span {
+        position: absolute;
+        top: calc(var(--calendar-span-lane) * 0.375rem + 0.125rem);
+        inset-inline: 0;
+        height: 0.25rem;
+      }
+
+      /* Pulled in to the number's width at either end of the span, and rounded
+         there only — where a span wraps onto the next week the bar runs to the
+         cell edge, square, and picks up again on the next row. */
+      .calendar__span--start {
+        inset-inline-start: 0.625rem;
+        border-start-start-radius: var(--radius-pill);
+        border-end-start-radius: var(--radius-pill);
+      }
+
+      .calendar__span--end {
+        inset-inline-end: 0.625rem;
+        border-start-end-radius: var(--radius-pill);
+        border-end-end-radius: var(--radius-pill);
       }
 
       /* The pill's growth is movement; its colour and its arrival are not. */
@@ -525,6 +613,10 @@ export class AppCalendar extends BaseElement {
     const first = weeks[0]?.[0] ?? this.visibleMonth;
     const last = weeks.at(-1)?.at(-1) ?? this.visibleMonth;
     const occurrences = occurrencesByDate(this.events, first, last);
+    // Counted over the visible month only: spill days draw no bars, so a busy
+    // neighbouring month must not make this one's strip taller.
+    const monthEnd = addDays(addMonths(this.visibleMonth, 1), -1);
+    const spanLayout = spanLanes(this.spans, this.visibleMonth, monthEnd);
 
     return html`
       <header class="calendar__header">
@@ -551,6 +643,7 @@ export class AppCalendar extends BaseElement {
 
       <div
         class="calendar__grid sliding-selection"
+        style="--calendar-span-lanes: ${spanLayout.count}"
         role="grid"
         aria-label="Calendrier, ${formatMonthYear(this.visibleMonth)}"
         @keydown=${this.#onKeyDown}
@@ -571,7 +664,13 @@ export class AppCalendar extends BaseElement {
         ${weeks.map(
           (week) => html`
             <div class="calendar__row" role="row">
-              ${week.map((date) => this.#renderDay(date, occurrences.get(date)?.length ?? 0))}
+              ${week.map((date) =>
+                this.#renderDay(
+                  date,
+                  occurrences.get(date)?.length ?? 0,
+                  spanLayout.lanes,
+                ),
+              )}
             </div>
           `,
         )}
@@ -579,7 +678,7 @@ export class AppCalendar extends BaseElement {
     `;
   }
 
-  #renderDay(date: IsoDate, count: number) {
+  #renderDay(date: IsoDate, count: number, lanes: Map<string, number>) {
     const selected = date === this.value;
     const isToday = date === this.today;
     const outside = !isSameMonth(date, this.visibleMonth);
@@ -590,11 +689,20 @@ export class AppCalendar extends BaseElement {
     // screen reader is never told about a marker that isn't there.
     const marked = count > 0 && !outside;
 
+    // Same rule as the dot: nothing on a spill day.
+    const spans = outside
+      ? []
+      : this.spans.filter(
+          (span) =>
+            lanes.has(span.id) && span.start <= date && date <= span.end,
+        );
+
     // The dot is decorative, so the count has to reach a screen reader through
     // the label instead.
     const events = marked
       ? `, ${count} ${count === 1 ? "évènement" : "évènements"}`
       : "";
+    const spanLabels = spans.map((span) => `, ${span.label}`).join("");
 
     return html`
       <div
@@ -615,11 +723,23 @@ export class AppCalendar extends BaseElement {
           type="button"
           tabindex=${date === this.focusedDate ? 0 : -1}
           aria-current=${ifDefined(isToday ? "date" : undefined)}
-          aria-label="${formatDayLong(date)}${events}"
+          aria-label="${formatDayLong(date)}${events}${spanLabels}"
           @click=${() => this.#select(date)}
         >
           ${dayOfMonth(date)}
         </button>
+        <span class="calendar__spans" aria-hidden="true">
+          ${spans.map(
+            (span) => html`<span
+              class=${classMap({
+                calendar__span: true,
+                "calendar__span--start": span.start === date,
+                "calendar__span--end": span.end === date,
+              })}
+              style="--calendar-span-lane: ${lanes.get(span.id)}; background: ${span.color}"
+            ></span>`,
+          )}
+        </span>
         ${marked ? html`<span class="calendar__dot"></span>` : nothing}
       </div>
     `;

@@ -1,4 +1,4 @@
-import { todayISO, type IsoDate } from "./dates.ts";
+import { daysBetween, isIsoDate, todayISO, type IsoDate } from "./dates.ts";
 import type { FieldError } from "./forms.ts";
 import { formatCents } from "./money.ts";
 import type { PostStatus, Category, Post } from "./types.ts";
@@ -447,6 +447,81 @@ export const quantityPairErrors = (
     ? { amount: "Indiquez une quantité." }
     : { unit: "Choisissez une unité." };
 };
+
+/**
+ * The categories whose posts are courses — a start, an optional end and a
+ * daily dose (`courseFields` in `categories.ts`). Stated by key here rather
+ * than as a flag on the row: the two modules must not import each other, and
+ * these are the only two built-ins with those fields.
+ */
+export const COURSE_CATEGORY_KEYS: readonly string[] = ["cures", "traitement"];
+
+export const isCourse = (post: Post): boolean =>
+  COURSE_CATEGORY_KEYS.includes(post.categoryKey);
+
+/**
+ * A cure or a traitement is a course: it starts on the post's `date` and runs
+ * until `customFields.endDate` — or, with none set, is still running. `null`
+ * for a course with no end, or an end that is not a date at all.
+ */
+export const courseEndDate = (post: Post): IsoDate | null => {
+  const end = post.customFields.endDate;
+  return isIsoDate(end) ? end : null;
+};
+
+/** Still running today: no end date, or one that has not passed yet. */
+export const isCourseOngoing = (post: Post, today: IsoDate): boolean => {
+  const end = courseEndDate(post);
+  return end === null || end >= today;
+};
+
+/**
+ * The last day a course covers on a calendar: its end date, or today while it
+ * has none — a course with no end is drawn up to now, not forever. Never
+ * before its own start, so one that has not begun still covers its first day.
+ */
+export const courseLastDay = (post: Post, today: IsoDate): IsoDate => {
+  const last = courseEndDate(post) ?? today;
+  return last < post.date ? post.date : last;
+};
+
+/** Whether a course covers `day`, by the same bounds its calendar bar uses. */
+export const isCourseOnDay = (
+  post: Post,
+  day: IsoDate,
+  today: IsoDate,
+): boolean => post.date <= day && day <= courseLastDay(post, today);
+
+/**
+ * The "jours actifs" of a course: every day from its start to its end — or to
+ * today, while it is still running — both ends counted. `0` for one that has
+ * not started yet rather than a negative count.
+ */
+export const activeDays = (post: Post, today: IsoDate): number => {
+  const end = courseEndDate(post);
+  const last = end !== null && end < today ? end : today;
+  return Math.max(0, daysBetween(post.date, last) + 1);
+};
+
+/**
+ * `"40 mL"` -> `"40 mL/j"`: the dose a course's `dosage` field stores, read as
+ * a daily amount. `null` when there is none to show.
+ */
+export const formatDosePerDay = (stored: unknown): string | null =>
+  typeof stored === "string" && stored.trim() !== "" ? `${stored}/j` : null;
+
+/**
+ * A course cannot end before it starts. `{}` when there is no end date, or it
+ * falls on or after the start. Keyed by the field's id so the form can put the
+ * message under the right control.
+ */
+export const endDateErrors = (
+  start: unknown,
+  end: unknown,
+): { endDate?: FieldError } =>
+  isIsoDate(start) && isIsoDate(end) && end < start
+    ? { endDate: "La date de fin précède la date de début." }
+    : {};
 
 /**
  * A pre-v6 event's fixed columns — `providerName`, `vendor`,

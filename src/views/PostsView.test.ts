@@ -1,7 +1,7 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
-import { addMonths, todayISO } from "../data/index.ts";
+import { addDays, addMonths, todayISO } from "../data/index.ts";
 import {
   BUILT_IN_CATEGORY_ROWS,
   makePost,
@@ -393,5 +393,29 @@ describe("posts-view", () => {
       expect(cardIds(el)).toEqual(["shoeing"]);
       expect(el.querySelector(".posts-view__filters--nested")).toBeNull();
     });
+  });
+
+  it("lists a running course under every day it covers, and bars it instead of dotting it", async () => {
+    await db.posts.add(
+      makePost({
+        id: "cure",
+        categoryKey: "cures",
+        title: "Uvemix",
+        status: "done",
+        date: addDays(todayISO(), -3),
+        customFields: { dosage: "40 mL" },
+      }),
+    );
+
+    const el = await mount();
+    await waitFor(el, () => el.querySelector("course-card") !== null);
+
+    expect(el.querySelector("post-card")).toBeNull();
+    expect(el.querySelector("course-card")!.post?.id).toBe("cure");
+
+    const calendar = el.querySelector("app-calendar")!;
+    await calendar.updateComplete;
+    expect(calendar.spans).toHaveLength(1);
+    expect(calendar.events).toHaveLength(0);
   });
 });

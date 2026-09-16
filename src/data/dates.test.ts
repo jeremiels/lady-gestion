@@ -3,6 +3,7 @@ import {
   addDays,
   addMonths,
   ageInYears,
+  daysBetween,
   endOfMonth,
   formatAge,
   formatDate,
@@ -253,5 +254,18 @@ describe("weekdayLabels", () => {
       "V",
       "S",
     ]);
+  });
+});
+
+describe("daysBetween", () => {
+  it("counts whole calendar days, negative when the end comes first", () => {
+    expect(daysBetween("2026-01-01", "2026-01-12")).toBe(11);
+    expect(daysBetween("2026-01-12", "2026-01-01")).toBe(-11);
+    expect(daysBetween("2026-03-01", "2026-03-01")).toBe(0);
+  });
+
+  it("is not thrown off by a daylight-saving change in between", () => {
+    expect(daysBetween("2026-03-28", "2026-03-30")).toBe(2);
+    expect(daysBetween("2026-10-24", "2026-10-26")).toBe(2);
   });
 });

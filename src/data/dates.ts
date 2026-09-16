@@ -67,6 +67,21 @@ export const addDays = (value: IsoDate, days: number): IsoDate => {
 };
 
 /**
+ * Whole calendar days from `from` to `to`: `2026-01-01` -> `2026-01-12` is 11,
+ * and negative when `to` comes first. Counted on UTC midnights rather than
+ * local ones, so a daylight-saving change in between cannot shave an hour off
+ * a day and round it away.
+ */
+export const daysBetween = (from: IsoDate, to: IsoDate): number => {
+  const [fromYear, fromMonth, fromDay] = isoDateParts(from);
+  const [toYear, toMonth, toDay] = isoDateParts(to);
+  const ms =
+    Date.UTC(toYear, toMonth - 1, toDay) -
+    Date.UTC(fromYear, fromMonth - 1, fromDay);
+  return Math.round(ms / 86_400_000);
+};
+
+/**
  * `2026-01-15` +1 -> `2026-02-15`, but the day is **clamped** to the target
  * month: `2026-01-31` +1 is `2026-02-28`, not the March 3rd that
  * `setMonth` alone would roll over to.

@@ -53,6 +53,19 @@ export const listByHorse = async (horseId: string): Promise<Post[]> => {
   return (await visible(posts)).reverse();
 };
 
+/**
+ * Every visible post filed under one of `keys`, newest first — the horse
+ * page's Cures and Traitements tabs, and the dashboard's courses in progress.
+ * Matched on the exact key: a child category's posts are not its parent's.
+ */
+export const listByCategory = async (
+  horseId: string,
+  keys: readonly string[],
+): Promise<Post[]> =>
+  (await listByHorse(horseId)).filter((post) =>
+    keys.includes(post.categoryKey),
+  );
+
 /** Visible posts falling inside a calendar range, oldest first. */
 export const listInRange = async (
   horseId: string,

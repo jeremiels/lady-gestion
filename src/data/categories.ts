@@ -102,6 +102,21 @@ export const quantityField = () =>
   });
 
 /**
+ * What makes a cure or a traitement a course rather than a one-off: when it
+ * stops (empty while it is still running) and how much is given a day. Read
+ * back by `courseEndDate` and `formatDosePerDay` (`posts.ts`) for the horse
+ * page's Cures and Traitements tabs.
+ */
+const courseFields = () => [
+  inputDateField({ id: "endDate", label: "Date de fin" }),
+  inputNumberField({
+    id: "dosage",
+    label: "Dose par jour",
+    units: QUANTITY_UNIT_NAMES,
+  }),
+];
+
+/**
  * The type catalogue's seed data: the nine built-in types the app shipped
  * with, plus four more — `concours`, `soins`, `cures`, `traitement` — finished
  * in the same migration that introduced this table (schema v6).
@@ -498,7 +513,7 @@ export const BUILT_IN_CATEGORIES: Omit<
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({ id: "duration", label: "Durée" }),
+      ...courseFields(),
       inputCheckboxField({
         id: "followUp",
         label: "Planifier un renouvellement",
@@ -534,6 +549,7 @@ export const BUILT_IN_CATEGORIES: Omit<
     fields: [
       inputTextField({ id: "title", label: "Nom", required: true }),
       inputDateField({ id: "date", label: "Date", required: true }),
+      ...courseFields(),
       inputTextField({
         id: "counterparty",
         label: "Practicien",

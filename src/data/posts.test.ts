@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { seedCategories } from "./categories.ts";
 import {
   FOLLOW_UP_INTERVALS,
+  activeDays,
   activityChoices,
   followUpValue,
   formatFollowUpInterval,
@@ -10,6 +11,13 @@ import {
   isFollowUpInterval,
   matchActivity,
   courseDatesThisWeek,
+  courseEndDate,
+  courseLastDay,
+  isCourse,
+  isCourseOnDay,
+  endDateErrors,
+  formatDosePerDay,
+  isCourseOngoing,
   migrateEventToCustomFields,
   parseFollowUpValue,
   parseQuantity,
@@ -486,5 +494,78 @@ describe("migrateEventToCustomFields", () => {
         ).notes,
       ).toBe("Bon travail.");
     }
+  });
+});
+
+describe("courses", () => {
+  const TODAY = "2026-01-10";
+  const course = (date: string, endDate?: string) =>
+    makePost({
+      categoryKey: "cures",
+      date,
+      customFields: endDate === undefined ? {} : { endDate },
+    });
+
+  it("reads the end date, ignoring anything that is not a date", () => {
+    expect(courseEndDate(course("2026-01-01", "2026-01-12"))).toBe(
+      "2026-01-12",
+    );
+    expect(courseEndDate(course("2026-01-01"))).toBeNull();
+    expect(courseEndDate(course("2026-01-01", "bientôt"))).toBeNull();
+  });
+
+  it("is ongoing with no end date, or one today or later", () => {
+    expect(isCourseOngoing(course("2026-01-01"), TODAY)).toBe(true);
+    expect(isCourseOngoing(course("2026-01-01", TODAY), TODAY)).toBe(true);
+    expect(isCourseOngoing(course("2026-01-01", "2026-01-09"), TODAY)).toBe(
+      false,
+    );
+  });
+
+  it("counts active days with both ends included, up to today at most", () => {
+    expect(activeDays(course("2026-01-01"), TODAY)).toBe(10);
+    expect(activeDays(course("2026-01-01", "2026-01-12"), TODAY)).toBe(10);
+    expect(activeDays(course("2026-01-01", "2026-01-05"), TODAY)).toBe(5);
+    expect(activeDays(course(TODAY), TODAY)).toBe(1);
+  });
+
+  it("counts a course that has not started as 0, not negative", () => {
+    expect(activeDays(course("2026-02-01"), TODAY)).toBe(0);
+  });
+
+  it("reads the stored dose as a daily one", () => {
+    expect(formatDosePerDay("40 mL")).toBe("40 mL/j");
+    expect(formatDosePerDay(null)).toBeNull();
+    expect(formatDosePerDay("")).toBeNull();
+  });
+
+  it("tells a course from any other post by its category", () => {
+    expect(isCourse(course("2026-01-01"))).toBe(true);
+    expect(isCourse(makePost({ categoryKey: "traitement" }))).toBe(true);
+    expect(isCourse(makePost({ categoryKey: "veto" }))).toBe(false);
+  });
+
+  it("covers the calendar up to its end, or up to today while it has none", () => {
+    expect(courseLastDay(course("2026-01-01", "2026-01-12"), TODAY)).toBe(
+      "2026-01-12",
+    );
+    expect(courseLastDay(course("2026-01-01"), TODAY)).toBe(TODAY);
+    expect(courseLastDay(course("2026-02-01"), TODAY)).toBe("2026-02-01");
+  });
+
+  it("is on a day between its start and last day, both included", () => {
+    const post = course("2026-01-05", "2026-01-08");
+    expect(isCourseOnDay(post, "2026-01-04", TODAY)).toBe(false);
+    expect(isCourseOnDay(post, "2026-01-05", TODAY)).toBe(true);
+    expect(isCourseOnDay(post, "2026-01-08", TODAY)).toBe(true);
+    expect(isCourseOnDay(post, "2026-01-09", TODAY)).toBe(false);
+  });
+
+  it("refuses an end date before the start", () => {
+    expect(endDateErrors("2026-01-10", "2026-01-09")).toEqual({
+      endDate: "La date de fin précède la date de début.",
+    });
+    expect(endDateErrors("2026-01-10", "2026-01-10")).toEqual({});
+    expect(endDateErrors("2026-01-10", null)).toEqual({});
   });
 });

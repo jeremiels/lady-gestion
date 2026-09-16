@@ -10,18 +10,23 @@ import {
   type HorseTab,
 } from "../commons/sections.ts";
 import {
+  COURSE_CATEGORY_KEYS,
   LiveQuery,
   activeHorseQuery,
+  categoriesRepo,
   horsesRepo,
+  postsRepo,
   rationsRepo,
   todayISO,
+  type ResolvedCategory,
 } from "../data/index.ts";
-import type { RationItem } from "../data/types.ts";
+import type { Post, RationItem } from "../data/types.ts";
 import type { SubnavItem } from "../components/app-subnav/app-subnav.ts";
 
 import "../components/app-icon/app-icon.ts";
 import "../components/app-subnav/app-subnav.ts";
 import "../components/horse-card/horse-card.ts";
+import "../components/horse-courses/horse-courses.ts";
 import "../components/horse-profile/horse-profile.ts";
 import "../components/horse-ration/horse-ration.ts";
 
@@ -52,6 +57,17 @@ export class HorseView extends LightElement {
   #rations = activeHorseQuery<RationItem[]>(
     this,
     (horseId) => rationsRepo.listByHorse(horseId),
+    [],
+  );
+
+  #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
+    categoriesRepo.listEnabled(),
+  );
+
+  // Both course tabs from one query; each tab narrows it to its own category.
+  #courses = activeHorseQuery<Post[]>(
+    this,
+    (horseId) => postsRepo.listByCategory(horseId, COURSE_CATEGORY_KEYS),
     [],
   );
 
@@ -120,15 +136,35 @@ export class HorseView extends LightElement {
           .rations=${this.#rations.value ?? []}
           .today=${todayISO()}
         ></horse-ration>`;
+      case "cures":
+        return this.#renderCourses(
+          "cures",
+          "Cures",
+          "Aucune cure enregistrée.",
+        );
+      case "traitements":
+        return this.#renderCourses(
+          "traitement",
+          "Traitements",
+          "Aucun traitement enregistré.",
+        );
       case "cheval":
         return html`<horse-profile
           .horse=${this.#horse.value ?? null}
         ></horse-profile>`;
-      default: {
-        // Cures and Traitements have no content yet.
-        const label = HORSE_TABS.find((tab) => tab.id === this.tab)!.label;
-        return html`<p class="horse-view__tab-placeholder">${label}</p>`;
-      }
     }
+  }
+
+  #renderCourses(categoryKey: string, label: string, empty: string) {
+    const posts = (this.#courses.value ?? []).filter(
+      (post) => post.categoryKey === categoryKey,
+    );
+    return html`<horse-courses
+      .posts=${posts}
+      .categories=${this.#categories.value ?? []}
+      .label=${label}
+      .empty=${empty}
+      .today=${todayISO()}
+    ></horse-courses>`;
   }
 }

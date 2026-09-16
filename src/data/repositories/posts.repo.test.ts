@@ -368,3 +368,25 @@ describe("a category switched off", () => {
     subscription.unsubscribe();
   });
 });
+
+describe("listByCategory", () => {
+  it("keeps only the given categories, newest first", async () => {
+    await seedEvents([
+      { id: "cure-old", categoryKey: "cures", date: "2026-01-10" },
+      { id: "vet", categoryKey: "veto", date: "2026-03-01" },
+      { id: "treatment", categoryKey: "traitement", date: "2026-05-01" },
+      { id: "cure-new", categoryKey: "cures", date: "2026-06-01" },
+    ]);
+
+    const posts = await postsRepo.listByCategory(HORSE_ID, [
+      "cures",
+      "traitement",
+    ]);
+
+    expect(posts.map((post) => post.id)).toEqual([
+      "cure-new",
+      "treatment",
+      "cure-old",
+    ]);
+  });
+});

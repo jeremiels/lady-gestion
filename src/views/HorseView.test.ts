@@ -1,7 +1,13 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
-import { makeHorse, makeRation, resetDb } from "../data/__tests__/factories.ts";
+import { addDays, todayISO } from "../data/dates.ts";
+import {
+  makeHorse,
+  makePost,
+  makeRation,
+  resetDb,
+} from "../data/__tests__/factories.ts";
 import { fixture, waitFor } from "../components/__tests__/fixture.ts";
 import "./HorseView.ts";
 import type { HorseView } from "./HorseView.ts";
@@ -9,6 +15,7 @@ import type { HorseView } from "./HorseView.ts";
 import type { HorseTab } from "../commons/sections.ts";
 import type { HorseProfile } from "../components/horse-profile/horse-profile.ts";
 import type { HorseRation } from "../components/horse-ration/horse-ration.ts";
+import type { HorseCourses } from "../components/horse-courses/horse-courses.ts";
 
 const mount = (tab: HorseTab = "ration") =>
   fixture<HorseView>(
@@ -67,5 +74,50 @@ describe("horse-view", () => {
     await waitFor(el, () => rationRows(el) === 1);
 
     expect(rationList(el).renderRoot.querySelector("button")).toBeNull();
+  });
+
+  it("splits the cures into running and Historique, with dates, dose and active days", async () => {
+    const today = todayISO();
+    await db.posts.bulkAdd([
+      makePost({
+        id: "running",
+        categoryKey: "cures",
+        title: "Uvemix",
+        date: addDays(today, -9),
+        customFields: { dosage: "40 mL" },
+      }),
+      makePost({
+        id: "ended",
+        categoryKey: "cures",
+        title: "Ail",
+        date: addDays(today, -40),
+        customFields: { endDate: addDays(today, -31) },
+      }),
+      makePost({ id: "other", categoryKey: "traitement", title: "Antibio" }),
+    ]);
+
+    const el = await mount("cures");
+    const courses = () => el.querySelector<HorseCourses>("horse-courses");
+    const cards = () => [
+      ...(courses()?.renderRoot.querySelectorAll("course-card") ?? []),
+    ];
+    await waitFor(el, () => cards().length === 2);
+    await Promise.all(cards().map((card) => card.updateComplete));
+
+    const headings = [...courses()!.renderRoot.querySelectorAll("h2")].map(
+      (h) => h.textContent?.trim(),
+    );
+    expect(headings).toEqual(["Cures en cours", "Historique"]);
+
+    const [running, ended] = cards().map((card) =>
+      card.shadowRoot!.textContent!.replace(/\s+/g, " "),
+    );
+    expect(running).toContain("Uvemix");
+    expect(running).toContain("à aujourd'hui");
+    expect(running).toContain("40 mL/j");
+    expect(running).toContain("10 jours actifs");
+    expect(ended).toContain("Ail");
+    expect(ended).toContain(" au ");
+    expect(ended).toContain("10 jours actifs");
   });
 });
