@@ -9,8 +9,8 @@ import { nowISO, type IsoTimestamp } from "../dates.ts";
 import { newerOf } from "../record.ts";
 import { getOwnerId, setOwnerId } from "../owner.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
-import { clearUntouchedSeedData } from "../seed.ts";
-import type { BaseRecord } from "../types.ts";
+import { clearUntouchedSeedData, reconcileCategories } from "../seed.ts";
+import type { BaseRecord, Category } from "../types.ts";
 
 /**
  * Whole-database snapshot, used today for manual file export/import and
@@ -61,11 +61,39 @@ export const exportBackup = async (): Promise<BackupSnapshot> => {
 };
 
 /**
+ * Whether a local row counts as absent against the file's copy of it: a
+ * built-in category this device never edited, when the file holds a different
+ * version of it.
+ *
+ * `reconcileCategories` (`seed.ts`) writes the built-ins at launch, stamped
+ * with this install's owner and time. On a new phone that stamp is newer than
+ * every edit in the backup, so plain last-write-wins kept the fresh seed: a
+ * category switched off came back on, and all fourteen rows stayed under the
+ * new install's owner while the rest of the database adopted the file's. An
+ * install is not a choice, and must not outvote one.
+ *
+ * "Never edited" is `createdAt === updatedAt`, the test `clearUntouchedSeedData`
+ * reads too: every user write goes through `touch` or `softDelete`, and
+ * reconciling leaves `updatedAt` alone. The same version — a device's own
+ * backup restored onto itself — is still skipped, so the counts do not report
+ * fourteen rows restored where nothing changed.
+ *
+ * Only ever handed category rows, hence the cast.
+ */
+const yieldsToFile = (local: BaseRecord, incoming: BaseRecord): boolean =>
+  (local as Category).isBuiltIn &&
+  local.createdAt === local.updatedAt &&
+  (local.updatedAt !== incoming.updatedAt ||
+    local.ownerId !== incoming.ownerId);
+
+/**
  * Merges a snapshot into the local database, last-write-wins per record.
  *
  * Restoring a three-week-old backup must not throw away edits made since, so
  * each incoming row is only written when its `updatedAt` is newer than the
- * local copy's. That also makes import safe to run twice.
+ * local copy's. That also makes import safe to run twice. The one exception is
+ * a built-in category this device never edited, which the file's copy replaces
+ * whatever the stamps say — see `yieldsToFile`.
  */
 export const importBackup = async (
   snapshot: unknown,
@@ -93,10 +121,13 @@ export const importBackup = async (
           put(row: T): Promise<unknown>;
         },
         rows: T[],
+        yields?: (local: T, incoming: T) => boolean,
       ) => {
         for (const row of rows) {
           const existing = await table.get(row.id);
-          if (newerOf(existing, row) === row) {
+          const local =
+            existing && yields?.(existing, row) ? undefined : existing;
+          if (newerOf(local, row) === row) {
             await table.put(row);
             imported += 1;
           } else {
@@ -106,7 +137,11 @@ export const importBackup = async (
       };
 
       for (const name of TABLE_NAMES) {
-        await merge<BaseRecord>(RECORD_TABLES[name], backup.tables[name]);
+        await merge<BaseRecord>(
+          RECORD_TABLES[name],
+          backup.tables[name],
+          name === "categories" ? yieldsToFile : undefined,
+        );
       }
 
       return { imported, skipped };
@@ -119,6 +154,14 @@ export const importBackup = async (
   // integrity bug the day these rows reach a server. Runs outside the
   // transaction above because `meta` is not one of its tables.
   if (backup.ownerId) await setOwnerId(backup.ownerId);
+
+  // A built-in the file won carries its label, icon and fields as the build
+  // that exported it shipped them. Reconciling writes this build's back over
+  // them now — keeping what the file decided: owner, stamps, `enabled` — rather
+  // than leaving an older form in place until the next launch. After
+  // `setOwnerId`, so a built-in neither side has yet is inserted under the
+  // owner just adopted.
+  await reconcileCategories();
 
   await metaRepo.markBackedUp();
 

@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import realV13ExportRaw from "../__tests__/fixtures/real-v13-export.json?raw";
 import { db, SCHEMA_VERSION, type RecordTableName } from "../db.ts";
+import { BUILT_IN_CATEGORIES, seedCategories } from "../categories.ts";
 import { followUpValue } from "../posts.ts";
 import { getOwnerId } from "../owner.ts";
-import type { Post } from "../types.ts";
+import { seedIfEmpty } from "../seed.ts";
+import type { Category, Post } from "../types.ts";
 import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
 import {
   categoryRows,
@@ -14,6 +16,7 @@ import {
   REMOTE_OWNER,
   resetDatabase,
   snapshot,
+  STAMP,
 } from "./snapshot.fixtures.ts";
 
 beforeEach(resetDatabase);
@@ -124,6 +127,19 @@ describe("importBackup — merge semantics", () => {
     expect(await db.rationItems.count()).toBe(1);
   });
 
+  it("skips a built-in category the file holds at the same version", async () => {
+    await db.categories.bulkPut(deviceCategories());
+
+    const result = await importBackup(
+      snapshot({ tables: { categories: deviceCategories() } }),
+    );
+
+    expect(result).toEqual({
+      imported: 0,
+      skipped: BUILT_IN_CATEGORIES.length,
+    });
+  });
+
   it("counts every table, not just the first", async () => {
     const result = await importBackup(
       snapshot({
@@ -150,6 +166,117 @@ describe("importBackup — owner adoption", () => {
 
     expect(getOwnerId()).toBe(REMOTE_OWNER);
     expect(await db.meta.get("ownerId")).toMatchObject({ value: REMOTE_OWNER });
+  });
+});
+
+/**
+ * The built-ins as another device holds them: ids equal to keys, the way
+ * `seedCategories` stamps them on every real install — unlike `categoryRows`,
+ * whose `type-<key>` ids would never meet a seeded row.
+ */
+const deviceCategories = (
+  over: Partial<Record<string, Partial<Category>>> = {},
+): Category[] =>
+  seedCategories(REMOTE_OWNER, STAMP).map((row) => ({
+    ...row,
+    ...over[row.key],
+  }));
+
+/** When the other device's user switched a category — after it was seeded. */
+const EDITED = "2026-02-01T00:00:00.000Z";
+
+/**
+ * A new phone, then the backup restored onto it. `seedIfEmpty` runs first, the
+ * way `initData()` does, so every built-in is already on the device — stamped
+ * with this install's owner and time, which is newer than anything in the file.
+ */
+describe("importBackup — built-in categories over a fresh install", () => {
+  it("keeps a category the file switched off switched off", async () => {
+    await seedIfEmpty();
+
+    await importBackup(
+      snapshot({
+        tables: {
+          categories: deviceCategories({
+            concours: { enabled: false, updatedAt: EDITED },
+          }),
+        },
+      }),
+    );
+
+    expect((await db.categories.get("concours"))?.enabled).toBe(false);
+  });
+
+  it("takes the file's rows whole, so the database keeps one owner", async () => {
+    await seedIfEmpty();
+
+    await importBackup(
+      snapshot({ tables: { categories: deviceCategories() } }),
+    );
+
+    const rows = await db.categories.toArray();
+    expect(rows).toHaveLength(BUILT_IN_CATEGORIES.length);
+    for (const row of rows) {
+      expect(row).toMatchObject({
+        ownerId: REMOTE_OWNER,
+        createdAt: STAMP,
+        updatedAt: STAMP,
+      });
+    }
+    expect(getOwnerId()).toBe(REMOTE_OWNER);
+  });
+
+  it("still lets a category switched off on this device outvote an older file", async () => {
+    await seedIfEmpty();
+    // Backdated rather than written through `setEnabled`: a toggle landing in
+    // the same millisecond as the seed would read as never touched.
+    const seeded = (await db.categories.get("concours"))!;
+    await db.categories.put({
+      ...seeded,
+      enabled: false,
+      updatedAt: new Date(Date.parse(seeded.createdAt) + 1_000).toISOString(),
+    });
+
+    const result = await importBackup(
+      snapshot({ tables: { categories: deviceCategories() } }),
+    );
+
+    expect((await db.categories.get("concours"))?.enabled).toBe(false);
+    expect(result).toEqual({
+      imported: BUILT_IN_CATEGORIES.length - 1,
+      skipped: 1,
+    });
+  });
+
+  it("brings the file's definitions up to what this build ships", async () => {
+    await seedIfEmpty();
+
+    await importBackup(
+      snapshot({
+        tables: {
+          categories: deviceCategories({
+            cures: {
+              enabled: false,
+              updatedAt: EDITED,
+              fields: [
+                {
+                  id: "duration",
+                  label: "Durée",
+                  required: false,
+                  control: "text",
+                },
+              ],
+            },
+          }),
+        },
+      }),
+    );
+
+    const cures = await db.categories.get("cures");
+    expect(cures?.enabled).toBe(false);
+    expect(cures?.fields).toEqual(
+      BUILT_IN_CATEGORIES.find((type) => type.key === "cures")?.fields,
+    );
   });
 });
 
@@ -333,6 +460,28 @@ const totalCents = (posts: Post[]) =>
 const byId = (rows: readonly { id: string }[]) =>
   [...rows].sort((a, b) => a.id.localeCompare(b.id));
 
+/**
+ * What a restore takes from the file for a category. Its definition — label,
+ * icon, fields — is whatever this build ships, reapplied after the merge.
+ */
+const decidedByFile = ({
+  id,
+  key,
+  ownerId,
+  createdAt,
+  updatedAt,
+  deletedAt,
+  enabled,
+}: Category) => ({
+  id,
+  key,
+  ownerId,
+  createdAt,
+  updatedAt,
+  deletedAt,
+  enabled,
+});
+
 describe("importBackup — a real v13 export", () => {
   it("restores into an empty database with every row written", async () => {
     const result = await importBackup(realV13Export());
@@ -383,9 +532,24 @@ describe("importBackup — a real v13 export", () => {
     expect(exported.schemaVersion).toBe(REAL_V13_EXPORT.schemaVersion);
     expect(exported.ownerId).toBe(REAL_V13_EXPORT.ownerId);
     for (const name of REAL_V13_TABLES) {
+      if (name === "categories") continue;
       expect(byId(exported.tables[name])).toStrictEqual(
         byId(REAL_V13_EXPORT.tables[name]),
       );
     }
+    expect(byId(exported.tables.categories.map(decidedByFile))).toStrictEqual(
+      byId(REAL_V13_EXPORT.tables.categories.map(decidedByFile)),
+    );
+  });
+
+  it("restores its categories over a freshly seeded install", async () => {
+    await seedIfEmpty();
+
+    await importBackup(realV13Export());
+
+    const restored = await db.categories.toArray();
+    expect(byId(restored.map(decidedByFile))).toStrictEqual(
+      byId(REAL_V13_EXPORT.tables.categories.map(decidedByFile)),
+    );
   });
 });

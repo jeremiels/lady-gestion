@@ -531,7 +531,11 @@ What's already in place:
   account id later is a data update, not a schema migration.
 - **The backup format doubles as a future sync payload.** `BackupSnapshot`
   (`backup/snapshot.ts`) is versioned JSON that merges idempotently,
-  last-write-wins by `updatedAt`. A comment there says it's meant to become
+  last-write-wins by `updatedAt` — except a built-in category this device never
+  edited (`createdAt === updatedAt`), which the file's copy replaces whatever
+  the stamps say, since a fresh install's seed would otherwise outvote every
+  choice in the backup; `reconcileCategories` then reapplies this build's
+  definitions. A comment there says it's meant to become
   the payload pushed to Google Drive's hidden appDataFolder. `meta`'s
   `googleAccount`/`driveFolderId` and `StoredDocument`'s
   `driveFileId`/`driveSyncedAt` are unused placeholders for that path.

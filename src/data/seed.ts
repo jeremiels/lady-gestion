@@ -38,15 +38,21 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
  * - **`id`, `ownerId`, `createdAt` and `updatedAt`.** The first three are the
  *   row's identity; `updatedAt` is what a backup restore arbitrates
  *   last-write-wins by, and shipping a new build is not an edit that should
- *   win that argument — the same rule `db.ts`'s migrations follow.
+ *   win that argument. Left alone, a built-in never edited keeps
+ *   `createdAt === updatedAt` — which is how a restore knows the file's copy
+ *   replaces it (`yieldsToFile` in `backup/snapshot.ts`).
  * - **`enabled`.** It is the user's switch in Personnaliser › Catégories, not
  *   something the app ships; writing the seed's `true` back would turn a
  *   hidden category on again at every launch.
  *
+ * Runs at every launch from `seedIfEmpty`, and again at the end of
+ * `importBackup`, so the rows a restore brings in carry this build's
+ * definitions straight away.
+ *
  * Once the type editor exists, this is the one place that has to learn the
  * difference between a built-in the user has customised and one they have not.
  */
-const reconcileCategories = async (): Promise<void> => {
+export const reconcileCategories = async (): Promise<void> => {
   const shipped = seedCategories(getOwnerId(), nowISO());
   const existing = await db.categories.toArray();
 
