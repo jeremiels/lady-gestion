@@ -359,6 +359,9 @@ export class AppCombobox extends FormFieldElement {
     :host {
       display: block;
       font-family: var(--font-family-base);
+      background-color: #fff;
+      padding: var(--spacing-12);
+      border-radius: var(--radius-16);
     }
 
     :host([disabled]) .field__label {

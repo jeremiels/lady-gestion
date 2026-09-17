@@ -219,6 +219,15 @@ export class PostSheet extends BaseElement {
       display: flex;
       align-items: flex-end;
       gap: var(--spacing-16);
+      background-color: #fff;
+      padding: var(--spacing-12);
+      border-radius: var(--radius-16);
+
+      app-input {
+        background-color: #fff;
+        padding: 0;
+        border-radius: var(--radius-16);
+      }
     }
 
     .post-form__quantity app-input {

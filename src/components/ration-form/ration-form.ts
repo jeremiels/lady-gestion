@@ -60,6 +60,13 @@ export class RationForm extends BaseElement {
       padding: var(--spacing-16);
       border-radius: var(--radius-16);
       background: var(--color-white);
+
+      app-input,
+      app-select,
+      app-unit-select {
+
+        padding: 0;
+      }
     }
 
     .row {

@@ -91,6 +91,9 @@ export class AppInput extends FormFieldElement {
     :host {
       display: block;
       font-family: var(--font-family-base);
+      background-color: #fff;
+      padding: var(--spacing-12);
+      border-radius: var(--radius-16);
     }
 
     :host([disabled]) .field__label {
@@ -103,7 +106,6 @@ export class AppInput extends FormFieldElement {
       gap: var(--spacing-4);
       background-color: var(--color-white);
       border-radius: var(--radius-16);
-      padding: var(--spacing-12);
     }
 
     .field__label {

@@ -179,20 +179,20 @@ export class ProfileView extends LightElement {
                 class="profile-view__action pressable"
                 href=${appHref(CUSTOMIZE_ROOT)}
               >
-                <span class="meta-label">Personnaliser mon interface</span>
                 <app-icon icon="chevronRight"></app-icon>
+                <span class="meta-label">Personnaliser mon interface</span>
               </a>
             </li>
             <li class="meta-item">
               <button class="profile-view__action pressable" type="button">
-                <span class="meta-label">Se déconnecter</span>
                 <app-icon icon="signOut"></app-icon>
+                <span class="meta-label">Se déconnecter</span>
               </button>
             </li>
             <li class="meta-item">
               <button class="profile-view__action pressable" type="button">
-                <span class="meta-label">Supprimer mon compte</span>
                 <app-icon icon="trash"></app-icon>
+                <span class="meta-label">Supprimer mon compte</span>
               </button>
             </li>
           </ul>

@@ -138,6 +138,17 @@ export class AppUnitSelect extends FormFieldElement {
           color var(--duration-medium) var(--easing-standard);
       }
 
+      .option:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        right: -2px;
+        inset-block: 0;
+        width: 2px;
+        background: #fff;
+        border-radius: inherit;
+        pointer-events: none;
+      }
+
       /* Sized to the whole pill and hidden with opacity, not display:none —
          that would drop it from the accessibility tree and take native
          keyboard handling with it. The label text painted on top is what

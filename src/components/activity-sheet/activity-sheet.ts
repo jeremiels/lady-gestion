@@ -99,6 +99,11 @@ export class ActivitySheet extends BaseElement {
       --app-input-background: var(--color-white);
     }
 
+    .activity-sheet__add app-input {
+      padding: 0;
+      border-radius: var(--radius-16);
+    }
+    
     .activity-sheet__field {
       flex: 1;
       min-width: 0;
