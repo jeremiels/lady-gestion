@@ -286,7 +286,7 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 ```
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
-  db.ts                # Dexie subclass + SCHEMA_VERSION (12) and its upgrades
+  db.ts                # Dexie subclass + SCHEMA_VERSION (13), current stores only
   types.ts             # BaseRecord, Horse, Post, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
@@ -396,8 +396,7 @@ src/data/
   code, the tables and the URLs say so — `posts` / `categories` stores,
   `postsRepo` / `categoriesRepo`, `post-card` / `post-sheet`, `/posts/:id`
   (an old `/events…` link is not redirected). They were `HorseEvent` /
-  `EventTypeDef`, `events` / `eventTypes` and `/events` before; migrations up to v12 keep the
-  old names on purpose, because they describe the tables that version had.
+  `EventTypeDef`, `events` / `eventTypes` and `/events` before.
   Calendar vocabulary (`CalendarEvent`, `VEVENT` in `icalendar.ts`) and DOM
   events are a different "event" and were not renamed. French UI copy
   ("Activités", "Rendez-vous") is unchanged.
@@ -456,13 +455,22 @@ src/data/
   `activity` is a `WorkActivity` key (`posts.ts`) — what was done in a
   `travail` session, from a closed list with French labels, `null` on every
   other type.
-- **Bumping `SCHEMA_VERSION` means writing two migrations that agree**: a
+- **`db.ts` declares only the current version (13).** The v1→v13 upgrade
+  chain and the matching backup-file migration were dropped on 2026-09-17,
+  once the one install in use was confirmed at v13 by a backup it exported
+  (history in git up to `b210ede`). A database below v13 can no longer be
+  upgraded, and `assertSnapshot` refuses any file whose `schemaVersion` is not
+  the current one — older with "version trop ancienne", newer with "version
+  plus récente".
+- **Bumping `SCHEMA_VERSION` means deciding for both a device and a file**: a
   `this.version(n).upgrade()` in `db.ts` for databases already on a device, and
-  a step in `migrateSnapshot()` (`backup/snapshot.ts`) for backup files written
-  by an older build. `assertSnapshot` accepts any older `schemaVersion`, so
-  without the second one an old file imports rows the current build silently
-  misreads. `db.test.ts` covers the upgrade against a database really written
-  by the previous version — keep its `V1_STORES` frozen.
+  for backup files written at the previous version either a migration step in
+  `importBackup` (`backup/snapshot.ts`), before the merge, with
+  `assertSnapshot` relaxed to accept that version — or refusing them, as today.
+  Merging an old file's rows unread is the one wrong answer: the current build
+  silently misreads them. `db.test.ts` opens a database really written at the
+  last version — keep its `V13_STORES` frozen, and add the new upgrade's test
+  against it.
 - **A category may have a parent (`Category.parentId`, schema v8), at
   most one level deep, and a child inherits its presentation.** `parentId`
   references a row `id`, not a `key` — unlike `Post.categoryKey`, which stores
@@ -1073,9 +1081,10 @@ by resolving`updateComplete`with`false`. Awaiting once lands mid-cascade.
   tombstone, an archived-but-not-deleted horse), and that is exactly what the
   read paths must be exercised against.
 - `db.test.ts` deletes and rebuilds the database around every test, so it keeps
-  its own frozen copy of the old schema (`V1_STORES`) — never update that to
-  match `STORES`, or the upgrade is tested against itself. `resetDb()` only
-  clears tables, which is right for everything except a version change.
+  its own frozen copy of the schema a device already holds (`V13_STORES`) —
+  never update that to match `STORES`, or the open is tested against itself.
+  `resetDb()` only clears tables, which is right for everything except a
+  version change.
 - **`vi.useFakeTimers()` deadlocks every Dexie query** — it resolves promises on
   the real task queue. Backdate the stored timestamp instead; see
   `meta.repo.test.ts`'s `daysSinceBackup` test.

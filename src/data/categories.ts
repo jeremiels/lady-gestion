@@ -12,8 +12,8 @@ import type { CustomFieldDef, FieldOption, Category, Post } from "./types.ts";
  * points at (`types.ts`). Deliberately does not import `posts.ts` and is not
  * imported by it, even though both are needed together by the day-sheet write
  * path and the week strip: `posts.ts` already owns the `FollowUpInterval`
- * encoding schema v6's migration needs, and either direction of import between
- * the two would be circular the moment the other reaches back.
+ * encoding, and either direction of import between the two would be circular
+ * the moment the other reaches back.
  */
 
 /**
@@ -88,12 +88,7 @@ const inputSelectField = buildField("select");
 /** An open list: `options` plus, optionally, a live catalogue (`suggestions`). */
 const comboBoxField = buildField("combobox");
 
-/**
- * Exported: `db.ts`'s schema v7 migration and `migrateSnapshot`
- * (`backup/snapshot.ts`) both append this to an existing `alimentation` row
- * rather than reseeding it, so the definition has to be reachable from
- * outside this module too.
- */
+/** How much product a purchase brought in, with its unit — `alimentation`'s. */
 export const quantityField = () =>
   inputNumberField({
     id: "quantity",
@@ -131,29 +126,23 @@ const courseFields = () => [
  * existing type — a placeholder, changeable as a data edit rather than a
  * migration once real assets exist — and a field list drawn from whichever of
  * the four built-in layouts its meaning is closest to. `coucours`, that
- * table's misspelled key, is corrected to `concours` here and by the same
- * migration step that seeds this list (`migrateEventToCustomFields` in
- * `posts.ts`).
+ * table's misspelled key, is corrected to `concours` here.
  *
  * Two of those four stopped being roots in schema v9: `cures` files under
  * `alimentation` and `traitement` under `veto`, so both inherit their parent's
  * presentation and their spend rolls into its wedge. That is a product
- * decision rather than a migration detail — it repaints two types and redraws
- * the budget ring for anyone already using them — which is why it needed a
- * migration of its own rather than an edit to this array alone: the rows exist
- * on installed devices already, and changing the seed reaches only a fresh
- * install.
+ * decision rather than a data detail — it repaints two types and redraws the
+ * budget ring for anyone already using them.
  *
  * Schema v10 does the same to one of the original nine: `osteo`, a root since
  * v1, files under `soins` too, alongside a brand-new sibling, `massage`, that
  * never shipped as a root at all — inserted fresh rather than moved. Ten of
  * the fourteen rows are roots today.
  *
- * Read by both halves of the schema v6 migration — `db.ts`'s live upgrade and
- * `backup/snapshot.ts`'s `migrateSnapshot` — via `seedCategories` below, so
- * a database upgraded in place and a backup file restored from an older build
- * seed identically. One array, the same rule `db.ts`'s `RECORD_TABLES` gives
- * for existing.
+ * Stamped into rows by `seedCategories` below, which `reconcileCategories`
+ * (`seed.ts`) writes over every device's built-ins at launch — so an edit to
+ * this array reaches a fresh install and an installed device alike. One
+ * array, the same rule `db.ts`'s `RECORD_TABLES` gives for existing.
  */
 export const BUILT_IN_CATEGORIES: Omit<
   Category,
@@ -615,88 +604,21 @@ export const BUILT_IN_CATEGORIES: Omit<
 ];
 
 /**
- * The nestings schema v9 introduces, by `key`: child first, then parent.
- *
- * Exported because both halves of that migration need it — `db.ts`'s live
- * upgrade and `migrateSnapshot` (`backup/snapshot.ts`) — for the same reason
- * `quantityField` above is: two copies of a migration's payload are two things
- * that can drift, and a live upgrade disagreeing with a restore is a
- * divergence nothing later detects.
- *
- * **Frozen.** It describes what v9 did, not what the catalogue's hierarchy is.
- * Nesting another built-in later means a new version with its own table, not a
- * line here: adding one would silently change what v9 does to every device
- * still upgrading through it, which is the one thing a shipped migration must
- * never do.
- *
- * By `key` rather than `id`, even though `parentId` stores an `id`: `key` is
- * the identity every other lookup in this app resolves a type by, and it is
- * the only half of a row a restored file is guaranteed to agree with us on.
- * The migrations resolve the parent's real `id` from the table they are
- * looking at.
- */
-export const SCHEMA_V9_NESTINGS: readonly { key: string; parentKey: string }[] =
-  [
-    { key: "cures", parentKey: "alimentation" },
-    { key: "traitement", parentKey: "veto" },
-  ];
-
-/**
- * The one nesting schema v10 introduces: `osteo`, a root since v1, files
- * under `soins`. Same shape and same reason as `SCHEMA_V9_NESTINGS` above —
- * shared between `db.ts`'s live upgrade and `migrateSnapshot`, frozen, and
- * addressed by `key`.
- *
- * v10 does **not** null `osteo`'s `icon` the way v9 nulled `cures`' and
- * `traitement`'s: those were unused placeholders, but `pawPrint` is `osteo`'s
- * real, already-shipped icon, and keeping it as an override is what tells it
- * apart from its new sibling `massage` inside the "Soins" group. `theme` is
- * still cleared — that half of the invariant (a group is one colour) is not
- * optional.
- */
-export const SCHEMA_V10_NESTINGS: readonly {
-  key: string;
-  parentKey: string;
-}[] = [{ key: "osteo", parentKey: "soins" }];
-
-/**
- * The one brand-new type schema v10 introduces: `massage`, seeded directly as
- * a child of `soins` — never a root, so there is no existing row to move the
- * way `SCHEMA_V10_NESTINGS` moves `osteo`.
- *
- * Unlike an edit to an already-shipped row, inserting a row that never
- * existed before is safe to source straight from `BUILT_IN_CATEGORIES` (via
- * `seedCategories`) rather than a frozen duplicate: nothing about editing
- * `massage`'s definition *after* it ships can retroactively change what this
- * key list did, because any such edit needs its own version and its own
- * migration step, addressed by `key`, the same way v7 edited `alimentation`.
- * This constant exists only so `db.ts` and `migrateSnapshot` agree on
- * *which* keys v10 is responsible for inserting.
- */
-export const SCHEMA_V10_NEW_TYPES: readonly string[] = ["massage"];
-
-/**
  * Stamps `BUILT_IN_CATEGORIES` into real rows.
  *
- * Called from both halves of the schema v6 migration with whichever owner id
- * and timestamp that caller has to hand — `db.ts`'s live upgrade resolves the
- * owner id itself, before `owner.ts`'s usual cache exists; `migrateSnapshot`
- * already has one on the snapshot's own envelope. Also called by
- * `seedIfEmpty` (`seed.ts`) for a brand-new install, which never runs
- * `db.ts`'s `.upgrade()` at all — Dexie only fires one when a database
- * already exists at an older version.
+ * Called by `reconcileCategories` (`seed.ts`) at every launch, with the
+ * device's owner id: it inserts the rows on a brand-new install and writes
+ * them back over an installed device's built-ins otherwise.
  *
- * `id` is the type's own `key`, not a fresh `newId()`: every one of those
- * three call sites can run against the *same* built-in catalogue — a fresh
- * install seeds it once, then restoring an old backup seeds it again via
- * `migrateSnapshot` (the file itself predates the `eventTypes` table, so it
- * carries none of its own) — and `importBackup`'s merge is per-`id`. A
- * random id each time would make every one of those calls produce a
- * *different* 14 rows for the same 14 types, so restoring a backup onto an
- * already-seeded device would double them rather than merge them, the same
- * way `import a snapshot twice` must not double every other table either.
- * Deriving `id` from `key` is what makes two independent seed calls agree on
- * what the row *is* without either one having to ask the other first.
+ * `id` is the type's own `key`, not a fresh `newId()`: every device seeds the
+ * *same* built-in catalogue on its own — a phone, then the new phone its
+ * backup is restored onto — and `importBackup`'s merge is per-`id`. A random
+ * id each time would make every install produce a *different* 14 rows for the
+ * same 14 types, so restoring a backup onto an already-seeded device would
+ * double them rather than merge them, the same way importing a snapshot twice
+ * must not double every other table either. Deriving `id` from `key` is what
+ * makes two independent seeds agree on what the row *is* without either one
+ * having to ask the other first.
  */
 export const seedCategories = (
   ownerId: string,

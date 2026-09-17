@@ -1,6 +1,5 @@
 import { daysBetween, isIsoDate, todayISO, type IsoDate } from "./dates.ts";
 import type { FieldError } from "./forms.ts";
-import { formatCents } from "./money.ts";
 import type { PostStatus, Category, Post } from "./types.ts";
 
 /**
@@ -124,25 +123,6 @@ const WORK_ACTIVITY_LABELS: Record<BuiltInActivity, string> = {
 export const WORK_ACTIVITIES = Object.keys(
   WORK_ACTIVITY_LABELS,
 ) as BuiltInActivity[];
-
-/**
- * `balade` split in two: it used to be the only "on foot" option and meant
- * what `baladeApied` now spells out, and was repurposed for the broader
- * outing `baladeApied` was carved out of. Every `travail` session recorded
- * before the split still stores the bare key `balade` and still means
- * "Balade à pied" — read against today's label table that now silently
- * becomes the *other* activity.
- *
- * Shared by `db.ts`'s v11 upgrade and `backup/snapshot.ts`'s matching step,
- * so a live database and a restored backup file rewrite the same rows to the
- * same value.
- */
-export const SCHEMA_V11_ACTIVITY_RENAME = {
-  type: "travail",
-  field: "activity",
-  from: "balade",
-  to: "baladeApied",
-} as const;
 
 /**
  * A `Map` rather than indexing the `Record` above.
@@ -522,97 +502,3 @@ export const endDateErrors = (
   isIsoDate(start) && isIsoDate(end) && end < start
     ? { endDate: "La date de fin précède la date de début." }
     : {};
-
-/**
- * A pre-v6 event's fixed columns — `providerName`, `vendor`,
- * `followUpInterval`, `activity`, `amountCents` — before they folded into
- * `customFields`. Read by both halves of the schema v6 migration; see
- * `migrateEventToCustomFields` below.
- */
-export type LegacyEventColumns = {
-  providerName: string | null;
-  vendor: string | null;
-  followUpInterval: FollowUpInterval | null;
-  activity: string | null;
-  amountCents: number | null;
-};
-
-/**
- * Where a `travail` row's money would otherwise go.
- *
- * `amountCents` only survives the fold above when the row's *target* type
- * still carries an amount field, and one built-in does not: `travail` lost
- * its Budget field in `c60fc47`. Every other legacy column has a home on
- * every type that ever used it, so this is the one column the migration can
- * be handed with nowhere to put it — and dropping money silently is the
- * worst thing a migration can do to a budget app.
- *
- * The value is appended to `notes` rather than given a field: writing it to
- * a column the type does not have would be invalid, and adding the field to
- * `travail` would repaint a type on every installed device — a catalogue
- * change, which is exactly the class of edit this app is trying to stop
- * paying a schema version for. A note is inert, visible on the event itself,
- * and survives the backup round trip like any other text.
- *
- * Both halves of the v6 migration share it for the reason they share the
- * fold: a device upgraded in place and a file restored from an older build
- * have to strand identically.
- *
- * Zero is not stranded — it is the absence of a budget, not a lost one.
- */
-const strandedAmountNotes = (
-  row: { notes: string | null } & Pick<LegacyEventColumns, "amountCents">,
-  has: (fieldId: string) => boolean,
-): string | null => {
-  const amount = row.amountCents;
-  if (!amount || has("amountCents")) return row.notes;
-
-  const line = `Budget conservé lors de la migration : ${formatCents(amount)}.`;
-  return row.notes ? `${row.notes}\n${line}` : line;
-};
-
-/**
- * Folds a pre-v6 event's fixed columns into a `customFields` bag, and
- * corrects the one built-in type whose key changed shape in the same
- * migration (`coucours` → `concours`, see `categories.ts`).
- *
- * Takes and returns only the columns that change — `type` and the bag — so
- * `db.ts`'s live upgrade can assign the result onto a row it is mutating in
- * place, and `backup/snapshot.ts` onto a row it is rebuilding wholesale,
- * without either having to agree on the rest of the record's exact shape.
- * Shared by both for the reason `db.ts`'s own comment gives for why the two
- * migrations "must agree": a database upgraded on the device and a backup
- * file restored from an older build have to fold identically.
- *
- * `types` is the *target* schema's type list, with `BaseRecord` fields already
- * filled in (`seedCategories` in `categories.ts`): whether `amountCents`
- * survives depends on whether the row's type still has an amount field, which
- * only the new schema can say — the old one had no such concept.
- */
-export const migrateEventToCustomFields = (
-  row: { type: string; notes: string | null } & LegacyEventColumns,
-  types: Category[],
-): {
-  type: string;
-  customFields: Post["customFields"];
-  notes: string | null;
-} => {
-  const type = row.type === "coucours" ? "concours" : row.type;
-  const def = types.find((candidate) => candidate.key === type);
-  const has = (fieldId: string) =>
-    def?.fields.some((field) => field.id === fieldId) ?? false;
-
-  const customFields: Post["customFields"] = {};
-  if (has("counterparty")) {
-    customFields.counterparty = row.providerName ?? row.vendor ?? null;
-  }
-  if (has("followUp")) {
-    customFields.followUp = row.followUpInterval
-      ? followUpValue(row.followUpInterval)
-      : null;
-  }
-  if (has("activity")) customFields.activity = row.activity;
-  if (has("amountCents")) customFields.amountCents = row.amountCents;
-
-  return { type, customFields, notes: strandedAmountNotes(row, has) };
-};

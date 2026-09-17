@@ -157,14 +157,3 @@ export const summariseSuspension = (
     ? `${subject} ${formatSuspensionRange(first)}.`
     : `${subject}.`;
 };
-
-/**
- * Reads a v1 `RationItem.seasonal` boolean as a window.
- *
- * Shared by the Dexie upgrade and the backup migration so the two can't
- * disagree about what an old row meant. v1 recorded *that* a line was seasonal
- * but never *when*, so there is nothing to recover — every seasonal row adopts
- * the default window.
- */
-export const seasonFromLegacyFlag = (seasonal: unknown): RationSeason | null =>
-  seasonal === true ? { ...DEFAULT_SEASON } : null;

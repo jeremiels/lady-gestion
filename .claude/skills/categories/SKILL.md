@@ -1,6 +1,6 @@
 ---
 name: categories
-description: Add, edit, nest, or re-theme a post category (formerly "event type") in lady-gestion's built-in catalogue. Use when asked to create a new category, change a category's label/icon/colour/fields, file one type under another, give a type a new kind of form field, or when a change to `BUILT_IN_CATEGORIES` needs a schema migration to reach devices that already have the row.
+description: Add, edit, nest, or re-theme a post category (formerly "event type") in lady-gestion's built-in catalogue. Use when asked to create a new category, change a category's label/icon/colour/fields, file one type under another, give a type a new kind of form field, or when a category change has to rewrite posts already stored on a device.
 ---
 
 Categories (called event types until schema v13) stopped being a compile-time
@@ -23,15 +23,17 @@ design this implements, and `AGENTS.md` for the repo's conventions.
 | Write paths        | `src/data/repositories/categories.repo.ts` (`setParent`, `remove`)                                                   |
 | Test fixtures      | `BUILT_IN_CATEGORY_ROWS`, `src/data/__tests__/factories.ts`                                                          |
 
-`seedCategories` stamps each row with **`id = def.key`**, deliberately: a
-fresh install, a live upgrade and a backup restore all seed the same catalogue,
-and `importBackup` merges per `id`. A random id would make those three produce
-three different rows for the same type and double them on restore.
+`seedCategories` stamps each row with **`id = def.key`**, deliberately: every
+install seeds the same catalogue on its own — a phone, then the new phone its
+backup is restored onto — and `importBackup` merges per `id`. A random id would
+make each install produce different rows for the same type and double them on
+restore.
 
-Three call sites seed, and they must agree: `src/data/seed.ts` (fresh install),
-`src/data/db.ts`'s v6 upgrade (live), `src/data/backup/snapshot.ts`'s
-`migrateSnapshot` (restore). They already do, because all three call
-`seedCategories`. Keep it that way.
+One call site seeds: `reconcileCategories` in `src/data/seed.ts`, at every
+launch. It inserts the built-ins on a fresh install and writes the shipped
+definition back over an installed device's built-in rows — keeping `id`,
+`ownerId`, `createdAt`, `updatedAt` and the user's `enabled` — so an edit to the
+array reaches every device on its next launch.
 
 ## Adding a type
 
@@ -87,27 +89,22 @@ Currently nested: `cures` under `alimentation`, `traitement` under `veto`
 (schema v9); `osteo` and `massage` under `soins` (schema v10). The other 10
 are roots.
 
-## The two-migration rule
+## When a schema version is still needed
 
-Changing the array reaches **only a fresh install**. Every installed device
-already has the row, and so does every backup file. So any edit to a type that
-already shipped needs a version bump and **two** migrations that agree:
+Editing the array needs **no migration**: `reconcileCategories` writes each
+built-in's shipped definition over the row every device already has, at
+launch. That covers a new type, a relabel, a new icon or theme, a new parent
+and a changed field list. Schema v7, v9 and v10 were migrations only because
+reconciling did not exist yet.
 
-| Half        | Where                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------ |
-| Live device | `this.version(n).upgrade()` in `src/data/db.ts`                                            |
-| Backup file | a `if (backup.schemaVersion < n)` step in `migrateSnapshot`, `src/data/backup/snapshot.ts` |
-
-Bump `SCHEMA_VERSION` in `db.ts` and add its line to the version list comment
-there. If no index changed, repeat the previous `.stores()` verbatim.
-
-Two worked templates, both still in the tree:
-
-- **v7** — the content of one seeded row changes (`alimentation` gains a
-  `quantity` field). Addressed by `key`; guarded against double-adding.
-- **v9** — two rows gain a parent. Payload shared as `SCHEMA_V9_NESTINGS`
-  (`categories.ts`) so the two halves cannot drift, the same way v6 shares
-  `migrateEventToCustomFields`.
+A version bump is for what reconciling cannot reach: **data already stored in
+posts** — a `categoryKey` or a `customFields` value whose meaning changes, the
+way v11 rewrote `balade` to `baladeApied` — or a table's shape. `db.ts` has
+declared only the current version since 2026-09-17, so read "Bumping
+`SCHEMA_VERSION`" in `AGENTS.md` first: a `this.version(n).upgrade()` in
+`src/data/db.ts` for devices, and a decision for backup files written at the
+previous version (a step in `importBackup` before the merge, or refusing them).
+The v1→v13 chain is in git history up to `b210ede` for a worked example.
 
 Non-negotiables in a migration step:
 
@@ -197,9 +194,10 @@ projects (`data` on `fake-indexeddb`, `components` in headless Chromium).
 
 A migration needs more than a green suite. Mutate it and watch a test fail —
 break the parent lookup, then drop the replay guard — or it is only asserting
-that the seed is the seed. `src/data/db.test.ts` writes a database at each old
-version and reopens it at the current one; `src/data/backup/snapshot.test.ts`
-does the same for files. Add to **both**.
+that the seed is the seed. `src/data/db.test.ts` opens a database written at the
+last version (`V13_STORES`) under the current one — the upgrade's test goes
+there; `src/data/backup/snapshot.test.ts` covers files. A change to the array
+alone is covered by `src/data/seed.reconcile.test.ts`.
 
 Then look at it, via the `run-lady-gestion` skill — nesting and colour are not
 things a unit test sees:

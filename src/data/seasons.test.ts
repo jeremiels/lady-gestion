@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_SEASON,
   formatMonthLong,
   formatMonthShort,
   formatSeasonRange,
@@ -9,7 +8,6 @@ import {
   isMonthNumber,
   isRationSeason,
   monthOf,
-  seasonFromLegacyFlag,
   summariseSuspension,
   type RationSeason,
 } from "./seasons.ts";
@@ -175,21 +173,5 @@ describe("summariseSuspension", () => {
     expect(summariseSuspension([WINTER, SUMMER], "2026-03-15")).toBe(
       "1 produit saisonnier suspendu d’octobre à avril.",
     );
-  });
-});
-
-describe("seasonFromLegacyFlag", () => {
-  it("gives a v1 seasonal row the default window", () => {
-    expect(seasonFromLegacyFlag(true)).toEqual(DEFAULT_SEASON);
-  });
-
-  it("treats anything else as fed all year", () => {
-    expect(seasonFromLegacyFlag(false)).toBe(null);
-    expect(seasonFromLegacyFlag(undefined)).toBe(null);
-  });
-
-  it("returns a fresh object so callers cannot mutate the shared default", () => {
-    const season = seasonFromLegacyFlag(true);
-    expect(season).not.toBe(DEFAULT_SEASON);
   });
 });

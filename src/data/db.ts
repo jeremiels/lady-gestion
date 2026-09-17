@@ -1,29 +1,4 @@
 import Dexie, { liveQuery, type Table } from "dexie";
-import { nowISO } from "./dates.ts";
-import {
-  quantityField,
-  seedCategories,
-  SCHEMA_V9_NESTINGS,
-  SCHEMA_V10_NESTINGS,
-  SCHEMA_V10_NEW_TYPES,
-} from "./categories.ts";
-import {
-  migrateEventToCustomFields,
-  SCHEMA_V11_ACTIVITY_RENAME,
-  type FollowUpInterval,
-  type LegacyEventColumns,
-  type WorkActivity,
-} from "./posts.ts";
-import {
-  migrateCategoryRowV13,
-  migrateDocumentRowV13,
-  migratePostRowV13,
-  type LegacyCategoryRow,
-  type LegacyDocumentRow,
-  type LegacyPostRow,
-} from "./schema-v13.ts";
-import { newId } from "./ids.ts";
-import { seasonFromLegacyFlag, type RationSeason } from "./seasons.ts";
 import type {
   ActivityItem,
   DocumentBlob,
@@ -47,54 +22,18 @@ import type {
 
 /**
  * Bumped whenever the shape of a table changes. Written into backup files so
- * a restore can tell how to read them; see `backup/snapshot.ts`.
+ * a restore can tell what it is reading; see `backup/snapshot.ts`.
  *
- * Bumping this means writing **two** migrations that must agree: a
- * `this.version(n).upgrade()` below for databases already on the device, and a
- * step in `migrateSnapshot` for backup files exported by an older build.
+ * Only the current version is declared. v1 to v13 each had their own
+ * `this.version(n).upgrade()` here; the chain was dropped on 2026-09-17, once
+ * the one install in use was confirmed at v13 by a backup it exported, and the
+ * history is in git up to b210ede. The cost is deliberate: a database still
+ * below v13 can no longer be upgraded — Dexie deletes a store the declared
+ * schema does not list, so it would open with `posts` and `categories` empty.
  *
- * - v1 — initial schema.
- * - v2 — `RationItem.seasonal: boolean` → `RationItem.season: RationSeason | null`.
- * - v3 — `HorseEvent` gains `vendor` and `followUpInterval`, both nullable.
- * - v4 — `HorseEvent` gains `activity`, nullable.
- * - v5 — new `activities` table: the work activities the user added themselves.
- * - v6 — new `eventTypes` table: event types stop being a closed, compile-time
- *   union and become user-visible data. `HorseEvent` loses `providerName`,
- *   `vendor`, `followUpInterval`, `activity` and `amountCents` in favour of a
- *   generic `customFields` bag, keyed by the winning type's field ids.
- * - v7 — `alimentation`'s built-in `fields` gains a `quantity` entry. Unlike
- *   v6, no new table and no new column on `HorseEvent`: only the *content* of
- *   one already-seeded `eventTypes` row changes, so a fresh install and an
- *   upgraded device end up with the same row either way.
- * - v8 — `EventTypeDef` gains `parentId`, nullable: a type can be a variation
- *   of another one and inherit its presentation. `icon` and `theme` become
- *   nullable with it (`null` meaning "take my parent's"), which needs no
- *   rewrite — every existing row already carries both.
- * - v9 — the first built-ins to actually use v8's hierarchy: `cures` files
- *   under `alimentation`, `traitement` under `veto`. Like v7 and unlike v8, no
- *   new table and no new column — only the content of two already-seeded
- *   `eventTypes` rows changes, so a fresh install and an upgraded device end
- *   up with the same catalogue either way.
- * - v10 — `osteo`, a root since v1, files under `soins`; `massage`, a brand
- *   new type, is seeded directly as its sibling. Like v6 this one *adds* a
- *   row (`massage` never existed before), and like v9 it *moves* one
- *   (`osteo`) — no new table and no new column either way.
- * - v11 — `balade` splits into `balade` (kept, repointed at the broader
- *   outing) and `baladeApied` (new, carrying the meaning `balade` used to
- *   have). No new table and no new column: only `travail` events already
- *   holding the bare key `balade` are rewritten to `baladeApied`, so they
- *   keep meaning what they meant when they were recorded rather than
- *   silently reading as the new, different activity `balade` now names.
- * - v12 — new `profiles` table: the user's first name, last name and email,
- *   until then the hardcoded `ACCOUNT` mock. Purely additive — no row is
- *   rewritten and none is created; the UI keeps showing `ACCOUNT` until the
- *   user saves, so an upgraded device looks exactly as it did.
- * - v13 — the domain language catches up with the code: `eventTypes` becomes
- *   `categories` and `events` becomes `posts`. Every row is copied across;
- *   `HorseEvent.type` becomes `Post.categoryKey`, `EventTypeDef.archived`
- *   becomes `Category.enabled` (inverted), `StoredDocument.eventId` becomes
- *   `postId`. The two old stores are dropped. Every version above keeps its
- *   own names: they describe what that version did to the tables it had.
+ * Bumping this means declaring the new version below with an `upgrade()` for
+ * databases already on a device, and deciding what a backup file from the
+ * previous version becomes in `backup/snapshot.ts`.
  */
 export const SCHEMA_VERSION = 13;
 
@@ -108,110 +47,31 @@ export const SCHEMA_VERSION = 13;
  *
  * `season` is likewise unindexed — it is nullable *and* an object, so it could
  * not be a key path at all. Seasonality is resolved in memory by `seasons.ts`.
+ *
+ * `Category.parentId` is unindexed for the same null reason, even though it is
+ * what the tree is walked by: every root, which is most of the catalogue,
+ * would vanish from the index. `Category.enabled` is unindexed because a
+ * boolean is not a valid IndexedDB key, so that index would never hold a row.
+ * The catalogue is read whole and filtered in memory. `key` and `order` are
+ * indexed: `key` is what `Post.categoryKey` joins against, `order` is what the
+ * budget donut sorts by.
+ *
+ * `activities` is indexed on `horseId` alone rather than a compound: the
+ * catalogue is read whole, for one horse, and ordered in memory by `createdAt`.
+ * `profiles` holds one row in practice, so only the bookkeeping is indexed.
  */
 const STORES = {
   horses: "id, name, updatedAt",
-  events:
-    "id, horseId, date, type, status, [horseId+date], [horseId+type], updatedAt",
-  documents: "id, horseId, eventId, category, [horseId+category], updatedAt",
-  documentBlobs: "documentId",
-  rationItems: "id, horseId, [horseId+sortOrder], updatedAt",
-  meta: "key",
-} as const;
-
-/**
- * v5 adds one store; the versions above keep the set they shipped with.
- *
- * Spread rather than appended to `STORES`, so v1..v4 keep declaring the schema
- * they actually declared. Backdating the new table into them would make
- * `db.test.ts` — which writes a database at each old version and then opens
- * this one — exercise the upgrade against a store that version never had.
- *
- * `horseId` alone rather than a compound index: the catalogue is read whole,
- * for one horse, and ordered in memory by `createdAt` so a new chip lands at
- * the end. There is no `sortOrder` to pair it with because nothing reorders it.
- */
-const STORES_V5 = { ...STORES, activities: "id, horseId, updatedAt" } as const;
-
-/**
- * v6 adds the event-type catalogue, spread from `STORES_V5` for the same
- * reason that one was spread from `STORES`.
- *
- * `key` and `order` are indexed: `key` is what `HorseEvent.type` joins
- * against, and `order` is what the budget donut sorts by — both read often
- * enough, over what will stay a small table, to be worth a dedicated index
- * rather than an in-memory sort every time.
- */
-const STORES_V6 = {
-  ...STORES_V5,
-  eventTypes: "id, key, order, archived, updatedAt",
-} as const;
-
-/**
- * v12 adds the user's profile, spread from `STORES_V6` for the same reason.
- * One row in practice; read whole and resolved in memory by
- * `profile.repo.ts`, so nothing but the bookkeeping is indexed.
- */
-const STORES_V12 = {
-  ...STORES_V6,
-  profiles: "id, updatedAt",
-} as const;
-
-/**
- * v13 renames two stores and one indexed column, spread from `STORES_V12`.
- *
- * `enabled` is deliberately not indexed, unlike the `archived` it replaces: a
- * boolean is not a valid IndexedDB key, so that index never held a single row.
- * The catalogue is read whole and filtered in memory anyway.
- */
-const {
-  events: _events,
-  eventTypes: _eventTypes,
-  ...STORES_V12_KEPT
-} = STORES_V12;
-const STORES_V13 = {
-  ...STORES_V12_KEPT,
   posts:
     "id, horseId, date, categoryKey, status, [horseId+date], [horseId+categoryKey], updatedAt",
   documents: "id, horseId, postId, category, [horseId+category], updatedAt",
+  documentBlobs: "documentId",
+  rationItems: "id, horseId, [horseId+sortOrder], updatedAt",
+  activities: "id, horseId, updatedAt",
   categories: "id, key, order, updatedAt",
+  profiles: "id, updatedAt",
+  meta: "key",
 } as const;
-
-/** A v1 ration row, mid-upgrade: the old flag is still there, the window is not. */
-type LegacyRationItem = {
-  seasonal?: boolean;
-  season?: RationSeason | null;
-};
-
-/** A pre-v3 event row: the two new columns are simply absent. */
-type LegacyHorseEvent = {
-  vendor?: string | null;
-  followUpInterval?: FollowUpInterval | null;
-};
-
-/** A pre-v4 event row: no `activity`. */
-type LegacyWorkEvent = {
-  activity?: WorkActivity | null;
-};
-
-/**
- * A pre-v6 event row, mid-upgrade: the five columns `customFields` replaces
- * are still there, and `type` is loosened to a bare `string` because a row may
- * still carry the misspelled `"coucours"` key `migrateEventToCustomFields`
- * corrects. `customFields` itself is declared optional purely so this type can
- * be assigned it during the upgrade — a pre-v6 row has no such key at all.
- */
-type LegacyEventRow = {
-  type: string;
-  notes?: string | null;
-} & Partial<LegacyEventColumns> & {
-    customFields?: Post["customFields"];
-  };
-
-/** A pre-v8 event-type row: no `parentId`. */
-type LegacyEventTypeRow = {
-  parentId?: string | null;
-};
 
 export class LadyGestionDb extends Dexie {
   horses!: Table<Horse, string>;
@@ -227,313 +87,7 @@ export class LadyGestionDb extends Dexie {
   constructor() {
     super("lady-gestion");
 
-    this.version(1).stores(STORES);
-
-    // No index changed, so the stores are repeated verbatim — this version
-    // exists purely to rewrite the rows. `seasonal` is dropped rather than left
-    // alongside `season`: a stale duplicate is what the next reader trusts by
-    // mistake, and the backup export copies whatever is on the row.
-    this.version(2)
-      .stores(STORES)
-      .upgrade((transaction) =>
-        transaction
-          .table<LegacyRationItem>("rationItems")
-          .toCollection()
-          .modify((item) => {
-            item.season = seasonFromLegacyFlag(item.seasonal);
-            delete item.seasonal;
-          }),
-      );
-
-    // Adding a nullable column still needs an upgrade: an absent key reads back
-    // as `undefined`, not `null`, which contradicts the declared type and is
-    // dropped entirely by `JSON.stringify` when the row is exported to a backup.
-    // `??=` so a row that somehow already has a value keeps it.
-    this.version(3)
-      .stores(STORES)
-      .upgrade((transaction) =>
-        transaction
-          .table<LegacyHorseEvent>("events")
-          .toCollection()
-          .modify((event) => {
-            event.vendor ??= null;
-            event.followUpInterval ??= null;
-          }),
-      );
-
-    // Same shape as v3, and for the same reason: an absent key reads back as
-    // `undefined`, which contradicts the declared type and is dropped by
-    // `JSON.stringify` on export. Unindexed — it is nullable, and IndexedDB
-    // drops a record whose indexed value is null out of the index entirely.
-    this.version(4)
-      .stores(STORES)
-      .upgrade((transaction) =>
-        transaction
-          .table<LegacyWorkEvent>("events")
-          .toCollection()
-          .modify((event) => {
-            event.activity ??= null;
-          }),
-      );
-
-    // A brand-new store, so there is no row to rewrite and no `.upgrade()` to
-    // write — but the version still has to exist, or Dexie never creates it.
-    // Nothing seeds it either: the built-in activities are code, not rows,
-    // and this table holds only what the user adds on top of them.
-    this.version(5).stores(STORES_V5);
-
-    // Unlike v5, this store *is* seeded — a type an event's `type` can point
-    // at has to exist before that event can be read meaningfully, so an empty
-    // table here is not an option the way it was for `activities`.
-    this.version(6)
-      .stores(STORES_V6)
-      .upgrade(async (transaction) => {
-        // A fresh install runs every version up to this one in the same
-        // `db.open()`, before `initOwnerId()` (`owner.ts`) has ever run — so
-        // the owner id cannot be read through its usual cache and is resolved
-        // here exactly the way that function would, against the same `meta`
-        // row, so whichever runs first (this upgrade, or a later
-        // `initOwnerId()` on an existing device) leaves the other a no-op.
-        const metaTable = transaction.table<{ key: string; value: unknown }>(
-          "meta",
-        );
-        const existingOwner = await metaTable.get("ownerId");
-        const ownerId =
-          typeof existingOwner?.value === "string"
-            ? existingOwner.value
-            : newId();
-        if (!existingOwner) {
-          await metaTable.put({ key: "ownerId", value: ownerId });
-        }
-
-        // Rows in today's `Category` shape, `enabled` and all, written into a
-        // store v13 renames: that step accepts either flag, so a seed from any
-        // build lands the same way.
-        const types = seedCategories(ownerId, nowISO());
-        await transaction.table<Category>("eventTypes").bulkAdd(types);
-
-        await transaction
-          .table<LegacyEventRow>("events")
-          .toCollection()
-          .modify((event) => {
-            const { type, customFields, notes } = migrateEventToCustomFields(
-              {
-                type: event.type,
-                notes: event.notes ?? null,
-                providerName: event.providerName ?? null,
-                vendor: event.vendor ?? null,
-                followUpInterval: event.followUpInterval ?? null,
-                activity: event.activity ?? null,
-                amountCents: event.amountCents ?? null,
-              },
-              types,
-            );
-            event.type = type;
-            event.customFields = customFields;
-            // Carries a stranded budget into the note when the winning type has
-            // no field for it; otherwise hands back exactly what was there.
-            event.notes = notes;
-            delete event.providerName;
-            delete event.vendor;
-            delete event.followUpInterval;
-            delete event.activity;
-            delete event.amountCents;
-          });
-      });
-
-    // No index changed and no new table, so the stores are repeated verbatim
-    // — same reason v2's comment gives. `alimentation` is addressed by `key`,
-    // the stable slug `findEventType` and every other lookup in this app
-    // already resolves a type by — not `id`, which happens to equal it for a
-    // freshly-seeded built-in (`seedCategories`) but is not the field
-    // anything else here treats as the type's identity. A device with no such
-    // row (the type was since deleted) or one already carrying a `quantity`
-    // field (seeded fresh, past this version) simply sees `.modify()` match
-    // nothing or add a harmless duplicate — guarded against below all the
-    // same, since a backup restore can replay this row.
-    this.version(7)
-      .stores(STORES_V6)
-      .upgrade((transaction) =>
-        transaction
-          .table<LegacyCategoryRow>("eventTypes")
-          .where("key")
-          .equals("alimentation")
-          .modify((type) => {
-            if (!type.fields.some((field) => field.id === "quantity")) {
-              type.fields = [...type.fields, quantityField()];
-            }
-          }),
-      );
-
-    // No index changed, so the stores are repeated verbatim once more.
-    // `parentId` is deliberately *not* indexed even though it is what the tree
-    // is walked by: it is nullable, and IndexedDB drops a record whose indexed
-    // value is null out of the index entirely — every root, which is the whole
-    // catalogue, would vanish from it. Same reason `deletedAt` is absent from
-    // every store string above. The catalogue is read whole anyway.
-    //
-    // `icon` and `theme` widen to nullable in the same version and need no
-    // rewrite: every row already has a real value, and `null` is a state only
-    // the type editor ever writes. `??=` so replaying this — a backup restored
-    // onto a device already past v8 — leaves a real parent alone.
-    this.version(8)
-      .stores(STORES_V6)
-      .upgrade((transaction) =>
-        transaction
-          .table<LegacyEventTypeRow>("eventTypes")
-          .toCollection()
-          .modify((type) => {
-            type.parentId ??= null;
-          }),
-      );
-
-    // No index changed once more, so the stores are repeated verbatim again.
-    //
-    // The parent's `id` is looked up from the table rather than assumed equal
-    // to its `key`. That equality holds for a row `seedCategories` wrote,
-    // and `SCHEMA_V9_NESTINGS` is keyed by `key` precisely so this does not
-    // have to rely on it: a file restored from a build that generated ids
-    // differently would otherwise get a `parentId` pointing at nothing, which
-    // `resolveCatalogue` quietly reads back as "root" — the nesting would
-    // simply not happen, with nothing to show for it.
-    //
-    // Guarded on the row still being a root, so replaying this is a no-op:
-    // a device upgraded live, backed up, then restored onto itself runs it
-    // twice, and a parent link the user chose themselves must survive it.
-    // `updatedAt` is deliberately left alone, as in v7 — it is what a restore
-    // arbitrates last-write-wins by, and a migration every device runs is not
-    // an edit that should win that argument.
-    this.version(9)
-      .stores(STORES_V6)
-      .upgrade(async (transaction) => {
-        const table = transaction.table<LegacyCategoryRow>("eventTypes");
-        const rows = await table.toArray();
-
-        for (const { key, parentKey } of SCHEMA_V9_NESTINGS) {
-          const child = rows.find((type) => type.key === key);
-          const parent = rows.find((type) => type.key === parentKey);
-          if (!child || !parent || child.parentId !== null) continue;
-
-          await table.put({
-            ...child,
-            parentId: parent.id,
-            icon: null,
-            theme: null,
-          });
-        }
-      });
-
-    // No index changed, so the stores are repeated verbatim once more.
-    //
-    // Two independent changes share this version because both grow the
-    // "Soins" group at once: `osteo` — a root since v1 — moves under it, the
-    // same shape as v9's reparenting (`SCHEMA_V10_NESTINGS`, whose own
-    // comment says why `osteo`'s icon is kept rather than nulled this time);
-    // and `massage`, seeded fresh as its new sibling, the same shape as v6's
-    // original seed since there is no existing row to move. Guarded so
-    // replaying either half — a device patched live, backed up, then
-    // restored onto itself — is a no-op: the reparenting skips a row that is
-    // no longer a root, and the insertion skips a key already present.
-    this.version(10)
-      .stores(STORES_V6)
-      .upgrade(async (transaction) => {
-        const table = transaction.table<LegacyCategoryRow>("eventTypes");
-        const rows = await table.toArray();
-
-        for (const { key, parentKey } of SCHEMA_V10_NESTINGS) {
-          const child = rows.find((type) => type.key === key);
-          const parent = rows.find((type) => type.key === parentKey);
-          if (!child || !parent || child.parentId !== null) continue;
-
-          await table.put({ ...child, parentId: parent.id, theme: null });
-        }
-
-        // Resolved off an existing row rather than `meta` — unlike v6, this
-        // upgrade never runs before the table has been seeded, so any row's
-        // `ownerId` is as good a source as another in a single-tenant app.
-        const ownerId = rows[0]?.ownerId;
-        if (!ownerId) return;
-
-        const existingKeys = new Set(rows.map((type) => type.key));
-        const additions = seedCategories(ownerId, nowISO())
-          .filter(
-            (type) =>
-              SCHEMA_V10_NEW_TYPES.includes(type.key) &&
-              !existingKeys.has(type.key),
-          )
-          // `seedCategories` stamps `parentId` as the literal key it is
-          // written with in `BUILT_IN_EVENT_TYPES`, valid only under the
-          // "built-in id === key" assumption a device seeded entirely by v6
-          // satisfies but this insertion, running against rows already on
-          // the device, must not assume — resolved from the table instead,
-          // the same way `SCHEMA_V10_NESTINGS`'s loop above does.
-          .map((type) => {
-            const parent = rows.find((row) => row.key === type.parentId);
-            return parent ? { ...type, parentId: parent.id } : type;
-          });
-        if (additions.length > 0) await table.bulkAdd(additions);
-      });
-
-    // No index changed, so the stores are repeated verbatim once more.
-    //
-    // Scoped to `type` = `travail` via the indexed column, then guarded on
-    // the field's own value, rather than scanning every event: no other type
-    // has ever written to a `workActivity`-role field, so this is exactly the
-    // set of rows the key's old meaning could be sitting on. Idempotent by
-    // construction — a row already rewritten no longer reads `from`, so
-    // replaying this (a device patched live, backed up, then restored onto
-    // itself) leaves it alone.
-    this.version(11)
-      .stores(STORES_V6)
-      .upgrade((transaction) => {
-        const { type, field, from, to } = SCHEMA_V11_ACTIVITY_RENAME;
-
-        return transaction
-          .table<LegacyPostRow>("events")
-          .where("type")
-          .equals(type)
-          .modify((event) => {
-            if (event.customFields?.[field] === from) {
-              event.customFields[field] = to;
-            }
-          });
-      });
-
-    // A new store and nothing else: no upgrade callback, so every existing row
-    // is left exactly where it is.
-    this.version(12).stores(STORES_V12);
-
-    // Two stores renamed. Dexie keeps a store this version drops readable for
-    // the whole upgrade callback and deletes it only afterwards, so the copy
-    // and the drop share one version. Each row goes through the same transform
-    // `migrateSnapshot` applies to a file (`migratePostRowV13` and siblings),
-    // which is also what makes replaying it a no-op. `updatedAt` is copied as
-    // is: a rename every device runs must not win a restore's
-    // last-write-wins argument.
-    this.version(13)
-      .stores({ ...STORES_V13, events: null, eventTypes: null })
-      .upgrade(async (transaction) => {
-        const events = await transaction
-          .table<LegacyPostRow>("events")
-          .toArray();
-        await transaction
-          .table<Post>("posts")
-          .bulkPut(events.map(migratePostRowV13));
-
-        const types = await transaction
-          .table<LegacyCategoryRow>("eventTypes")
-          .toArray();
-        await transaction
-          .table<Category>("categories")
-          .bulkPut(types.map(migrateCategoryRowV13));
-
-        const documents = await transaction
-          .table<LegacyDocumentRow>("documents")
-          .toArray();
-        await transaction
-          .table<StoredDocument>("documents")
-          .bulkPut(documents.map(migrateDocumentRowV13));
-      });
+    this.version(SCHEMA_VERSION).stores(STORES);
   }
 }
 

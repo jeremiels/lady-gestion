@@ -1,22 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import realV5ExportRaw from "../__tests__/fixtures/real-v5-export.json?raw";
-import { db, SCHEMA_VERSION, type BackupTables } from "../db.ts";
-import { BUILT_IN_CATEGORIES } from "../categories.ts";
+import realV13ExportRaw from "../__tests__/fixtures/real-v13-export.json?raw";
+import { db, SCHEMA_VERSION, type RecordTableName } from "../db.ts";
 import { followUpValue } from "../posts.ts";
 import { getOwnerId } from "../owner.ts";
-import { DEFAULT_SEASON } from "../seasons.ts";
-import type { Category, Post } from "../types.ts";
-import {
-  exportBackup,
-  importBackup,
-  migrateSnapshot,
-  type BackupSnapshot,
-} from "./snapshot.ts";
+import type { Post } from "../types.ts";
+import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
 import {
   categoryRows,
-  event,
   horse,
-  legacy,
   LOCAL_OWNER,
   post,
   ration,
@@ -56,314 +47,6 @@ describe("exportBackup", () => {
     const backup = await exportBackup();
 
     expect(backup.tables.horses.map((row) => row.id)).toContain("gone");
-  });
-});
-
-describe("migrateSnapshot", () => {
-  // Only the v7 step gets a dedicated test here — the others predate a test
-  // for `migrateSnapshot` on its own and are otherwise covered through
-  // `importBackup`.
-  it("adds alimentation's quantity field to a pre-v7 file", () => {
-    const current = categoryRows.find((type) => type.key === "alimentation")!;
-    const preV7 = {
-      ...current,
-      fields: current.fields.filter((field) => field.id !== "quantity"),
-    };
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 6, tables: { eventTypes: [preV7] } }),
-    );
-
-    const alimentation = migrated.tables.categories.find(
-      (type) => type.id === preV7.id,
-    )!;
-    expect(alimentation.fields.map((field) => field.id).sort()).toEqual([
-      "amountCents",
-      "counterparty",
-      "date",
-      "notes",
-      "quantity",
-      "title",
-    ]);
-  });
-
-  it("does not duplicate the field on an already-migrated row", () => {
-    const current = categoryRows.find((type) => type.key === "alimentation")!;
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 6, tables: { eventTypes: [current] } }),
-    );
-
-    const alimentation = migrated.tables.categories.find(
-      (type) => type.id === current.id,
-    )!;
-    expect(alimentation.fields).toEqual(current.fields);
-  });
-
-  it("gives a pre-v8 file's event types an explicit null parent", () => {
-    // A v7 file has no such key at all, and `undefined` is not `null` — the
-    // merge would write a row contradicting the declared type, and the next
-    // export would drop the key again.
-    const { parentId: _parentId, ...preV8 } = categoryRows[0]!;
-
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 7,
-        tables: { eventTypes: [preV8 as Category] },
-      }),
-    );
-
-    expect(migrated.tables.categories[0]).toHaveProperty("parentId", null);
-  });
-
-  it("keeps a parent a pre-v8 file somehow already carries", () => {
-    const nested = { ...categoryRows[0]!, parentId: "soins" };
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 7, tables: { eventTypes: [nested] } }),
-    );
-
-    expect(migrated.tables.categories[0]?.parentId).toBe("soins");
-  });
-
-  /**
-   * The four rows v9 cares about, as a v8 file carried them: all roots, each
-   * with the presentation it owned before nesting.
-   *
-   * The ids are deliberately not the keys. A seeded built-in has `id === key`,
-   * so a fixture that repeated that would pass whether the step resolved the
-   * parent's id out of the file or simply assumed the key was one — and a file
-   * written by another build is exactly where that assumption breaks.
-   */
-  const preV9Types = (): Category[] => {
-    const row = (key: string, over: Partial<Category> = {}) => ({
-      ...categoryRows.find((type) => type.key === key)!,
-      id: `type-${key}`,
-      parentId: null,
-      ...over,
-    });
-
-    return [
-      row("alimentation"),
-      row("veto"),
-      row("cures", { icon: "pawPrint", theme: "purple" }),
-      row("traitement", { icon: "info", theme: "orange" }),
-    ];
-  };
-
-  it("files a pre-v9 file's cures and traitement under their parent", () => {
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 8, tables: { eventTypes: preV9Types() } }),
-    );
-
-    const byId = new Map(migrated.tables.categories.map((t) => [t.id, t]));
-    expect(byId.get("type-cures")).toMatchObject({
-      parentId: "type-alimentation",
-      icon: null,
-      theme: null,
-    });
-    expect(byId.get("type-traitement")).toMatchObject({
-      parentId: "type-veto",
-      icon: null,
-      theme: null,
-    });
-    // The parents keep everything: they gained a child, not a parent.
-    expect(byId.get("type-alimentation")).toMatchObject({
-      parentId: null,
-      icon: "carrot",
-      theme: "coral",
-    });
-  });
-
-  it("keeps a parent the file already carries", () => {
-    const types = preV9Types().map((type) =>
-      type.key === "cures" ? { ...type, parentId: "type-veto" } : type,
-    );
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 8, tables: { eventTypes: types } }),
-    );
-
-    const cures = migrated.tables.categories.find((t) => t.id === "type-cures");
-    expect(cures).toMatchObject({ parentId: "type-veto", theme: "purple" });
-  });
-
-  it("leaves a child alone when its parent is not in the file", () => {
-    // The parent type was deleted on the device that wrote this backup.
-    // Writing the link anyway would point at nothing, which `resolveCatalogue`
-    // reads back as "root" — the same outcome, reached by an accident rather
-    // than a rule.
-    const types = preV9Types().filter((type) => type.key !== "alimentation");
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 8, tables: { eventTypes: types } }),
-    );
-
-    expect(
-      migrated.tables.categories.find((t) => t.id === "type-cures"),
-    ).toMatchObject({ parentId: null, icon: "pawPrint", theme: "purple" });
-  });
-
-  /**
-   * The two rows v10 touches, as a v9 file carried them: `soins` and `osteo`,
-   * both roots, `osteo` with the icon and theme it owned before nesting.
-   *
-   * Hand-derived from `categoryRows` the same way `preV9Types` is, for the
-   * same reason: reading the nesting off the live rows would exercise the
-   * upgrade against its own output.
-   */
-  const preV10Types = (): Category[] => {
-    const row = (key: string, over: Partial<Category> = {}) => ({
-      ...categoryRows.find((type) => type.key === key)!,
-      id: `type-${key}`,
-      parentId: null,
-      ...over,
-    });
-
-    return [row("soins"), row("osteo", { icon: "pawPrint", theme: "orange" })];
-  };
-
-  it("files a pre-v10 file's osteo under soins, keeping its icon", () => {
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 9, tables: { eventTypes: preV10Types() } }),
-    );
-
-    const byId = new Map(migrated.tables.categories.map((t) => [t.id, t]));
-    expect(byId.get("type-osteo")).toMatchObject({
-      parentId: "type-soins",
-      icon: "pawPrint",
-      theme: null,
-    });
-    // Read off the shipped row: the parent gained a child, not a parent, so
-    // what matters is that v10 left its presentation alone — not which colour
-    // that presentation happens to be this week.
-    const soins = categoryRows.find((type) => type.key === "soins")!;
-    expect(byId.get("type-soins")).toMatchObject({
-      parentId: null,
-      icon: soins.icon,
-      theme: soins.theme,
-    });
-  });
-
-  it("keeps a parent the file already carries", () => {
-    const types = preV10Types().map((type) =>
-      type.key === "osteo" ? { ...type, parentId: "type-soins" } : type,
-    );
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 9, tables: { eventTypes: types } }),
-    );
-
-    const osteo = migrated.tables.categories.find((t) => t.id === "type-osteo");
-    expect(osteo).toMatchObject({ parentId: "type-soins", theme: "orange" });
-  });
-
-  it("leaves osteo alone when soins is not in the file", () => {
-    const types = preV10Types().filter((type) => type.key !== "soins");
-
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 9, tables: { eventTypes: types } }),
-    );
-
-    expect(
-      migrated.tables.categories.find((t) => t.id === "type-osteo"),
-    ).toMatchObject({ parentId: null, icon: "pawPrint", theme: "orange" });
-  });
-
-  it("adds massage as a new child of soins to a pre-v10 file", () => {
-    const migrated = migrateSnapshot(
-      snapshot({ schemaVersion: 9, tables: { eventTypes: preV10Types() } }),
-    );
-
-    const soins = migrated.tables.categories.find((t) => t.key === "soins")!;
-    const massage = migrated.tables.categories.find((t) => t.key === "massage");
-    expect(massage).toMatchObject({ label: "Massage", parentId: soins.id });
-  });
-
-  it("does not duplicate massage when the file already carries it", () => {
-    const massage = {
-      ...categoryRows.find((type) => type.key === "massage")!,
-      id: "type-massage",
-      parentId: "type-soins",
-    };
-
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 9,
-        tables: { eventTypes: [...preV10Types(), massage] },
-      }),
-    );
-
-    expect(
-      migrated.tables.categories.filter((t) => t.key === "massage"),
-    ).toHaveLength(1);
-  });
-
-  it("rewrites a pre-v11 file's balade session to baladeApied", () => {
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 10,
-        tables: {
-          events: [
-            event({ type: "travail", customFields: { activity: "balade" } }),
-          ],
-        },
-      }),
-    );
-
-    expect(migrated.tables.posts[0]).toMatchObject({
-      customFields: { activity: "baladeApied" },
-    });
-  });
-
-  it("leaves a pre-v11 travail session on a different activity alone", () => {
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 10,
-        tables: {
-          events: [
-            event({ type: "travail", customFields: { activity: "longe" } }),
-          ],
-        },
-      }),
-    );
-
-    expect(migrated.tables.posts[0]).toMatchObject({
-      customFields: { activity: "longe" },
-    });
-  });
-
-  it("leaves a non-travail event alone even if it happens to carry the key", () => {
-    const migrated = migrateSnapshot(
-      snapshot({
-        schemaVersion: 10,
-        tables: {
-          events: [
-            event({ type: "veto", customFields: { activity: "balade" } }),
-          ],
-        },
-      }),
-    );
-
-    expect(migrated.tables.posts[0]).toMatchObject({
-      customFields: { activity: "balade" },
-    });
-  });
-
-  it("supplies an empty profiles table to a pre-v12 file", () => {
-    const { profiles: _, ...tables } = legacy(snapshot({ schemaVersion: 11 }));
-    const migrated = migrateSnapshot({
-      ...snapshot({ schemaVersion: 11 }),
-      tables: tables as unknown as BackupTables,
-    });
-
-    expect(migrated.tables.profiles).toEqual([]);
-  });
-
-  it("stamps the file up to the current schema version", () => {
-    const migrated = migrateSnapshot(snapshot({ schemaVersion: 7 }));
-
-    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });
 
@@ -490,6 +173,18 @@ describe("importBackup — rejects bad input", () => {
     ).rejects.toThrow(/version plus récente/);
   });
 
+  it("rejects a backup written by an older build, writing nothing", async () => {
+    // The steps that read pre-v13 files are gone; merging one unread would
+    // write rows this build silently misreads.
+    const old = snapshot({
+      schemaVersion: SCHEMA_VERSION - 1,
+      tables: { horses: [horse()] },
+    });
+
+    await expect(importBackup(old)).rejects.toThrow(/version trop ancienne/);
+    expect(await db.horses.count()).toBe(0);
+  });
+
   it("rejects an empty tables object with a readable message, not a TypeError", async () => {
     // Regression: `assertSnapshot` used to check only that `tables` existed, so
     // this reached the merge and threw "undefined is not iterable".
@@ -519,83 +214,6 @@ describe("importBackup — rejects bad input", () => {
 
     await expect(importBackup(broken)).rejects.toThrow(
       /« horses » contient des enregistrements invalides/,
-    );
-  });
-
-  it("upgrades a v1 ration row, turning the seasonal flag into a window", async () => {
-    // A v1 export predates `season` entirely and carries `seasonal` instead.
-    const { season: _season, ...rest } = ration();
-    const legacyRow = { ...rest, seasonal: true };
-
-    await importBackup({
-      ...snapshot({ schemaVersion: 1 }),
-      schemaVersion: 1,
-      tables: {
-        ...legacy(snapshot({ schemaVersion: 1 })),
-        rationItems: [legacyRow],
-      },
-    });
-
-    const stored = await db.rationItems.get("ration-1");
-    expect(stored?.season).toEqual(DEFAULT_SEASON);
-    // The old flag must not survive alongside the new field — a stale duplicate
-    // is what the next reader trusts by mistake.
-    expect(stored).not.toHaveProperty("seasonal");
-  });
-
-  it("reads a v1 non-seasonal row as fed all year", async () => {
-    const { season: _season, ...rest } = ration();
-
-    await importBackup({
-      ...snapshot({ schemaVersion: 1 }),
-      schemaVersion: 1,
-      tables: {
-        ...legacy(snapshot({ schemaVersion: 1 })),
-        rationItems: [{ ...rest, seasonal: false }],
-      },
-    });
-
-    expect((await db.rationItems.get("ration-1"))?.season).toBe(null);
-  });
-
-  it("folds a pre-v3 event's absent vendor/followUpInterval into customFields as null", async () => {
-    // A v2 export has no `vendor` and no `followUpInterval` at all, and
-    // neither is observable on its own after `importBackup` returns — the
-    // v5 -> v6 step below runs in the same call and absorbs both into
-    // `customFields`. `event().type` is `veto`, which has both fields.
-    //
-    // `eventTypes` is omitted entirely, not defaulted to `[]`: a genuinely
-    // old file has no such key at all, and `[]` would (wrongly) tell the fold
-    // "no built-ins to seed" instead of "none of this file's own".
-    const { eventTypes: _eventTypes, ...tables } = legacy(
-      snapshot({ schemaVersion: 2 }),
-    );
-
-    await importBackup({
-      ...snapshot({ schemaVersion: 2 }),
-      tables: { ...tables, events: [event()] },
-    });
-
-    const stored = await db.posts.get("event-1");
-    expect(stored?.customFields).toHaveProperty("counterparty", null);
-    expect(stored?.customFields).toHaveProperty("followUp", null);
-  });
-
-  it("folds a pre-v4 event's absent activity into customFields as null", async () => {
-    // A v3 export has no `activity` at all. `travail` is the type that keeps
-    // it, unlike `event()`'s default `veto`.
-    const { eventTypes: _eventTypes, ...tables } = legacy(
-      snapshot({ schemaVersion: 3 }),
-    );
-
-    await importBackup({
-      ...snapshot({ schemaVersion: 3 }),
-      tables: { ...tables, events: [event({ type: "travail" })] },
-    });
-
-    expect(await db.posts.get("event-1")).toHaveProperty(
-      "customFields.activity",
-      null,
     );
   });
 
@@ -633,32 +251,9 @@ describe("importBackup — rejects bad input", () => {
     });
   });
 
-  it("accepts a pre-v5 file that predates the activities and eventTypes tables", async () => {
-    // Regression, and the expensive kind: `assertSnapshot` requires every table
-    // in `RECORD_TABLES` to be present, so adding one made every backup ever
-    // exported unrestorable — on the one feature that exists to stop data being
-    // lost. A v4 file simply has neither key.
-    const {
-      activities: _activities,
-      eventTypes: _eventTypes,
-      ...v4Tables
-    } = legacy(snapshot({ schemaVersion: 4 }));
-
-    const result = await importBackup({
-      ...snapshot({ schemaVersion: 4 }),
-      tables: { ...v4Tables, horses: [horse()] },
-    });
-
-    // The horse, plus the 14 built-in types the v5 -> v6 step seeds in the
-    // same call — a v4 file has neither activities nor a type catalogue.
-    expect(result).toEqual({ imported: 15, skipped: 0 });
-    expect(await db.activities.count()).toBe(0);
-    expect(await db.categories.count()).toBe(14);
-  });
-
   it("still rejects a table missing from a current-version file", async () => {
-    // The allowance above is for *older* files only: a file claiming the
-    // current schema and missing a table is corrupt, not merely old.
+    // Every table is required: an older file, the only one that could
+    // legitimately lack a newer table, is refused before this is reached.
     const { activities: _activities, ...incomplete } = snapshot().tables;
 
     await expect(
@@ -694,14 +289,16 @@ describe("importBackup — rejects bad input", () => {
 });
 
 /**
- * Léa's own database, exported at schema v5 and scrubbed of names.
+ * Léa's own database, exported at schema v13 on 2026-09-17 — the day her
+ * install was confirmed past every migration — and scrubbed of names: owner,
+ * horse identity, practitioners, merchants, the coach and every note. Ids,
+ * dates, amounts, titles and category rows are exactly what the phone wrote.
  *
- * Every other migration test on this file builds the row it wants, which
- * means every one of them tests the step its author was already thinking
- * about. This one is the shape that actually exists on a phone: 111 events
- * across nine built-in types, 9 tombstones, 13 work sessions, practitioners
- * and merchants on the columns v6 folds away, and a five-version climb to
- * make — v5 is what the app wrote on 2026-09-07, and v6 landed the next day.
+ * Every other test on this file builds the row it wants, which means every one
+ * of them tests what its author was already thinking about. This one is the
+ * shape that actually exists on a phone: 124 posts across twelve categories,
+ * 12 tombstones, courses with an end date and a dose, and the user's own
+ * activities.
  *
  * Pulled in with Vite's `?raw` suffix and parsed here, rather than imported
  * as a module: `resolveJsonModule` is off, and turning it on to type one
@@ -711,112 +308,84 @@ describe("importBackup — rejects bad input", () => {
  * admitting Node's globals into the app's ambient types to serve a test.
  *
  * The totals below were computed from the file before it was scrubbed, and
- * scrubbing touched no amount. If a change to the fold makes one of them
- * move, that is money leaving a real ledger — not a fixture needing an
- * update.
+ * scrubbing touched no amount. If a change makes one of them move, that is
+ * money leaving a real ledger — not a fixture needing an update.
  */
-const REAL_V5_EXPORT = JSON.parse(realV5ExportRaw) as BackupSnapshot;
+const REAL_V13_EXPORT = JSON.parse(realV13ExportRaw) as BackupSnapshot;
 
-/** Cents across every event in the fixture, tombstones included. */
-const REAL_TOTAL_CENTS = 1_575_560;
-const REAL_EVENT_COUNT = 111;
+const REAL_V13_POST_COUNT = 124;
+const REAL_V13_TOMBSTONES = 12;
+/** Cents across every post in the fixture, tombstones included. */
+const REAL_V13_TOTAL_CENTS = 1_593_101;
 
-const realExport = (): BackupSnapshot =>
-  structuredClone(REAL_V5_EXPORT) as BackupSnapshot;
+const realV13Export = (): BackupSnapshot => structuredClone(REAL_V13_EXPORT);
 
-const totalCents = (events: Post[]) =>
-  events.reduce(
+const REAL_V13_TABLES = Object.keys(
+  REAL_V13_EXPORT.tables,
+) as RecordTableName[];
+
+const totalCents = (posts: Post[]) =>
+  posts.reduce(
     (sum, entry) => sum + (Number(entry.customFields?.amountCents) || 0),
     0,
   );
 
-describe("migrateSnapshot — a real v5 export", () => {
-  it("carries every event across the five-version climb", () => {
-    const migrated = migrateSnapshot(realExport());
+const byId = (rows: readonly { id: string }[]) =>
+  [...rows].sort((a, b) => a.id.localeCompare(b.id));
 
-    expect(migrated.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(migrated.tables.posts).toHaveLength(REAL_EVENT_COUNT);
-  });
+describe("importBackup — a real v13 export", () => {
+  it("restores into an empty database with every row written", async () => {
+    const result = await importBackup(realV13Export());
 
-  it("does not lose a cent", () => {
-    const before = realExport();
-    const legacyTotal = legacy(before).events.reduce(
-      (sum, row) =>
-        sum +
-        ((row as unknown as { amountCents: number | null }).amountCents ?? 0),
+    const rowCount = REAL_V13_TABLES.reduce(
+      (sum, name) => sum + REAL_V13_EXPORT.tables[name].length,
       0,
     );
-    expect(legacyTotal).toBe(REAL_TOTAL_CENTS);
+    expect(result).toEqual({ imported: rowCount, skipped: 0 });
+    expect(await db.posts.count()).toBe(REAL_V13_POST_COUNT);
+  });
 
-    expect(totalCents(migrateSnapshot(before).tables.posts)).toBe(
-      REAL_TOTAL_CENTS,
+  it("does not lose a cent", async () => {
+    expect(totalCents(REAL_V13_EXPORT.tables.posts)).toBe(REAL_V13_TOTAL_CENTS);
+
+    await importBackup(realV13Export());
+
+    expect(totalCents(await db.posts.toArray())).toBe(REAL_V13_TOTAL_CENTS);
+  });
+
+  it("keeps the 12 tombstones, so the deletions survive the restore", async () => {
+    await importBackup(realV13Export());
+
+    const posts = await db.posts.toArray();
+    expect(posts.filter((row) => row.deletedAt !== null)).toHaveLength(
+      REAL_V13_TOMBSTONES,
     );
   });
 
-  it("keeps the 9 tombstones, so the deletions survive the restore", () => {
-    const migrated = migrateSnapshot(realExport());
+  it("leaves every post on a category and every document on a post", async () => {
+    await importBackup(realV13Export());
 
-    expect(
-      migrated.tables.posts.filter((row) => row.deletedAt !== null),
-    ).toHaveLength(9);
-  });
+    const keys = new Set((await db.categories.toArray()).map((row) => row.key));
+    const posts = await db.posts.toArray();
+    for (const row of posts) expect(keys.has(row.categoryKey)).toBe(true);
 
-  it("folds every legacy column away and leaves none behind", () => {
-    const migrated = migrateSnapshot(realExport());
-
-    for (const row of migrated.tables.posts) {
-      expect(row.customFields).toBeDefined();
-      expect(row).not.toHaveProperty("providerName");
-      expect(row).not.toHaveProperty("vendor");
-      expect(row).not.toHaveProperty("followUpInterval");
-      expect(row).not.toHaveProperty("activity");
-      expect(row).not.toHaveProperty("amountCents");
+    const postIds = new Set(posts.map((row) => row.id));
+    for (const row of await db.documents.toArray()) {
+      if (row.postId !== null) expect(postIds.has(row.postId)).toBe(true);
     }
   });
 
-  it("keeps every practitioner and merchant, on the field their type carries", () => {
-    const before = realExport();
-    const named = legacy(before).events.filter((candidate) => {
-      const row = candidate as unknown as {
-        providerName: string | null;
-        vendor: string | null;
-      };
-      return row.providerName ?? row.vendor;
-    });
-    expect(named.length).toBeGreaterThan(0);
+  it("exports back exactly what it restored", async () => {
+    await importBackup(realV13Export());
 
-    const migrated = migrateSnapshot(before);
-    const byId = new Map(migrated.tables.posts.map((e) => [e.id, e]));
+    const exported = await exportBackup();
 
-    for (const row of named) {
-      expect(byId.get(row.id)?.customFields.counterparty).toBeTruthy();
+    expect(exported.schemaVersion).toBe(REAL_V13_EXPORT.schemaVersion);
+    expect(exported.ownerId).toBe(REAL_V13_EXPORT.ownerId);
+    for (const name of REAL_V13_TABLES) {
+      expect(byId(exported.tables[name])).toStrictEqual(
+        byId(REAL_V13_EXPORT.tables[name]),
+      );
     }
-  });
-
-  it("gives the file the 14 built-in types it was exported without", () => {
-    const migrated = migrateSnapshot(realExport());
-
-    expect(migrated.tables.categories).toHaveLength(BUILT_IN_CATEGORIES.length);
-    // Every row's type still resolves against the seeded catalogue —
-    // an row pointing at a key nothing carries renders untyped.
-    const keys = new Set(migrated.tables.categories.map((type) => type.key));
-    for (const row of migrated.tables.posts) {
-      expect(keys.has(row.categoryKey)).toBe(true);
-    }
-  });
-
-  it("restores into an empty database with every row written", async () => {
-    const result = await importBackup(realExport());
-
-    expect(result.imported).toBe(
-      REAL_EVENT_COUNT +
-        REAL_V5_EXPORT.tables.horses.length +
-        REAL_V5_EXPORT.tables.documents.length +
-        REAL_V5_EXPORT.tables.rationItems.length +
-        REAL_V5_EXPORT.tables.activities.length +
-        BUILT_IN_CATEGORIES.length,
-    );
-    expect(await db.posts.count()).toBe(REAL_EVENT_COUNT);
-    expect(totalCents(await db.posts.toArray())).toBe(REAL_TOTAL_CENTS);
   });
 });
