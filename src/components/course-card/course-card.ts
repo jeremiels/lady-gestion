@@ -71,7 +71,7 @@ export class CourseCard extends BaseElement {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: stretch;
-      column-gap: var(--spacing-12);
+      column-gap: var(--spacing-8);
       padding: var(--spacing-12) var(--spacing-16);
       border-radius: var(--radius-12);
       background-color: var(--color-white);
@@ -81,7 +81,7 @@ export class CourseCard extends BaseElement {
        as tall as the two lines whatever the font size. Neutral until the
        category resolves. */
     .course-card__bar {
-      width: 0.25rem;
+      width: 0.375rem;
       border-radius: var(--radius-pill);
       background: var(--color-brown-light);
     }
@@ -98,9 +98,9 @@ export class CourseCard extends BaseElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 1rem;
-      line-height: 1.375rem;
-      font-weight: 500;
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      font-weight: 600;
       color: var(--color-dark);
     }
 
@@ -109,8 +109,8 @@ export class CourseCard extends BaseElement {
       flex-wrap: wrap;
       align-items: baseline;
       margin: 0;
-      font-size: 0.75rem;
-      line-height: 1rem;
+      font-size: 0.625rem;
+      line-height: 0.875rem;
       color: var(--color-text-muted);
     }
 
@@ -133,15 +133,15 @@ export class CourseCard extends BaseElement {
 
     .course-card__count {
       font-family: var(--font-family-heading);
-      font-size: 1.375rem;
-      line-height: 1.625rem;
-      font-weight: 700;
+      font-size: 1.125rem;
+      line-height: 1.125rem;
+      font-weight: 800;
       color: var(--color-dark);
     }
 
     .course-card__unit {
-      font-size: 0.75rem;
-      line-height: 1rem;
+      font-size: 0.625rem;
+      line-height: 0.845rem;
       white-space: nowrap;
       color: var(--color-text-muted);
     }
