@@ -91,7 +91,7 @@ export class AppInput extends FormFieldElement {
     :host {
       display: block;
       font-family: var(--font-family-base);
-      background-color: #fff;
+      background-color: var(--color-white);
       padding: var(--spacing-12);
       border-radius: var(--radius-16);
     }
@@ -109,7 +109,7 @@ export class AppInput extends FormFieldElement {
     }
 
     .field__label {
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 1.25rem;
       font-weight: 600;
       color: var(--font-color);

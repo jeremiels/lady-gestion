@@ -29,8 +29,8 @@
   }
 
   .budget-view__back:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
-    outline-offset: 2px;
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   /* Size the glyph, not the host: app-icon carries its own padding, and a width
@@ -128,8 +128,8 @@
   /* Same ring as .budget-view__back above. The radius is there only so the
      outline follows a shape rather than boxing the row's full width squarely. */
   .budget-view__legend-item:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
-    outline-offset: 2px;
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
     border-radius: var(--radius-8);
   }
 
@@ -196,8 +196,8 @@
   }
 
   .budget-view__legend-breakdown > summary:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
-    outline-offset: 2px;
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
     border-radius: var(--radius-8);
   }
 
@@ -228,7 +228,7 @@
   }
 
   .budget-view__group-title {
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--color-brown-middle);
   }
@@ -276,7 +276,7 @@
   }
 
   .budget-view__empty {
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     color: var(--color-brown-light);
   }
 }

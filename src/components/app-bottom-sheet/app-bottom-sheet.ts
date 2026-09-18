@@ -83,7 +83,9 @@ export class AppBottomSheet extends DialogElement {
    * the new height by the time the callback runs, so nothing here touches
    * layout, it only animates what is already true.
    */
-  #resizeObserver = new ResizeObserver((entries) => this.#onDialogResize(entries));
+  #resizeObserver = new ResizeObserver((entries) =>
+    this.#onDialogResize(entries),
+  );
   #lastDialogHeight: number | null = null;
   #heightAnimation: Animation | null = null;
 
@@ -131,7 +133,9 @@ export class AppBottomSheet extends DialogElement {
     const previous = this.#lastDialogHeight;
     this.#lastDialogHeight = height;
 
-    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reducedMotion = matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (
       previous === null ||
       previous === height ||
@@ -330,7 +334,7 @@ export class AppBottomSheet extends DialogElement {
     }
 
     .dialog__title {
-      font-size: 1rem;
+      font-size: var(--font-size-base);
       line-height: 1.5rem;
       font-weight: 700;
       color: var(--font-color);
@@ -341,8 +345,8 @@ export class AppBottomSheet extends DialogElement {
     }
 
     .dialog__close:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
 
     @media (prefers-reduced-motion: reduce) {

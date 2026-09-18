@@ -63,8 +63,8 @@ export class CourseCard extends BaseElement {
     }
 
     .course-card__link:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
 
     .course-card {
@@ -98,7 +98,7 @@ export class CourseCard extends BaseElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       line-height: 1.25rem;
       font-weight: 600;
       color: var(--color-dark);

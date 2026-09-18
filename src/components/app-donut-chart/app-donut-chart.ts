@@ -451,7 +451,7 @@ export class AppDonutChart extends BaseElement {
 
     .donut__caption,
     .donut__note {
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       font-weight: 500;
       color: var(--color-brown-light);
     }

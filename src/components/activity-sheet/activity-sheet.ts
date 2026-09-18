@@ -103,7 +103,7 @@ export class ActivitySheet extends BaseElement {
       padding: 0;
       border-radius: var(--radius-16);
     }
-    
+
     .activity-sheet__field {
       flex: 1;
       min-width: 0;
@@ -124,8 +124,8 @@ export class ActivitySheet extends BaseElement {
     }
 
     .activity-sheet__submit:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
 
     /* Assertive and always mounted — a live region has to be in the
@@ -140,7 +140,7 @@ export class ActivitySheet extends BaseElement {
 
     .activity-sheet__error {
       margin-block-start: var(--spacing-8);
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       color: var(--app-field-error-color, var(--color-error));
     }
   `;

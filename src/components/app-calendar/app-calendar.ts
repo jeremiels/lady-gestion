@@ -181,7 +181,7 @@ export class AppCalendar extends BaseElement {
 
       .calendar__month {
         text-align: center;
-        font-size: 0.875rem;
+        font-size: var(--font-size-sm);
         font-weight: 700;
         color: var(--color-dark);
       }
@@ -210,7 +210,7 @@ export class AppCalendar extends BaseElement {
       .calendar__weekday {
         justify-self: center;
         padding-bottom: var(--spacing-8);
-        font-size: 0.875rem;
+        font-size: var(--font-size-sm);
         font-weight: 500;
         color: var(--color-brown-light);
       }
@@ -324,8 +324,8 @@ export class AppCalendar extends BaseElement {
       }
 
       .calendar__day:focus-visible {
-        outline: 2px solid var(--color-brown-dark);
-        outline-offset: 2px;
+        outline: var(--focus-ring);
+        outline-offset: var(--focus-ring-offset);
       }
 
       .calendar__dot {

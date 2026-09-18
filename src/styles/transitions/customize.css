@@ -20,9 +20,9 @@
     }
   }
 
-  :root:active-view-transition-type(customize-subpage):active-view-transition-type(
-      forward
-    ) {
+  :root:active-view-transition-type(
+      customize-subpage
+    ):active-view-transition-type(forward) {
     &::view-transition-old(--customize-view-panel) {
       animation: route-leave-to-left var(--duration-slow) var(--easing-standard)
         both;
@@ -34,9 +34,9 @@
     }
   }
 
-  :root:active-view-transition-type(customize-subpage):active-view-transition-type(
-      back
-    ) {
+  :root:active-view-transition-type(
+      customize-subpage
+    ):active-view-transition-type(back) {
     &::view-transition-old(--customize-view-panel) {
       animation: route-leave-to-right var(--duration-slow)
         var(--easing-standard) both;

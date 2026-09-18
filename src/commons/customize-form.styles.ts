@@ -26,7 +26,7 @@ export const customizeFormStyles = css`
 
   .title {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     line-height: 0.875rem;
     font-weight: bold;
     color: var(--color-brown-middle);
@@ -57,7 +57,7 @@ export const customizeFormStyles = css`
 
   .item__label {
     font-weight: bold;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     line-height: 1rem;
     color: var(--color-brown-middle);
   }
@@ -66,7 +66,7 @@ export const customizeFormStyles = css`
   .item__input {
     min-width: 0;
     font-weight: bold;
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     line-height: 0.938rem;
     text-align: end;
     color: var(--font-color);
@@ -82,7 +82,7 @@ export const customizeFormStyles = css`
   }
 
   .item__input:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
+    outline: var(--focus-ring);
     outline-offset: 4px;
     border-radius: var(--radius-8);
   }
@@ -90,7 +90,7 @@ export const customizeFormStyles = css`
   .item__error {
     grid-column: 1 / -1;
     margin: 0.25rem 0 0;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     font-weight: 600;
     text-align: end;
     color: var(--color-theme-pink);

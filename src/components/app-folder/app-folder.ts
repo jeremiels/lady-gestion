@@ -58,14 +58,14 @@ export class AppFolder extends BaseElement {
     }
 
     .folder-name {
-      font-size: 1rem;
+      font-size: var(--font-size-base);
       line-height: 1.25rem;
       font-weight: 600;
       color: var(--font-color);
     }
 
     .folder-number {
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 0.875rem;
       font-weight: 600;
       color: var(--color-brown-light);

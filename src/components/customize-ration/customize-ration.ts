@@ -50,7 +50,7 @@ export class CustomizeRation extends BaseElement {
        root does not see. */
     .title {
       margin: 0;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 0.875rem;
       font-weight: bold;
       color: var(--color-brown-middle);

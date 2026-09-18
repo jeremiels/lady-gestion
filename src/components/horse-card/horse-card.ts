@@ -93,7 +93,7 @@ export class HorseCard extends BaseElement {
     }
 
     .horse-card__info-title {
-      font-size: 1rem;
+      font-size: var(--font-size-base);
       line-height: 1.25rem;
       letter-spacing: -1%;
       font-weight: 700;

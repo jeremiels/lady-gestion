@@ -55,7 +55,7 @@
   }
 
   .posts-view__group-title {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     line-height: 0.938rem;
     font-weight: 600;
     color: var(--color-brown-dark);
@@ -128,7 +128,7 @@
   }
 
   .posts-view__empty {
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     color: var(--color-brown-light);
     transition: opacity var(--duration-fast) var(--easing-out);
   }

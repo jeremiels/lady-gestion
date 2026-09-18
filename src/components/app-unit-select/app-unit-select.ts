@@ -114,7 +114,7 @@ export class AppUnitSelect extends FormFieldElement {
       }
 
       .field__label {
-        font-size: 0.75rem;
+        font-size: var(--font-size-xs);
         line-height: 1.25rem;
         font-weight: 600;
         color: var(--font-color);
@@ -127,7 +127,7 @@ export class AppUnitSelect extends FormFieldElement {
         height: 2.75rem;
         padding-inline: var(--spacing-16);
         color: var(--color-brown-light);
-        font-size: 0.75rem;
+        font-size: var(--font-size-xs);
         font-weight: 600;
         white-space: nowrap;
         cursor: pointer;
@@ -144,7 +144,7 @@ export class AppUnitSelect extends FormFieldElement {
         right: -2px;
         inset-block: 0;
         width: 2px;
-        background: #fff;
+        background: var(--color-white);
         border-radius: inherit;
         pointer-events: none;
       }
@@ -189,8 +189,8 @@ export class AppUnitSelect extends FormFieldElement {
       }
 
       .option:has(.option__input:focus-visible) {
-        outline: 2px solid var(--color-brown-dark);
-        outline-offset: 2px;
+        outline: var(--focus-ring);
+        outline-offset: var(--focus-ring-offset);
       }
     `,
   ];

@@ -30,8 +30,8 @@
   }
 
   .profile-view__back:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
-    outline-offset: 2px;
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   /* Size the glyph, not the host: app-icon carries its own padding, and a width
@@ -89,7 +89,7 @@
     height: 2rem;
     border-radius: var(--radius-8);
     color: var(--color-brown-middle);
-    --icon-color: #412C17;
+    --icon-color: #412c17;
     --icon-background: var(--color-theme-brown-light-background);
   }
 
@@ -100,7 +100,7 @@
 
   .profile-view__hint {
     margin: 0;
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     font-weight: 700;
   }
 
@@ -131,7 +131,7 @@
 
   .profile-view__note {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     line-height: 1rem;
     color: var(--color-brown-middle);
   }

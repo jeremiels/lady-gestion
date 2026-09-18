@@ -55,7 +55,7 @@ export const segmentedStyles = [
     .segmented__option--text {
       width: auto;
       padding-inline: var(--spacing-16);
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       font-weight: 600;
       white-space: nowrap;
     }
@@ -79,8 +79,8 @@ export const segmentedStyles = [
     }
 
     .segmented__option:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
   `,
 ];

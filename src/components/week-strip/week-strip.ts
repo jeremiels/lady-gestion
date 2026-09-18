@@ -126,8 +126,8 @@ export class WeekStrip extends BaseElement {
     }
 
     .week__day:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
   `;
 

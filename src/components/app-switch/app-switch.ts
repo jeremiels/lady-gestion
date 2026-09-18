@@ -119,7 +119,7 @@ export class AppSwitch extends BaseElement {
 
     .switch__label {
       font-weight: bold;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 1rem;
       color: var(--color-brown-middle);
     }
@@ -195,8 +195,8 @@ export class AppSwitch extends BaseElement {
     }
 
     .switch__track:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
 
     @media (prefers-reduced-motion: reduce) {

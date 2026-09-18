@@ -5,7 +5,6 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { customizeFormStyles } from "../../commons/customize-form.styles.ts";
 import { byOrder, type ResolvedCategory } from "../../data/categories.ts";
 
-
 import "../app-icon/app-icon.ts";
 import "../app-switch/app-switch.ts";
 
@@ -54,23 +53,23 @@ export class CustomizeCategories extends BaseElement {
 
   render() {
     return html`
-    <section class="section">
-      <ul class="list">
-        ${repeat(
-          byOrder(this.categories),
-          (category) => category.id,
-          (category) => html`
-            <li class="item">
-              <app-switch
-                label=${category.label}
-                .checked=${category.enabled}
-                @switch-change=${this.#onToggle(category.id)}
-              ></app-switch>
-            </li>
-          `,
-        )}
-      </ul>
-    </section>
+      <section class="section">
+        <ul class="list">
+          ${repeat(
+            byOrder(this.categories),
+            (category) => category.id,
+            (category) => html`
+              <li class="item">
+                <app-switch
+                  label=${category.label}
+                  .checked=${category.enabled}
+                  @switch-change=${this.#onToggle(category.id)}
+                ></app-switch>
+              </li>
+            `,
+          )}
+        </ul>
+      </section>
     `;
   }
 }

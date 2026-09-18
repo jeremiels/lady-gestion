@@ -28,8 +28,8 @@
   }
 
   .post-detail__back:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
-    outline-offset: 2px;
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   /* Size the glyph, not the host: app-icon carries its own padding, and a
@@ -88,8 +88,8 @@
   }
 
   .post-detail__file:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
-    outline-offset: 2px;
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   .post-detail__file-icon {
@@ -154,7 +154,7 @@
   }
 
   .post-detail__action:focus-visible {
-    outline: 2px solid var(--color-brown-dark);
+    outline: var(--focus-ring);
     outline-offset: -2px;
   }
 
@@ -179,13 +179,13 @@
   /* Pushed to the right so the row still reads label-first. */
   .post-detail__action-hint {
     margin-left: auto;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     font-weight: 500;
     color: var(--color-brown-light);
   }
 
   .post-detail__confirm {
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     line-height: 1.4;
     color: var(--color-brown-middle);
   }
@@ -227,7 +227,7 @@
   }
 
   .post-detail__empty {
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     color: var(--color-brown-light);
   }
 

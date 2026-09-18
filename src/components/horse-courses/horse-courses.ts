@@ -62,7 +62,7 @@ export class HorseCourses extends BaseElement {
 
     .empty {
       margin: 0;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       color: var(--color-brown-middle);
     }
   `;

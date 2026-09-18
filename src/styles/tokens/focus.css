@@ -1,0 +1,16 @@
+@layer tokens.focus {
+  :root {
+    /**
+     * The keyboard focus ring, as one value.
+     *
+     * A composite rather than a colour, which is why it is here and not in
+     * `color.css`: the ring is a width, a style and a colour that only ever
+     * change together, and it is drawn identically by twenty-one rules split
+     * across view stylesheets and component shadow roots. A declaration block
+     * cannot be shared across that boundary; a custom property inherits
+     * through it, so this is the only shape that reaches both.
+     */
+    --focus-ring: 2px solid var(--color-brown-dark);
+    --focus-ring-offset: 2px;
+  }
+}

@@ -20,7 +20,7 @@
   }
 
   .section-title-small {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     line-height: 0.875rem;
     font-weight: bold;
     letter-spacing: 0%;
@@ -28,7 +28,7 @@
   }
 
   .section-subtitle {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     line-height: 1.25;
     color: var(--color-brown-light);
     font-weight: 600;

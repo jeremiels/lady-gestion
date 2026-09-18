@@ -35,7 +35,7 @@ export class HorseProfile extends BaseElement {
 
     .title {
       margin: 0;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 0.875rem;
       font-weight: bold;
       color: var(--color-brown-middle);
@@ -66,14 +66,14 @@ export class HorseProfile extends BaseElement {
 
     .item__label {
       font-weight: bold;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 1rem;
       color: var(--color-brown-middle);
     }
 
     .item__value {
       font-weight: bold;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       line-height: 0.938rem;
     }
   `;

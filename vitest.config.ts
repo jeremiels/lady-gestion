@@ -96,6 +96,9 @@ export default defineConfig({
             // way to know those actually resolve is a real document with the
             // real stylesheet in it.
             "src/theme/**/*.test.ts",
+            // Token contracts: only a real document can say what a custom
+            // property actually resolves to.
+            "src/styles/**/*.test.ts",
           ],
           browser: {
             enabled: true,

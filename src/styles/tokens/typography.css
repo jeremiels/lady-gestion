@@ -81,6 +81,7 @@
     --font-size-base: 1rem;
     --font-size-lg: 1.25rem;
     --font-size-sm: 0.875rem;
+    --font-size-xs: 0.75rem;
     --line-height-base: 1.5;
     --font-color: var(--color-dark);
   }

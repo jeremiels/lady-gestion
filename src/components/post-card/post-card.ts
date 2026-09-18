@@ -83,8 +83,8 @@ export class PostCard extends BaseElement {
     }
 
     .post-card__link:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
 
     /* Was the global .container class plus an override in
@@ -116,7 +116,7 @@ export class PostCard extends BaseElement {
     .post-card__title {
       grid-area: title;
       align-self: center;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       line-height: 1.25rem;
       font-weight: 600;
       color: var(--color-dark);
@@ -146,7 +146,7 @@ export class PostCard extends BaseElement {
 
     .post-card__notes {
       grid-area: notes;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 1.35;
       color: var(--color-text-muted);
     }

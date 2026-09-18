@@ -67,7 +67,7 @@ export class CustomizeHorse extends BaseElement {
       }
 
       .item__age:has(.item__input:focus-visible) {
-        outline: 2px solid var(--color-brown-dark);
+        outline: var(--focus-ring);
         outline-offset: 4px;
         border-radius: var(--radius-8);
       }

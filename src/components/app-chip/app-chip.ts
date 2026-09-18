@@ -26,7 +26,7 @@ export class AppChip extends BaseElement {
       background: var(--color-white);
       color: var(--color-brown-middle);
       font-family: inherit;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       font-weight: 600;
       line-height: 1.0625rem;
       white-space: nowrap;
@@ -43,8 +43,8 @@ export class AppChip extends BaseElement {
     }
 
     .chip:focus-visible {
-      outline: 2px solid var(--color-brown-dark);
-      outline-offset: 2px;
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
     }
   `;
 

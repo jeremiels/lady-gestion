@@ -148,7 +148,7 @@ export class HorseRation extends BaseElement {
 
     .item__label {
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       line-height: 1.25rem;
       color: var(--font-color);
     }
@@ -165,7 +165,7 @@ export class HorseRation extends BaseElement {
     }
 
     .item__quantity {
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       display: flex;
       align-items: baseline;
       gap: var(--spacing-4);
@@ -173,13 +173,13 @@ export class HorseRation extends BaseElement {
     }
 
     .item__amount {
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       font-weight: 700;
       color: var(--font-color);
     }
 
     .item__unit {
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       font-weight: 500;
       color: var(--color-brown-light);
     }
@@ -218,7 +218,7 @@ export class HorseRation extends BaseElement {
 
     .empty {
       margin: 0;
-      font-size: 0.875rem;
+      font-size: var(--font-size-sm);
       color: var(--color-brown-middle);
     }
   `;

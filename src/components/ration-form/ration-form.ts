@@ -64,7 +64,6 @@ export class RationForm extends BaseElement {
       app-input,
       app-select,
       app-unit-select {
-
         padding: 0;
       }
     }
@@ -97,7 +96,7 @@ export class RationForm extends BaseElement {
        field's shadow root. */
     .period__legend {
       padding: 0;
-      font-size: 0.75rem;
+      font-size: var(--font-size-xs);
       line-height: 1.25rem;
       font-weight: 600;
       color: var(--font-color);

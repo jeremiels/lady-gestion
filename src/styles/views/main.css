@@ -73,7 +73,7 @@
   .data-error__body {
     display: grid;
     gap: var(--spacing-12);
-    font-size: 0.875rem;
+    font-size: var(--font-size-sm);
     line-height: 1.4;
   }
 
@@ -83,7 +83,7 @@
 
   .data-error__detail {
     font-family: ui-monospace, monospace;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--color-brown-light);
     overflow-wrap: anywhere;
   }
