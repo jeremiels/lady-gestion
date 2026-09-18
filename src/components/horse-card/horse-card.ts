@@ -45,7 +45,7 @@ export class HorseCard extends BaseElement {
     }
 
     :host([context-type="horse-view"]) .horse-card {
-      border-radius: 0;
+      border-radius: var(--radius-12) 0 0 var(--radius-12);
     }
 
     .horse-card__image {

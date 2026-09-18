@@ -133,8 +133,8 @@ export class AppSwitch extends BaseElement {
       position: relative;
       flex-shrink: 0;
       margin: 0;
-      width: 2.75rem;
-      height: 1.625rem;
+      width: 2rem;
+      height: 1rem;
       border-radius: var(--radius-pill);
       background-color: var(--color-control-track);
       cursor: inherit;
@@ -162,18 +162,17 @@ export class AppSwitch extends BaseElement {
     }
 
     .switch__track::before {
-      left: 0.1875rem;
-      width: 1.25rem;
-      height: 1.25rem;
+      left: 2px;
+      width: 0.75rem;
+      height: 0.75rem;
       border-radius: var(--radius-pill);
       background-color: var(--color-white);
       transform: translateY(-50%);
     }
 
     .switch__track::after {
-      left: 0.5rem;
-      width: 0.625rem;
-      height: 0.625rem;
+      width: 0.5rem;
+      height: 0.5rem;
       background-color: var(--color-brown-dark);
       /* Same tick as app-checkbox — no icon component inside a form control. */
       clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 45% 62%);
@@ -182,11 +181,11 @@ export class AppSwitch extends BaseElement {
     }
 
     .switch__track:checked::before {
-      transform: translateY(-50%) translateX(1.125rem);
+      transform: translateY(-50%) translateX(1rem);
     }
 
     .switch__track:checked::after {
-      transform: translateY(-50%) translateX(1.125rem) scale(1);
+      transform: translateY(-50%) translateX(1.25rem) scale(1);
       opacity: 1;
     }
 

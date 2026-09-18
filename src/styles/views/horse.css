@@ -11,8 +11,9 @@
      the page scrolls sideways. */
   .horse-view__cover {
     position: relative;
-    width: 100dvw;
-    margin-inline: calc(50% - 50dvw);
+    border-top-right-radius: var(--radius-12);
+    border-top-left-radius: var(--radius-12);
+    overflow: clip;
   }
 
   .horse-view__card {

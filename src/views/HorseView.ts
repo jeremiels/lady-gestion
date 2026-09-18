@@ -87,9 +87,10 @@ export class HorseView extends LightElement {
           the view a real h1 for the document outline and a focus target for the
           route change in app-root.
         -->
-        <h1 class="visually-hidden" tabindex="-1">
-          ${horse?.name ?? "Fiche du cheval"}
-        </h1>
+        <hgroup class="section-group">
+          <h1 class="section-title" tabindex="-1">${horse?.name}</h1>
+          <p class="section-subtitle">Fiche synthèse</p>
+        </hgroup>
         <div class="horse-view__cover">
           <horse-card
             context-type="horse-view"
