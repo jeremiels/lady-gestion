@@ -44,29 +44,6 @@ export type FollowUpInterval = {
 };
 
 /**
- * What the select lands on when the box is ticked and the record has no
- * interval of its own — the farrier cycle, which is the common case.
- *
- * Named rather than reached for as `FOLLOW_UP_INTERVALS[2]`, which is what the
- * sheet used to do: under `noUncheckedIndexedAccess` that index needs a `??`
- * fallback, and the fallback there was a second copy of this very object. Two
- * values that had to agree, with a reorder of the list below silently able to
- * break the agreement.
- */
-export const DEFAULT_FOLLOW_UP: FollowUpInterval = { amount: 6, unit: "week" };
-
-/** The intervals the form offers, shortest first. */
-export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
-  { amount: 2, unit: "week" },
-  { amount: 4, unit: "week" },
-  DEFAULT_FOLLOW_UP,
-  { amount: 8, unit: "week" },
-  { amount: 3, unit: "month" },
-  { amount: 6, unit: "month" },
-  { amount: 12, unit: "month" },
-];
-
-/**
  * What was done in a schooling session — the entry form's Nom field on a
  * `travail` event (`#renderActivity` in `post-sheet.ts`).
  *
@@ -80,8 +57,8 @@ export const FOLLOW_UP_INTERVALS: FollowUpInterval[] = [
  *
  * - a session stays readable on its own, so deleting a row from the catalogue
  *   (`ActivityItem` in `types.ts`) retires a chip and never orphans an event;
- * - nothing joins — `day-card`, `PostDetailView` and `workActivityByDate` keep
- *   the shape they had when this was a closed union.
+ * - nothing joins — `day-card` and `PostDetailView` keep the shape they had
+ *   when this was a closed union.
  *
  * What it gives up is what the closed list used to buy: two spellings of
  * "carrière" are now two activities. `activityChoices` below is what stops that
@@ -283,31 +260,13 @@ export const workSessionByDate = (
 };
 
 /**
- * Just the activity per day, for the card that only draws a label.
- *
- * Derived from `workSessionByDate` rather than filtering a second time, so the
- * card and the sheet editing it cannot disagree about which row is the day's.
- */
-export const workActivityByDate = (
-  events: Post[],
-  types: Category[],
-): Map<IsoDate, WorkActivity> =>
-  new Map(
-    [...workSessionByDate(events, types)].map(([date, session]) => [
-      date,
-      session.activity,
-    ]),
-  );
-
-/**
  * The days this week that carry a `cours` event — the week strip's cue to
  * show "Cours" instead of a work activity.
  *
  * A `Set`, not a `Map` to something richer, because the strip shows nothing
- * about the lesson beyond the fact of it — no coach, no budget, the same way
- * `workActivityByDate` throws away everything but the activity string.
- * Cancelled events are skipped, as `workSessionByDate` skips them: a
- * cancelled lesson did not happen.
+ * about the lesson beyond the fact of it — no coach, no budget. Cancelled
+ * events are skipped, as `workSessionByDate` skips them: a cancelled lesson
+ * did not happen.
  */
 export const courseDatesThisWeek = (events: Post[]): Set<IsoDate> =>
   new Set(
@@ -363,69 +322,6 @@ export const formatFollowUpInterval = (interval: FollowUpInterval): string => {
 
   if (interval.unit === "month") return `${interval.amount} mois`;
   return interval.amount === 1 ? "1 semaine" : `${interval.amount} semaines`;
-};
-
-/**
- * A product quantity's unit — `alimentation`'s "Quantité du produit" field.
- *
- * Its own closed list rather than a reuse of `RationUnit` (`types.ts`): that
- * one belongs to the unrelated daily feed plan and carries six values built
- * for that plan's own needs (`dose`, `mesure`); coupling the two would make a
- * change to the ration vocabulary ripple into event storage for no reason.
- */
-export type QuantityUnit = "mL" | "kg" | "L";
-
-/** The options `app-unit-select` offers on the `quantity` field. */
-export const QUANTITY_UNITS: readonly QuantityUnit[] = ["mL", "kg", "L"];
-
-const isQuantityUnit = (value: string): value is QuantityUnit =>
-  (QUANTITY_UNITS as readonly string[]).includes(value);
-
-/**
- * `{ amount: 40, unit: 'mL' }` -> `"40 mL"` — the single scalar a `quantity`
- * field stores in `customFields`, French-locale formatted like
- * `formatRationAmount` (`types/horse.types.ts`) so "1,5 L" reads the same
- * wherever a quantity appears in this app.
- */
-export const formatQuantity = (amount: number, unit: QuantityUnit): string =>
-  `${amount.toLocaleString("fr-FR")} ${unit}`;
-
-/**
- * The inverse of `formatQuantity`, for prefilling the amount/unit pair when
- * editing an event. `null` for anything that doesn't parse — an empty field
- * rather than a guess.
- */
-export const parseQuantity = (
-  stored: string,
-): { amount: number; unit: QuantityUnit } | null => {
-  const spaceAt = stored.lastIndexOf(" ");
-  if (spaceAt === -1) return null;
-
-  const unit = stored.slice(spaceAt + 1);
-  if (!isQuantityUnit(unit)) return null;
-
-  const amount = Number(stored.slice(0, spaceAt).replace(",", "."));
-  return Number.isFinite(amount) ? { amount, unit } : null;
-};
-
-/**
- * The amount and the unit of a `quantity` field are required together — a
- * bare number with no unit, or a unit with nothing to measure, is worse than
- * asking again. `{}` when both or neither are present.
- *
- * A pure function rather than inline in `post-sheet.ts`'s submit handler, for
- * the same reason `posts.service.ts` exists at all: this is record
- * arithmetic, and belongs under the data-layer test rule rather than reachable
- * only from a browser suite.
- */
-export const quantityPairErrors = (
-  amount: number | null,
-  unit: string | null,
-): { amount?: FieldError; unit?: FieldError } => {
-  if ((amount === null) === (unit === null)) return {};
-  return amount === null
-    ? { amount: "Indiquez une quantité." }
-    : { unit: "Choisissez une unité." };
 };
 
 /**

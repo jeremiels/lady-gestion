@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import realV13ExportRaw from "../__tests__/fixtures/real-v13-export.json?raw";
 import { db, SCHEMA_VERSION, type RecordTableName } from "../db.ts";
 import { BUILT_IN_CATEGORIES, seedCategories } from "../categories.ts";
@@ -301,8 +301,11 @@ describe("importBackup — rejects bad input", () => {
   });
 
   it("rejects a backup written by an older build, writing nothing", async () => {
-    // The steps that read pre-v13 files are gone; merging one unread would
-    // write rows this build silently misreads.
+    // No file below the current version is known to exist — the one install in
+    // use exports v13 and cannot go back — so `migrate.ts` registers no step
+    // to read one with. Refusing is right: merging rows this build misreads is
+    // the outcome that loses data. The seam is there for the *next* bump, when
+    // a v13 file will need a step to reach v14.
     const old = snapshot({
       schemaVersion: SCHEMA_VERSION - 1,
       tables: { horses: [horse()] },
@@ -551,5 +554,65 @@ describe("importBackup — a real v13 export", () => {
     expect(byId(restored.map(decidedByFile))).toStrictEqual(
       byId(REAL_V13_EXPORT.tables.categories.map(decidedByFile)),
     );
+  });
+});
+
+describe("importBackup — atomicity", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rolls the whole restore back when a write fails partway", async () => {
+    // The restore used to run as five separate transactions, so a failure here
+    // — after the seed purge and after two tables had merged — left the demo
+    // horse deleted and half the file written, with nothing able to report or
+    // repair it. `categories` is merged sixth of seven, so by the time this
+    // throws, `horses` and `posts` have already been put.
+    await seedIfEmpty();
+    const seededHorses = await db.horses.count();
+    const seededPosts = await db.posts.count();
+    expect(seededHorses).toBeGreaterThan(0);
+
+    vi.spyOn(db.categories, "put").mockRejectedValueOnce(
+      new Error("disque plein"),
+    );
+
+    await expect(
+      importBackup(
+        snapshot({
+          tables: {
+            horses: [horse({ id: "horse-from-file" })],
+            posts: [post({ id: "post-from-file" })],
+            categories: categoryRows,
+          },
+        }),
+      ),
+    ).rejects.toThrow();
+
+    // Nothing from the file landed...
+    expect(await db.horses.get("horse-from-file")).toBeUndefined();
+    expect(await db.posts.get("post-from-file")).toBeUndefined();
+    // ...and nothing that was already there was lost.
+    expect(await db.horses.count()).toBe(seededHorses);
+    expect(await db.posts.count()).toBe(seededPosts);
+  });
+
+  it("does not adopt the file's owner when the restore fails", async () => {
+    // `cachedOwnerId` lives in a module variable, so a rollback cannot undo it.
+    // It is written only after the commit for exactly this reason: otherwise a
+    // failed restore leaves the session stamping new records with an owner the
+    // database never adopted.
+    await seedIfEmpty();
+
+    vi.spyOn(db.categories, "put").mockRejectedValueOnce(
+      new Error("disque plein"),
+    );
+
+    await expect(
+      importBackup(snapshot({ tables: { categories: categoryRows } })),
+    ).rejects.toThrow();
+
+    expect(getOwnerId()).toBe(LOCAL_OWNER);
+    expect((await db.meta.get("ownerId"))?.value).toBe(LOCAL_OWNER);
   });
 });

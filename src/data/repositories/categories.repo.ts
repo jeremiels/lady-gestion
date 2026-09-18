@@ -127,6 +127,13 @@ export const remove = async (id: string): Promise<void> => {
 /**
  * Attaches a type under `parentId`, or detaches it when that is `null`.
  *
+ * **Not wired yet:** no UI calls this. The Catégories tab offers an on/off
+ * switch and nothing else (`customize-categories.ts`), so the only parent
+ * links that exist are the four the seed ships. The *read* half of nesting —
+ * `rootsOf`, `childrenOf`, `resolveCatalogue` — is live and does draw those.
+ * Kept rather than deleted because the depth-2 invariant it enforces is the
+ * thing a future editor would have to get right, and it is already tested.
+ *
  * The one write path that can create a parent link, so it is where the depth
  * cap is enforced — `canBeParentOf` refuses anything that would make a
  * three-deep chain or a cycle, and this answers `undefined` rather than

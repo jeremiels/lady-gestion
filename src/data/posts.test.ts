@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  FOLLOW_UP_INTERVALS,
   activeDays,
   activityChoices,
   followUpValue,
   formatFollowUpInterval,
-  formatQuantity,
   formatWorkActivity,
   isFollowUpInterval,
   matchActivity,
@@ -18,12 +16,10 @@ import {
   formatDosePerDay,
   isCourseOngoing,
   parseFollowUpValue,
-  parseQuantity,
-  quantityPairErrors,
   statusForDate,
-  workActivityByDate,
   workSessionByDate,
 } from "./posts.ts";
+import { FOLLOW_UP_OPTIONS } from "./categories.ts";
 import { BUILT_IN_CATEGORY_ROWS, makePost } from "./__tests__/factories.ts";
 
 /** The real 14 built-ins — `travail` is the one `tracksWork` type. */
@@ -75,9 +71,17 @@ describe("isFollowUpInterval", () => {
 
 describe("followUpValue / parseFollowUpValue", () => {
   it("round-trips every interval the form offers", () => {
-    // FormData only carries strings, so this round trip is load-bearing.
-    for (const interval of FOLLOW_UP_INTERVALS) {
-      expect(parseFollowUpValue(followUpValue(interval))).toEqual(interval);
+    // FormData only carries strings, so this round trip is load-bearing — and
+    // it is checked against `FOLLOW_UP_OPTIONS`, the list the entry form
+    // actually draws, rather than against a second copy of it. A code the
+    // catalogue offers that this cannot parse would leave the detail page
+    // unable to read back what the form just stored.
+    for (const option of FOLLOW_UP_OPTIONS) {
+      const interval = parseFollowUpValue(option.value);
+      expect(interval, `no interval parsed from ${option.value}`).not.toBe(
+        null,
+      );
+      expect(followUpValue(interval!)).toBe(option.value);
     }
   });
 
@@ -120,142 +124,6 @@ describe("formatFollowUpInterval", () => {
   });
 });
 
-describe("formatQuantity / parseQuantity", () => {
-  it("round-trips a decimal amount and its unit", () => {
-    expect(parseQuantity(formatQuantity(40, "mL"))).toEqual({
-      amount: 40,
-      unit: "mL",
-    });
-    expect(parseQuantity(formatQuantity(1.5, "L"))).toEqual({
-      amount: 1.5,
-      unit: "L",
-    });
-  });
-
-  it("formats with a comma, French-locale, like formatRationAmount", () => {
-    expect(formatQuantity(1.5, "L")).toBe("1,5 L");
-    expect(formatQuantity(40, "mL")).toBe("40 mL");
-  });
-
-  it("returns null for anything unrecognised rather than guessing", () => {
-    expect(parseQuantity("")).toBe(null);
-    expect(parseQuantity("40")).toBe(null);
-    expect(parseQuantity("40 g")).toBe(null);
-    expect(parseQuantity("mL")).toBe(null);
-  });
-});
-
-describe("quantityPairErrors", () => {
-  it("is fine with both present, or neither", () => {
-    expect(quantityPairErrors(40, "mL")).toEqual({});
-    expect(quantityPairErrors(null, null)).toEqual({});
-  });
-
-  it("blames the amount when only the unit is picked", () => {
-    expect(quantityPairErrors(null, "mL")).toEqual({
-      amount: "Indiquez une quantité.",
-    });
-  });
-
-  it("blames the unit when only the amount is typed", () => {
-    expect(quantityPairErrors(40, null)).toEqual({
-      unit: "Choisissez une unité.",
-    });
-  });
-});
-
-describe("workActivityByDate", () => {
-  it("answers with the activity of a day that has a session", () => {
-    const byDate = workActivityByDate(
-      [
-        makePost({
-          id: "a",
-          categoryKey: "travail",
-          date: "2026-08-10",
-          customFields: { activity: "longe" },
-        }),
-      ],
-      TYPES,
-    );
-
-    expect(byDate.get("2026-08-10")).toBe("longe");
-  });
-
-  it("ignores everything that is not a live work session", () => {
-    const byDate = workActivityByDate(
-      [
-        makePost({ id: "care", categoryKey: "veto", date: "2026-08-10" }),
-        // A `travail` row with no activity cannot exist through the form, but a
-        // restored backup predating schema v4 carries exactly that.
-        makePost({
-          id: "blank",
-          categoryKey: "travail",
-          date: "2026-08-11",
-          customFields: { activity: null },
-        }),
-        makePost({
-          id: "cancelled",
-          categoryKey: "travail",
-          date: "2026-08-12",
-          customFields: { activity: "plat" },
-          status: "cancelled",
-        }),
-      ],
-      TYPES,
-    );
-
-    expect(byDate.size).toBe(0);
-  });
-
-  it("keeps the first session of a day: all-day before timed", () => {
-    const byDate = workActivityByDate(
-      [
-        makePost({
-          id: "timed",
-          categoryKey: "travail",
-          date: "2026-08-10",
-          time: "09:00",
-          customFields: { activity: "plat" },
-        }),
-        makePost({
-          id: "all-day",
-          categoryKey: "travail",
-          date: "2026-08-10",
-          time: null,
-          customFields: { activity: "longe" },
-        }),
-      ],
-      TYPES,
-    );
-
-    expect(byDate.get("2026-08-10")).toBe("longe");
-  });
-
-  it("then keeps the earlier of two timed sessions, whatever order they arrive in", () => {
-    const byDate = workActivityByDate(
-      [
-        makePost({
-          id: "late",
-          categoryKey: "travail",
-          date: "2026-08-10",
-          time: "17:30",
-          customFields: { activity: "plat" },
-        }),
-        makePost({
-          id: "early",
-          categoryKey: "travail",
-          date: "2026-08-10",
-          time: "08:15",
-          customFields: { activity: "tap" },
-        }),
-      ],
-      TYPES,
-    );
-
-    expect(byDate.get("2026-08-10")).toBe("tap");
-  });
-});
-
 describe("workSessionByDate", () => {
   it("answers with the row, not just its activity", () => {
     const session = makePost({
@@ -289,9 +157,7 @@ describe("workSessionByDate", () => {
 
     const session = workSessionByDate(events, TYPES).get("2026-08-10");
     expect(session?.id).toBe("all-day");
-    expect(session?.activity).toBe(
-      workActivityByDate(events, TYPES).get("2026-08-10"),
-    );
+    expect(session?.activity).toBe("longe");
   });
 });
 

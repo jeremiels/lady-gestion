@@ -51,9 +51,17 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
  *
  * Once the type editor exists, this is the one place that has to learn the
  * difference between a built-in the user has customised and one they have not.
+ *
+ * `ownerId` defaults to the cached one and is only ever passed explicitly by
+ * `importBackup`, which runs this *inside* its transaction and so cannot have
+ * adopted the file's owner into the module cache yet — that happens only once
+ * the transaction commits. It is read for one purpose: stamping a built-in the
+ * device does not have at all. An existing row keeps its own `ownerId`.
  */
-export const reconcileCategories = async (): Promise<void> => {
-  const shipped = seedCategories(getOwnerId(), nowISO());
+export const reconcileCategories = async (
+  ownerId: string = getOwnerId(),
+): Promise<void> => {
+  const shipped = seedCategories(ownerId, nowISO());
   const existing = await db.categories.toArray();
 
   if (existing.length === 0) {

@@ -57,9 +57,21 @@ export type Horse = BaseRecord & {
   sireName: string | null;
   /** Mère. */
   damName: string | null;
-  /** `Document.id` of the cover photo, or `null` to use the bundled fallback. */
+  /**
+   * `Document.id` of the cover photo, or `null` to use the bundled fallback.
+   *
+   * **Not wired yet:** nothing writes it and nothing reads it — `horse-card`
+   * always draws the bundled image. Kept because the column is what a photo
+   * picker would fill in, not because anything fills it today.
+   */
   photoDocumentId: string | null;
-  /** Sold, retired or otherwise no longer tracked. Distinct from deleted. */
+  /**
+   * Sold, retired or otherwise no longer tracked. Distinct from deleted.
+   *
+   * **Not wired yet:** `horses.repo.ts`'s `list` filters on it, but no write
+   * path sets it — the app is single-horse, so there is nothing to archive
+   * from yet.
+   */
   archivedAt: string | null;
 };
 
@@ -94,7 +106,12 @@ export type Post = BaseRecord & {
   currency: string;
   location: string | null;
   notes: string | null;
-  /** Groups instances generated from one recurring charge, e.g. monthly pension. */
+  /**
+   * Groups instances generated from one recurring charge, e.g. monthly pension.
+   *
+   * **Not wired yet:** every write path sets it `null`. There is no recurrence
+   * generator, so no two rows are ever grouped by it.
+   */
   recurrenceId: string | null;
   /**
    * Everything the event's *type* decides it needs: a practitioner or a
@@ -321,7 +338,13 @@ export type StoredDocument = BaseRecord & {
   size: number;
   /** The date printed on the document itself, `YYYY-MM-DD`. */
   issuedAt: string | null;
-  /** Google Drive file id once uploaded. */
+  /**
+   * Google Drive file id once uploaded.
+   *
+   * **Not wired yet:** written `null` by `documents.repo.ts` and never read.
+   * Drive sync does not exist; this and `driveSyncedAt` below are the two
+   * columns it would need.
+   */
   driveFileId: string | null;
   /** ISO timestamp of the last successful upload; compare against `updatedAt`. */
   driveSyncedAt: string | null;
@@ -386,8 +409,10 @@ export type MetaKey =
   | "ownerId"
   | "activeHorseId"
   | "lastBackupAt"
+  /** **Not wired yet:** no Drive integration reads or writes either of these. */
   | "driveFolderId"
   | "googleAccount"
+  /** Written by the profile switch; **nothing consumes it** — no reminders yet. */
   | "notificationsEnabled"
   | "seededAt"
   | "seedRecordIds";

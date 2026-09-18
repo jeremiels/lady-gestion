@@ -10,7 +10,6 @@ import { db } from "../db.ts";
 import * as postsRepo from "../repositories/posts.repo.ts";
 import {
   workSessionByDate,
-  type QuantityUnit,
   type WorkActivity,
   type WorkSession,
 } from "../posts.ts";
@@ -57,7 +56,7 @@ type FormAnswers = {
   planFollowUp: boolean;
   followUpInterval: string | null;
   quantityAmount: number | null;
-  quantityUnit: QuantityUnit | null;
+  quantityUnit: string | null;
 };
 
 const ANSWERS: FormAnswers = {

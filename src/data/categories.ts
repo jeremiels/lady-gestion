@@ -19,12 +19,15 @@ import type { CustomFieldDef, FieldOption, Category, Post } from "./types.ts";
 /**
  * The follow-up intervals, and the units a quantity is measured in.
  *
- * Restated here rather than imported from `posts.ts`: this module
- * deliberately does not depend on that one (see the file's own note), and
- * these are seed data — the whole point of the descriptor is that a type's
- * options live in its row rather than in the code that draws it.
+ * The one statement of this list. `posts.ts` used to carry a second one as
+ * `FOLLOW_UP_INTERVALS`, in the structured `{ amount, unit }` encoding rather
+ * than the `6w`/`3m` codes stored here — and the two had already drifted apart
+ * (`3w`/`7w` here against `2w`/`4w` there) before anything noticed, because
+ * nothing read the other copy. It is gone; this is what the form offers, and
+ * `followUpValue`/`parseFollowUpValue` (`posts.ts`) is the round trip between
+ * these codes and the structure. Exported for the test that holds them to it.
  */
-const FOLLOW_UP_OPTIONS: FieldOption[] = [
+export const FOLLOW_UP_OPTIONS: FieldOption[] = [
   { value: "3w", label: "3 semaines" },
   { value: "6w", label: "6 semaines" },
   { value: "7w", label: "7 semaines" },
