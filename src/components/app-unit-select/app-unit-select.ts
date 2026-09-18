@@ -109,7 +109,7 @@ export class AppUnitSelect extends FormFieldElement {
         grid-auto-columns: 1fr;
         gap: var(--spacing-2);
         border-radius: var(--radius-12);
-        background: var(--color-brown-light-bg);
+        background: var(--color-input-drawer);
         overflow: clip;
       }
 

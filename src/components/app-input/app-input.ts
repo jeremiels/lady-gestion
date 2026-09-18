@@ -141,8 +141,8 @@ export class AppInput extends FormFieldElement {
       /* A custom property rather than a ::part override, so a consumer can
          retint the field without also beating the focus rule below — outer
          ::part declarations win over the shadow tree's own. */
-      background-color: var(--app-input-background, var(--color-input-drawer));
-      border: 1px solid var(--app-input-background, var(--color-input-drawer));
+      background-color: var(--color-input-drawer);
+      border: 1px solid var(--color-input-drawer);
       border-radius: var(--radius-12);
       padding-inline: var(--spacing-12);
       min-height: 2.75rem;

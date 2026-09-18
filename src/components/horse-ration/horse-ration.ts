@@ -72,7 +72,7 @@ export class HorseRation extends BaseElement {
     .actions {
       display: flex;
       align-items: center;
-      gap: var(--spacing-4);
+      gap: var(--spacing-8);
       margin-inline-start: auto;
       flex-shrink: 0;
     }
@@ -98,7 +98,7 @@ export class HorseRation extends BaseElement {
     /* Sized on the glyph, not on \`app-icon\`'s host — the host carries its own
        padding, so constraining it instead squeezes the SVG to a sliver. */
     .action-button app-icon {
-      --icon-size: 1.25rem;
+      --icon-size: 1rem;
 
       padding: 0;
     }
@@ -300,7 +300,7 @@ export class HorseRation extends BaseElement {
           aria-label="Modifier ${ration.label}"
           @click=${() => this.#emit("ration-edit", ration.id)}
         >
-          <app-icon icon="edit"></app-icon>
+          <app-icon icon="pen"></app-icon>
         </button>
         <button
           class="action-button pressable pressable--small"

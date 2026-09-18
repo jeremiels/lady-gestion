@@ -41,6 +41,7 @@ export const ICON_NAMES = [
   "carrot",
   "shoppingCart",
   "farm",
+  "pen",
   "plus",
   "chevronLeft",
   "chevronRight",
@@ -57,6 +58,7 @@ export const ICON_NAMES = [
   "currencyEur",
   "currencyEurFilled",
   "cactus",
+  "slidersHorizontal",
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];

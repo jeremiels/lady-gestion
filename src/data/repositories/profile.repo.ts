@@ -14,7 +14,8 @@ export type ProfileFields = NewRecord<UserProfile>;
 export const get = async (): Promise<UserProfile | undefined> => {
   const rows = liveOnly(await db.profiles.toArray());
   return rows.reduce<UserProfile | undefined>(
-    (latest, row) => (!latest || row.updatedAt > latest.updatedAt ? row : latest),
+    (latest, row) =>
+      !latest || row.updatedAt > latest.updatedAt ? row : latest,
     undefined,
   );
 };

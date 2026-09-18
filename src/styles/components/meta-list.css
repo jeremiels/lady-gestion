@@ -31,6 +31,13 @@
     color: var(--color-brown-middle);
   }
 
+  .meta-label-large {
+    font-weight: bold;
+    font-size: var(--font-size-sm);
+    line-height: 1rem;
+    color: var(--color-dark);
+  }
+
   .meta-value {
     font-weight: bold;
     font-size: var(--font-size-sm);

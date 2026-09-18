@@ -168,10 +168,10 @@ export class PostSheet extends BaseElement {
       display: flex;
       flex-direction: column;
       gap: var(--spacing-16);
-      --app-input-background: var(--color-brown-light-bg);
-      --app-select-background: var(--color-brown-light-bg);
+      --app-input-background: var(--color-input-drawer);
+      --app-select-background: var(--color-input-drawer);
       --app-select-border-color: transparent;
-      --app-combobox-background: var(--color-brown-light-bg);
+      --app-combobox-background: var(--color-input-drawer);
     }
 
     /* Height, deliberately, and it is the one place in this codebase that

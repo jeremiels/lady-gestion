@@ -292,7 +292,7 @@ export class PostDetailView extends LightElement {
         disabled: true,
       })}
       ${this.#renderAction({
-        icon: "edit",
+        icon: "pen",
         label: "Modifier",
         onClick: () => {
           this.editOpen = true;

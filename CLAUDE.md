@@ -60,13 +60,13 @@ there when the task touches it. The rules below apply to every task.
 
 ## Commands
 
-| | |
-|---|---|
-| `npm run dev` | Vite dev server |
-| `npm run typecheck` | `tsc` over both tsconfigs — the default check |
-| `npm run test:data` | data-layer tests only |
-| `npm run test:components` | component tests only |
-| `npm run lint` / `npm run fmt` | oxlint / oxfmt |
+|                                |                                               |
+| ------------------------------ | --------------------------------------------- |
+| `npm run dev`                  | Vite dev server                               |
+| `npm run typecheck`            | `tsc` over both tsconfigs — the default check |
+| `npm run test:data`            | data-layer tests only                         |
+| `npm run test:components`      | component tests only                          |
+| `npm run lint` / `npm run fmt` | oxlint / oxfmt                                |
 
 `npm test` (full vitest run) and `npm run build` (typecheck + lint + fmt +
 vite build) are explicit-request only — see Verification Scope.

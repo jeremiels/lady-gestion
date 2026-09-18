@@ -88,8 +88,8 @@
     width: 2rem;
     height: 2rem;
     border-radius: var(--radius-8);
-    color: var(--color-brown-middle);
-    --icon-color: #412c17;
+    color: var(--color-brown-dark);
+    --icon-color: var(--color-brown-dark);
     --icon-background: var(--color-theme-brown-light-background);
   }
 
