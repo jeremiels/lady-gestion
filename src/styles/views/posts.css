@@ -18,6 +18,7 @@
   }
 
   .posts-view__search {
+    padding: 0;
     --app-input-background: var(--color-brown-light-bg);
   }
 
