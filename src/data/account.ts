@@ -8,6 +8,13 @@ import type { UserProfile } from "./types.ts";
  *
  * A pure constant, not a repository, so importing it never pulls in `db.ts`
  * or the rest of the data layer.
+ *
+ * **Scheduled for removal.** This is a real name and a real email address in
+ * the bundle of a publicly deployed app. `seedProfileIfEmpty` (`seed.ts`) now
+ * writes these values into a `profiles` row at launch, so once a backup
+ * confirms the row exists on the device, the values here can be emptied and
+ * `displayProfile` below falls back to a blank identity instead. Do not add
+ * anything new to this object in the meantime.
  */
 export const ACCOUNT = {
   firstName: "Léa",

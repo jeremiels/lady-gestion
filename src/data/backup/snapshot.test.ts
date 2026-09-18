@@ -4,8 +4,9 @@ import { db, SCHEMA_VERSION, type RecordTableName } from "../db.ts";
 import { BUILT_IN_CATEGORIES, seedCategories } from "../categories.ts";
 import { followUpValue } from "../posts.ts";
 import { getOwnerId } from "../owner.ts";
-import { seedIfEmpty } from "../seed.ts";
-import type { Category, Post } from "../types.ts";
+import { SEEDED_PROFILE_ID, seedIfEmpty } from "../seed.ts";
+import * as profileRepo from "../repositories/profile.repo.ts";
+import type { Category, Post, UserProfile } from "../types.ts";
 import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
 import {
   categoryRows,
@@ -614,5 +615,68 @@ describe("importBackup — atomicity", () => {
 
     expect(getOwnerId()).toBe(LOCAL_OWNER);
     expect((await db.meta.get("ownerId"))?.value).toBe(LOCAL_OWNER);
+  });
+});
+
+describe("importBackup — the seeded profile", () => {
+  const fileProfile = (over: Partial<UserProfile> = {}): UserProfile => ({
+    id: SEEDED_PROFILE_ID,
+    ownerId: REMOTE_OWNER,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    // Edited by the user at some point, so `createdAt !== updatedAt`.
+    updatedAt: "2026-02-01T00:00:00.000Z",
+    deletedAt: null,
+    firstName: "Léa",
+    lastName: "Garnier",
+    email: "real@example.com",
+    ...over,
+  });
+
+  it("lets the file's profile win over a placeholder this install just seeded", async () => {
+    // The trap the fixed id exists for. `profileRepo.get` returns the *newest*
+    // live row, and a fresh install's seed is newer than every edit in a
+    // backup — so without this the restored profile would be shadowed by the
+    // placeholder, on the very page it is read from.
+    await seedIfEmpty();
+    const seeded = await profileRepo.get();
+    expect(seeded?.createdAt).toBe(seeded?.updatedAt);
+
+    await importBackup(snapshot({ tables: { profiles: [fileProfile()] } }));
+
+    expect(await db.profiles.count()).toBe(1);
+    expect((await profileRepo.get())?.email).toBe("real@example.com");
+  });
+
+  it("does not overwrite a profile the user actually edited on this device", async () => {
+    // The other side of the same rule: once `touch` has moved `updatedAt`, the
+    // row is the user's choice and an older file must not outvote it.
+    await seedIfEmpty();
+    await profileRepo.save({
+      firstName: "Édité",
+      lastName: "Ici",
+      email: "edited-here@example.com",
+    });
+
+    await importBackup(
+      snapshot({
+        tables: {
+          profiles: [fileProfile({ updatedAt: "2020-01-01T00:00:00.000Z" })],
+        },
+      }),
+    );
+
+    expect((await profileRepo.get())?.email).toBe("edited-here@example.com");
+  });
+
+  it("keeps the seeded profile when the file carries none", async () => {
+    // Her current backup is exactly this shape — `profiles: []`. The seeded
+    // row is her identity, not demo data, so a restore must leave it alone
+    // rather than purging it with `clearUntouchedSeedData`.
+    await seedIfEmpty();
+
+    await importBackup(snapshot({ tables: { profiles: [] } }));
+
+    expect(await db.profiles.count()).toBe(1);
+    expect((await profileRepo.get())?.id).toBe(SEEDED_PROFILE_ID);
   });
 });

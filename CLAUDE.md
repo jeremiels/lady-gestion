@@ -77,6 +77,16 @@ vite build) are explicit-request only — see Verification Scope.
   verification, confirm the running port and base path with `ps`/`lsof` rather
   than assuming; kill stale servers on other base paths.
 
+## Comments
+
+- A comment may say what the code does and **why it has this shape**. It may
+  not say what the code used to be — `git log -p` already answers that, and a
+  changelog in a docblock rots silently. Several already had: `posts.ts`
+  documented a constant nothing used, and `PostDetailView` cited a function
+  with no callers.
+- Prune on touch, not in a sweep. When you edit a block, drop the historical
+  narrative from its docblock; do not open a change that only deletes comments.
+
 ## Lit CSS Templates
 
 - Never place a raw backtick inside a ``css`...` `` or ``html`...` `` tagged

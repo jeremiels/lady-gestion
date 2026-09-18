@@ -62,30 +62,46 @@ export const exportBackup = async (): Promise<BackupSnapshot> => {
 };
 
 /**
- * Whether a local row counts as absent against the file's copy of it: a
- * built-in category this device never edited, when the file holds a different
- * version of it.
+ * Whether a local row counts as absent against the file's copy of it: a row
+ * this device *seeded* and the user has never touched, when the file holds a
+ * different version of it.
  *
- * `reconcileCategories` (`seed.ts`) writes the built-ins at launch, stamped
- * with this install's owner and time. On a new phone that stamp is newer than
- * every edit in the backup, so plain last-write-wins kept the fresh seed: a
- * category switched off came back on, and all fourteen rows stayed under the
- * new install's owner while the rest of the database adopted the file's. An
- * install is not a choice, and must not outvote one.
+ * Two tables seed rows independently on every install — the built-in
+ * categories (`reconcileCategories`) and the profile (`seedProfileIfEmpty`),
+ * both in `seed.ts`. On a new phone those stamps are newer than every edit in
+ * the backup, so plain last-write-wins kept the fresh seed: a category switched
+ * off came back on, the restored profile was shadowed by the placeholder, and
+ * every seeded row stayed under the new install's owner while the rest of the
+ * database adopted the file's. **An install is not a choice, and must not
+ * outvote one.**
  *
- * "Never edited" is `createdAt === updatedAt`, the test `clearUntouchedSeedData`
- * reads too: every user write goes through `touch` or `softDelete`, and
- * reconciling leaves `updatedAt` alone. The same version — a device's own
- * backup restored onto itself — is still skipped, so the counts do not report
- * fourteen rows restored where nothing changed.
+ * "Never touched" is `createdAt === updatedAt`, the same test
+ * `clearUntouchedSeedData` reads: every user write goes through `touch` or
+ * `softDelete`, and seeding leaves `updatedAt` equal to `createdAt`. A row at
+ * the same version — a device's own backup restored onto itself — is still
+ * skipped, so the counts do not report rows restored where nothing changed.
  *
- * Only ever handed category rows, hence the cast.
+ * Stated per table rather than as one `name === "categories"` branch inside the
+ * merge, so adding a table that seeds itself means adding a rule here rather
+ * than remembering to widen a condition somewhere else.
  */
-const yieldsToFile = (local: BaseRecord, incoming: BaseRecord): boolean =>
-  (local as Category).isBuiltIn &&
+const untouchedSeed = (local: BaseRecord, incoming: BaseRecord): boolean =>
   local.createdAt === local.updatedAt &&
   (local.updatedAt !== incoming.updatedAt ||
     local.ownerId !== incoming.ownerId);
+
+const YIELDS_TO_FILE: Partial<
+  Record<RecordTableName, (local: BaseRecord, incoming: BaseRecord) => boolean>
+> = {
+  // Only a *built-in* category is ours to overwrite; one the user created is
+  // theirs, and is merged on its stamps like any other row.
+  categories: (local, incoming) =>
+    (local as Category).isBuiltIn && untouchedSeed(local, incoming),
+  // The profile has no equivalent flag: the only row `seedProfileIfEmpty`
+  // ever writes is the seeded one, and the moment the user edits it on the
+  // Personnaliser page `touch` moves `updatedAt` and this stops applying.
+  profiles: untouchedSeed,
+};
 
 /**
  * Merges a snapshot into the local database, last-write-wins per record.
@@ -169,7 +185,7 @@ export const importBackup = async (
         await merge<BaseRecord>(
           RECORD_TABLES[name],
           backup.tables[name],
-          name === "categories" ? yieldsToFile : undefined,
+          YIELDS_TO_FILE[name],
         );
       }
 

@@ -1,15 +1,17 @@
 import { RECORD_TABLES, db, type RecordTableName } from "./db.ts";
 import { todayISO, toIsoDate, nowISO } from "./dates.ts";
+import { ACCOUNT } from "./account.ts";
 import { seedCategories } from "./categories.ts";
 import { followUpValue } from "./posts.ts";
 import { getOwnerId } from "./owner.ts";
+import { createRecord } from "./record.ts";
 import * as horsesRepo from "./repositories/horses.repo.ts";
 import * as rationsRepo from "./repositories/rations.repo.ts";
 import * as postsRepo from "./repositories/posts.repo.ts";
 import * as documentsRepo from "./repositories/documents.repo.ts";
 import * as metaRepo from "./repositories/meta.repo.ts";
 import { DEFAULT_SEASON, type RationSeason } from "./seasons.ts";
-import type { Post, RationUnit } from "./types.ts";
+import type { Post, RationUnit, UserProfile } from "./types.ts";
 
 /** The seeded event the demo document hangs off. Matched by title below. */
 const REPORT_EVENT_TITLE = "Contrôle œil";
@@ -103,6 +105,45 @@ export const reconcileCategories = async (
 };
 
 /**
+ * The id every device stamps on the seeded profile.
+ *
+ * Fixed rather than a fresh `newId()`, for the reason `seedCategories` gives
+ * for deriving a built-in's id from its key: two installs seed this row
+ * independently — a phone, then the new phone a backup is restored onto — and
+ * `importBackup`'s merge is per-`id`. A random id each time would make the two
+ * a *pair* of profile rows rather than two versions of one, and
+ * `profileRepo.get` returns the newest, so a fresh install's placeholder would
+ * shadow the real profile the file carries.
+ */
+export const SEEDED_PROFILE_ID = "profile";
+
+/**
+ * Writes the identity that used to be hardcoded in the UI into a real row.
+ *
+ * `displayProfile` (`account.ts`) falls back to the `ACCOUNT` constant whenever
+ * `profiles` is empty, which means that constant — a real name and a real email
+ * address — ships in the bundle of a publicly deployed app. Storing it once, as
+ * data on the device, is what lets the constant be emptied in a later release
+ * without the user's own name disappearing from the page in the meantime.
+ *
+ * Runs at every launch, *before* `seedIfEmpty`'s horse gate, because the
+ * install that needs it already has a horse — it is an existing device that
+ * never had a profile row, not a fresh one.
+ *
+ * This row is **not demo data**: it is the user's identity, so it is left out
+ * of `seedRecordIds` and survives a restore rather than being purged by
+ * `clearUntouchedSeedData`. What it does do is yield to a backup's own copy
+ * while it is still untouched — see `yieldsToFile` in `backup/snapshot.ts`.
+ */
+export const seedProfileIfEmpty = async (): Promise<void> => {
+  if ((await db.profiles.count()) > 0) return;
+
+  await db.profiles.add(
+    createRecord<UserProfile>({ ...ACCOUNT, id: SEEDED_PROFILE_ID }),
+  );
+};
+
+/**
  * First-run bootstrap: the values that were hardcoded in the views, turned
  * into real rows so there is something to look at before anything has been
  * entered by hand.
@@ -114,6 +155,7 @@ export const reconcileCategories = async (
  */
 export const seedIfEmpty = async (): Promise<void> => {
   await reconcileCategories();
+  await seedProfileIfEmpty();
 
   const count = await db.horses.count();
   if (count > 0) return;

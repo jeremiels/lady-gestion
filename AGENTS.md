@@ -844,12 +844,15 @@ message }` for `fieldMessages()` and `describedBy()`.
 ## Styling / design tokens
 
 - `src/styles/main.css` declares the layer order:
-  `@layer reset, tokens, base, components, views, utilities;` — respect
-  this order; new global CSS must be added inside the matching
+  `@layer reset, tokens, base, components, views, transitions, utilities;` —
+  respect this order; new global CSS must be added inside the matching
   `@layer` file, not appended ad hoc. `views` sits **after** `components` so a
   view can adjust a shared component it hosts (the other way round,
   `.container`'s padding silently beat what `.ration-list` asked for on the
-  same element), and `utilities` is last so a utility wins without
+  same element); `transitions` sits after `views` so route motion is never at
+  the mercy of a view stylesheet — a view setting `view-transition-name` on an
+  element the route animation already captured would otherwise silently drop it
+  out of the transition; and `utilities` is last so a utility wins without
   `!important`.
 - A class used by more than one view belongs in `styles/components/`, not in
   whichever view's stylesheet happened to define it first — `.meta-list` /

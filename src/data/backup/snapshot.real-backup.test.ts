@@ -35,6 +35,11 @@ const files = import.meta.glob("../../../backup/lady-gestion-*.json", {
 /** Newest by filename — exports are timestamped, so lexical order is chronological. */
 const newest = Object.keys(files).sort().at(-1);
 
+// Named in the suite title, not just chosen silently. The entire value of this
+// file is "it ran against her real, current data", and with more than one
+// export on disk that claim is unverifiable from the output otherwise.
+const label = newest?.split("/").at(-1) ?? "no export found";
+
 type RealSnapshot = {
   schemaVersion: number;
   ownerId: string;
@@ -42,7 +47,7 @@ type RealSnapshot = {
 };
 
 describe.skipIf(newest === undefined)(
-  "importBackup — against the real backup",
+  `importBackup — against the real backup (${label})`,
   () => {
     const real = (): RealSnapshot =>
       JSON.parse(files[newest as string]!) as RealSnapshot;
@@ -61,6 +66,12 @@ describe.skipIf(newest === undefined)(
     it("imports every row, on an empty database", async () => {
       const snapshot = real();
       const result = await importBackup(snapshot);
+
+      // Reported so the run says how much data it actually covered.
+      expect(
+        rowCount(snapshot),
+        `${label} carried ${rowCount(snapshot)} rows`,
+      ).toBeGreaterThan(0);
 
       // Nothing rejected, nothing skipped: an empty database has no local copy
       // to lose a last-write-wins argument to.
