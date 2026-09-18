@@ -115,6 +115,74 @@ const courseFields = () => [
 ];
 
 /**
+ * One definition per row the built-ins share.
+ *
+ * `BUILT_IN_CATEGORIES` below is data and is allowed to be long, but a row that
+ * appears in eight types should be *declared* in one place: the follow-up
+ * checkbox and the select it reveals are thirteen lines that every care type
+ * needs identically, and Nom, Date, Note and Budget are carried by almost all
+ * fourteen.
+ *
+ * These matter more than the line count, because `reconcileCategories`
+ * (`seed.ts`) writes this array's `fields` back over every device's built-ins at
+ * every launch. A stray difference between two copies of the same row is not a
+ * tidiness problem — it is two categories storing the user's answer under
+ * different shapes, applied to rows that already exist.
+ */
+
+/** Nom — the record's title. A `workActivity` type has no Nom of its own. */
+const titleField = () =>
+  inputTextField({ id: "title", label: "Nom", required: true });
+
+/** Date — the one field every single type carries. */
+const dateField = () =>
+  inputDateField({ id: "date", label: "Date", required: true });
+
+/** Note — the free-text row every type ends on. */
+const notesField = () => inputTextField({ id: "notes", label: "Note" });
+
+/** What it cost. `concours` calls it an entry fee rather than a budget. */
+const budgetField = (label = "Budget") =>
+  inputMoneyField({ id: "amountCents", label, suffix: "€" });
+
+/**
+ * Who it was with — a practitioner for a care type, a merchant for a purchase.
+ *
+ * One `id` for both, so the detail view and the search box find it whatever a
+ * type calls it. The label is the type's own wording, and `defaultValue` is
+ * only written when there is one: under `exactOptionalPropertyTypes` an
+ * explicit `undefined` is a key that is *present*, which would change the
+ * stored row.
+ */
+const counterpartyField = (label: string, defaultValue?: string) =>
+  inputTextField({
+    id: "counterparty",
+    label,
+    ...(defaultValue === undefined ? {} : { defaultValue }),
+  });
+
+/**
+ * "Planifier un rendez-vous", and the interval it reveals while ticked.
+ *
+ * The one compound field in the catalogue and the most-repeated: eight types
+ * carry it, and `cures` words it as a renewal rather than an appointment.
+ */
+const followUpField = (label = "Planifier un rendez-vous") =>
+  inputCheckboxField({
+    id: "followUp",
+    label,
+    role: "followUp",
+    reveals: [
+      inputSelectField({
+        id: "followUp-interval",
+        label: "Prochain rendez-vous à planifier",
+        required: true,
+        options: FOLLOW_UP_OPTIONS,
+      }),
+    ],
+  });
+
+/**
  * The type catalogue's seed data: the nine built-in types the app shipped
  * with, plus four more — `concours`, `soins`, `cures`, `traitement` — finished
  * in the same migration that introduced this table (schema v6).
@@ -163,11 +231,11 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 0,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputTextField({ id: "counterparty", label: "Site" }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      budgetField(),
+      counterpartyField("Site"),
+      notesField(),
     ],
   },
   {
@@ -182,12 +250,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 1,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      titleField(),
+      dateField(),
+      budgetField(),
       quantityField(),
-      inputTextField({ id: "counterparty", label: "Site" }),
-      inputTextField({ id: "notes", label: "Note" }),
+      counterpartyField("Site"),
+      notesField(),
     ],
   },
   {
@@ -202,7 +270,7 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 2,
     fields: [
-      inputDateField({ id: "date", label: "Date", required: true }),
+      dateField(),
       comboBoxField({
         id: "activity",
         label: "Nom",
@@ -210,7 +278,7 @@ export const BUILT_IN_CATEGORIES: Omit<
         role: "workActivity",
         suggestions: "activities",
       }),
-      inputTextField({ id: "notes", label: "Note" }),
+      notesField(),
     ],
   },
   {
@@ -225,15 +293,15 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 3,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
+      titleField(),
+      budgetField(),
       inputTextField({
         id: "coach",
         label: "Coach",
         defaultValue: "Fabien Cassagnaud",
       }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({ id: "notes", label: "Note" }),
+      dateField(),
+      notesField(),
     ],
   },
   {
@@ -248,28 +316,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 4,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-        defaultValue: "Valérie de Picciotto",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien", "Valérie de Picciotto"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
   {
@@ -284,28 +336,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 5,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-        defaultValue: "Carl Delepine",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien", "Carl Delepine"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
   {
@@ -320,28 +356,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 6,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-        defaultValue: "Dr. Orange",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien", "Dr. Orange"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
   {
@@ -364,27 +384,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 7,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
   {
@@ -398,12 +403,7 @@ export const BUILT_IN_CATEGORIES: Omit<
     tracksWork: false,
     enabled: true,
     order: 8,
-    fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputTextField({ id: "notes", label: "Note" }),
-    ],
+    fields: [titleField(), dateField(), budgetField(), notesField()],
   },
   {
     key: "concours",
@@ -420,14 +420,10 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 9,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
+      titleField(),
+      dateField(),
       inputTextField({ id: "competition", label: "Épreuve", required: true }),
-      inputMoneyField({
-        id: "amountCents",
-        label: "Budget engagement",
-        suffix: "€",
-      }),
+      budgetField("Budget engagement"),
       inputSelectField({
         id: "result",
         label: "Résultat",
@@ -443,7 +439,7 @@ export const BUILT_IN_CATEGORIES: Omit<
         ],
         required: true,
       }),
-      inputTextField({ id: "notes", label: "Note" }),
+      notesField(),
     ],
   },
   {
@@ -458,27 +454,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 10,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
   {
@@ -503,23 +484,11 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 11,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
+      titleField(),
+      dateField(),
       ...courseFields(),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un renouvellement",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      followUpField("Planifier un renouvellement"),
+      notesField(),
     ],
   },
   {
@@ -539,28 +508,13 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 12,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
+      titleField(),
+      dateField(),
       ...courseFields(),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      counterpartyField("Practicien"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
   {
@@ -581,27 +535,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     enabled: true,
     order: 13,
     fields: [
-      inputTextField({ id: "title", label: "Nom", required: true }),
-      inputDateField({ id: "date", label: "Date", required: true }),
-      inputTextField({
-        id: "counterparty",
-        label: "Practicien",
-      }),
-      inputMoneyField({ id: "amountCents", label: "Budget", suffix: "€" }),
-      inputCheckboxField({
-        id: "followUp",
-        label: "Planifier un rendez-vous",
-        role: "followUp",
-        reveals: [
-          inputSelectField({
-            id: "followUp-interval",
-            label: "Prochain rendez-vous à planifier",
-            required: true,
-            options: FOLLOW_UP_OPTIONS,
-          }),
-        ],
-      }),
-      inputTextField({ id: "notes", label: "Note" }),
+      titleField(),
+      dateField(),
+      counterpartyField("Practicien"),
+      budgetField(),
+      followUpField(),
+      notesField(),
     ],
   },
 ];

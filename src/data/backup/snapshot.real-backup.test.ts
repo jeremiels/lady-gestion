@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../db.ts";
 import { seedIfEmpty } from "../seed.ts";
+import { seedCategories } from "../categories.ts";
 import type { Post } from "../types.ts";
 import { exportBackup, importBackup } from "./snapshot.ts";
 import { resetDatabase } from "./snapshot.fixtures.ts";
@@ -175,6 +176,28 @@ describe.skipIf(newest === undefined)(
           local?.ownerId,
           `category ${category.id} kept the seed's owner`,
         ).toBe(category.ownerId);
+      }
+    });
+
+    it("ships the same category fields the device already has stored", async () => {
+      // `reconcileCategories` writes `BUILT_IN_CATEGORIES`'s `fields` back over
+      // every built-in at launch, so a change to that array is a change to rows
+      // that already exist on her device. This is the warning: when it fails,
+      // the next launch will rewrite her categories, which may be exactly what
+      // was intended — but it should never be a surprise.
+      const shipped = seedCategories("irrelevant", "2026-01-01T00:00:00.000Z");
+      const stored = real().tables.categories as unknown as {
+        key: string;
+        fields: unknown;
+      }[];
+
+      for (const type of shipped) {
+        const row = stored.find((one) => one.key === type.key);
+        expect(row, `category ${type.key} is not on the device`).toBeDefined();
+        expect(
+          row?.fields,
+          `shipping different fields for ${type.key} than the device has stored`,
+        ).toStrictEqual(type.fields);
       }
     });
 

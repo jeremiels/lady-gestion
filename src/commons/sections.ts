@@ -17,14 +17,23 @@ import type { IconName } from "../components/app-icon/icons.ts";
  * deployed base — cannot do it through the shell.
  */
 
+/** `root` itself, or anything below it. Both sub-page sections ask this. */
+const isUnder = (root: string, path: string): boolean =>
+  path === root || path.startsWith(`${root}/`);
+
+/** The tab carrying this id, or `undefined`. Generic, so each caller keeps its own union. */
+const tabWithId = <T extends readonly { id: string }[]>(
+  tabs: T,
+  value: string | undefined,
+): T[number] | undefined => tabs.find((tab) => tab.id === value);
+
 /**
  * `/horse` and `/horse/<id>`.
  *
  * Pulled out of the route's own `match` so the `horse` view-transition type can
  * reuse the exact same check rather than drifting out of sync with it.
  */
-export const isHorsePath = (path: string): boolean =>
-  path === "/horse" || path.startsWith("/horse/");
+export const isHorsePath = (path: string): boolean => isUnder("/horse", path);
 
 /**
  * The horse page's sub-pages, in the order the second-level nav shows them.
@@ -40,9 +49,6 @@ export const HORSE_TABS = [
 ] as const;
 
 export type HorseTab = (typeof HORSE_TABS)[number]["id"];
-
-const isHorseTab = (value: string): value is HorseTab =>
-  HORSE_TABS.some((tab) => tab.id === value);
 
 /**
  * `/horse`, `/horse/<id>` or `/horse/<id>/<tab>`, split into its parts — or
@@ -60,7 +66,9 @@ export const horseRouteOf = (
   const [horseId, tab, ...rest] = path.slice("/horse/".length).split("/");
   if (!horseId || rest.length > 0) return null;
   if (tab === undefined) return { horseId, tab: HORSE_TABS[0].id };
-  return isHorseTab(tab) ? { horseId, tab } : null;
+
+  const match = tabWithId(HORSE_TABS, tab);
+  return match ? { horseId, tab: match.id } : null;
 };
 
 /**
@@ -103,7 +111,7 @@ export const CUSTOMIZE_TABS = [
 export type CustomizeTab = (typeof CUSTOMIZE_TABS)[number]["id"];
 
 const isCustomizePath = (path: string): boolean =>
-  path === CUSTOMIZE_ROOT || path.startsWith(`${CUSTOMIZE_ROOT}/`);
+  isUnder(CUSTOMIZE_ROOT, path);
 
 /**
  * `CUSTOMIZE_ROOT` or `CUSTOMIZE_ROOT/<tab>`, as its tab — `null` for anything
@@ -116,8 +124,10 @@ export const customizeRouteOf = (
   if (path === CUSTOMIZE_ROOT) return { tab: CUSTOMIZE_TABS[0].id };
   if (!isCustomizePath(path)) return null;
 
-  const tab = path.slice(`${CUSTOMIZE_ROOT}/`.length);
-  const match = CUSTOMIZE_TABS.find((candidate) => candidate.id === tab);
+  const match = tabWithId(
+    CUSTOMIZE_TABS,
+    path.slice(`${CUSTOMIZE_ROOT}/`.length),
+  );
   return match ? { tab: match.id } : null;
 };
 

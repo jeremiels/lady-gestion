@@ -92,6 +92,10 @@ export default defineConfig({
             "src/components/**/*.test.ts",
             "src/views/**/*.test.ts",
             "src/commons/**/*.test.ts",
+            // `theme.ts` builds `var(--color-theme-<key>)` strings; the only
+            // way to know those actually resolve is a real document with the
+            // real stylesheet in it.
+            "src/theme/**/*.test.ts",
           ],
           browser: {
             enabled: true,

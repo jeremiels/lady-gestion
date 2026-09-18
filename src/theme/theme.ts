@@ -1,62 +1,39 @@
 import type { ThemeKey, ThemeMeta } from "./theme.types.ts";
 
+/**
+ * A theme's two values, built from its key.
+ *
+ * Every entry in the table below is the same pair of custom properties with the
+ * key substituted, so writing them out by hand bought nothing and cost a place
+ * for `--color-theme-mint-backgroud` to hide: a typo here is not a type error,
+ * it is a transparent swatch nobody notices until a category renders wrong.
+ * Built from the key instead, that class of mistake is unrepresentable.
+ *
+ * The table stays an explicit `Record<ThemeKey, ThemeMeta>` literal rather than
+ * being generated from a list, because that is what makes a `ThemeKey` with no
+ * entry a compile error — and `THEME_META[key]` never being `undefined` is what
+ * lets every read site index it directly.
+ */
+const themeTokens = (key: ThemeKey): ThemeMeta => ({
+  color: `var(--color-theme-${key})`,
+  backgroundColor: `var(--color-theme-${key}-background)`,
+});
+
 export const THEME_META: Record<ThemeKey, ThemeMeta> = {
-  pink: {
-    color: "var(--color-theme-pink)",
-    backgroundColor: "var(--color-theme-pink-background)",
-  },
-  green: {
-    color: "var(--color-theme-green)",
-    backgroundColor: "var(--color-theme-green-background)",
-  },
-  purple: {
-    color: "var(--color-theme-purple)",
-    backgroundColor: "var(--color-theme-purple-background)",
-  },
-  orange: {
-    color: "var(--color-theme-orange)",
-    backgroundColor: "var(--color-theme-orange-background)",
-  },
-  brown: {
-    color: "var(--color-theme-brown)",
-    backgroundColor: "var(--color-theme-brown-background)",
-  },
-  yellow: {
-    color: "var(--color-theme-yellow)",
-    backgroundColor: "var(--color-theme-yellow-background)",
-  },
-  taupe: {
-    color: "var(--color-theme-taupe)",
-    backgroundColor: "var(--color-theme-taupe-background)",
-  },
-  turquoise: {
-    color: "var(--color-theme-turquoise)",
-    backgroundColor: "var(--color-theme-turquoise-background)",
-  },
-  fuchsia: {
-    color: "var(--color-theme-fuchsia)",
-    backgroundColor: "var(--color-theme-fuchsia-background)",
-  },
-  mint: {
-    color: "var(--color-theme-mint)",
-    backgroundColor: "var(--color-theme-mint-background)",
-  },
-  coral: {
-    color: "var(--color-theme-coral)",
-    backgroundColor: "var(--color-theme-coral-background)",
-  },
-  peach: {
-    color: "var(--color-theme-peach)",
-    backgroundColor: "var(--color-theme-peach-background)",
-  },
-  grey: {
-    color: "var(--color-theme-grey)",
-    backgroundColor: "var(--color-theme-grey-background)",
-  },
-  gold: {
-    color: "var(--color-theme-gold)",
-    backgroundColor: "var(--color-theme-gold-background)",
-  },
+  pink: themeTokens("pink"),
+  green: themeTokens("green"),
+  purple: themeTokens("purple"),
+  orange: themeTokens("orange"),
+  brown: themeTokens("brown"),
+  yellow: themeTokens("yellow"),
+  taupe: themeTokens("taupe"),
+  turquoise: themeTokens("turquoise"),
+  fuchsia: themeTokens("fuchsia"),
+  mint: themeTokens("mint"),
+  coral: themeTokens("coral"),
+  peach: themeTokens("peach"),
+  grey: themeTokens("grey"),
+  gold: themeTokens("gold"),
 };
 
 /**
