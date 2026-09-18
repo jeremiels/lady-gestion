@@ -3,12 +3,11 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import {
   type CustomFieldDef,
-  fieldSchema,
-  valueOf,
-  pairErrorsOf,
   splitUnitValue,
+  readCategoryForm,
+  crossFieldErrors,
+  foldAnswers,
   unitNameOf,
-  type FormSchema,
   LiveQuery,
   type WorkActivity,
   activeHorseQuery,
@@ -18,8 +17,6 @@ import {
   childrenOf,
   postsService,
   categoriesRepo,
-  endDateErrors,
-  fieldById,
   fieldWithRole,
   findCategory,
   formatWorkActivity,
@@ -27,8 +24,6 @@ import {
   fromCents,
   horsesRepo,
   matchActivity,
-  oneOf,
-  readForm,
   rootsOf,
   type ResolvedCategory,
 } from "../../data/index.ts";
@@ -411,68 +406,43 @@ export class PostSheet extends BaseElement {
       : undefined;
     const priorChoices = this.#knownActivities;
 
-    // The whole schema, built from the picked type's own field list. Only the
-    // type select is stated here: it is how a type is chosen, so it cannot be
-    // one of that type's own rows. Everything else — Nom, Date and Note
-    // included — comes from `fields`, which is why a type that lists no Nom
-    // (`travail`, whose combobox doubles as one) is not asked for one.
-    const result = readForm(
+    const result = readCategoryForm(
       submitEvent.target as HTMLFormElement,
-      {
-        type: oneOf(
-          types.map((candidate) => candidate.key),
-          { required: true },
-        ),
-        ...Object.assign({}, ...(type?.fields ?? []).map(fieldSchema)),
-      } as FormSchema,
+      // The live catalogue's keys, so the picker cannot submit a type that has
+      // since been switched off or deleted.
+      types.map((candidate) => candidate.key),
+      // The picked type's own list *is* the form — Nom, Date and Note included —
+      // which is why `travail`, whose combobox doubles as a Nom, is never asked
+      // for one.
+      type?.fields ?? [],
     );
 
     if (!result.ok) {
-      this.errors = result.errors as Record<string, string>;
+      this.errors = result.errors;
       void this.#focusFirstError();
       return;
     }
 
-    const values = result.value as Record<string, unknown>;
-    // `oneOf` above already guarantees this names a live type.
-    const resolvedType = findCategory(types, values.type as string)!;
+    const resolvedType = findCategory(types, result.categoryKey)!;
 
-    // Amount and unit are parsed independently — a type with no quantity field
-    // submits both blank — so "both or neither" is enforced here, against the
-    // type actually being saved rather than whichever the form last showed.
-    for (const field of resolvedType.fields) {
-      const pairErrors = pairErrorsOf(field, values);
-      if (Object.keys(pairErrors).length > 0) {
-        this.errors = { ...this.errors, ...pairErrors };
-        void this.#focusFirstError();
-        return;
-      }
+    // The rules no single control can check — an amount without its unit, an
+    // end date before its start — against the type actually being saved rather
+    // than whichever one the form last drew.
+    const crossErrors = crossFieldErrors(resolvedType, result.values);
+    if (Object.keys(crossErrors).length > 0) {
+      this.errors = { ...this.errors, ...crossErrors };
+      void this.#focusFirstError();
+      return;
     }
 
-    // Two independent date controls, so their order can only be checked once
-    // both are parsed. Only a course type (cures, traitement) has an end date.
-    if (fieldById(resolvedType, "endDate")) {
-      const dateErrors = endDateErrors(values.date, values.endDate);
-      if (Object.keys(dateErrors).length > 0) {
-        this.errors = { ...this.errors, ...dateErrors };
-        void this.#focusFirstError();
-        return;
-      }
-    }
-
-    // Folded here rather than in the service: which controls a field draws,
-    // and how they encode into one scalar, is this component's knowledge.
-    const answers: Record<string, string | number | boolean | null> = {};
-    for (const field of resolvedType.fields) {
-      answers[field.id] = valueOf(field, values);
-    }
+    const answers = foldAnswers(resolvedType, result.values);
 
     try {
       await postsService.savePost({
         horseId: horse.id,
         existing: this.post,
         type: resolvedType,
-        input: { type: values.type as string, values: answers },
+        input: { type: result.categoryKey, values: answers },
       });
 
       // A freshly typed activity — one `priorChoices` didn't already know —

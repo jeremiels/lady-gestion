@@ -4,10 +4,12 @@ import {
   decimal,
   isoDate,
   oneOf,
+  readForm,
   text,
   type FormSchema,
 } from "./forms.ts";
-import type { CustomFieldDef } from "./types.ts";
+import { endDateErrors } from "./posts.ts";
+import type { Category, CustomFieldDef } from "./types.ts";
 
 /**
  * Turning a type's own `fields` into a form, and its answers back into the
@@ -171,4 +173,84 @@ export const splitUnitValue = (
   return match
     ? { amount: match[1]!.replace(",", "."), unit: match[2]! }
     : { amount: "", unit: "" };
+};
+
+/** Every answer a category's form produced, keyed by control name. */
+export type CategoryFormValues = Record<string, unknown>;
+
+export type CategoryFormResult =
+  | { ok: true; categoryKey: string; values: CategoryFormValues }
+  | { ok: false; errors: Record<string, string> };
+
+/**
+ * Reads a whole category form: the type picker, plus whatever that type's
+ * `fields` declare.
+ *
+ * `readForm`'s generic inference is unusable here — the schema is assembled at
+ * runtime from `fields`, so there is no compile-time shape for it to infer —
+ * and the casts that follow from that belong in one place rather than four at
+ * the call site. This is that place: `post-sheet` gets a result it can read
+ * without asserting anything about it.
+ *
+ * `categoryKeys` is the live catalogue's keys, so the picker can only ever
+ * submit a type that currently exists; `fields` is the picked type's own list,
+ * which is the whole form — Nom, Date and Note included.
+ */
+export const readCategoryForm = (
+  source: HTMLFormElement | FormData,
+  categoryKeys: readonly string[],
+  fields: readonly CustomFieldDef[],
+): CategoryFormResult => {
+  const result = readForm(source, {
+    type: oneOf(categoryKeys, { required: true }),
+    ...Object.assign({}, ...fields.map(fieldSchema)),
+  } as FormSchema);
+
+  if (!result.ok) {
+    return { ok: false, errors: result.errors as Record<string, string> };
+  }
+
+  const values = result.value as CategoryFormValues;
+  // `oneOf` above already guaranteed this names a live type.
+  return { ok: true, categoryKey: values.type as string, values };
+};
+
+/**
+ * The rules no single control can check, for the type actually being saved.
+ *
+ * A field parses on its own; these are the answers that are only right or wrong
+ * *together* — an amount without its unit, an end date before its start. The
+ * form reader cannot express them, so they run once against the parsed values
+ * rather than being scattered through the submit handler as one `if` each.
+ *
+ * `endDateErrors` needs no "does this type have an end date" guard: it answers
+ * `{}` unless both values parse as dates, and a type without the field submits
+ * nothing for it.
+ */
+export const crossFieldErrors = (
+  type: Category,
+  values: CategoryFormValues,
+): Record<string, string> => {
+  const errors: Record<string, string> = {};
+  for (const field of type.fields) {
+    Object.assign(errors, pairErrorsOf(field, values));
+  }
+  Object.assign(errors, endDateErrors(values.date, values.endDate));
+  return errors;
+};
+
+/**
+ * The type's fields, folded into the scalars the record stores.
+ *
+ * Driven by `fields`, so a control the form drew for a type that is no longer
+ * selected cannot contribute, and a field the type declares always does — as
+ * `null` when it was left blank.
+ */
+export const foldAnswers = (
+  type: Category,
+  values: CategoryFormValues,
+): Record<string, string | number | boolean | null> => {
+  const answers: Record<string, string | number | boolean | null> = {};
+  for (const field of type.fields) answers[field.id] = valueOf(field, values);
+  return answers;
 };
