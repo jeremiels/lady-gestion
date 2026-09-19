@@ -58,6 +58,7 @@ export const ICON_NAMES = [
   "info",
   "download",
   "share",
+  "copy",
   "file",
   "currencyEur",
   "currencyEurFilled",
