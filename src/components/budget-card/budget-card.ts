@@ -30,6 +30,7 @@ export class BudgetCard extends BaseElement {
       color: inherit;
       text-decoration: none;
       border-radius: var(--radius-12);
+      height: stretch;
     }
 
     .budget__link:focus-visible {
@@ -39,12 +40,14 @@ export class BudgetCard extends BaseElement {
 
     .budget {
       display: flex;
+      flex-direction: column;
       justify-content: space-between;
-      align-items: center;
-      padding: var(--spacing-20);
+      align-items: flex-start;
+      padding: var(--spacing-16);
       background-color: var(--color-card-budget);
       border-radius: var(--radius-12);
       color: var(--color-white);
+      height: stretch;
     }
 
     .budget__info {
@@ -55,13 +58,13 @@ export class BudgetCard extends BaseElement {
 
     .budget__title {
       font-size: 0.813rem;
-      line-height: 1.25rem;
-      font-weight: 700;
+      line-height: 1rem;
+      font-weight: 500;
     }
 
     .budget__subtitle {
-      font-size: 0.813rem;
-      line-height: 1.25rem;
+      font-size: 0.625rem;
+      line-height: 0.75rem;
       color: var(--color-text-muted-on-dark);
       font-weight: 500;
     }
@@ -85,7 +88,7 @@ export class BudgetCard extends BaseElement {
           <div class="budget__info">
             <h2 class="budget__title">Dépenses</h2>
             <div class="budget__subtitle">
-              ${month === null ? "Budget du mois" : `Budget ${formatMonthDe(month)}`}
+              ${month === null ? "Du mois" : `Du mois ${formatMonthDe(month)}`}
             </div>
           </div>
           <div class="budget__amount">${formatCents(this.totalCents)}</div>

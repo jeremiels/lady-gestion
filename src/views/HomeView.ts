@@ -23,6 +23,7 @@ import type { Post } from "../data/types.ts";
 import { displayProfile } from "../data/account.ts";
 import "../components/horse-card/horse-card.ts";
 import "../components/budget-card/budget-card.ts";
+import "../components/documents-card/documents-card.ts";
 import "../components/week-strip/week-strip.ts";
 import "../components/post-card/post-card.ts";
 import "../components/course-card/course-card.ts";
@@ -30,6 +31,15 @@ import "../components/app-avatar/app-avatar.ts";
 
 /** The dashboard shows the next few appointments, not the whole agenda. */
 const UPCOMING_LIMIT = 3;
+
+/**
+ * Hardcoded until the drive is wired up.
+ *
+ * Deliberately not `DOCUMENT_CATEGORIES.length`: those six are the vault's
+ * fixed filing structure, and what this card will end up counting is the
+ * drive's own folders.
+ */
+const DOCUMENT_FOLDERS = 5;
 
 @customElement("home-view")
 export class HomeView extends LightElement {
@@ -173,7 +183,10 @@ export class HomeView extends LightElement {
         }
 
         <horse-card .horse=${this.#horse.value ?? null}></horse-card>
-        <budget-card .totalCents=${this.#monthSpend.value ?? 0}></budget-card>
+        <div class="home-view__section-col">
+          <budget-card .totalCents=${this.#monthSpend.value ?? 0}></budget-card>
+          <documents-card .folderCount=${DOCUMENT_FOLDERS}></documents-card>
+        </div>
       </section>
     `;
   }
