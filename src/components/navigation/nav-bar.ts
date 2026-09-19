@@ -23,7 +23,7 @@ export class NavBar extends BaseElement {
 
     .nav-bar__items {
       display: flex;
-      justify-content: space-around;
+      justify-content: space-between;
       align-items: center;
       /* The same column .main-content uses, down to the inline padding, so the
          outermost items line up with the content above them rather than landing
