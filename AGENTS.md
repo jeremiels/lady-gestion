@@ -928,6 +928,20 @@ message }` for `fieldMessages()` and `describedBy()`.
     (0.32s, the bottom sheet), plus `--easing-standard` and `--easing-sheet`.
     Use these rather than hardcoding a duration; the five components that did
     could drift apart with nothing flagging it.
+
+    **`will-change` appears exactly once, and that is the intended number.**
+    It is on `dialog.sheet--dragging` in `app-bottom-sheet`, because the drag
+    sets `transform` imperatively from a pointer handler with the transition
+    switched off — there is no animation for the browser to infer a layer
+    from, so it promotes only after the sheet has already moved for several
+    frames. Every other animation in this codebase is CSS or WAAPI on
+    `transform`/`opacity`, which engines promote by themselves; adding the
+    hint there costs memory and buys nothing, and on the staggered list
+    entrances (`views/home.css`, `views/documents.css`) it would mean a layer
+    per row. Do not sweep it outwards. The related note lives on
+    `contain: layout style` in `commons/sliding-selection.styles.ts`, where
+    the travelling pill animates `inset` — layout, not compositing — and the
+    containment is a stated boundary rather than a measured win.
   - **No shadow tokens exist** — components hardcode `box-shadow` inline; do the
     same unless you introduce one deliberately.
 - To restyle a shadow component from a view, prefer a **custom property**

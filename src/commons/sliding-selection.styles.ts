@@ -41,6 +41,14 @@ export const slidingSelectionStyles = css`
       /* Shadow DOM already scopes the name per instance; this is what keeps two
          rows apart if the pattern is ever used in the light DOM. */
       anchor-scope: --sliding-selection;
+      /* The pill travels on inset, which is layout, not compositing — see the
+         transition on the ::after below. A guardrail rather than a measured
+         win: the pill is absolutely positioned, so it is already out of flow
+         and already cannot reflow its siblings, and this only formalises that
+         boundary. It is here so the constraint is stated where the next
+         consumer will read it — app-calendar puts this row around a 42-cell
+         grid, which is the one place the difference could ever be felt. */
+      contain: layout style;
     }
 
     .sliding-selection__active {

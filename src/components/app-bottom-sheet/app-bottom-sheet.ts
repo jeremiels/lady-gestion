@@ -280,6 +280,16 @@ export class AppBottomSheet extends DialogElement {
 
     dialog.sheet--dragging {
       transition: none;
+      /* The only will-change in the app, and the only motion here the
+         compositor cannot anticipate: with the transition off, the drag sets
+         transform imperatively from a pointer handler, so there is no
+         animation for the browser to infer a layer from and it promotes only
+         after the sheet has already moved for several frames. Every other
+         animation in this codebase is CSS or WAAPI on transform/opacity, which
+         gets promoted on its own — the hint would only cost memory there.
+         On the class, not the dialog, so it lasts exactly as long as the
+         gesture: #endDrag() drops it before clearing the inline transform. */
+      will-change: transform;
     }
 
     dialog[open] {
