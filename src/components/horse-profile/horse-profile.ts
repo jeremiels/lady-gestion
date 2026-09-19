@@ -169,8 +169,8 @@ export class HorseProfile extends BaseElement {
     }
 
     .copy[data-state="copied"] .copy__pill {
-      background-color: var(--color-theme-mint);
-      color: var(--color-white);
+      background-color: var(--color-theme-mint-background);
+      color: var(--color-theme-mint);
       /* The green is not synchronised by hand — it simply waits out the slide,
          so it arrives once "Copié !" has landed. The delay lives only on this
          state, which is also how it un-delays: dropping the state drops the
@@ -182,6 +182,7 @@ export class HorseProfile extends BaseElement {
        padding, so constraining it instead squeezes the SVG to a sliver. */
     .copy app-icon {
       --icon-size: 1rem;
+      --icon-color: currentColor;
 
       padding: 0;
     }
