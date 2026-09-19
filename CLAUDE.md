@@ -38,11 +38,14 @@ there when the task touches it. The rules below apply to every task.
 
 ## Hard Constraints
 
-- **Browser floor: Safari 18.2 / Chrome 134 / Firefox 137.** Everything may
+- **Browser floor: Safari 26.2 / Chrome 143 / Firefox 147.** Everything may
   assume it — guarding what the floor already guarantees is dead code. Anything
-  above the floor must be feature-detected with a comment saying why. Notable
-  seams: the Navigation API (Safari 26.2, Firefox 147) and CSS anchor
-  positioning (Safari 26, Firefox 147) are **above** the floor. See
+  above the floor must be feature-detected with a comment saying why. The floor
+  is a **date** the numbers translate — all three shipped between 4 Dec 2025 and
+  13 Jan 2026 — not a rolling "latest minus n": Chrome and Firefox moved to a
+  two-week cadence in September 2026, so a version count now buys half the
+  calendar time it used to. `build.target` in `vite.config.ts` carries the same
+  numbers; move the two together or the doc and the bundle disagree. See
   "Browser floor" in `AGENTS.md` before reaching for a new platform feature.
 - **Dexie / IndexedDB is the only persistence layer** (`src/data/`). No
   `localStorage`, no `fetch`/API calls, no backend.

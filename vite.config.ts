@@ -236,6 +236,19 @@ export default defineConfig({
   plugins: [iconSprite({ names: ICON_NAMES }), serviceWorker(), githubPages()],
 
   build: {
+    /**
+     * The documented browser floor, made real — see "Browser floor" in
+     * `AGENTS.md`, and move the two together.
+     *
+     * Without this Vite 8 falls back to `baseline-widely-available`
+     * (`chrome111 / firefox114 / safari16.4`), so every feature the floor
+     * exists to let us use unguarded was being down-levelled anyway, for
+     * browsers eighteen months older than anything we support. `edge` tracks
+     * Chrome and `ios` is the primary platform, so both are stated rather
+     * than inferred.
+     */
+    target: ["safari26.2", "ios26.2", "chrome143", "edge143", "firefox147"],
+
     rollupOptions: {
       output: {
         codeSplitting: { groups: vendorChunks },

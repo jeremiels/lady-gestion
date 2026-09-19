@@ -8,52 +8,70 @@ budget). French UI copy throughout (e.g. "Ration quotidienne",
 
 ## Browser floor
 
-**Safari 18.2 / Chrome 134 / Firefox 137**, and everything here may assume it.
+**Safari 26.2 / Chrome 143 / Firefox 147**, and everything here may assume it.
 
 Write this down before reaching for a new platform feature: it is the only
-thing that makes "can we use X?" a lookup rather than an argument. The floor is
-not arbitrary — it covers everything that already ships unguarded:
-`ElementInternals` and `:state()`, form-associated custom elements,
-`@starting-style`, `transition-behavior: allow-discrete`, `subgrid`,
-`content-visibility`, the Popover API and `@container`. The binding one is
-`content-visibility`, at Safari 18.0; 18.2 is a deliberate margin over that,
-not a computed minimum.
+thing that makes "can we use X?" a lookup rather than an argument.
+
+**The floor is a date, not a version count.** All three shipped within six
+weeks of each other — Chrome 143 on 4 Dec 2025, Safari 26.2 on 12 Dec 2025,
+Firefox 147 on 13 Jan 2026 — and that turn-of-the-year line is the real
+constraint. The numbers are only today's translation of it, for two reasons.
+Chrome moved to a two-week release cadence at 153 (8 Sep 2026) and Firefox at
+155 (1 Sep 2026), so "latest minus ten" now buys about five months of calendar
+rather than the ten it used to; a version budget silently tightens every time
+they ship. And the single user is on the current iOS, so Safari is not the
+brake it usually is — 26.2 is a deliberate margin below what her phone runs
+(Safari 27, 14 Sep 2026), chosen because 26.2 is where the Navigation API
+lands, not because anything is known to still be on it.
+
+**Re-derive it from dates, not by subtracting from whatever is current.** At
+the time of writing, latest is Chrome 153 / Firefox 156 / Safari 27.
+
+**The floor is enforced, not just written down.** `build.target` in
+`vite.config.ts` carries these same versions. Without it Vite 8 falls back to
+`baseline-widely-available`, which is `chrome111 / firefox114 / safari16.4` —
+so the bundle was being down-levelled for browsers eighteen months older than
+anything this document claimed to support. Move the prose and `build.target`
+together, or the two quietly disagree again.
+
+What the floor covers, unguarded: `ElementInternals` and `:state()`,
+form-associated custom elements, `@starting-style`,
+`transition-behavior: allow-discrete`, `subgrid`, `content-visibility`, the
+Popover API, `@container`, the Navigation API and CSS anchor positioning.
 
 Three consequences worth stating out loud:
 
-- **Feature-detect whatever the floor does not guarantee**, and say why in a
-  comment. Four things are guarded today, and they are not all the same case.
-  `document.startViewTransition` and view-transition **types** sit at or below
-  the floor, and are guarded only because the two halves shipped separately.
-  The Navigation API sits **above** it, on two engines out of three: Safari did
-  not ship it until **26.2**, Firefox until **147**. (18.2 is
-  `:active-view-transition-type()` — a different feature, and the source of a
-  long-standing mix-up here.) Only Chrome has it at the floor, so
-  `'navigation' in window` is a live seam rather than a legacy one: every iPhone
-  below iOS 26.2 takes the fallback today, which means real page loads, no route
-  view transitions at all, and no persisted view state. **CSS anchor
-  positioning** is above the floor on the same two engines — Chrome 125, but
-  Safari **26** and Firefox **147** — so the sliding background behind the
-  selected segment of `app-segmented` sits entirely inside
-  `@supports (anchor-name: --sliding-selection)` in
-  `commons/sliding-selection.styles.ts`. What a browser without it loses is the
-  travel, not the state: the plain background swap that control has always had
-  is exactly the unguarded rule. Guarding what the floor already guarantees is
-  still dead code.
-- **Some tempting APIs are still above the floor.** Checked, and deliberately
-  not used: `<dialog closedby>` (no Safari support at all — it would drop
-  light-dismiss on the primary platform, and `ModalDialog` handles backdrop and
-  Esc itself), `Temporal` (Safari stable has not shipped it; `data/dates.ts` is
-  written as the seam for the day it does), and `URLPattern` (Baseline, but it
-  needs Safari 26 — adopting it in the route table would turn today's graceful
-  degradation into a white screen on exactly the browsers `goBack` still
-  supports).
+- **Two seams are now below the floor and their guards are dead code.** Both
+  were live when the floor sat at Safari 18.2, and raising it is what retires
+  them. **The Navigation API** reached Baseline Newly Available in Jan 2026
+  (Chrome, Edge, Firefox 147, Safari 26.2), so `'navigation' in window` is
+  always true here: the nine checks in `commons/navigation.ts`,
+  `commons/controllers/router.ts`, `commons/controllers/view-state.ts` and the
+  whole of `commons/history-fallback.ts` no longer have a browser to serve.
+  **CSS anchor positioning** shipped by default in Firefox 147 and Safari 26,
+  so the four `@supports (anchor-name: --sliding-selection)` blocks
+  (`commons/sliding-selection.styles.ts`, `commons/segmented.styles.ts`,
+  `app-unit-select`, `app-calendar`) always match. *Both removals are pending —
+  the floor moved first on purpose, so the deletion is a change that can be
+  reviewed on its own.* Until then, this is the one place in the codebase
+  where a guard is knowingly kept past its floor; do not copy the pattern.
+  `document.startViewTransition` and view-transition **types** stay guarded:
+  they sit at or below the floor and are checked only because the two halves
+  shipped separately.
+- **Some tempting APIs are still above the floor.** `Temporal` and
+  `<dialog closedby>` both appeared in Safari Technology Preview 249 (Jul
+  2026), so the earliest Safari stable that could carry them is 27 — above
+  26.2, and unverified in stable either way. `data/dates.ts` stays the seam for
+  the day `Temporal` clears the floor, and `ModalDialog` keeps handling
+  backdrop and Esc itself. `URLPattern` **has** cleared it (Safari 26), and is
+  now a real option for the route table rather than a white screen.
 - **`overlay` is used unguarded and no Safari supports it.** The
   `transition: overlay … allow-discrete` in `app-modal` and `app-bottom-sheet`
-  is Chromium-only, still absent in Safari 26.x. Entry animations are fine —
-  they ride `@starting-style` — but the _exit_ never plays on iOS, because the
-  dialog leaves the top layer the instant `close()` runs. Accepted for now;
-  fixing it means holding `open` until `transitionend` and closing from there.
+  is Chromium-only, still not Baseline. Entry animations are fine — they ride
+  `@starting-style` — but the _exit_ never plays on iOS, because the dialog
+  leaves the top layer the instant `close()` runs. Accepted for now; fixing it
+  means holding `open` until `transitionend` and closing from there.
 
 ## Stack
 
