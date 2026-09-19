@@ -45,6 +45,8 @@ export const ICON_NAMES = [
   "farm",
   "pen",
   "plus",
+  "arrowDown",
+  "chevronDown",
   "chevronLeft",
   "chevronRight",
   "close",

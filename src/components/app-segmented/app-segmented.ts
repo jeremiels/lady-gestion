@@ -117,7 +117,7 @@ export class AppSegmented extends BaseElement {
               tabindex=${checked ? 0 : -1}
               @click=${() => this.#select(option.value)}
             >
-              ${option.icon ? html`<app-icon .icon=${option.icon}></app-icon>` : option.label}
+              ${option.icon ? html`<app-icon class="segmented__icon" .icon=${option.icon}></app-icon>` : option.label}
             </button>
           `;
         })}

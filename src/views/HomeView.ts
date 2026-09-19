@@ -191,12 +191,13 @@ export class HomeView extends LightElement {
               `
             : nothing
         }
-
+      <div class="home-view__cards">
         <horse-card .horse=${this.#horse.value ?? null}></horse-card>
         <div class="home-view__section-col">
           <budget-card .totalCents=${this.#monthSpend.value ?? 0}></budget-card>
           <documents-card .folderCount=${DOCUMENT_FOLDERS}></documents-card>
         </div>
+      </div>
       </section>
     `;
   }

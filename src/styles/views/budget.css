@@ -58,7 +58,7 @@
      it isn't cut off. */
   .budget-view__summary {
     display: grid;
-    gap: var(--spacing-16);
+    gap: var(--spacing-24);
     padding: var(--spacing-16);
     overflow: clip;
     overflow-clip-margin: var(--spacing-4);

@@ -63,6 +63,10 @@
     color: var(--color-brown-light);
   }
 
+  .home-view__cards {
+    display: grid;
+    gap: var(--spacing-16);
+  }
   /* minmax(0, ...) and not a bare 1fr: a bare one floors each column at its
      content's min-content width, and budget-card's amount is wide enough that
      the pair overflowed the page — dragging the dashboard's own grid column

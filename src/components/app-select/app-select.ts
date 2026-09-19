@@ -5,6 +5,8 @@ import { live } from "lit/directives/live.js";
 import { describedBy, fieldMessages } from "../../commons/field-parts.ts";
 import { FormFieldElement } from "../../commons/form-field-element.ts";
 
+import "../app-icon/app-icon.ts";
+
 export interface AppSelectOption {
   value: string;
   label: string;
@@ -209,8 +211,8 @@ export class AppSelect extends FormFieldElement {
          retint the field without also beating the focus rule below — outer
          ::part declarations win over the shadow tree's own. Mirrors
          --app-input-background on app-input. */
-      background-color: var(--app-select-background, var(--color-white));
-      border: 1px solid var(--app-select-border-color, var(--color-brown-light));
+      background-color: var(--color-input-drawer, var(--color-white));
+      border: 1px solid var(--color-input-drawer, var(--color-brown-light));
       border-radius: var(--radius-8);
       padding: var(--spacing-8) var(--spacing-32) var(--spacing-8)
         var(--spacing-12);
@@ -247,20 +249,21 @@ export class AppSelect extends FormFieldElement {
       top: 50%;
       right: var(--spacing-12);
       transform: translateY(-50%);
-      width: 0.625rem;
-      height: 0.625rem;
+      /* app-icon pads its own host, which is too much inside a field. */
+      padding: 0;
+      --icon-size: 1rem;
+      color: var(--color-brown-middle);
+      /* Clicks fall through to the select underneath. */
       pointer-events: none;
-      border-right: 2px solid var(--color-brown-middle);
-      border-bottom: 2px solid var(--color-brown-middle);
-      transform: translateY(-75%) rotate(45deg);
     }
 
     :host([disabled]) .field__arrow {
-      border-color: var(--color-disabled-content);
+      color: var(--color-disabled-content);
     }
 
     :host([pill]) {
       display: inline-block;
+      padding: 0;
     }
 
     /* No font-size here, deliberately: the pill inherits the 1rem the base
@@ -275,7 +278,9 @@ export class AppSelect extends FormFieldElement {
          writes an explicit px width; see that method for why auto can't
          stay — it sizes to the widest option, not the chosen one. */
       width: auto;
-      min-height: 2.25rem;
+      max-height: 2.313rem;
+      min-height: 2.313rem;
+      line-height: 1rem;
       border: none;
       border-radius: var(--radius-pill);
       background-color: var(
@@ -301,8 +306,8 @@ export class AppSelect extends FormFieldElement {
     }
 
     :host([pill]) .field__arrow {
-      right: var(--spacing-16);
-      border-color: var(--color-brown-dark);
+      right: var(--spacing-12);
+      color: var(--color-brown-dark);
     }
 
     :host(:state(invalid)) .field__select {
@@ -370,7 +375,11 @@ export class AppSelect extends FormFieldElement {
                   </optgroup>`,
             )}
           </select>
-          <span class="field__arrow" aria-hidden="true"></span>
+          <app-icon
+            class="field__arrow"
+            icon="arrowDown"
+            aria-hidden="true"
+          ></app-icon>
         </div>
         ${fieldMessages({ hintId, errorId, helpText: this.helpText, message })}
       </div>

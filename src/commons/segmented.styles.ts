@@ -34,7 +34,7 @@ export const segmentedStyles = [
       display: grid;
       place-items: center;
       width: 2.5rem;
-      height: 2.25rem;
+      height: 1.813rem;
       padding: 0;
       border: none;
       border-radius: var(--radius-pill);
@@ -63,6 +63,10 @@ export const segmentedStyles = [
     .segmented__option--current {
       background: var(--color-white);
       color: var(--color-brown-dark);
+    }
+
+    .segmented__icon {
+      padding: 0;
     }
 
     /*

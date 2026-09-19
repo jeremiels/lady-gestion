@@ -62,14 +62,15 @@ export class AppSubnav extends BaseElement {
       }
 
       .segmented__option--text {
-        display: block;
+        display: grid;
+        place-items: center;
         flex: 1 1 auto;
         min-width: 0;
         padding-inline: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         text-align: center;
-        line-height: 2.25rem;
+        line-height: 1rem;
       }
     `,
   ];
