@@ -76,6 +76,41 @@ describe("home-view", () => {
     expect(el.querySelector("budget-card")?.totalCents).toBe(1500);
   });
 
+  it("keeps a cure in the appointments until the day it starts", async () => {
+    await db.posts.bulkAdd([
+      makePost({
+        id: "cure-later",
+        categoryKey: "cures",
+        title: "Uvemix",
+        date: addDays(todayISO(), 2),
+      }),
+    ]);
+
+    const el = await mount();
+    await waitFor(el, () => el.querySelectorAll("post-card").length > 0);
+
+    expect(el.querySelector("post-card")?.post?.id).toBe("cure-later");
+    expect(el.querySelectorAll("course-card")).toHaveLength(0);
+  });
+
+  it("moves a cure to En cours on its start day, out of the appointments", async () => {
+    await db.posts.bulkAdd([
+      makePost({
+        id: "cure-today",
+        categoryKey: "cures",
+        title: "Uvemix",
+        date: todayISO(),
+      }),
+    ]);
+
+    const el = await mount();
+    await waitFor(el, () => el.querySelectorAll("course-card").length > 0);
+
+    expect(el.querySelector("course-card")?.post?.id).toBe("cure-today");
+    expect(el.querySelectorAll("post-card")).toHaveLength(0);
+    expect(el.textContent).toContain("Aucun rendez-vous à venir");
+  });
+
   it("hands the week off to its own component", async () => {
     const el = await mount();
 

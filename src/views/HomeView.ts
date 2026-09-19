@@ -10,8 +10,10 @@ import {
   endOfMonth,
   postsRepo,
   categoriesRepo,
+  coursePhase,
   findCategory,
   horsesRepo,
+  isCourse,
   isCourseOngoing,
   profileRepo,
   startOfMonth,
@@ -61,8 +63,9 @@ export class HomeView extends LightElement {
     [],
   );
 
-  // Every cure and traitement, not only the running ones: which have ended
-  // depends on today, so `render()` narrows it rather than the query.
+  // Every cure and traitement, not only the running ones: which have started
+  // and which have ended both depend on today, so `render()` narrows it
+  // rather than the query.
   #courses = activeHorseQuery<Post[]>(
     this,
     (horseId) => postsRepo.listByCategory(horseId, COURSE_CATEGORY_KEYS),
@@ -91,12 +94,19 @@ export class HomeView extends LightElement {
 
   render() {
     const types = this.#categories.value ?? [];
+    const today = todayISO();
+    // A cure is an appointment category, so it sits in this list until the day
+    // it starts — from then on it belongs to "En cours" below, not to both.
+    // Only its first day can actually collide (`listUpcoming` is already
+    // `date >= today`), but phrasing it as the phase keeps it right for a row
+    // whose status was set by hand.
     const upcoming = upcomingAppointments(
-      this.#upcoming.value ?? [],
+      (this.#upcoming.value ?? []).filter(
+        (post) => !isCourse(post) || coursePhase(post, today) === "upcoming",
+      ),
       types,
       UPCOMING_LIMIT,
     );
-    const today = todayISO();
     const ongoing = (this.#courses.value ?? []).filter((post) =>
       isCourseOngoing(post, today),
     );
@@ -105,7 +115,7 @@ export class HomeView extends LightElement {
       <section class="home-view">
         <div class="home-view__header">
           <hgroup class="section-group">
-            <h1 class="section-title" tabindex="-1">Tableau de bord</h1>
+            <h1 class="page-title" tabindex="-1">Tableau de bord</h1>
             <p class="section-subtitle">Suivi de Ladympala</p>
           </hgroup>
           <a

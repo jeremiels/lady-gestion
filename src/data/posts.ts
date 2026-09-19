@@ -345,11 +345,23 @@ export const courseEndDate = (post: Post): IsoDate | null => {
   return isIsoDate(end) ? end : null;
 };
 
-/** Still running today: no end date, or one that has not passed yet. */
-export const isCourseOngoing = (post: Post, today: IsoDate): boolean => {
+/**
+ * Where a course stands today. A course runs from the post's `date` to its
+ * `endDate`, so one entered ahead of time has not started yet — it is neither
+ * running nor over, and the three states are exclusive.
+ */
+export type CoursePhase = "upcoming" | "ongoing" | "ended";
+
+export const coursePhase = (post: Post, today: IsoDate): CoursePhase => {
+  if (post.date > today) return "upcoming";
+
   const end = courseEndDate(post);
-  return end === null || end >= today;
+  return end !== null && end < today ? "ended" : "ongoing";
 };
+
+/** Started, and with no end date or one that has not passed yet. */
+export const isCourseOngoing = (post: Post, today: IsoDate): boolean =>
+  coursePhase(post, today) === "ongoing";
 
 /**
  * The last day a course covers on a calendar: its end date, or today while it

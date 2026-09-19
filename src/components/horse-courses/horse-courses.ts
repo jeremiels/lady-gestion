@@ -4,14 +4,14 @@ import { repeat } from "lit/directives/repeat.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import { findCategory, type ResolvedCategory } from "../../data/categories.ts";
 import { todayISO, type IsoDate } from "../../data/dates.ts";
-import { isCourseOngoing } from "../../data/posts.ts";
+import { coursePhase, type CoursePhase } from "../../data/posts.ts";
 import type { Post } from "../../data/types.ts";
 
 import "../course-card/course-card.ts";
 
 /**
- * The horse page's Cures or Traitements tab: the courses still running, then
- * the ones that have ended under "Historique".
+ * The horse page's Cures or Traitements tab: the courses that have not begun,
+ * then the ones running, then the ones that have ended under "Historique".
  *
  * Presentational — `HorseView` runs the query and hands down one category's
  * posts, newest first; this only splits them.
@@ -27,7 +27,7 @@ export class HorseCourses extends BaseElement {
   /** Shown when there is nothing at all to list. */
   @property({ type: String }) empty = "";
 
-  /** Threaded through so the split and every card's day count agree. */
+  /** Threaded through so the three-way split and every card's day count agree. */
   @property({ type: String }) today: IsoDate = todayISO();
 
   static componentStyles = css`
@@ -72,16 +72,13 @@ export class HorseCourses extends BaseElement {
       return html`<p class="empty">${this.empty}</p>`;
     }
 
-    const ongoing = this.posts.filter((post) =>
-      isCourseOngoing(post, this.today),
-    );
-    const ended = this.posts.filter(
-      (post) => !isCourseOngoing(post, this.today),
-    );
+    const inPhase = (phase: CoursePhase) =>
+      this.posts.filter((post) => coursePhase(post, this.today) === phase);
 
     return html`
-      ${this.#renderSection(`${this.label} en cours`, ongoing)}
-      ${this.#renderSection("Historique", ended)}
+      ${this.#renderSection(`${this.label} à venir`, inPhase("upcoming"))}
+      ${this.#renderSection(`${this.label} en cours`, inPhase("ongoing"))}
+      ${this.#renderSection("Historique", inPhase("ended"))}
     `;
   }
 

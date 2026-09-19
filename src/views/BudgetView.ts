@@ -267,7 +267,7 @@ export class BudgetView extends LightElement {
     return html`
       <section class="budget-view">
         <hgroup class="section-group">
-          <h1 class="section-title" tabindex="-1">Budget</h1>
+          <h1 class="page-title" tabindex="-1">Budget</h1>
           <p class="section-subtitle">Suivre toutes les dépenses</p>
         </hgroup>
 
@@ -327,7 +327,7 @@ export class BudgetView extends LightElement {
   ) {
     return html`
       <section class="budget-view__ledger">
-        <h2 class="budget-view__group-title">
+        <h2 class="section-title">
           ${formatPeriodHeading(granularity)}
         </h2>
         <!-- Keyed: changing the period replaces the whole ledger, and the

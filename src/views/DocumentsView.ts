@@ -32,7 +32,7 @@ export class DocumentsView extends LightElement {
     return html`
       <section class="documents-view">
         <hgroup class="section-group">
-          <h1 class="section-title" tabindex="-1">Documents</h1>
+          <h1 class="page-title" tabindex="-1">Documents</h1>
           <p class="section-subtitle">Coffre-fort de tous les fichiers</p>
         </hgroup>
         <ul class="documents-list">

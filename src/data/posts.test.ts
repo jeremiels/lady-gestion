@@ -10,6 +10,7 @@ import {
   courseDatesThisWeek,
   courseEndDate,
   courseLastDay,
+  coursePhase,
   isCourse,
   isCourseOnDay,
   endDateErrors,
@@ -297,6 +298,27 @@ describe("courses", () => {
     expect(isCourseOngoing(course("2026-01-01", TODAY), TODAY)).toBe(true);
     expect(isCourseOngoing(course("2026-01-01", "2026-01-09"), TODAY)).toBe(
       false,
+    );
+  });
+
+  it("is not ongoing before its start day, however far off its end is", () => {
+    expect(isCourseOngoing(course("2026-01-11"), TODAY)).toBe(false);
+    expect(isCourseOngoing(course("2026-01-11", "2026-02-11"), TODAY)).toBe(
+      false,
+    );
+  });
+
+  it("starts being ongoing on its start day", () => {
+    expect(isCourseOngoing(course(TODAY), TODAY)).toBe(true);
+  });
+
+  it("reads the three phases off the start and the end", () => {
+    expect(coursePhase(course("2026-01-11"), TODAY)).toBe("upcoming");
+    expect(coursePhase(course(TODAY), TODAY)).toBe("ongoing");
+    expect(coursePhase(course("2026-01-01"), TODAY)).toBe("ongoing");
+    expect(coursePhase(course("2026-01-01", TODAY), TODAY)).toBe("ongoing");
+    expect(coursePhase(course("2026-01-01", "2026-01-09"), TODAY)).toBe(
+      "ended",
     );
   });
 

@@ -95,7 +95,7 @@ export class ProfileView extends LightElement {
             <app-icon icon="chevronLeft"></app-icon>
           </button>
           <hgroup class="section-group">
-            <h1 class="section-title" tabindex="-1">Profil</h1>
+            <h1 class="page-title" tabindex="-1">Profil</h1>
             <p class="section-subtitle">Mon compte utilisateur</p>
           </hgroup>
         </header>

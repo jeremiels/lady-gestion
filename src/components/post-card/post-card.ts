@@ -101,7 +101,7 @@ export class PostCard extends BaseElement {
       align-items: start;
       column-gap: var(--spacing-8);
       row-gap: var(--spacing-4);
-      padding: var(--spacing-16);
+      padding: var(--spacing-12);
       border-radius: var(--radius-12);
       background-color: var(--color-white);
     }

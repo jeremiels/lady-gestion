@@ -157,7 +157,6 @@ export class WeekStrip extends BaseElement {
     const { selected, sheetOpen } = this;
 
     return html`
-      <h2 class="week__title">Cette semaine</h2>
       <!-- Positional, not keyed: seven cells in a fixed order, which is exactly
            what positional binding is for. -->
       <ul class="week__list">

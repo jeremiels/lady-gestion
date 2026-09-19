@@ -76,7 +76,7 @@ describe("horse-view", () => {
     expect(rationList(el).renderRoot.querySelector("button")).toBeNull();
   });
 
-  it("splits the cures into running and Historique, with dates, dose and active days", async () => {
+  it("splits the cures into à venir, running and Historique, with dates, dose and active days", async () => {
     const today = todayISO();
     await db.posts.bulkAdd([
       makePost({
@@ -93,6 +93,12 @@ describe("horse-view", () => {
         date: addDays(today, -40),
         customFields: { endDate: addDays(today, -31) },
       }),
+      makePost({
+        id: "later",
+        categoryKey: "cures",
+        title: "Spiruline",
+        date: addDays(today, 5),
+      }),
       makePost({ id: "other", categoryKey: "traitement", title: "Antibio" }),
     ]);
 
@@ -101,17 +107,19 @@ describe("horse-view", () => {
     const cards = () => [
       ...(courses()?.renderRoot.querySelectorAll("course-card") ?? []),
     ];
-    await waitFor(el, () => cards().length === 2);
+    await waitFor(el, () => cards().length === 3);
     await Promise.all(cards().map((card) => card.updateComplete));
 
     const headings = [...courses()!.renderRoot.querySelectorAll("h2")].map(
       (h) => h.textContent?.trim(),
     );
-    expect(headings).toEqual(["Cures en cours", "Historique"]);
+    expect(headings).toEqual(["Cures à venir", "Cures en cours", "Historique"]);
 
-    const [running, ended] = cards().map((card) =>
+    const [later, running, ended] = cards().map((card) =>
       card.shadowRoot!.textContent!.replace(/\s+/g, " "),
     );
+    expect(later).toContain("Spiruline");
+    expect(later).toContain("À partir du");
     expect(running).toContain("Uvemix");
     expect(running).toContain("à aujourd'hui");
     expect(running).toContain("40 mL/j");

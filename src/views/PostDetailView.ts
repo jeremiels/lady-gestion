@@ -141,7 +141,7 @@ export class PostDetailView extends LightElement {
     return html`
       <section class="post-detail">
         <hgroup class="section-group">
-          <h1 class="section-title" tabindex="-1">Évènement introuvable</h1>
+          <h1 class="page-title" tabindex="-1">Évènement introuvable</h1>
           <p class="section-subtitle">Il a peut-être été supprimé.</p>
         </hgroup>
         <button

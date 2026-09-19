@@ -5,9 +5,16 @@
     gap: var(--spacing-4);
   }
 
-  .section-title {
+  .page-title {
     font-family: var(--font-family-heading);
     font-size: 1.125rem;
+    line-height: 1.313rem;
+    font-weight: 700;
+  }
+
+  .section-title {
+    font-family: var(--font-family-heading);
+    font-size: 1rem;
     line-height: 1.25rem;
     font-weight: 700;
   }

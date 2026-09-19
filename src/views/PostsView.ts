@@ -165,7 +165,7 @@ export class PostsView extends LightElement {
       <section class="posts-view">
         <header class="posts-view__header">
           <hgroup class="section-group">
-            <h1 class="section-title" tabindex="-1">Activités</h1>
+            <h1 class="page-title" tabindex="-1">Activités</h1>
             <p class="section-subtitle">Récap des activités</p>
           </hgroup>
           <app-segmented

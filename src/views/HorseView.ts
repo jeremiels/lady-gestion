@@ -88,7 +88,7 @@ export class HorseView extends LightElement {
           route change in app-root.
         -->
         <hgroup class="section-group">
-          <h1 class="section-title" tabindex="-1">${horse?.name}</h1>
+          <h1 class="page-title" tabindex="-1">${horse?.name}</h1>
           <p class="section-subtitle">Fiche synthèse</p>
         </hgroup>
         <div class="horse-view__cover">

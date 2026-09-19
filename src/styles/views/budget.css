@@ -227,12 +227,6 @@
     gap: var(--spacing-12);
   }
 
-  .budget-view__group-title {
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--color-brown-middle);
-  }
-
   .budget-view__list {
     display: grid;
     gap: var(--spacing-12);

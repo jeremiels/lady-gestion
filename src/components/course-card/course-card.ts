@@ -7,8 +7,8 @@ import { formatDate, todayISO, type IsoDate } from "../../data/dates.ts";
 import {
   activeDays,
   courseEndDate,
+  coursePhase,
   formatDosePerDay,
-  isCourseOngoing,
 } from "../../data/posts.ts";
 import type { ResolvedCategory } from "../../data/categories.ts";
 import type { Post } from "../../data/types.ts";
@@ -17,11 +17,12 @@ import { THEME_META } from "../../theme/theme.ts";
 /**
  * How the card says when the course runs.
  *
- * - `history` — the dates themselves: "01/01/2026 à aujourd'hui" while it has
- *   no end date, "01/01/2026 au 12/01/2026" once it has one. The horse page's
- *   Cures and Traitements tabs, where the list is the record.
- * - `compact` — only whether it is running. The dashboard, a glance at what
- *   is being given right now.
+ * - `history` — the dates themselves: "À partir du 01/02/2026" before it
+ *   starts, "01/01/2026 à aujourd'hui" while it runs with no end date,
+ *   "01/01/2026 au 12/01/2026" once it has one. The horse page's Cures and
+ *   Traitements tabs, where the list is the record.
+ * - `compact` — only which of the three it is. The dashboard, a glance at
+ *   what is being given right now.
  */
 export type CourseCardLayout = "history" | "compact";
 
@@ -72,7 +73,7 @@ export class CourseCard extends BaseElement {
       grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: stretch;
       column-gap: var(--spacing-8);
-      padding: var(--spacing-12) var(--spacing-16);
+      padding: var(--spacing-12);
       border-radius: var(--radius-12);
       background-color: var(--color-white);
     }
@@ -185,15 +186,21 @@ export class CourseCard extends BaseElement {
   }
 
   #when(post: Post): string {
-    const ongoing = isCourseOngoing(post, this.today);
-    if (this.layout === "compact") return ongoing ? "En cours" : "Terminé";
+    const phase = coursePhase(post, this.today);
+    if (this.layout === "compact") {
+      if (phase === "upcoming") return "À venir";
+      return phase === "ongoing" ? "En cours" : "Terminé";
+    }
 
-    // "à aujourd'hui" only for a course with no end yet: one whose end date is
-    // still ahead says when it stops, the same day its calendar bar does.
+    // "à aujourd'hui" only for a course that is running with no end yet: one
+    // whose end date is still ahead says when it stops, the same day its
+    // calendar bar does, and one that has not begun has nothing to count from.
     const end = courseEndDate(post);
-    return end === null
-      ? `${formatDate(post.date)} à aujourd'hui`
-      : `${formatDate(post.date)} au ${formatDate(end)}`;
+    if (end !== null) return `${formatDate(post.date)} au ${formatDate(end)}`;
+
+    return phase === "upcoming"
+      ? `À partir du ${formatDate(post.date)}`
+      : `${formatDate(post.date)} à aujourd'hui`;
   }
 }
 
