@@ -27,6 +27,8 @@ export const ICON_NAMES = [
   "homeFilled",
   "date",
   "dateFilled",
+  "cheval",
+  "chevalFilled",
   "folder",
   "folderFilled",
   "user",

@@ -2,6 +2,7 @@ import { css, html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import { appHref } from "../../commons/base-path.ts";
+import { horsePath } from "../../commons/sections.ts";
 import { ageInYears, formatAge } from "../../data/dates.ts";
 import { HORSE_SEX_LABEL } from "../../types/horse.types.ts";
 import type { Horse } from "../../data/types.ts";
@@ -180,7 +181,7 @@ export class HorseCard extends BaseElement {
           detailed
             ? html`<div class="horse-card">${content}</div>`
             : html`<a
-                href="${appHref(`/horse/${horse.id}`)}"
+                href="${appHref(horsePath(horse.id))}"
                 class="horse-card pressable"
                 >${content}</a
               >`

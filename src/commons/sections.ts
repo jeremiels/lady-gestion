@@ -28,12 +28,23 @@ const tabWithId = <T extends readonly { id: string }[]>(
 ): T[number] | undefined => tabs.find((tab) => tab.id === value);
 
 /**
- * `/horse` and `/horse/<id>`.
+ * `/horse` and everything under it.
  *
- * Pulled out of the route's own `match` so the `horse` view-transition type can
- * reuse the exact same check rather than drifting out of sync with it.
+ * Pulled out of the route's own `match` so the `horse` view-transition type and
+ * the section's `matches` reuse the exact same check rather than drifting out
+ * of sync with it.
  */
 export const isHorsePath = (path: string): boolean => isUnder("/horse", path);
+
+/**
+ * `/horse` or `/horse/<id>`, but not a tab below it — where the Cheval nav item
+ * and `horse-card` both point.
+ *
+ * `isLateral` needs it because this section's landing carries the horse's id,
+ * so it is the one section whose `root` can never equal its own destination.
+ */
+const isHorseLanding = (path: string): boolean =>
+  path === "/horse" || /^\/horse\/[^/]+$/.test(path);
 
 /**
  * The horse page's sub-pages, in the order the second-level nav shows them.
@@ -74,11 +85,12 @@ export const horseRouteOf = (
 /**
  * The view-transition type a navigation touching the horse page gets.
  *
- * `horse` only on the way in or out (home ↔ horse page), where `horse-card`
- * morphs. Between two of the horse's own sub-pages it is `horse-subpage`
- * instead: the cover and the second-level nav are on both sides and must stay
- * put while only the tab's content slides — re-running the card morph there
- * would animate a card that never moved.
+ * `horse` on the way in or out, where `horse-card` morphs — it is the shared
+ * element between the dashboard's card and the page's cover, and coming from
+ * anywhere else only the incoming half exists. Between two of the horse's own
+ * sub-pages it is `horse-subpage` instead: the cover and the second-level nav
+ * are on both sides and must stay put while only the tab's content slides —
+ * re-running the card morph there would animate a card that never moved.
  */
 export const horseTransitionType = (
   from: string,
@@ -89,6 +101,14 @@ export const horseTransitionType = (
   if (fromHorse && toHorse) return "horse-subpage";
   return fromHorse || toHorse ? "horse" : null;
 };
+
+/**
+ * The horse's page, default tab — what both the Cheval nav item and
+ * `horse-card` link to, so the two cannot drift.
+ *
+ * App-relative, like every path here — `appHref()` it where it is rendered.
+ */
+export const horsePath = (horseId: string): string => `/horse/${horseId}`;
 
 /** App-relative, like every path here — `appHref()` it where it is rendered. */
 export const horseTabPath = (horseId: string, tab: HorseTab): string =>
@@ -167,6 +187,15 @@ export type Section = {
    * section for transitions and *two* lit nav items at once.
    */
   matches: (path: string) => boolean;
+  /**
+   * Where this section's nav item actually points, when that is not `root`.
+   *
+   * Only `isLateral` reads it, and only the horse's section supplies it: its
+   * link carries the horse's id, so `root` alone can never equal the path a tap
+   * on the item lands on and every move into the section would read as a
+   * drill-down. See the comment on `isLateral` for what that half decides.
+   */
+  landsOn?: (path: string) => boolean;
 };
 
 export const SECTIONS: Section[] = [
@@ -175,12 +204,11 @@ export const SECTIONS: Section[] = [
     root: "/",
     label: "Accueil",
     icon: "home",
-    // The horse's page is a drill-down from the dashboard, not a section of its
-    // own — an unlit bar there would say otherwise. `/budget` used to be listed
-    // here for the same reason and is not any more: it has had its own nav item
-    // since it was added to the bar, and leaving it claimed here lit two items
-    // at once and made Accueil↔Budget look like a drill-down to `isLateral`.
-    matches: (path) => path === "/" || isHorsePath(path),
+    // The dashboard alone. It links to the horse's page and to Budget, but both
+    // are sections of their own with their own nav item, and claiming either
+    // here would light two items at once and make the move read as a drill-down
+    // to `isLateral`.
+    matches: (path) => path === "/",
   },
   {
     id: "posts",
@@ -198,11 +226,14 @@ export const SECTIONS: Section[] = [
     matches: (path) => path === "/budget",
   },
   {
-    id: "documents",
-    root: "/documents",
-    label: "Documents",
-    icon: "folder",
-    matches: (path) => path === "/documents",
+    id: "horses",
+    root: "/horse",
+    label: "Cheval",
+    icon: "cheval",
+    // A prefix match, like Activités: the tabs under `/horse/<id>` are the
+    // Cheval section too, and must not unlight it.
+    matches: isHorsePath,
+    landsOn: isHorseLanding,
   },
 ];
 
@@ -211,22 +242,24 @@ export const sectionOf = (path: string): Section | undefined =>
   SECTIONS.find((section) => section.matches(path));
 
 /**
- * A sideways move: out of one section and onto the root of another.
+ * A sideways move: out of one section and onto the landing page of another.
  *
- * The "onto a root" half matters as much as the section comparison. Leaving
+ * The "onto a landing" half matters as much as the section comparison. Leaving
  * `/profile` for `/posts/<id>` via a deep link changes section but still lands
  * a level down, and should still push.
  *
  * Both arguments are app-relative paths, the form `Router` works in — which is
- * why the root comparison below is against `section.root` and not against a
- * rendered href.
+ * why the comparison below is against `section.root` and not against a rendered
+ * href.
  */
 export const isLateral = (from: string, to: string): boolean => {
   const fromSection = sectionOf(from);
   const toSection = sectionOf(to);
 
   return (
-    SECTIONS.some((section) => section.root === to) &&
+    SECTIONS.some((section) =>
+      section.landsOn ? section.landsOn(to) : section.root === to,
+    ) &&
     fromSection !== undefined &&
     toSection !== undefined &&
     fromSection !== toSection

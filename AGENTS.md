@@ -136,11 +136,20 @@ Three consequences worth stating out loud:
   `.horse-view__panel`. `HorseView` is the container (queries);
   `horse-ration` and `horse-profile` are presentational. The ration is
   read-only there — it is edited on `/profile/interface/ration`.
-- **`/budget` is a drill-down, not a section**: it has no nav item, is reached
-  by tapping the dashboard's `budget-card`, and Accueil stays lit while it is
-  open (the `SECTIONS` table's `matches` predicates in `app-root`, which
-  `isHorsePath` feeds), the same way Calendrier stays lit on an
-  event's own page.
+- **The bottom bar has four sections** — Accueil, Activités, Budget, Cheval,
+  with the `+` between Activités and Budget — and `SECTIONS` in
+  `commons/sections.ts` is the only table that says so. Each entry's `matches`
+  claims its own paths *and its drill-downs*, which have no item of their own
+  and must not unlight the one they were opened from: `/posts/<id>` keeps
+  Activités lit, `/horse/<id>/<tab>` keeps Cheval lit. The predicates must
+  partition the paths — two claiming one path lights two items at once.
+  `/documents` and `/profile` are in no section, so nothing is lit there.
+- **Cheval's nav item is the one link built from data.** The page is
+  per-horse, so `app-root` holds a `LiveQuery` on the active horse purely to
+  build `/horse/<id>` (`horsePath()`, the same helper `horse-card` uses); until
+  it resolves the item renders the bare `/horse`, which the route accepts.
+  That is also why `Section` has `landsOn`: `isLateral` asks "did this land on
+  a section's own destination?", and Cheval's can never equal its `root`.
 - No state management library and no store. Reactivity comes from
   `LiveQuery` (`src/data/live.ts`), a Lit `ReactiveController` wrapping
   Dexie's `liveQuery` — see "Data layer" below.

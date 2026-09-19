@@ -35,7 +35,7 @@ beforeAll(async () => {
 
 it("recognises a sideways move between section roots", () => {
   expect(sections.isLateral("/", "/posts")).toBe(true);
-  expect(sections.isLateral("/budget", "/documents")).toBe(true);
+  expect(sections.isLateral("/budget", "/horse/abc")).toBe(true);
 });
 
 it("keeps section roots app-relative", () => {
@@ -43,6 +43,6 @@ it("keeps section roots app-relative", () => {
     "/",
     "/posts",
     "/budget",
-    "/documents",
+    "/horse",
   ]);
 });

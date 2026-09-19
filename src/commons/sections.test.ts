@@ -16,8 +16,15 @@ import {
  * caught before this file existed.
  */
 
-/** Every section root, app-relative — what `Router` passes `isLateral`. */
-const ROOTS = ["/", "/posts", "/budget", "/documents"];
+/**
+ * Every nav item's destination, app-relative — what `Router` passes
+ * `isLateral`. Cheval's carries the horse's id, so its landing is not its
+ * `root`; that asymmetry is the whole reason `Section.landsOn` exists.
+ */
+const LANDINGS = ["/", "/posts", "/budget", "/horse/abc"];
+
+/** Every `SECTIONS[].root`, in table order. */
+const ROOTS = ["/", "/posts", "/budget", "/horse"];
 
 describe("sectionOf", () => {
   it("claims each section root for its own section", () => {
@@ -25,14 +32,18 @@ describe("sectionOf", () => {
       "home",
       "posts",
       "budget",
-      "documents",
+      "horses",
     ]);
   });
 
   it("keeps a drill-down in the section it was reached from", () => {
-    expect(sectionOf("/horse")?.id).toBe("home");
-    expect(sectionOf("/horse/abc")?.id).toBe("home");
+    expect(sectionOf("/horse/abc")?.id).toBe("horses");
+    expect(sectionOf("/horse/abc/cheval")?.id).toBe("horses");
     expect(sectionOf("/posts/abc")?.id).toBe("posts");
+  });
+
+  it("leaves the dashboard unlit once the user is on the horse's page", () => {
+    expect(sectionOf("/horse/abc")?.id).not.toBe("home");
   });
 
   it("claims no section for a path outside the table", () => {
@@ -47,7 +58,7 @@ describe("sectionOf", () => {
    * somewhere else.
    */
   it("has exactly one section claiming each root", () => {
-    for (const path of ROOTS) {
+    for (const path of [...ROOTS, ...LANDINGS]) {
       expect(
         SECTIONS.filter((section) => section.matches(path)).map((s) => s.id),
       ).toHaveLength(1);
@@ -56,9 +67,9 @@ describe("sectionOf", () => {
 });
 
 describe("isLateral", () => {
-  it("is true between any two different section roots", () => {
-    const pairs = ROOTS.flatMap((from) =>
-      ROOTS.filter((to) => to !== from).map((to) => [from, to]),
+  it("is true between any two different nav destinations", () => {
+    const pairs = LANDINGS.flatMap((from) =>
+      LANDINGS.filter((to) => to !== from).map((to) => [from, to]),
     );
 
     for (const [from, to] of pairs) {
@@ -67,13 +78,14 @@ describe("isLateral", () => {
   });
 
   it("is false landing a level down, even across sections", () => {
-    // The deep-link case the predicate's "onto a root" half exists for.
-    expect(isLateral("/documents", "/posts/abc")).toBe(false);
-    expect(isLateral("/", "/horse/abc")).toBe(false);
+    // The deep-link case the predicate's "onto a landing" half exists for.
+    expect(isLateral("/budget", "/posts/abc")).toBe(false);
+    // A horse tab is below the landing, so it pushes like any other sub-page.
+    expect(isLateral("/", "/horse/abc/cheval")).toBe(false);
   });
 
   it("is false within one section", () => {
-    expect(isLateral("/horse", "/")).toBe(false);
+    expect(isLateral("/horse/abc", "/horse/abc/cures")).toBe(false);
     expect(isLateral("/posts/abc", "/posts")).toBe(false);
   });
 
@@ -137,7 +149,7 @@ describe("horseRouteOf", () => {
 });
 
 describe("horseTransitionType", () => {
-  it("morphs the card only on the way in or out of the horse page", () => {
+  it("morphs the card on the way in or out of the horse page", () => {
     expect(horseTransitionType("/", "/horse/abc")).toBe("horse");
     expect(horseTransitionType("/horse/abc/cures", "/")).toBe("horse");
   });

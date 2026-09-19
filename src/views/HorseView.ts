@@ -30,7 +30,7 @@ import "../components/horse-courses/horse-courses.ts";
 import "../components/horse-profile/horse-profile.ts";
 import "../components/horse-ration/horse-ration.ts";
 
-/** Only ever opened from the dashboard, so that's the only fallback back needs. */
+/** Where Retour lands when nothing preceded the page — a cold deep link. */
 const HOME = "/";
 
 /**

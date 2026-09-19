@@ -7,17 +7,19 @@ import { keyed } from "lit/directives/keyed.js";
 import "./views/HomeView";
 import { LightElement } from "./commons/base-element.ts";
 import { Router } from "./commons/controllers/router.ts";
-import { initData } from "./data/index.ts";
+import { horsesRepo, initData, LiveQuery } from "./data/index.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { appHref } from "./commons/base-path.ts";
 import {
   customizeRouteOf,
   customizeTransitionType,
+  horsePath,
   horseRouteOf,
   horseTransitionType,
   isLateral,
   SECTIONS,
+  type Section,
 } from "./commons/sections.ts";
 import "./components/navigation/nav-bar.ts";
 import "./components/navigation/nav-item.ts";
@@ -53,7 +55,7 @@ type Route = {
 const POST_DETAIL_PREFIX = "/posts/";
 
 /**
- * Where the `+` sits in the bar — between Calendrier and Documents.
+ * Where the `+` sits in the bar — between Activités and Budget.
  *
  * Named rather than an index into `SECTIONS`, because it is a composition
  * decision about the bar and not a property of any section. It is not a
@@ -61,6 +63,9 @@ const POST_DETAIL_PREFIX = "/posts/";
  * Navigation API to intercept.
  */
 const ADD_BUTTON_BEFORE = "budget";
+
+/** The one section whose nav link is per-horse — see `#sectionHref`. */
+const HORSE_SECTION = "horses";
 
 /**
  * The route table.
@@ -103,12 +108,12 @@ const ROUTES: Route[] = [
     `,
   },
   {
-    // A drill-down from the dashboard's budget card, not a section of its
-    // own — hence no nav item, and Accueil stays lit while it is open.
+    // Its own section in the bar; the dashboard's budget card is a second way
+    // in.
     match: (path) => path === "/budget",
     title: "Dépenses",
-    // The only route pulling `d3-shape` and `app-donut-chart`, and a drill-down
-    // most sessions never open — the single most worthwhile split here.
+    // The only route pulling `d3-shape` and `app-donut-chart`, and a page most
+    // sessions never open — the single most worthwhile split here.
     load: () => import("./views/BudgetView.ts"),
     render: () => html`<budget-view></budget-view>`,
   },
@@ -138,9 +143,11 @@ const ROUTES: Route[] = [
   },
   {
     // `/horse`, `/horse/<id>` and `/horse/<id>/<tab>`; an unknown tab falls
-    // through to the 404. The id only builds the sub-nav's links for now: the
-    // app is single-horse and `HorseView` reads `horsesRepo.getActive()`. Wire
-    // it through to the data before a second horse can exist.
+    // through to the 404. The bare `/horse` is reachable because the nav item
+    // renders it until the active horse has resolved. The id only builds the
+    // sub-nav's links for now: the app is single-horse and `HorseView` reads
+    // `horsesRepo.getActive()`. Wire it through to the data before a second
+    // horse can exist.
     //
     // Deliberately not `keyed`: switching tabs keeps the same element, so its
     // `LiveQuery`s stay subscribed and the cover is not rebuilt. Key on the id
@@ -205,6 +212,12 @@ export class AppRoot extends LightElement {
    * is precached, so the wait is a cache read rather than a network hop.
    */
   @state() private postSheetLoaded = false;
+
+  /**
+   * The active horse, for the Cheval nav item's link alone — the shell renders
+   * nothing else of it. See `#sectionHref`.
+   */
+  #activeHorse = new LiveQuery(this, () => horsesRepo.getActive());
 
   /**
    * The Navigation API listener, the path, and the view transition around the
@@ -284,7 +297,7 @@ export class AppRoot extends LightElement {
           (section) => html`
             ${section.id === ADD_BUTTON_BEFORE ? this.renderAddButton() : nothing}
             <nav-item
-              href=${appHref(section.root)}
+              href=${appHref(this.#sectionHref(section))}
               label=${section.label}
               .icon=${section.icon}
               ?active=${section.matches(this.#router.path)}
@@ -311,6 +324,22 @@ export class AppRoot extends LightElement {
 
       <app-update-toast></app-update-toast>
     `;
+  }
+
+  /**
+   * Where a nav item points: `root`, except for Cheval.
+   *
+   * That page is per-horse — `/horse/<id>`, the same link `horse-card` renders
+   * — so its item needs the active horse, which is why the shell queries for
+   * one at all. Until that resolves, one tick on a cold start, the bare
+   * `/horse` stands in: the route accepts it and `HorseView` falls back to the
+   * active horse itself, so the link is never broken, only less specific.
+   */
+  #sectionHref(section: Section): string {
+    const horseId = this.#activeHorse.value?.id;
+    return section.id === HORSE_SECTION && horseId
+      ? horsePath(horseId)
+      : section.root;
   }
 
   /**
