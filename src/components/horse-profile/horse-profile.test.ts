@@ -41,7 +41,7 @@ const mount = (sireNumber: string | null) =>
 
 const button = (el: HorseProfile) =>
   el.renderRoot.querySelector<HTMLButtonElement>(".copy");
-const state = (el: HorseProfile) => button(el)?.dataset.state;
+const isCopied = (el: HorseProfile) => button(el)?.hasAttribute("data-copied");
 const announcement = (el: HorseProfile) =>
   el.renderRoot.querySelector('[role="status"]')?.textContent?.trim();
 const identityValues = (el: HorseProfile) =>
@@ -84,26 +84,24 @@ describe("horse-profile", () => {
     await tap(el);
 
     expect(writeText).toHaveBeenCalledWith(SIRE);
-    expect(state(el)).toBe("copied");
+    expect(isCopied(el)).toBe(true);
     expect(announcement(el)).toBe("Numéro SIRE copié.");
   });
 
-  it("carries the value on both ends of the reel, so the cycle can keep descending", async () => {
+  it("stacks exactly two layers, each carrying its own glyph", async () => {
     const el = await mount(SIRE);
-    const rows = [...el.renderRoot.querySelectorAll(".copy__row")].map(
+    const layers = [...el.renderRoot.querySelectorAll(".copy__layer")].map(
       (node) => ({
         icon: node.querySelector("app-icon")!.getAttribute("icon"),
-        text: node.querySelector(".copy__text")!.textContent?.trim(),
+        text: node.textContent?.trim(),
       }),
     );
 
-    // Each row owns its glyph, which is what lets the icon travel with the
-    // words it belongs to instead of cutting under them mid-slide. The value
-    // appears at both ends so the reel can keep descending rather than rewind.
-    expect(rows).toEqual([
+    // Two, not three: the value is never duplicated. Each layer owns its glyph,
+    // which is what makes the icon travel with the words it belongs to.
+    expect(layers).toEqual([
       { icon: "copy", text: SIRE },
       { icon: "check", text: "Copié !" },
-      { icon: "copy", text: SIRE },
     ]);
   });
 
@@ -113,7 +111,7 @@ describe("horse-profile", () => {
     const el = await mount(SIRE);
     await tap(el);
 
-    expect(state(el)).toBe("idle");
+    expect(isCopied(el)).toBe(false);
     expect(announcement(el)).toBe("");
   });
 
@@ -125,10 +123,10 @@ describe("horse-profile", () => {
     vi.advanceTimersByTime(3000);
     await settled(el);
 
-    // Not "idle": that last step waits on the reel's own `transitionend`, which
-    // needs a real transition and real time. What is asserted here is the part
-    // the timer owns — the confirmation is over.
-    expect(state(el)).not.toBe("copied");
+    // The return is the same transition run backwards, so the timer is the only
+    // thing that has to happen — nothing waits on a `transitionend` that a
+    // backgrounded tab could swallow.
+    expect(isCopied(el)).toBe(false);
     expect(announcement(el)).toBe("");
   });
 
@@ -143,10 +141,10 @@ describe("horse-profile", () => {
     await settled(el);
 
     expect(writeText).toHaveBeenCalledTimes(2);
-    expect(state(el)).toBe("copied");
+    expect(isCopied(el)).toBe(true);
 
     vi.advanceTimersByTime(1500);
     await settled(el);
-    expect(state(el)).not.toBe("copied");
+    expect(isCopied(el)).toBe(false);
   });
 });
