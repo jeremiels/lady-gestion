@@ -54,6 +54,15 @@ export class RationForm extends BaseElement {
   @query("form") private formEl!: HTMLFormElement;
 
   static componentStyles = css`
+    /* The edit sheet slots this element straight into the dialog body, where
+       nothing blockifies it — an inline host there wraps its own grid in
+       anonymous blocks. Every other child slotted into a sheet or a modal in
+       this app is block-level; the "Ajouter un produit" tab only gets away
+       with it because a grid item is blockified for free. */
+    :host {
+      display: block;
+    }
+
     .form {
       display: grid;
       gap: var(--spacing-16);
