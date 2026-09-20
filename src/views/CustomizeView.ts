@@ -209,7 +209,7 @@ export class CustomizeView extends LightElement {
           >
             <app-icon icon="chevronLeft"></app-icon>
           </button>
-          <h1 class="section-title" tabindex="-1">
+          <h1 class="page-title">
             Personnaliser mon interface
           </h1>
         </header>
