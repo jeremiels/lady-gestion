@@ -111,22 +111,26 @@ export class HorseProfile extends BaseElement {
          layer height, the travel, and the negative margin below. A length, not
          the unitless 1.5, so it is stated once and inherits as-is. */
       --copy-line: 1.3125rem;
-      --copy-travel: calc(100% + var(--spacing-6));
 
       display: grid;
+      /* Each layer sized to its own content and parked on the right edge,
+         rather than stretched across the track. The track is still as wide as
+         the wider of the two — but the button carries no fill of its own, so
+         what is seen is the layer's pill, hugging its own text and glyph. */
+      justify-items: end;
       overflow: clip;
       appearance: none;
       border: none;
-      border-radius: var(--radius-8);
-      padding: var(--spacing-6) var(--spacing-8);
-      /* Given straight back, so the pill grows into the row gap and the card's
-         own padding — both empty — rather than making this line taller than
-         the three above it or pushing the number out of alignment with them.
-         1rem is \`.item__label\`'s line box above: the label is the tallest
-         thing in every other row, so matching it is what keeps the rhythm. */
+      padding: 0;
+      /* The layer's padding given straight back, so the pill grows into the
+         row gap and the card's own padding — both empty — rather than making
+         this line taller than the three above it or pushing the number out of
+         alignment with them. 1rem is \`.item__label\`'s line box above: the
+         label is the tallest thing in every other row, so matching it is what
+         keeps the rhythm. */
       margin-block: calc((1rem - var(--copy-line)) / 2 - var(--spacing-6));
       margin-inline-end: calc(-1 * var(--spacing-8));
-      background-color: transparent;
+      background: none;
       color: inherit;
       font: inherit;
       font-size: var(--font-size-sm);
@@ -135,64 +139,58 @@ export class HorseProfile extends BaseElement {
       cursor: pointer;
     }
 
-    /* At (0,2,0) because \`.pressable\` is a \`transition\` *shorthand* adopted
-       after this stylesheet: at one class it would win and reset the property
-       list to \`transform\` alone, so the fill would snap and the delay below
-       would never run. \`transform\` is restated with the utility's own tokens. */
-    .item .copy {
-      transition:
-        transform var(--duration-press) var(--easing-out),
-        background-color var(--duration-medium) var(--easing-out),
-        color var(--duration-medium) var(--easing-out);
-    }
-
     .copy:focus-visible {
       outline: var(--focus-ring);
       outline-offset: var(--focus-ring-offset);
     }
 
-    /* Both layers share the one cell and stretch to it, so they are the same
-       height and \`--copy-travel\` means the same distance to each. The
+    /* The pill itself — each layer carries its own, so the fill is exactly as
+       wide as the glyph and words inside it. Both share the one cell, so they
+       are the same height and \`100%\` is the same distance to each; the
        line-height is restated at (0,2,0) so the \`.item__value\` layer cannot
        bring its own and make the two disagree. */
     .copy__layer {
       grid-area: 1 / 1;
       display: flex;
       align-items: center;
-      justify-content: flex-end;
       gap: var(--spacing-6);
+      padding: var(--spacing-6) var(--spacing-8);
+      border-radius: var(--radius-8);
       line-height: var(--copy-line);
       white-space: nowrap;
-      /* The symmetric curve, not one of the two decelerates: both are already
-         at full speed on their first frame, and over a single row that start
-         reads as a jolt rather than a slide. */
-      transition: translate var(--duration-slow) var(--easing-standard);
+      background-color: transparent;
+      color: inherit;
+      /* The symmetric curve for the travel, not one of the two decelerates:
+         both are already at full speed on their first frame, and over a single
+         row that start reads as a jolt rather than a slide. */
+      transition:
+        translate var(--duration-slow) var(--easing-standard),
+        background-color var(--duration-medium) var(--easing-out),
+        color var(--duration-medium) var(--easing-out);
     }
 
-    /* Waits one travel above the opening, and comes down to take the value's
-       place. Dropping the attribute runs the same transition backwards, which
-       is the whole of the return. */
+    /* Waits one full height above the opening — the button clips at its border
+       box, which is one layer tall — and comes down to take the value's place.
+       Dropping the attribute runs the same transition backwards, which is the
+       whole of the return. */
     .copy__layer--done {
-      translate: 0 calc(-1 * var(--copy-travel));
+      translate: 0 -100%;
     }
 
     .copy[data-copied] .copy__layer--done {
       translate: 0 0;
+      background-color: var(--color-theme-green-background);
+      color: var(--color-theme-green);
+      /* Per property, in the order declared above: the slide starts at once,
+         the fill waits it out so the colour arrives once "Copié !" has landed.
+         The delay lives only on this state, which is also how it un-delays —
+         dropping the attribute drops it, and the colour leaves as the layers
+         set off back. */
+      transition-delay: 0s, var(--duration-slow), var(--duration-slow);
     }
 
     .copy[data-copied] .item__value {
-      translate: 0 var(--copy-travel);
-    }
-
-    .copy[data-copied] {
-      background-color: var(--color-theme-green-background);
-      color: var(--color-theme-green);
-      width: auto;
-      /* The green is not synchronised by hand — it waits out the slide, so it
-         arrives once "Copié !" has landed. The delay lives only on this state,
-         which is also how it un-delays: dropping the attribute drops the delay,
-         and the colour leaves as the layers set off back. */
-      transition-delay: var(--duration-slow);
+      translate: 0 100%;
     }
 
     /* Sized on the glyph, not on \`app-icon\`'s host — the host carries its own
@@ -211,7 +209,7 @@ export class HorseProfile extends BaseElement {
         transition: none;
       }
 
-      .copy[data-copied] {
+      .copy[data-copied] .copy__layer--done {
         transition-delay: 0s;
       }
     }
