@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   BUILT_IN_CATEGORY_ROWS,
   HORSE_ID,
+  makeDocument,
   makePost,
   resetDb,
 } from "../__tests__/factories.ts";
 import { addDays, todayISO } from "../dates.ts";
 import { db } from "../db.ts";
+import * as documentsRepo from "../repositories/documents.repo.ts";
 import * as postsRepo from "../repositories/posts.repo.ts";
 import {
   workSessionByDate,
@@ -16,7 +18,12 @@ import {
 import { unitNameOf, valueOf } from "../post-form.ts";
 import type { IsoDate } from "../dates.ts";
 import type { Category, Post } from "../types.ts";
-import { savePost, setDayActivity, type PostInput } from "./posts.service.ts";
+import {
+  deletePost,
+  savePost,
+  setDayActivity,
+  type PostInput,
+} from "./posts.service.ts";
 
 /**
  * What the entry form is allowed to write, and what it must not.
@@ -594,5 +601,19 @@ describe("setDayActivity", () => {
       }),
     ).toBeUndefined();
     expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+  });
+});
+
+describe("deletePost", () => {
+  it("deletes the post and keeps its documents, detached", async () => {
+    await db.posts.add(makePost({ id: "post-1" }));
+    await db.documents.add(makeDocument({ id: "doc-1", postId: "post-1" }));
+
+    await deletePost("post-1");
+
+    expect(await postsRepo.get("post-1")).toBeUndefined();
+    const doc = await documentsRepo.get("doc-1");
+    expect(doc?.deletedAt).toBeNull();
+    expect(doc?.postId).toBeNull();
   });
 });

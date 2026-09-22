@@ -6,7 +6,9 @@ import {
   type WorkActivity,
   type WorkSession,
 } from "../posts.ts";
+import { db } from "../db.ts";
 import { DEFAULT_CURRENCY } from "../money.ts";
+import * as documentsRepo from "../repositories/documents.repo.ts";
 import * as postsRepo from "../repositories/posts.repo.ts";
 import type { CustomFieldDef, Category, Post, NewRecord } from "../types.ts";
 
@@ -111,6 +113,21 @@ export const savePost = async ({
     ? postsRepo.update(existing.id, fields)
     : postsRepo.create({ horseId, ...fields });
 };
+
+/**
+ * Deletes a post and detaches its documents, in one transaction.
+ *
+ * The documents are kept: deleting an appointment does not delete its invoice.
+ * They stay in the horse's folder with no link to a row no view renders —
+ * IndexedDB has no foreign keys, so the cascade is this function or nothing.
+ */
+export const deletePost = (id: string): Promise<void> =>
+  db.transaction("rw", [db.posts, db.documents], async () => {
+    await postsRepo.remove(id);
+    for (const doc of await documentsRepo.listByPost(id)) {
+      await documentsRepo.update(doc.id, { postId: null });
+    }
+  });
 
 export type SetDayActivityCommand = {
   horseId: string;

@@ -12,6 +12,7 @@ import {
   LiveQuery,
   documentsRepo,
   postsRepo,
+  postsService,
   formatCents,
   formatDateMedium,
   formatFileKind,
@@ -461,7 +462,7 @@ export class PostDetailView extends LightElement {
   #confirmDelete = async () => {
     this.deleteOpen = false;
     try {
-      await postsRepo.remove(this.postId);
+      await postsService.deletePost(this.postId);
     } catch {
       this.actionError = "La suppression a échoué.";
       return;
