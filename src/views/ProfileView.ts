@@ -1,16 +1,11 @@
-import { html, nothing } from "lit";
-import { customElement, query, state } from "lit/decorators.js";
+import { html } from "lit";
+import { customElement } from "lit/decorators.js";
 import { LightElement } from "../commons/base-element.ts";
 import { appHref } from "../commons/base-path.ts";
 import { goBack } from "../commons/navigation.ts";
 import { CUSTOMIZE_ROOT } from "../commons/sections.ts";
-import {
-  LiveQuery,
-  downloadBackup,
-  metaRepo,
-  profileRepo,
-  readBackupFile,
-} from "../data/index.ts";
+import { BackupActions } from "../commons/backup-actions.ts";
+import { LiveQuery, metaRepo, profileRepo } from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
 
 import "../components/app-icon/app-icon.ts";
@@ -30,16 +25,12 @@ const PASSWORD_MASK = "*".repeat(9);
  */
 @customElement("profile-view")
 export class ProfileView extends LightElement {
-  @state() private status = "";
-  @state() private error = "";
-
-  @query("#backup-file") private fileInput?: HTMLInputElement;
-
   #profile = new LiveQuery(this, () => profileRepo.get());
   #daysSinceBackup = new LiveQuery(this, () => metaRepo.daysSinceBackup());
   #notifications = new LiveQuery(this, () =>
     metaRepo.getNotificationsEnabled(),
   );
+  #backup = new BackupActions(this);
 
   #goBack = () => goBack(HOME);
 
@@ -47,39 +38,6 @@ export class ProfileView extends LightElement {
   // preference that forgets itself on every navigation is a bug the user sees.
   #onNotificationsChange = (event: CustomEvent<{ checked: boolean }>) => {
     void metaRepo.setNotificationsEnabled(event.detail.checked);
-  };
-
-  #onExport = async () => {
-    this.error = "";
-    try {
-      await downloadBackup();
-      this.status = "Sauvegarde téléchargée.";
-    } catch (error: unknown) {
-      this.error =
-        error instanceof Error ? error.message : "Export impossible.";
-    }
-  };
-
-  #onImportClick = () => this.fileInput?.click();
-
-  #onImportFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    this.status = "";
-    this.error = "";
-
-    try {
-      const { imported, skipped } = await readBackupFile(file);
-      this.status = `${imported} enregistrement(s) restauré(s), ${skipped} ignoré(s) car déjà à jour.`;
-    } catch (error: unknown) {
-      this.error =
-        error instanceof Error ? error.message : "Import impossible.";
-    } finally {
-      // Lets the same file be picked again after a failure.
-      input.value = "";
-    }
   };
 
   render() {
@@ -213,31 +171,27 @@ export class ProfileView extends LightElement {
             <button
               class="profile-view__button pressable"
               type="button"
-              @click=${this.#onExport}
+              @click=${this.#backup.export}
             >
               Exporter les données
             </button>
             <button
               class="profile-view__button profile-view__button--ghost pressable"
               type="button"
-              @click=${this.#onImportClick}
+              @click=${this.#backup.restore}
             >
               Restaurer un fichier
             </button>
           </div>
-          <input
-            id="backup-file"
-            type="file"
-            accept="application/json,.json"
-            hidden
-            @change=${this.#onImportFile}
-          />
           <p class="profile-view__note">
             Les fichiers (ordonnances, factures scannées) ne sont pas encore
             inclus dans l’export — seules leurs fiches le sont.
           </p>
-          ${this.status ? html`<p class="profile-view__status">${this.status}</p>` : nothing}
-          ${this.error ? html`<p class="profile-view__error">${this.error}</p>` : nothing}
+          ${this.#backup.renderMessage({
+            region: "profile-view__message-region",
+            status: "profile-view__status",
+            error: "profile-view__error",
+          })}
         </div>
       </section>
     `;

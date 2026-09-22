@@ -136,6 +136,13 @@
     color: var(--color-brown-middle);
   }
 
+  /* The live regions BackupActions renders, always in the DOM and never
+     hidden — see its renderMessage. They generate no box of their own, so an
+     empty one draws none of .profile-view__backup's gaps. */
+  .profile-view__message-region {
+    display: contents;
+  }
+
   .profile-view__status,
   .profile-view__error {
     margin: 0;

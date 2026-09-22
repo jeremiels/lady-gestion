@@ -53,9 +53,12 @@ describe("profile-view", () => {
     expect(enabled).toBe(true);
   });
 
-  it("restores a backup file dropped on the import input", async () => {
+  it("restores the file picked from the restore button", async () => {
     const el = await mount();
-    await waitFor(el, () => el.querySelector("#backup-file") !== null);
+    // Held from before there is anything to say: the result has to land in a
+    // region that was already mounted, or screen readers announce nothing.
+    const region = el.querySelector('[role="status"]')!;
+    expect(region).not.toBeNull();
 
     const backup = {
       app: "lady-gestion",
@@ -78,11 +81,16 @@ describe("profile-view", () => {
     const transfer = new DataTransfer();
     transfer.items.add(file);
 
-    const input = el.querySelector<HTMLInputElement>("#backup-file")!;
+    [...el.querySelectorAll("button")]
+      .find((button) => button.textContent!.includes("Restaurer"))!
+      .click();
+    const input = document.querySelector<HTMLInputElement>(
+      'body > input[type="file"]',
+    )!;
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
 
-    await waitFor(el, () => el.textContent!.includes("restauré"));
-    expect(el.textContent).toContain("0 enregistrement(s) restauré(s)");
+    await waitFor(el, () => region.textContent!.includes("restauré"));
+    expect(region.textContent).toContain("0 enregistrement(s) restauré(s)");
   });
 });

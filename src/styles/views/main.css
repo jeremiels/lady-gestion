@@ -94,6 +94,13 @@
     gap: var(--spacing-8);
   }
 
+  /* The live regions BackupActions renders, always in the DOM and never
+     hidden — see its renderMessage. They generate no box of their own, so an
+     empty one draws none of .data-error's gaps. */
+  .data-error__message-region {
+    display: contents;
+  }
+
   .data-error__status {
     font-size: var(--font-size-sm);
   }

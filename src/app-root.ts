@@ -8,13 +8,12 @@ import "./views/HomeView";
 import { LightElement } from "./commons/base-element.ts";
 import { Router } from "./commons/controllers/router.ts";
 import {
-  downloadBackup,
   horsesRepo,
   initData,
   LiveQuery,
-  readBackupFile,
   watchDatabase,
 } from "./data/index.ts";
+import { BackupActions } from "./commons/backup-actions.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { appHref } from "./commons/base-path.ts";
@@ -213,9 +212,13 @@ export class AppRoot extends LightElement {
    */
   @state() private databaseNotice: "blocked" | "superseded" | null = null;
 
-  /** Outcome of an export or restore run from the data-error screen. */
-  @state() private recoveryStatus = "";
-  @state() private recoveryError = "";
+  /**
+   * Export and restore on the data-error screen. It stays up after a restore,
+   * and the app behind it only reopens on a reload — hence the extra line.
+   */
+  #recovery = new BackupActions(this, {
+    afterRestore: "Rechargez pour rouvrir l’application.",
+  });
 
   @state() private postSheetOpen = false;
 
@@ -489,39 +492,23 @@ export class AppRoot extends LightElement {
           <button
             class="data-error__button pressable"
             type="button"
-            @click=${this.#onRecoveryExport}
+            @click=${this.#recovery.export}
           >
             Exporter les données
           </button>
           <button
             class="data-error__button pressable"
             type="button"
-            @click=${this.#onRecoveryImportClick}
+            @click=${this.#recovery.restore}
           >
             Restaurer un fichier
           </button>
         </div>
-        <input
-          class="data-error__file"
-          type="file"
-          accept="application/json,.json"
-          hidden
-          @change=${this.#onRecoveryImportFile}
-        />
-        ${
-          this.recoveryStatus
-            ? html`<p class="data-error__status" role="status">
-                ${this.recoveryStatus}
-              </p>`
-            : nothing
-        }
-        ${
-          this.recoveryError
-            ? html`<p class="data-error__detail" role="alert">
-                ${this.recoveryError}
-              </p>`
-            : nothing
-        }
+        ${this.#recovery.renderMessage({
+          region: "data-error__message-region",
+          status: "data-error__status",
+          error: "data-error__detail",
+        })}
       </section>
     `;
   }
@@ -574,38 +561,4 @@ export class AppRoot extends LightElement {
       </section>
     `;
   }
-
-  #onRecoveryExport = async () => {
-    this.recoveryStatus = "";
-    this.recoveryError = "";
-    try {
-      await downloadBackup();
-      this.recoveryStatus = "Sauvegarde téléchargée.";
-    } catch (error: unknown) {
-      this.recoveryError =
-        error instanceof Error ? error.message : "Export impossible.";
-    }
-  };
-
-  #onRecoveryImportClick = () =>
-    this.querySelector<HTMLInputElement>(".data-error__file")?.click();
-
-  #onRecoveryImportFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    this.recoveryStatus = "";
-    this.recoveryError = "";
-    try {
-      const { imported, skipped } = await readBackupFile(file);
-      this.recoveryStatus = `${imported} enregistrement(s) restauré(s), ${skipped} ignoré(s) car déjà à jour. Rechargez pour rouvrir l’application.`;
-    } catch (error: unknown) {
-      this.recoveryError =
-        error instanceof Error ? error.message : "Import impossible.";
-    } finally {
-      // Lets the same file be picked again after a failure.
-      input.value = "";
-    }
-  };
 }
