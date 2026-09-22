@@ -87,6 +87,18 @@ export class LiveQuery<T> implements ReactiveController {
     this.#settled = false;
   }
 
+  /**
+   * Re-runs the query now, for an input Dexie cannot track — the date, which
+   * `Today` watches. `value` is kept until the new result arrives, so the view
+   * does not flash its loading state. A query still waiting on the gate has
+   * nothing to re-run: it reads its inputs fresh when it subscribes.
+   */
+  refresh() {
+    if (!this.#subscription) return;
+    this.#subscription.unsubscribe();
+    this.#subscribe();
+  }
+
   #subscribe() {
     this.#subscription = liveQuery(this.#query).subscribe({
       next: (value) => {

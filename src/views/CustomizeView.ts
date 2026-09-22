@@ -2,6 +2,7 @@ import { html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
+import { Today } from "../commons/controllers/today.ts";
 import { navigateTo } from "../commons/navigation.ts";
 import {
   CUSTOMIZE_TABS,
@@ -19,7 +20,6 @@ import {
   rationsService,
   readForm,
   text,
-  todayISO,
 } from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
 import type { RationItem } from "../data/types.ts";
@@ -69,6 +69,9 @@ const PROFILE_SCHEMA = {
  */
 @customElement("customize-view")
 export class CustomizeView extends LightElement {
+  /** Re-renders when the day turns, so the today passed below moves with it. */
+  #today = new Today(this);
+
   @property({ attribute: false }) tab: CustomizeTab = CUSTOMIZE_TABS[0].id;
 
   @state() private profileErrors: ProfileFieldErrors = {};
@@ -209,9 +212,7 @@ export class CustomizeView extends LightElement {
           >
             <app-icon icon="chevronLeft"></app-icon>
           </button>
-          <h1 class="page-title">
-            Personnaliser mon interface
-          </h1>
+          <h1 class="page-title">Personnaliser mon interface</h1>
         </header>
         <app-subnav
           label="Sections de personnalisation"
@@ -263,7 +264,7 @@ export class CustomizeView extends LightElement {
     return html`
       <customize-ration
         .rations=${rations}
-        .today=${todayISO()}
+        .today=${this.#today.value}
         .errors=${this.rationErrors}
         @ration-add=${this.#onRationAdd}
         @ration-edit=${this.#onRationEdit}

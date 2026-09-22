@@ -2,6 +2,7 @@ import { html, nothing } from "lit";
 import { customElement } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { LightElement } from "../commons/base-element.ts";
+import { Today } from "../commons/controllers/today.ts";
 import { ViewState } from "../commons/controllers/view-state.ts";
 import {
   activeHorseQuery,
@@ -70,6 +71,9 @@ const normalize = (value: string) =>
 
 @customElement("posts-view")
 export class PostsView extends LightElement {
+  /** Re-renders when the day turns, so the today passed below moves with it. */
+  #today = new Today(this);
+
   #ui = new ViewState<PostsUiState>(this, "posts", () => ({
     mode: "calendar",
     selected: todayISO(),
@@ -190,7 +194,7 @@ export class PostsView extends LightElement {
 
   #renderCalendar(types: ResolvedCategory[]) {
     const { selected } = this.#ui.value;
-    const today = todayISO();
+    const today = this.#today.value;
     const all = this.#events.value ?? [];
     // A cure or a traitement is drawn as a bar over the days it runs, not as a
     // dot on the day it started — and listed under every one of those days,

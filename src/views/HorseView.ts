@@ -2,6 +2,7 @@ import { html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
+import { Today } from "../commons/controllers/today.ts";
 import { goBackOutOf } from "../commons/navigation.ts";
 import {
   HORSE_TABS,
@@ -17,7 +18,6 @@ import {
   horsesRepo,
   postsRepo,
   rationsRepo,
-  todayISO,
   type ResolvedCategory,
 } from "../data/index.ts";
 import type { Post, RationItem } from "../data/types.ts";
@@ -44,6 +44,9 @@ const HOME = "/";
  */
 @customElement("horse-view")
 export class HorseView extends LightElement {
+  /** Re-renders when the day turns, so the today passed below moves with it. */
+  #today = new Today(this);
+
   /**
    * From the URL; `null` for the bare `/horse`. Only builds the sub-nav's links
    * for now — the data still comes from `horsesRepo.getActive()`.
@@ -135,7 +138,7 @@ export class HorseView extends LightElement {
       case "ration":
         return html`<horse-ration
           .rations=${this.#rations.value ?? []}
-          .today=${todayISO()}
+          .today=${this.#today.value}
         ></horse-ration>`;
       case "cures":
         return this.#renderCourses(
@@ -165,7 +168,7 @@ export class HorseView extends LightElement {
       .categories=${this.#categories.value ?? []}
       .label=${label}
       .empty=${empty}
-      .today=${todayISO()}
+      .today=${this.#today.value}
     ></horse-courses>`;
   }
 }

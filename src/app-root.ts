@@ -7,7 +7,13 @@ import { keyed } from "lit/directives/keyed.js";
 import "./views/HomeView";
 import { LightElement } from "./commons/base-element.ts";
 import { Router } from "./commons/controllers/router.ts";
-import { horsesRepo, initData, LiveQuery } from "./data/index.ts";
+import {
+  downloadBackup,
+  horsesRepo,
+  initData,
+  LiveQuery,
+  readBackupFile,
+} from "./data/index.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { appHref } from "./commons/base-path.ts";
@@ -198,6 +204,10 @@ const matchRoute = (path: string): Route | undefined =>
 export class AppRoot extends LightElement {
   /** Set when `initData()` rejects; replaces the whole view with an explanation. */
   @state() private dataError = "";
+
+  /** Outcome of an export or restore run from the data-error screen. */
+  @state() private recoveryStatus = "";
+  @state() private recoveryError = "";
 
   @state() private postSheetOpen = false;
 
@@ -412,12 +422,14 @@ export class AppRoot extends LightElement {
   }
 
   /**
-   * Shown instead of any view when the database could not be opened.
+   * Shown instead of any view when `initData()` rejected.
    *
-   * Offers the backup import as the escape hatch, because that is the one
-   * action that still works: `readBackupFile` opens its own transaction, so a
-   * user whose database is corrupt can restore over it rather than being told
-   * to clear their site data and lose everything.
+   * Carries its own export and restore because every route renders this
+   * screen, so the profile page's are out of reach. `initData()` can fail
+   * after `db.open()` succeeded — in `reconcileCategories`, say — and then the
+   * data is intact and the export still works; it is worth trying before
+   * anything else. `readBackupFile` opens its own transaction, so a restore
+   * can also be attempted over a database that would not initialise.
    */
   private renderDataError() {
     return html`
@@ -436,21 +448,92 @@ export class AppRoot extends LightElement {
             privée, ou si la base locale a été endommagée.
           </p>
           <p class="data-error__hint">
-            Essayez de libérer de l’espace puis de recharger. Si vous avez un
-            fichier de sauvegarde, vous pouvez le restaurer depuis le profil une
-            fois l’application rouverte.
+            Essayez de libérer de l’espace puis de recharger. Exportez d’abord
+            vos données si c’est encore possible ; si vous avez un fichier de
+            sauvegarde, vous pouvez aussi le restaurer ici.
           </p>
           <p class="data-error__detail">${this.dataError}</p>
         </div>
 
-        <button
-          class="data-error__button pressable"
-          type="button"
-          @click=${() => location.reload()}
-        >
-          Recharger
-        </button>
+        <div class="data-error__actions">
+          <button
+            class="data-error__button pressable"
+            type="button"
+            @click=${() => location.reload()}
+          >
+            Recharger
+          </button>
+          <button
+            class="data-error__button pressable"
+            type="button"
+            @click=${this.#onRecoveryExport}
+          >
+            Exporter les données
+          </button>
+          <button
+            class="data-error__button pressable"
+            type="button"
+            @click=${this.#onRecoveryImportClick}
+          >
+            Restaurer un fichier
+          </button>
+        </div>
+        <input
+          class="data-error__file"
+          type="file"
+          accept="application/json,.json"
+          hidden
+          @change=${this.#onRecoveryImportFile}
+        />
+        ${
+          this.recoveryStatus
+            ? html`<p class="data-error__status" role="status">
+                ${this.recoveryStatus}
+              </p>`
+            : nothing
+        }
+        ${
+          this.recoveryError
+            ? html`<p class="data-error__detail" role="alert">
+                ${this.recoveryError}
+              </p>`
+            : nothing
+        }
       </section>
     `;
   }
+
+  #onRecoveryExport = async () => {
+    this.recoveryStatus = "";
+    this.recoveryError = "";
+    try {
+      await downloadBackup();
+      this.recoveryStatus = "Sauvegarde téléchargée.";
+    } catch (error: unknown) {
+      this.recoveryError =
+        error instanceof Error ? error.message : "Export impossible.";
+    }
+  };
+
+  #onRecoveryImportClick = () =>
+    this.querySelector<HTMLInputElement>(".data-error__file")?.click();
+
+  #onRecoveryImportFile = async (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.recoveryStatus = "";
+    this.recoveryError = "";
+    try {
+      const { imported, skipped } = await readBackupFile(file);
+      this.recoveryStatus = `${imported} enregistrement(s) restauré(s), ${skipped} ignoré(s) car déjà à jour. Rechargez pour rouvrir l’application.`;
+    } catch (error: unknown) {
+      this.recoveryError =
+        error instanceof Error ? error.message : "Import impossible.";
+    } finally {
+      // Lets the same file be picked again after a failure.
+      input.value = "";
+    }
+  };
 }

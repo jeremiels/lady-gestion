@@ -7,7 +7,6 @@ import {
   categoriesRepo,
   formatDayLong,
   LiveQuery,
-  todayISO,
   weekGrid,
   workSessionByDate,
   type IsoDate,
@@ -15,6 +14,7 @@ import {
 } from "../../data/index.ts";
 import type { Post } from "../../data/types.ts";
 import { BaseElement } from "../../commons/base-element.ts";
+import { Today } from "../../commons/controllers/today.ts";
 
 import "../day-card/day-card.ts";
 import "../activity-sheet/activity-sheet.ts";
@@ -47,19 +47,14 @@ export class WeekStrip extends BaseElement {
 
   @state() private sheetOpen = false;
 
-  /**
-   * This week's events, Monday to Sunday.
-   *
-   * The week is resolved inside the query rather than held as state: LiveQuery
-   * re-runs on a write, not on a clock, so holding the range would only add a
-   * second thing to keep in step. An app left open across a Sunday midnight
-   * keeps showing the old week until the next write — the trade already made
-   * one query up.
-   */
+  /** Refreshes `#week` when the day turns, so Monday opens on the new week. */
+  #today = new Today(this, () => this.#week.refresh());
+
+  /** This week's events, Monday to Sunday. */
   #week = activeHorseQuery<Post[]>(
     this,
     (horseId) => {
-      const days = weekGrid(todayISO());
+      const days = weekGrid(this.#today.value);
       return postsRepo.listInRange(horseId, days[0], days[6]);
     },
     [],
@@ -147,7 +142,7 @@ export class WeekStrip extends BaseElement {
   render() {
     // Resolved once and used for both the grid and the today flag, so the strip
     // cannot draw a week that disagrees with the day it highlights.
-    const today = todayISO();
+    const today = this.#today.value;
     const days = weekGrid(today);
     const sessions = workSessionByDate(
       this.#week.value ?? [],

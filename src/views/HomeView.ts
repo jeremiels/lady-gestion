@@ -2,6 +2,7 @@ import { html, nothing } from "lit";
 import { customElement } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { LightElement } from "../commons/base-element.ts";
+import { Today } from "../commons/controllers/today.ts";
 import { appHref } from "../commons/base-path.ts";
 import {
   activeHorseQuery,
@@ -17,7 +18,6 @@ import {
   isCourseOngoing,
   profileRepo,
   startOfMonth,
-  todayISO,
   upcomingAppointments,
   type ResolvedCategory,
 } from "../data/index.ts";
@@ -45,6 +45,13 @@ const DOCUMENT_FOLDERS = 5;
 
 @customElement("home-view")
 export class HomeView extends LightElement {
+  // `#upcoming` and `#monthSpend` read the date inside their queries, which
+  // Dexie cannot see change.
+  #today = new Today(this, () => {
+    this.#upcoming.refresh();
+    this.#monthSpend.refresh();
+  });
+
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
   #profile = new LiveQuery(this, () => profileRepo.get());
 
@@ -75,14 +82,13 @@ export class HomeView extends LightElement {
   /**
    * This calendar month's spend, in cents.
    *
-   * The month is resolved inside the query rather than held as state: this
-   * re-runs whenever `events` is written to, so a row added after midnight on
-   * the 1st lands in the new month without the view tracking the date itself.
+   * The month comes from `#today`, which refreshes this query when the day
+   * turns — on the 1st, that is the new month.
    */
   #monthSpend = activeHorseQuery<number>(
     this,
     (horseId) => {
-      const today = todayISO();
+      const today = this.#today.value;
       return postsRepo.totalSpent(
         horseId,
         startOfMonth(today),
@@ -94,7 +100,7 @@ export class HomeView extends LightElement {
 
   render() {
     const types = this.#categories.value ?? [];
-    const today = todayISO();
+    const today = this.#today.value;
     // A cure is an appointment category, so it sits in this list until the day
     // it starts — from then on it belongs to "En cours" below, not to both.
     // Only its first day can actually collide (`listUpcoming` is already
@@ -191,13 +197,16 @@ export class HomeView extends LightElement {
               `
             : nothing
         }
-      <div class="home-view__cards">
-        <horse-card .horse=${this.#horse.value ?? null}></horse-card>
-        <div class="home-view__section-col">
-          <budget-card .totalCents=${this.#monthSpend.value ?? 0}></budget-card>
-          <documents-card .folderCount=${DOCUMENT_FOLDERS}></documents-card>
+        <div class="home-view__cards">
+          <horse-card .horse=${this.#horse.value ?? null}></horse-card>
+          <div class="home-view__section-col">
+            <budget-card
+              .totalCents=${this.#monthSpend.value ?? 0}
+              .month=${today}
+            ></budget-card>
+            <documents-card .folderCount=${DOCUMENT_FOLDERS}></documents-card>
+          </div>
         </div>
-      </div>
       </section>
     `;
   }
