@@ -89,3 +89,31 @@ export const initData = (): Promise<void> => {
   })();
   return ready;
 };
+
+/**
+ * Reports another tab or window sharing this database across a schema bump —
+ * the moment a new version ships while the app is open twice.
+ *
+ * - `superseded`: another connection is upgrading. Dexie's own handler would
+ *   close this one and let it reopen — and Dexie 4 opens a newer version
+ *   rather than refusing it, so this tab's code would go on writing rows in
+ *   the shape the upgrade just migrated away from. Closed for good instead,
+ *   and `false` stops Dexie's handler from re-enabling auto-open. Only a
+ *   reload, onto the new build, recovers.
+ * - `blocked`: this tab is the one upgrading and an older connection has not
+ *   let go — typically a backgrounded tab frozen before it could react.
+ *   `db.open()`, and so `initData()`, waits until it does.
+ *
+ * Call before `initData()`, or a block during its `db.open()` goes unreported.
+ */
+export const watchDatabase = (handlers: {
+  blocked: () => void;
+  superseded: () => void;
+}): void => {
+  db.on("blocked", handlers.blocked);
+  db.on("versionchange", () => {
+    db.close();
+    handlers.superseded();
+    return false;
+  });
+};

@@ -13,6 +13,7 @@ import {
   initData,
   LiveQuery,
   readBackupFile,
+  watchDatabase,
 } from "./data/index.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
@@ -205,6 +206,13 @@ export class AppRoot extends LightElement {
   /** Set when `initData()` rejects; replaces the whole view with an explanation. */
   @state() private dataError = "";
 
+  /**
+   * Another tab or window holds this database across a schema bump — see
+   * `watchDatabase`. `superseded` is terminal; `blocked` clears once
+   * `initData()` gets past `db.open()`.
+   */
+  @state() private databaseNotice: "blocked" | "superseded" | null = null;
+
   /** Outcome of an export or restore run from the data-error screen. */
   @state() private recoveryStatus = "";
   @state() private recoveryError = "";
@@ -253,6 +261,16 @@ export class AppRoot extends LightElement {
   connectedCallback() {
     super.connectedCallback();
 
+    // Before `initData()`, whose `db.open()` is where a block is reported.
+    watchDatabase({
+      blocked: () => {
+        this.databaseNotice ??= "blocked";
+      },
+      superseded: () => {
+        this.databaseNotice = "superseded";
+      },
+    });
+
     // Opens the database, resolves the owner id and seeds first-run data.
     // Views subscribe through `LiveQuery`, so they fill in on their own once
     // this resolves — nothing here needs to block the first paint.
@@ -262,13 +280,17 @@ export class AppRoot extends LightElement {
     // land here. Without a UI the app renders permanently empty with only a
     // console line to explain it — the worst outcome for an app whose only copy
     // of the user's data is IndexedDB.
-    initData().catch((error: unknown) => {
-      console.error(
-        "Impossible d’initialiser la base de données locale",
-        error,
-      );
-      this.dataError = error instanceof Error ? error.message : String(error);
-    });
+    initData()
+      .then(() => {
+        if (this.databaseNotice === "blocked") this.databaseNotice = null;
+      })
+      .catch((error: unknown) => {
+        console.error(
+          "Impossible d’initialiser la base de données locale",
+          error,
+        );
+        this.dataError = error instanceof Error ? error.message : String(error);
+      });
 
     // Registers the service worker and asks the browser to stop treating the
     // IndexedDB data as evictable. No-op outside a production build.
@@ -416,6 +438,7 @@ export class AppRoot extends LightElement {
 
   private renderView() {
     if (this.dataError) return this.renderDataError();
+    if (this.databaseNotice) return this.renderDatabaseNotice();
     return (matchRoute(this.#router.path) ?? NOT_FOUND).render(
       this.#router.path,
     );
@@ -497,6 +520,55 @@ export class AppRoot extends LightElement {
             ? html`<p class="data-error__detail" role="alert">
                 ${this.recoveryError}
               </p>`
+            : nothing
+        }
+      </section>
+    `;
+  }
+
+  /**
+   * Shown instead of any view while another tab or window holds the database
+   * across a schema bump. Styled as the data-error screen, but it is not one:
+   * the data is intact, and the way out is a reload or closing the other tab.
+   */
+  private renderDatabaseNotice() {
+    const superseded = this.databaseNotice === "superseded";
+    return html`
+      <section class="data-error">
+        <hgroup class="section-group">
+          <h1 class="section-title" tabindex="-1">
+            ${superseded ? "Nouvelle version ouverte" : "Mise à jour en attente"}
+          </h1>
+          <p class="section-subtitle">
+            ${
+              superseded
+                ? "L’application a été mise à jour dans un autre onglet ou une autre fenêtre."
+                : "L’application est encore ouverte dans un autre onglet ou une autre fenêtre."
+            }
+          </p>
+        </hgroup>
+
+        <div class="container data-error__body">
+          <p>
+            ${
+              superseded
+                ? "Rechargez cette page pour continuer. Tout ce qui a été enregistré est conservé."
+                : "Fermez-la : la mise à jour se terminera d’elle-même."
+            }
+          </p>
+        </div>
+
+        ${
+          superseded
+            ? html`<div class="data-error__actions">
+                <button
+                  class="data-error__button pressable"
+                  type="button"
+                  @click=${() => location.reload()}
+                >
+                  Recharger
+                </button>
+              </div>`
             : nothing
         }
       </section>

@@ -1,5 +1,5 @@
 import Dexie from "dexie";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   makeCategory,
   makeDocument,
@@ -8,6 +8,7 @@ import {
   makeRation,
 } from "./__tests__/factories.ts";
 import { db, SCHEMA_VERSION } from "./db.ts";
+import { watchDatabase } from "./index.ts";
 
 /**
  * Opening a database that is already on the device.
@@ -131,5 +132,21 @@ describe("a fresh install", () => {
     expect([...db.backendDB().objectStoreNames].sort()).toEqual(
       Object.keys(V13_STORES).sort(),
     );
+  });
+});
+
+describe("another tab upgrading the schema", () => {
+  it("reports this tab as superseded and fails its reads", async () => {
+    await db.open();
+    const superseded = vi.fn();
+    watchDatabase({ blocked: () => {}, superseded });
+
+    const newer = new Dexie(DB_NAME);
+    newer.version(SCHEMA_VERSION + 1).stores(V13_STORES);
+    await newer.open();
+    newer.close();
+
+    expect(superseded).toHaveBeenCalledOnce();
+    await expect(db.horses.count()).rejects.toThrow();
   });
 });
