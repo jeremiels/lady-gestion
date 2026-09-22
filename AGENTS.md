@@ -1135,7 +1135,7 @@ by resolving`updateComplete`with`false`. Awaiting once lands mid-cascade.
   version change.
 - **`vi.useFakeTimers()` deadlocks every Dexie query** — it resolves promises on
   the real task queue. Backdate the stored timestamp instead; see
-  `meta.repo.test.ts`'s `daysSinceBackup` test.
+  `setLastBackup` in `ProfileView.test.ts`.
 - PWA behaviour still needs `npm run build && npm run preview` — there is no
   service worker under `npm run dev`, so update flow, precaching and offline
   cannot be covered by either suite.

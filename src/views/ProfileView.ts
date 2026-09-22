@@ -5,7 +5,14 @@ import { appHref } from "../commons/base-path.ts";
 import { goBack } from "../commons/navigation.ts";
 import { CUSTOMIZE_ROOT } from "../commons/sections.ts";
 import { BackupActions } from "../commons/backup-actions.ts";
-import { LiveQuery, metaRepo, profileRepo } from "../data/index.ts";
+import { Today } from "../commons/controllers/today.ts";
+import {
+  LiveQuery,
+  daysBetween,
+  metaRepo,
+  profileRepo,
+  toIsoDate,
+} from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
 
 import "../components/app-icon/app-icon.ts";
@@ -26,10 +33,11 @@ const PASSWORD_MASK = "*".repeat(9);
 @customElement("profile-view")
 export class ProfileView extends LightElement {
   #profile = new LiveQuery(this, () => profileRepo.get());
-  #daysSinceBackup = new LiveQuery(this, () => metaRepo.daysSinceBackup());
+  #lastBackupAt = new LiveQuery(this, () => metaRepo.getLastBackupAt());
   #notifications = new LiveQuery(this, () =>
     metaRepo.getNotificationsEnabled(),
   );
+  #today = new Today(this);
   #backup = new BackupActions(this);
 
   #goBack = () => goBack(HOME);
@@ -198,13 +206,14 @@ export class ProfileView extends LightElement {
   }
 
   #renderBackupAge() {
-    // `Infinity` when there has never been a backup; `undefined` for the tick
+    // `undefined` both when there has never been a backup and for the tick
     // before the first emission. Both read as "no backup yet".
-    const days = this.#daysSinceBackup.value;
-    if (days === undefined || !Number.isFinite(days)) {
-      return "Aucune sauvegarde effectuée pour l’instant.";
-    }
+    const last = this.#lastBackupAt.value;
+    if (!last) return "Aucune sauvegarde effectuée pour l’instant.";
 
+    // Calendar days in local time, not elapsed 24-hour spans: a backup at
+    // 23:00 is "hier" at 08:00 the next morning.
+    const days = daysBetween(toIsoDate(new Date(last)), this.#today.value);
     if (days <= 0) return "Dernière sauvegarde : aujourd’hui.";
     if (days === 1) return "Dernière sauvegarde : hier.";
     return `Dernière sauvegarde : il y a ${days} jours.`;

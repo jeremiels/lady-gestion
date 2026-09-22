@@ -9,11 +9,26 @@ import type { ProfileView } from "./ProfileView.ts";
 
 const mount = () => fixture<ProfileView>(html`<profile-view></profile-view>`);
 
-const setLastBackup = (daysAgo: number) =>
-  db.meta.put({
-    key: "lastBackupAt",
-    value: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
-  });
+// Calendar days in local time, the unit the view counts in — not 24-hour spans
+// back from now.
+const daysAgo = (days: number, hour = 0, minute = 0) => {
+  const now = new Date();
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - days,
+    hour,
+    minute,
+  );
+};
+
+const setLastBackup = (at: Date) =>
+  db.meta.put({ key: "lastBackupAt", value: at.toISOString() });
+
+// The hint alone, not the page: "fichier", on the restore button and in the
+// note under it, contains "hier".
+const backupAge = (el: ProfileView) =>
+  el.querySelector(".profile-view__hint")!.textContent;
 
 beforeEach(async () => {
   await resetDb();
@@ -23,16 +38,33 @@ beforeEach(async () => {
 describe("profile-view", () => {
   it("phrases the backup age as today, yesterday, then a day count — reactively", async () => {
     const el = await mount();
-    await waitFor(el, () => el.textContent!.includes("Aucune sauvegarde"));
+    await waitFor(
+      el,
+      () => backupAge(el) === "Aucune sauvegarde effectuée pour l’instant.",
+    );
 
-    await setLastBackup(0);
-    await waitFor(el, () => el.textContent!.includes("aujourd’hui"));
+    await setLastBackup(daysAgo(0));
+    await waitFor(
+      el,
+      () => backupAge(el) === "Dernière sauvegarde : aujourd’hui.",
+    );
 
-    await setLastBackup(1);
-    await waitFor(el, () => el.textContent!.includes("hier"));
+    await setLastBackup(daysAgo(1));
+    await waitFor(el, () => backupAge(el) === "Dernière sauvegarde : hier.");
 
-    await setLastBackup(5);
-    await waitFor(el, () => el.textContent!.includes("il y a 5 jours"));
+    await setLastBackup(daysAgo(5));
+    await waitFor(
+      el,
+      () => backupAge(el) === "Dernière sauvegarde : il y a 5 jours.",
+    );
+  });
+
+  it("counts calendar days, not elapsed 24-hour spans", async () => {
+    // Late yesterday is under 24 hours ago for most of today, yet reads "hier".
+    await setLastBackup(daysAgo(1, 23, 59));
+
+    const el = await mount();
+    await waitFor(el, () => backupAge(el) === "Dernière sauvegarde : hier.");
   });
 
   it("reflects and persists the notifications preference", async () => {

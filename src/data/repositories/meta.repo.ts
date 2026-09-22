@@ -34,10 +34,3 @@ export const getNotificationsEnabled = async (): Promise<boolean> =>
 
 export const setNotificationsEnabled = (enabled: boolean): Promise<void> =>
   set("notificationsEnabled", enabled);
-
-/** Whole days since the last backup; `Infinity` when there has never been one. */
-export const daysSinceBackup = async (): Promise<number> => {
-  const last = await getLastBackupAt();
-  if (!last) return Infinity;
-  return Math.floor((Date.now() - Date.parse(last)) / 86_400_000);
-};
