@@ -157,6 +157,12 @@ describe("importBackup — merge semantics", () => {
 
     expect(result).toEqual({ imported: 5, skipped: 0 });
   });
+
+  it("does not count as a backup — local edits newer than the file are in no file", async () => {
+    await importBackup(snapshot({ tables: { horses: [horse()] } }));
+
+    expect(await db.meta.get("lastBackupAt")).toBeUndefined();
+  });
 });
 
 describe("importBackup — owner adoption", () => {
