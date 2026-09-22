@@ -180,7 +180,9 @@ export class ProfileView extends LightElement {
                 href=${appHref(CUSTOMIZE_ROOT)}
               >
                 <app-icon icon="slidersHorizontal"></app-icon>
-                <span class="meta-label-large">Personnaliser mon interface</span>
+                <span class="meta-label-large"
+                  >Personnaliser mon interface</span
+                >
               </a>
             </li>
             <li class="meta-item">
