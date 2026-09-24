@@ -8,13 +8,13 @@ import "./views/HomeView";
 import { LightElement } from "./commons/base-element.ts";
 import { Router } from "./commons/controllers/router.ts";
 import {
-  downloadBackup,
   horsesRepo,
   initData,
   LiveQuery,
-  readBackupFile,
+  liveQueriesSettled,
   watchDatabase,
 } from "./data/index.ts";
+import { BackupActions } from "./commons/backup-actions.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { appHref } from "./commons/base-path.ts";
@@ -73,6 +73,28 @@ const ADD_BUTTON_BEFORE = "budget";
 
 /** The one section whose nav link is per-horse — see `#sectionHref`. */
 const HORSE_SECTION = "horses";
+
+/**
+ * How long a route change may hold the old page on screen while the incoming
+ * view's queries answer — see `#viewSettled`. IndexedDB answers in a few
+ * milliseconds; the cap only stops a query that never answers from stalling a
+ * navigation. Past it, the view is captured as it stands and fills in on
+ * screen.
+ */
+const ROUTE_SETTLE_MS = 150;
+
+/**
+ * The same wait for the screen the app opens on, which also covers opening
+ * the database. Longer, because a cold start has more to do before the first
+ * answer — past it, the screen is shown as it stands.
+ */
+const FIRST_SETTLE_MS = 300;
+
+/**
+ * The latest the first screen is shown, counted from app-root connecting,
+ * whatever the database is doing — see `contentReady`.
+ */
+const FIRST_SCREEN_MAX_MS = 1500;
 
 /**
  * The route table.
@@ -213,11 +235,25 @@ export class AppRoot extends LightElement {
    */
   @state() private databaseNotice: "blocked" | "superseded" | null = null;
 
-  /** Outcome of an export or restore run from the data-error screen. */
-  @state() private recoveryStatus = "";
-  @state() private recoveryError = "";
+  /**
+   * Export and restore on the data-error screen. It stays up after a restore,
+   * and the app behind it only reopens on a reload — hence the extra line.
+   */
+  #recovery = new BackupActions(this, {
+    afterRestore: "Rechargez pour rouvrir l’application.",
+  });
 
   @state() private postSheetOpen = false;
+
+  /**
+   * False until the screen the app opened on has its first query results, or
+   * `FIRST_SETTLE_MS` has gone by. Until then `<main>` is drawn transparent, so
+   * a cold start shows that screen once, whole. Shown straight away, the
+   * dashboard would appear on "Aucun rendez-vous à venir.", then gain its
+   * appointments, its "En cours" block and its horse card one query at a
+   * time, each one pushing the cards below it down.
+   */
+  @state() private contentReady = false;
 
   /**
    * False until the `+` is pressed for the first time.
@@ -243,6 +279,7 @@ export class AppRoot extends LightElement {
    */
   readonly #router = new Router(this, {
     beforeRender: (path) => this.#prepareRoute(path),
+    settle: () => this.#viewSettled(ROUTE_SETTLE_MS),
     afterRender: () => this.#focusHeading(),
     // `horse` on home↔horse-view, so `transitions/horse.css` can give
     // `--horse-card` its shared-element morph only there; `horse-subpage`
@@ -306,7 +343,52 @@ export class AppRoot extends LightElement {
     // so nothing else would load its chunk — a cold deep link to /budget
     // would render an undefined element and show an empty page. Static imports
     // used to cover this for free; the split makes it explicit.
-    void this.#prepareRoute(this.#router.path).then(() => this.requestUpdate());
+    const firstRoute = this.#prepareRoute(this.#router.path);
+    void firstRoute.then(() => this.requestUpdate());
+
+    const firstScreen = Promise.allSettled([initData(), firstRoute])
+      .then(() => this.updateComplete)
+      .then(() => this.#viewSettled(FIRST_SETTLE_MS));
+    // Never held back for good: a database that never opens, or a render that
+    // throws — already reported where it was thrown — must still leave the
+    // screen showing rather than a blank app.
+    void Promise.race([
+      firstScreen,
+      new Promise((resolve) => setTimeout(resolve, FIRST_SCREEN_MAX_MS)),
+    ])
+      .catch(() => {})
+      .then(() => {
+        this.contentReady = true;
+        this.#prefetchChunks();
+      });
+  }
+
+  /**
+   * Loads every route's chunk and both sheets in the background once the first
+   * screen is showing, so the first visit to a screen in a session starts its
+   * transition without waiting on a fetch and a compile. A chunk that fails
+   * here is simply loaded again by the navigation that needs it.
+   *
+   * Only once the service worker serves the page, when every chunk is a cache
+   * read. Before that — a first visit — each one is a download sharing the
+   * network with the photo still coming in, which it measurably delays, for
+   * files the worker's install is about to fetch anyway.
+   *
+   * `requestIdleCallback` is feature-detected rather than assumed: Safari ships
+   * it only behind a flag, so there this runs as the next task instead.
+   */
+  #prefetchChunks() {
+    if (!navigator.serviceWorker?.controller) return;
+
+    const load = () => {
+      for (const route of ROUTES) void route.load?.().catch(() => {});
+      void import("./components/post-sheet/post-sheet.ts").catch(() => {});
+      void import("./components/activity-sheet/activity-sheet.ts").catch(
+        () => {},
+      );
+    };
+    if ("requestIdleCallback" in window) requestIdleCallback(load);
+    else setTimeout(load);
   }
 
   /**
@@ -338,7 +420,14 @@ export class AppRoot extends LightElement {
         )}
       </nav-bar>
 
-      <main class="main-content">${this.renderView()}</main>
+      <!-- Held back until the first screen has its data — see contentReady.
+           The error and database screens are never held back. -->
+      <main
+        class="main-content"
+        ?data-pending=${!this.contentReady && !this.dataError && !this.databaseNotice}
+      >
+        ${this.renderView()}
+      </main>
 
       <!-- Mounted in the shell, not in a view: the + is in the nav bar, so the
            sheet has to be reachable from every route. Rendered only once its
@@ -436,6 +525,25 @@ export class AppRoot extends LightElement {
     this.querySelector<HTMLElement>("h1")?.focus();
   }
 
+  /**
+   * Resolves once the view in `<main>` has rendered with its first query
+   * results, or after `budget` ms, whichever comes first.
+   *
+   * A view's `LiveQuery`s subscribe as it connects and answer a few
+   * milliseconds later. Captured before that, the dashboard would slide in on
+   * "Aucun rendez-vous à venir." with no horse card for the `--horse-card`
+   * morph to land on, and a traversal back to the list would restore its
+   * scroll before the rows it scrolls to exist. Loops because an answer can
+   * mount a component with queries of its own.
+   */
+  async #viewSettled(budget: number) {
+    const deadline = performance.now() + budget;
+    do {
+      const view = this.querySelector("main")?.firstElementChild;
+      if (view instanceof LitElement) await view.updateComplete;
+    } while (await liveQueriesSettled(deadline - performance.now()));
+  }
+
   private renderView() {
     if (this.dataError) return this.renderDataError();
     if (this.databaseNotice) return this.renderDatabaseNotice();
@@ -489,39 +597,23 @@ export class AppRoot extends LightElement {
           <button
             class="data-error__button pressable"
             type="button"
-            @click=${this.#onRecoveryExport}
+            @click=${this.#recovery.export}
           >
             Exporter les données
           </button>
           <button
             class="data-error__button pressable"
             type="button"
-            @click=${this.#onRecoveryImportClick}
+            @click=${this.#recovery.restore}
           >
             Restaurer un fichier
           </button>
         </div>
-        <input
-          class="data-error__file"
-          type="file"
-          accept="application/json,.json"
-          hidden
-          @change=${this.#onRecoveryImportFile}
-        />
-        ${
-          this.recoveryStatus
-            ? html`<p class="data-error__status" role="status">
-                ${this.recoveryStatus}
-              </p>`
-            : nothing
-        }
-        ${
-          this.recoveryError
-            ? html`<p class="data-error__detail" role="alert">
-                ${this.recoveryError}
-              </p>`
-            : nothing
-        }
+        ${this.#recovery.renderMessage({
+          region: "data-error__message-region",
+          status: "data-error__status",
+          error: "data-error__detail",
+        })}
       </section>
     `;
   }
@@ -574,38 +666,4 @@ export class AppRoot extends LightElement {
       </section>
     `;
   }
-
-  #onRecoveryExport = async () => {
-    this.recoveryStatus = "";
-    this.recoveryError = "";
-    try {
-      await downloadBackup();
-      this.recoveryStatus = "Sauvegarde téléchargée.";
-    } catch (error: unknown) {
-      this.recoveryError =
-        error instanceof Error ? error.message : "Export impossible.";
-    }
-  };
-
-  #onRecoveryImportClick = () =>
-    this.querySelector<HTMLInputElement>(".data-error__file")?.click();
-
-  #onRecoveryImportFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    this.recoveryStatus = "";
-    this.recoveryError = "";
-    try {
-      const { imported, skipped } = await readBackupFile(file);
-      this.recoveryStatus = `${imported} enregistrement(s) restauré(s), ${skipped} ignoré(s) car déjà à jour. Rechargez pour rouvrir l’application.`;
-    } catch (error: unknown) {
-      this.recoveryError =
-        error instanceof Error ? error.message : "Import impossible.";
-    } finally {
-      // Lets the same file be picked again after a failure.
-      input.value = "";
-    }
-  };
 }

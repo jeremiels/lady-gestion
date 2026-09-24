@@ -20,6 +20,16 @@ export interface RouterOptions {
    */
   beforeRender?: (path: string) => void | Promise<void>;
   /**
+   * Runs after the DOM swap, inside the view transition's update callback, so
+   * the transition captures the new view only once it resolves.
+   *
+   * This is where the incoming view gets to finish what it shows — its first
+   * query results — rather than being captured empty and filled in mid-slide.
+   * The old page stays frozen on screen while it runs, so it has to be short,
+   * and it must not throw.
+   */
+  settle?: (path: string) => void | Promise<void>;
+  /**
    * Runs after the DOM swap and after the view transition's update callback has
    * settled. This is where focus management belongs.
    */
@@ -333,10 +343,12 @@ export class Router implements ReactiveController {
     if (!("startViewTransition" in document)) {
       this.#apply(path);
       await this.#host.updateComplete;
+      await this.#options.settle?.(path);
     } else {
-      const update = () => {
+      const update = async () => {
         this.#apply(path);
-        return this.#host.updateComplete;
+        await this.#host.updateComplete;
+        await this.#options.settle?.(path);
       };
 
       // The types are what let `styles/transitions/route.css` slide forward and

@@ -94,6 +94,13 @@
     gap: var(--spacing-8);
   }
 
+  /* The live regions BackupActions renders, always in the DOM and never
+     hidden — see its renderMessage. They generate no box of their own, so an
+     empty one draws none of .data-error's gaps. */
+  .data-error__message-region {
+    display: contents;
+  }
+
   .data-error__status {
     font-size: var(--font-size-sm);
   }
@@ -139,5 +146,13 @@
       var(--nav-bar-height) + var(--spacing-20) +
         env(safe-area-inset-bottom, 0px)
     );
+    /* The reveal below. A fade, not a movement, so reduced motion keeps it. */
+    transition: opacity var(--duration-fast) var(--easing-out);
+  }
+
+  /* Transparent while app-root waits for the first screen's data (see
+     contentReady there), so a cold start shows that screen once, whole. */
+  .main-content[data-pending] {
+    opacity: 0;
   }
 }

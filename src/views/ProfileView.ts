@@ -1,15 +1,17 @@
-import { html, nothing } from "lit";
-import { customElement, query, state } from "lit/decorators.js";
+import { html } from "lit";
+import { customElement } from "lit/decorators.js";
 import { LightElement } from "../commons/base-element.ts";
 import { appHref } from "../commons/base-path.ts";
 import { goBack } from "../commons/navigation.ts";
 import { CUSTOMIZE_ROOT } from "../commons/sections.ts";
+import { BackupActions } from "../commons/backup-actions.ts";
+import { Today } from "../commons/controllers/today.ts";
 import {
   LiveQuery,
-  downloadBackup,
+  daysBetween,
   metaRepo,
   profileRepo,
-  readBackupFile,
+  toIsoDate,
 } from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
 
@@ -30,16 +32,13 @@ const PASSWORD_MASK = "*".repeat(9);
  */
 @customElement("profile-view")
 export class ProfileView extends LightElement {
-  @state() private status = "";
-  @state() private error = "";
-
-  @query("#backup-file") private fileInput?: HTMLInputElement;
-
   #profile = new LiveQuery(this, () => profileRepo.get());
-  #daysSinceBackup = new LiveQuery(this, () => metaRepo.daysSinceBackup());
+  #lastBackupAt = new LiveQuery(this, () => metaRepo.getLastBackupAt());
   #notifications = new LiveQuery(this, () =>
     metaRepo.getNotificationsEnabled(),
   );
+  #today = new Today(this);
+  #backup = new BackupActions(this);
 
   #goBack = () => goBack(HOME);
 
@@ -47,39 +46,6 @@ export class ProfileView extends LightElement {
   // preference that forgets itself on every navigation is a bug the user sees.
   #onNotificationsChange = (event: CustomEvent<{ checked: boolean }>) => {
     void metaRepo.setNotificationsEnabled(event.detail.checked);
-  };
-
-  #onExport = async () => {
-    this.error = "";
-    try {
-      await downloadBackup();
-      this.status = "Sauvegarde téléchargée.";
-    } catch (error: unknown) {
-      this.error =
-        error instanceof Error ? error.message : "Export impossible.";
-    }
-  };
-
-  #onImportClick = () => this.fileInput?.click();
-
-  #onImportFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    this.status = "";
-    this.error = "";
-
-    try {
-      const { imported, skipped } = await readBackupFile(file);
-      this.status = `${imported} enregistrement(s) restauré(s), ${skipped} ignoré(s) car déjà à jour.`;
-    } catch (error: unknown) {
-      this.error =
-        error instanceof Error ? error.message : "Import impossible.";
-    } finally {
-      // Lets the same file be picked again after a failure.
-      input.value = "";
-    }
   };
 
   render() {
@@ -180,7 +146,9 @@ export class ProfileView extends LightElement {
                 href=${appHref(CUSTOMIZE_ROOT)}
               >
                 <app-icon icon="slidersHorizontal"></app-icon>
-                <span class="meta-label-large">Personnaliser mon interface</span>
+                <span class="meta-label-large"
+                  >Personnaliser mon interface</span
+                >
               </a>
             </li>
             <li class="meta-item">
@@ -211,44 +179,41 @@ export class ProfileView extends LightElement {
             <button
               class="profile-view__button pressable"
               type="button"
-              @click=${this.#onExport}
+              @click=${this.#backup.export}
             >
               Exporter les données
             </button>
             <button
               class="profile-view__button profile-view__button--ghost pressable"
               type="button"
-              @click=${this.#onImportClick}
+              @click=${this.#backup.restore}
             >
               Restaurer un fichier
             </button>
           </div>
-          <input
-            id="backup-file"
-            type="file"
-            accept="application/json,.json"
-            hidden
-            @change=${this.#onImportFile}
-          />
           <p class="profile-view__note">
             Les fichiers (ordonnances, factures scannées) ne sont pas encore
             inclus dans l’export — seules leurs fiches le sont.
           </p>
-          ${this.status ? html`<p class="profile-view__status">${this.status}</p>` : nothing}
-          ${this.error ? html`<p class="profile-view__error">${this.error}</p>` : nothing}
+          ${this.#backup.renderMessage({
+            region: "profile-view__message-region",
+            status: "profile-view__status",
+            error: "profile-view__error",
+          })}
         </div>
       </section>
     `;
   }
 
   #renderBackupAge() {
-    // `Infinity` when there has never been a backup; `undefined` for the tick
+    // `undefined` both when there has never been a backup and for the tick
     // before the first emission. Both read as "no backup yet".
-    const days = this.#daysSinceBackup.value;
-    if (days === undefined || !Number.isFinite(days)) {
-      return "Aucune sauvegarde effectuée pour l’instant.";
-    }
+    const last = this.#lastBackupAt.value;
+    if (!last) return "Aucune sauvegarde effectuée pour l’instant.";
 
+    // Calendar days in local time, not elapsed 24-hour spans: a backup at
+    // 23:00 is "hier" at 08:00 the next morning.
+    const days = daysBetween(toIsoDate(new Date(last)), this.#today.value);
     if (days <= 0) return "Dernière sauvegarde : aujourd’hui.";
     if (days === 1) return "Dernière sauvegarde : hier.";
     return `Dernière sauvegarde : il y a ${days} jours.`;

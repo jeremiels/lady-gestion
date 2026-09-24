@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db.ts";
 import { seedIfEmpty } from "../seed.ts";
 import { seedCategories } from "../categories.ts";
@@ -179,10 +179,26 @@ describe.skipIf(newest === undefined)(
       }
     });
 
+    it("writes no category on the launch after a restore", async () => {
+      // The restore reconciles inside its own transaction, so the next launch
+      // finds every built-in already current. A write there would cost a
+      // readwrite transaction ahead of every view's first query.
+      await seedIfEmpty();
+      await importBackup(real());
+      const before = await db.categories.toArray();
+      const bulkPut = vi.spyOn(db.categories, "bulkPut");
+
+      await seedIfEmpty();
+
+      expect(bulkPut).not.toHaveBeenCalled();
+      expect(await db.categories.toArray()).toStrictEqual(before);
+      bulkPut.mockRestore();
+    });
+
     it("ships the same category fields the device already has stored", async () => {
       // `reconcileCategories` writes `BUILT_IN_CATEGORIES`'s `fields` back over
-      // every built-in at launch, so a change to that array is a change to rows
-      // that already exist on her device. This is the warning: when it fails,
+      // any built-in whose row differs, at launch, so a change to that array is
+      // a change to rows that already exist on her device. This is the warning: when it fails,
       // the next launch will rewrite her categories, which may be exactly what
       // was intended — but it should never be a surprise.
       const shipped = seedCategories("irrelevant", "2026-01-01T00:00:00.000Z");

@@ -3,10 +3,10 @@ import { resetDb } from "../__tests__/factories.ts";
 import * as metaRepo from "./meta.repo.ts";
 
 /**
- * `meta` is local app state, not an entity. The parts worth guarding are the
- * two derived reads the profile screen renders: how stale the backup is, and
- * the notifications default — both of which have a defined answer when nothing
- * has ever been written.
+ * `meta` is local app state, not an entity. Beyond the key-value round trip,
+ * the part worth guarding is the derived read the profile screen renders: the
+ * notifications default, which has a defined answer when nothing has ever
+ * been written.
  */
 
 beforeEach(resetDb);
@@ -53,34 +53,5 @@ describe("getNotificationsEnabled", () => {
     await metaRepo.setNotificationsEnabled(false);
 
     expect(await metaRepo.getNotificationsEnabled()).toBe(false);
-  });
-});
-
-describe("daysSinceBackup", () => {
-  it("is Infinity when there has never been a backup", async () => {
-    // The profile screen reads this as "Aucune sauvegarde", so it must be a
-    // number the caller can test with Number.isFinite, not undefined.
-    expect(await metaRepo.daysSinceBackup()).toBe(Infinity);
-  });
-
-  it("is 0 on the day of the backup", async () => {
-    await metaRepo.markBackedUp();
-
-    expect(await metaRepo.daysSinceBackup()).toBe(0);
-  });
-
-  it("counts whole elapsed days, not calendar days", async () => {
-    // Backdating the stored timestamp rather than faking the clock: Dexie
-    // resolves its promises on the real task queue, so `vi.useFakeTimers()`
-    // deadlocks every query in this file.
-    const hoursAgo = (hours: number) =>
-      new Date(Date.now() - hours * 3_600_000).toISOString();
-
-    // 47 hours is one whole elapsed day, not the two calendar days it spans.
-    await metaRepo.set("lastBackupAt", hoursAgo(47));
-    expect(await metaRepo.daysSinceBackup()).toBe(1);
-
-    await metaRepo.set("lastBackupAt", hoursAgo(49));
-    expect(await metaRepo.daysSinceBackup()).toBe(2);
   });
 });

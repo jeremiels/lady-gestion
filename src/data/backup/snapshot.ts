@@ -129,17 +129,16 @@ export const importBackup = async (
     tables,
   };
 
-  // Everything from here is **one transaction**.
+  // Everything from here is **one transaction**: a failure part-way would
+  // leave the demo horse deleted, some rows merged and the owner not adopted,
+  // and for an app whose only copy of the user's data is this database a
+  // restore has to be all-or-nothing. `documentBlobs` and `meta` are in scope
+  // so the seed purge and the owner write join rather than open their own;
+  // Dexie makes a nested `db.transaction` over a subset reuse this one.
   //
-  // It used to be five — `clearUntouchedSeedData`, the merge, `setOwnerId`,
-  // `reconcileCategories` and `markBackedUp`, each opening its own — and a
-  // failure between any two left the database in a state nothing could report
-  // or repair: the demo horse deleted, some rows merged, the owner not
-  // adopted. For an app whose only copy of the user's data is this database,
-  // a restore has to be all-or-nothing. `documentBlobs` and `meta` are in
-  // scope so the seed purge and the two meta writes join rather than open
-  // their own; Dexie makes a nested `db.transaction` over a subset reuse this
-  // one.
+  // `lastBackupAt` is deliberately not stamped. Restoring reads a file rather
+  // than writing one, and the merge keeps local edits newer than the file —
+  // edits no file holds. Only `downloadBackup` makes the data safe.
   //
   // The counters live inside the callback on purpose: Dexie may retry a
   // transaction, and outer-scope counters would keep the tally from the
@@ -213,8 +212,6 @@ export const importBackup = async (
       // entirely has to be stamped with the owner the rest of the restore
       // just used.
       await reconcileCategories(backup.ownerId || undefined);
-
-      await metaRepo.markBackedUp();
 
       return { imported, skipped };
     },

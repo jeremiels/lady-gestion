@@ -4,11 +4,9 @@
     gap: 1.5rem;
   }
 
-  /* Full-bleed past the page padding, and the positioning context for the
-     back button below — it has to share this box's edges, not the page's
-     padded ones, or it lands well short of the image's actual corner. dvw,
-     not vw: vw includes the scrollbar, so on desktop the card overflows and
-     the page scrolls sideways. */
+  /* The positioning context for the back button below, which has to share
+     the photo's edges to land on its corner. Sits in the page column like
+     every other block, and rounds and clips the photo's top corners. */
   .horse-view__cover {
     position: relative;
     border-top-right-radius: var(--radius-12);

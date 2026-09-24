@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "./db.ts";
 import { BUILT_IN_CATEGORIES, seedCategories } from "./categories.ts";
 import { resetDb } from "./__tests__/factories.ts";
@@ -13,6 +13,9 @@ import { seedIfEmpty } from "./seed.ts";
  * empty form, because nothing ever wrote the new shape over it.
  */
 beforeEach(resetDb);
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /** The catalogue as a build two shapes ago left it. */
 const staleRows = () =>
@@ -93,6 +96,54 @@ describe("seed — reconciling the built-in types", () => {
     await seedIfEmpty();
 
     expect((await db.categories.get({ key: "achat" }))?.label).toBe(mine.label);
+  });
+
+  it("writes nothing when every built-in already matches what this build ships", async () => {
+    await seedIfEmpty();
+    const bulkPut = vi.spyOn(db.categories, "bulkPut");
+
+    await seedIfEmpty();
+
+    expect(bulkPut).not.toHaveBeenCalled();
+  });
+
+  it("does not count a row stored with its keys in another order as changed", async () => {
+    await seedIfEmpty();
+    const veto = (await db.categories.get({ key: "veto" }))!;
+    await db.categories.put(
+      Object.fromEntries(Object.entries(veto).reverse()) as typeof veto,
+    );
+    const bulkPut = vi.spyOn(db.categories, "bulkPut");
+
+    await seedIfEmpty();
+
+    expect(bulkPut).not.toHaveBeenCalled();
+  });
+
+  it("rewrites only the built-in that drifted", async () => {
+    await seedIfEmpty();
+    const veto = (await db.categories.get({ key: "veto" }))!;
+    await db.categories.put({ ...veto, label: "Vieux libellé" });
+    const bulkPut = vi.spyOn(db.categories, "bulkPut");
+
+    await seedIfEmpty();
+
+    expect(bulkPut).toHaveBeenCalledTimes(1);
+    expect(bulkPut.mock.calls[0]![0].map((row) => row.key)).toEqual(["veto"]);
+    const shipped = BUILT_IN_CATEGORIES.find((type) => type.key === "veto")!;
+    expect((await db.categories.get({ key: "veto" }))?.label).toBe(
+      shipped.label,
+    );
+  });
+
+  it("still rewrites a built-in carrying a key this build no longer ships", async () => {
+    await seedIfEmpty();
+    const veto = (await db.categories.get({ key: "veto" }))!;
+    await db.categories.put({ ...veto, legacy: "gone" } as typeof veto);
+
+    await seedIfEmpty();
+
+    expect("legacy" in (await db.categories.get({ key: "veto" }))!).toBe(false);
   });
 
   it("inserts a built-in the device has never had, with its parent resolved", async () => {
