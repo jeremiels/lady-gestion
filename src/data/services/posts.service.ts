@@ -1,5 +1,5 @@
 import { isIsoDate, todayISO, type IsoDate } from "../dates.ts";
-import { BASE_FIELD_IDS, fieldWithRole } from "../categories.ts";
+import { BASE_FIELD_IDS, fieldById, fieldWithRole } from "../categories.ts";
 import {
   followUpDate,
   formatWorkActivity,
@@ -335,9 +335,9 @@ const postFields = (
     // one lists no Nom row at all.
     title: workTitle(activityField, customFields) ?? text("title") ?? "",
     date: (text("date") ?? existing?.date ?? todayISO()) as IsoDate,
-    // No type has a time control, so a new event is all-day. An edit keeps
-    // whatever time the record already had.
-    time: existing?.time ?? null,
+    // Written only by a type whose form draws the time; any other type's edit
+    // keeps whatever time the record already had, and a new one is all-day.
+    time: fieldById(type, "time") ? text("time") : (existing?.time ?? null),
     // Derived rather than asked for: the date already says which is meant. A
     // cancelled event is the exception — re-deriving would quietly bring it
     // back to life on any edit that touches nothing else.

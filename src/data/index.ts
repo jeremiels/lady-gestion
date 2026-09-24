@@ -67,6 +67,7 @@ export * from "./files.ts";
 export * from "./budget.ts";
 export * from "./post-form.ts";
 export * from "./forms.ts";
+export * from "./reminders.ts";
 
 let ready: Promise<void> | undefined;
 

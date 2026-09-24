@@ -1,0 +1,20 @@
+{
+  "name": "lady-gestion-push",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler d1 migrations apply lady-gestion-push --remote && wrangler deploy",
+    "typecheck": "tsc",
+    "test": "node --test src/*.test.ts",
+    "vapid": "node scripts/vapid.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260924.1",
+    "typescript": "~7.0.2",
+    "wrangler": "^4.139.0"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

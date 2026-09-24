@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { readForm } from "./forms.ts";
+import { BUILT_IN_CATEGORY_ROWS } from "./__tests__/factories.ts";
 import {
   controlsOf,
+  crossFieldErrors,
   fieldSchema,
   pairErrorsOf,
   splitUnitValue,
@@ -273,5 +275,26 @@ describe("splitUnitValue", () => {
     expect(splitUnitValue("40")).toEqual({ amount: "", unit: "" });
     expect(splitUnitValue(null)).toEqual({ amount: "", unit: "" });
     expect(splitUnitValue(42)).toEqual({ amount: "", unit: "" });
+  });
+});
+
+describe("crossFieldErrors", () => {
+  const cures = BUILT_IN_CATEGORY_ROWS.find((type) => type.key === "cures")!;
+
+  it("puts a ticked reminder with no time under the time control", () => {
+    expect(
+      crossFieldErrors(cures, {
+        date: "2026-06-15",
+        reminder: true,
+        "reminder-offset": "1h",
+      }),
+    ).toEqual({ time: "Indiquez une heure pour la notification." });
+  });
+
+  it("lets a course have a time and no reminder, or neither", () => {
+    expect(
+      crossFieldErrors(cures, { date: "2026-06-15", time: "08:30" }),
+    ).toEqual({});
+    expect(crossFieldErrors(cures, { date: "2026-06-15" })).toEqual({});
   });
 });

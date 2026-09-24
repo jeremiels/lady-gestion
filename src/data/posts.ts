@@ -2,6 +2,7 @@ import {
   addDays,
   addMonths,
   daysBetween,
+  fromIsoDate,
   isIsoDate,
   todayISO,
   type IsoDate,
@@ -428,4 +429,55 @@ export const endDateErrors = (
 ): { endDate?: FieldError } =>
   isIsoDate(start) && isIsoDate(end) && end < start
     ? { endDate: "La date de fin précède la date de début." }
+    : {};
+
+/**
+ * How far ahead of its date and time a reminder goes out, in minutes — keyed
+ * by the codes `REMINDER_OPTIONS` (`categories.ts`) offers and
+ * `customFields.reminder` stores.
+ */
+export const REMINDER_OFFSET_MINUTES: Readonly<Record<string, number>> = {
+  "10min": 10,
+  "1h": 60,
+  "12h": 12 * 60,
+  "24h": 24 * 60,
+  "48h": 48 * 60,
+};
+
+/**
+ * The instant a reminder goes out, in epoch milliseconds — or `null` when the
+ * record has no time to count back from, or the code is not one this build
+ * knows.
+ *
+ * `date` and `time` are read as the device's local wall clock, so the result
+ * is an absolute instant: whatever sends it never needs to know a timezone.
+ * The offset is real elapsed time, so "1 jour avant" across a clock change is
+ * 24 hours, not the same wall-clock time the day before.
+ */
+export const reminderFireAt = (
+  date: unknown,
+  time: unknown,
+  code: unknown,
+): number | null => {
+  if (!isIsoDate(date) || typeof time !== "string") return null;
+  const offset =
+    typeof code === "string" ? REMINDER_OFFSET_MINUTES[code] : undefined;
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (offset === undefined || !match) return null;
+
+  const start = fromIsoDate(date);
+  start.setHours(Number(match[1]), Number(match[2]));
+  return start.getTime() - offset * 60_000;
+};
+
+/**
+ * A reminder counts back from the record's time, so ticking the box without
+ * one is the error — under the time control, where the fix is.
+ */
+export const reminderTimeErrors = (
+  reminder: unknown,
+  time: unknown,
+): { time?: FieldError } =>
+  reminder === true && (typeof time !== "string" || time === "")
+    ? { time: "Indiquez une heure pour la notification." }
     : {};

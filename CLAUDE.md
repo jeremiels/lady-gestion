@@ -47,8 +47,12 @@ there when the task touches it. The rules below apply to every task.
   calendar time it used to. `build.target` in `vite.config.ts` carries the same
   numbers; move the two together or the doc and the bundle disagree. See
   "Browser floor" in `AGENTS.md` before reaching for a new platform feature.
-- **Dexie / IndexedDB is the only persistence layer** (`src/data/`). No
-  `localStorage`, no `fetch`/API calls, no backend.
+- **Dexie / IndexedDB is the only persistence layer** (`src/data/`) and the
+  source of truth. No `localStorage`. The one network call is push reminders:
+  `src/pwa/push.ts` sends the reminder list derived from IndexedDB to the
+  Worker in `server/`, which stores nothing else. The app must keep working
+  with that server down — no reminders, everything else normal. Any other
+  `fetch` or backend needs asking first.
 - **No state management library and no store.** Reactivity comes from
   `LiveQuery` (`src/data/live.ts`), a Lit `ReactiveController` wrapping Dexie's
   `liveQuery`.

@@ -26,8 +26,8 @@ export const markBackedUp = (): Promise<void> => set("lastBackupAt", nowISO());
 
 /**
  * The notifications preference, on until the user says otherwise. The default
- * lives here rather than in the view so the two cannot drift. Nothing consumes
- * the flag yet — reminders are not implemented.
+ * lives here rather than in the view so the two cannot drift. Off, it empties
+ * the push reminder list (`listReminders`, `reminders.ts`).
  */
 export const getNotificationsEnabled = async (): Promise<boolean> =>
   (await get<boolean>("notificationsEnabled")) ?? true;

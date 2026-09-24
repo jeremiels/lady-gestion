@@ -37,14 +37,27 @@ export const FOLLOW_UP_OPTIONS: FieldOption[] = [
   { value: "12m", label: "1 an" },
 ];
 
+/**
+ * How long before a record's date and time its push reminder goes out. The
+ * codes are what `customFields.reminder` stores; `REMINDER_OFFSET_MINUTES`
+ * (`posts.ts`) turns them back into a duration.
+ */
+export const REMINDER_OPTIONS: FieldOption[] = [
+  { value: "10min", label: "10 minutes avant" },
+  { value: "1h", label: "1 heure avant" },
+  { value: "12h", label: "12 heures avant" },
+  { value: "24h", label: "1 jour avant" },
+  { value: "48h", label: "2 jours avant" },
+];
+
 const QUANTITY_UNIT_NAMES = ["mL", "kg", "L"] as const;
 
 /**
- * The three fields that land on a `Post` column rather than in
+ * The fields that land on a `Post` column rather than in
  * `customFields`. A type lists them in its own `fields` like any other row —
  * that is what makes the array the whole form and not just its variable part.
  */
-export const BASE_FIELD_IDS = new Set(["title", "date", "notes"]);
+export const BASE_FIELD_IDS = new Set(["title", "date", "time", "notes"]);
 
 /**
  * What every field constructor below takes: everything `CustomFieldDef` has
@@ -78,6 +91,9 @@ const inputNumberField = buildField("number");
 
 /** A date picker. */
 const inputDateField = buildField("date");
+
+/** A clock-time picker, `HH:mm`. */
+const inputTimeField = buildField("time");
 
 /** A currency amount, stored in cents. */
 const inputMoneyField = buildField("money");
@@ -138,6 +154,12 @@ const titleField = () =>
 const dateField = () =>
   inputDateField({ id: "date", label: "Date", required: true });
 
+/**
+ * Heure de début — the record's `time` column. What a reminder counts back
+ * from, so a type that carries `reminderField` carries this too.
+ */
+const timeField = () => inputTimeField({ id: "time", label: "Heure de début" });
+
 /** Note — the free-text row every type ends on. */
 const notesField = () => inputTextField({ id: "notes", label: "Note" });
 
@@ -164,8 +186,8 @@ const counterpartyField = (label: string, defaultValue?: string) =>
 /**
  * "Planifier un rendez-vous", and the interval it reveals while ticked.
  *
- * The one compound field in the catalogue and the most-repeated: eight types
- * carry it, and `cures` words it as a renewal rather than an appointment.
+ * The most-repeated compound field in the catalogue: eight types carry it,
+ * and `cures` words it as a renewal rather than an appointment.
  */
 const followUpField = (label = "Planifier un rendez-vous") =>
   inputCheckboxField({
@@ -178,6 +200,25 @@ const followUpField = (label = "Planifier un rendez-vous") =>
         label: "Prochain rendez-vous à planifier",
         required: true,
         options: FOLLOW_UP_OPTIONS,
+      }),
+    ],
+  });
+
+/**
+ * "Créer une notification", and the delay it reveals while ticked — a push
+ * reminder sent that long before the record's date and `timeField`.
+ */
+const reminderField = () =>
+  inputCheckboxField({
+    id: "reminder",
+    label: "Créer une notification",
+    role: "reminder",
+    reveals: [
+      inputSelectField({
+        id: "reminder-offset",
+        label: "Me prévenir",
+        required: true,
+        options: REMINDER_OPTIONS,
       }),
     ],
   });
@@ -486,8 +527,10 @@ export const BUILT_IN_CATEGORIES: Omit<
     fields: [
       titleField(),
       dateField(),
+      timeField(),
       ...courseFields(),
       followUpField("Planifier un renouvellement"),
+      reminderField(),
       notesField(),
     ],
   },
@@ -510,10 +553,12 @@ export const BUILT_IN_CATEGORIES: Omit<
     fields: [
       titleField(),
       dateField(),
+      timeField(),
       ...courseFields(),
       counterpartyField("Practicien"),
       budgetField(),
       followUpField(),
+      reminderField(),
       notesField(),
     ],
   },
@@ -765,7 +810,7 @@ export const byOrder = <T extends Category>(types: T[]): T[] =>
 /**
  * The one field of a given *kind* on a type, if it has one.
  *
- * Only safe for `followUp` and `workActivity`: those two are not
+ * Only safe for `followUp`, `workActivity` and `reminder`: those are not
  * general-purpose (see `CustomFieldDef["role"]`'s doc comment) — a type gets
  * one or none, by construction, and nothing a field-builder UI adds can create a
  * second. `text`/`cents`/`bool` **are** general-purpose, so a type could one
