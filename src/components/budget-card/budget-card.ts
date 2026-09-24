@@ -23,14 +23,22 @@ export class BudgetCard extends BaseElement {
   @property({ type: String }) month: IsoDate = todayISO();
 
   static componentStyles = css`
+    :host {
+      display: block;
+    }
+
     /* The whole card is the target, and the link text a screen reader announces
-       is "Dépenses" plus the amount rather than a "voir" tacked on the end. */
+       is "Dépenses" plus the amount rather than a "voir" tacked on the end.
+
+       height: 100% rather than the stretch keyword, which WebKit only knows
+       prefixed: the host is a grid item stretched to the row documents-card
+       sets, so its height is definite and the percentage resolves everywhere. */
     .budget__link {
       display: block;
       color: inherit;
       text-decoration: none;
       border-radius: var(--radius-12);
-      height: stretch;
+      height: 100%;
     }
 
     .budget__link:focus-visible {
@@ -47,7 +55,7 @@ export class BudgetCard extends BaseElement {
       background-color: var(--color-card-budget);
       border-radius: var(--radius-12);
       color: var(--color-white);
-      height: stretch;
+      height: 100%;
     }
 
     .budget__info {
