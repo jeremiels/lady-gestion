@@ -8,15 +8,20 @@ import { HORSE_SEX_LABEL } from "../../types/horse.types.ts";
 import type { Horse } from "../../data/types.ts";
 
 /**
- * WebP, not the original PNG: that was 393 KB of effectively uncompressed RGBA
- * for a 393×561 photo — 69% of the entire precache, downloaded by every
- * install of an app whose whole point is working offline. The `.png` is kept
- * in `src/assets/` as the source of truth but is no longer imported, so it
- * never reaches the bundle. Regenerate with:
- *   npm i -D sharp && node -e "require('sharp')('<png>').webp({quality:82}).toFile('<webp>')" && npm un sharp
+ * Encoded from the `.png` beside it, which is the source of truth and is never
+ * imported, so it never reaches the bundle. Every byte here is downloaded by
+ * each install.
+ *
+ * AVIF at the source's full 1536×2304, deliberately not downscaled to the
+ * largest box the card is drawn in (1200×686 device px): the browser already
+ * resamples the photo to the card, and resampling it twice measurably changes
+ * the rendered pixels. Quality 70 keeps the card, rendered at DPR 3, within
+ * 42 dB PSNR of the PNG itself. Regenerate outside the repo, since `sharp` is
+ * deliberately not a dependency:
+ *   npm i --prefix /tmp/img sharp && node -e "require('/tmp/img/node_modules/sharp')('<png>').avif({quality:70,effort:6}).toFile('<avif>')"
  */
 const horseImageUrl = new URL(
-  "../../assets/lea-ladympala-trop-mignonnes.webp",
+  "../../assets/lea-ladympala-trop-mignonnes.avif",
   import.meta.url,
 ).href;
 
@@ -123,17 +128,17 @@ export class HorseCard extends BaseElement {
     // fetchpriority="high" because this is the dashboard's LCP element: it is
     // discovered inside a shadow root by the renderer rather than by the
     // preload scanner, so without the hint it queues behind the route
-    // chunks. The intrinsic 393x561 is the source WebP's own size — it
-    // changes no layout here (the card's aspect-ratio and object-fit already
-    // decide that) but it keeps the box reserved if this ever renders
-    // somewhere that does not size it.
+    // chunks. The intrinsic 1536x2304 is the file's own size — it changes no
+    // layout here (the card's aspect-ratio and object-fit already decide that)
+    // but it keeps the box reserved if this ever renders somewhere that does
+    // not size it.
     const content = html`
       <img
         class="horse-card__image"
         src="${imageUrl}"
         alt="${horse.name}"
-        width="393"
-        height="561"
+        width="1536"
+        height="2304"
         fetchpriority="high"
       />
       <div class="horse-card__info">
