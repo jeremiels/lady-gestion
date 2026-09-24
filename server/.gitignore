@@ -1,0 +1,2 @@
+# Local state from `wrangler dev` (the local D1 copy) and `wrangler deploy --dry-run`.
+.wrangler

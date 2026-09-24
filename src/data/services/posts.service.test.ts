@@ -64,6 +64,8 @@ type FormAnswers = {
   followUpInterval: string | null;
   quantityAmount: number | null;
   quantityUnit: string | null;
+  time: string | null;
+  reminder: string | null;
 };
 
 const ANSWERS: FormAnswers = {
@@ -78,6 +80,8 @@ const ANSWERS: FormAnswers = {
   followUpInterval: "6w",
   quantityAmount: null,
   quantityUnit: null,
+  time: null,
+  reminder: null,
 };
 
 /**
@@ -102,6 +106,13 @@ const controlsFor = (answers: FormAnswers): Record<string, unknown> => {
       for (const child of field.reveals ?? []) {
         controls[child.id] = answers.followUpInterval;
       }
+    } else if (field.role === "reminder") {
+      controls[field.id] = answers.reminder !== null;
+      for (const child of field.reveals ?? []) {
+        controls[child.id] = answers.reminder;
+      }
+    } else if (field.control === "time") {
+      controls[field.id] = answers.time;
     } else if (field.role === "workActivity") {
       controls[field.id] = answers.activity;
     } else if (field.units) {
@@ -138,6 +149,7 @@ const input = (over: Partial<FormAnswers> = {}): PostInput => {
   const base = {
     title: answers.title,
     date: answers.date,
+    time: answers.time,
     notes: answers.notes,
   };
 
@@ -284,6 +296,63 @@ describe("follow-up appointment", () => {
     expect(next).toMatchObject({
       date: "2026-07-13",
       customFields: { endDate: "2026-07-22", followUp: null },
+    });
+  });
+});
+
+describe("start time and reminder", () => {
+  it("writes the time to its column and the delay to customFields", async () => {
+    const event = await create({
+      type: "traitement",
+      time: "08:30",
+      reminder: "1h",
+    });
+
+    expect(event.time).toBe("08:30");
+    expect(event.customFields.reminder).toBe("1h");
+    expect(event.customFields).not.toHaveProperty("time");
+  });
+
+  it("clears the time when the field is emptied", async () => {
+    const created = await create({ type: "cures", time: "08:30" });
+
+    const edited = await savePost({
+      horseId: HORSE_ID,
+      existing: created,
+      type: typeFor("cures"),
+      input: input({ type: "cures", time: null }),
+    });
+
+    expect(edited!.time).toBeNull();
+  });
+
+  it("leaves the time alone on a type whose form has no time", async () => {
+    const created = await create({ type: "veto", planFollowUp: false });
+    await postsRepo.update(created.id, { time: "10:00" });
+
+    const edited = await savePost({
+      horseId: HORSE_ID,
+      existing: { ...created, time: "10:00" },
+      type: typeFor("veto"),
+      input: input({ type: "veto", planFollowUp: false }),
+    });
+
+    expect(edited!.time).toBe("10:00");
+  });
+
+  it("carries both over to a renewal, which is reminded of in turn", async () => {
+    await create({
+      type: "cures",
+      date: "2026-06-01",
+      time: "08:30",
+      reminder: "24h",
+    });
+
+    const [next] = await postsRepo.listByHorse(HORSE_ID);
+    expect(next).toMatchObject({
+      date: "2026-07-13",
+      time: "08:30",
+      customFields: { reminder: "24h" },
     });
   });
 });

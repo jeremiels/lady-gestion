@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../data/db.ts";
 import {
   BUILT_IN_CATEGORY_ROWS,
@@ -15,8 +15,14 @@ import type { AppCombobox } from "../app-combobox/app-combobox.ts";
 import type { AppInput } from "../app-input/app-input.ts";
 import type { AppSelect } from "../app-select/app-select.ts";
 import type { AppUnitSelect } from "../app-unit-select/app-unit-select.ts";
+import type { AppCheckbox } from "../app-checkbox/app-checkbox.ts";
+import { enablePush } from "../../pwa/push.ts";
 import "./post-sheet.ts";
 import type { PostSheet } from "./post-sheet.ts";
+
+// Stands in for the browser's permission prompt and push subscription, which
+// a test cannot answer. Only ticking "Créer une notification" reaches it.
+vi.mock("../../pwa/push.ts", () => ({ enablePush: vi.fn() }));
 
 /**
  * The submit path, and specifically what a *failed* submit shows.
@@ -646,6 +652,79 @@ describe("the type picker", () => {
 
     expect(typeSelect(el).options.map((option) => option.value)).toContain(
       "cures",
+    );
+  });
+});
+
+describe("post-sheet — start time and notification", () => {
+  const tickReminder = async (el: PostSheet) => {
+    const box = fieldNamed<AppCheckbox>(
+      el.renderRoot.querySelector("form")!,
+      "reminder",
+    );
+    box.renderRoot.querySelector("input")!.click();
+    await settled(el);
+    // `#enableReminder` awaits the subscription before it can untick.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await settled(el);
+    return box;
+  };
+
+  it("saves a cure's start time to the record", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "cures");
+    await fill(el, "title", "Magnésium");
+    await fill(el, "time", "08:30");
+
+    await submit(el);
+
+    expect((await savedPost())?.time).toBe("08:30");
+  });
+
+  it("reveals the delay once push is on, and wants a time to count from", async () => {
+    vi.mocked(enablePush).mockResolvedValue(null);
+    const el = await openSheet();
+    await pick(el, "type", "traitement");
+    await fill(el, "title", "Vermifuge");
+    await tickReminder(el);
+
+    const form = await submit(el);
+
+    expect(form.querySelector('[name="reminder-offset"]')).not.toBeNull();
+    expect(errorTextOf(fieldNamed<AppInput>(form, "time"))).toBe(
+      "Indiquez une heure pour la notification.",
+    );
+    expect(await db.posts.count()).toBe(0);
+  });
+
+  it("stores the delay picked", async () => {
+    vi.mocked(enablePush).mockResolvedValue(null);
+    const el = await openSheet();
+    await pick(el, "type", "cures");
+    await fill(el, "title", "Magnésium");
+    await fill(el, "time", "08:30");
+    await tickReminder(el);
+    await pick(el, "reminder-offset", "24h");
+
+    await submit(el);
+
+    expect((await savedPost())?.customFields.reminder).toBe("24h");
+  });
+
+  it("unticks itself and says why when push cannot be switched on", async () => {
+    vi.mocked(enablePush).mockResolvedValue("not-installed");
+    const el = await openSheet();
+    await pick(el, "type", "cures");
+
+    const box = await tickReminder(el);
+
+    const form = el.renderRoot.querySelector("form")!;
+    expect(form.querySelector('[name="reminder-offset"]')).toBeNull();
+    expect(box.checked).toBe(false);
+    expect(
+      box.renderRoot.querySelector('[part="hint"]')?.textContent?.trim(),
+    ).toBe(
+      "Installez l’application sur l’écran d’accueil pour recevoir des notifications.",
     );
   });
 });

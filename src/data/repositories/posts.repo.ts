@@ -74,6 +74,13 @@ export const listInRange = async (
 ): Promise<Post[]> => visible(await byHorseAndDateRange(horseId, from, to));
 
 /**
+ * Visible posts of every horse dated `from` or later — the horizon push
+ * reminders are computed over (`reminders.ts`). Unordered.
+ */
+export const listFrom = async (from: IsoDate): Promise<Post[]> =>
+  visible(await db.posts.where("date").aboveOrEqual(from).toArray());
+
+/**
  * Still-to-happen posts, soonest first.
  *
  * Not narrowed to appointments here — that used to filter on the type

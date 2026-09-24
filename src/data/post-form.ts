@@ -6,9 +6,11 @@ import {
   oneOf,
   readForm,
   text,
+  time,
   type FormSchema,
 } from "./forms.ts";
-import { endDateErrors } from "./posts.ts";
+import { fieldWithRole } from "./categories.ts";
+import { endDateErrors, reminderTimeErrors } from "./posts.ts";
 import type { Category, CustomFieldDef } from "./types.ts";
 
 /**
@@ -60,6 +62,8 @@ const parserOf = (field: CustomFieldDef) => {
           : decimal({ min: 0 });
     case "date":
       return field.required ? isoDate({ required: true }) : isoDate();
+    case "time":
+      return field.required ? time({ required: true }) : time();
     case "select":
       return field.required
         ? oneOf(
@@ -219,9 +223,10 @@ export const readCategoryForm = (
  * The rules no single control can check, for the type actually being saved.
  *
  * A field parses on its own; these are the answers that are only right or wrong
- * *together* — an amount without its unit, an end date before its start. The
- * form reader cannot express them, so they run once against the parsed values
- * rather than being scattered through the submit handler as one `if` each.
+ * *together* — an amount without its unit, an end date before its start, a
+ * reminder with no time to count back from. The form reader cannot express
+ * them, so they run once against the parsed values rather than being scattered
+ * through the submit handler as one `if` each.
  *
  * `endDateErrors` needs no "does this type have an end date" guard: it answers
  * `{}` unless both values parse as dates, and a type without the field submits
@@ -236,6 +241,10 @@ export const crossFieldErrors = (
     Object.assign(errors, pairErrorsOf(field, values));
   }
   Object.assign(errors, endDateErrors(values.date, values.endDate));
+  const reminder = fieldWithRole(type, "reminder");
+  if (reminder) {
+    Object.assign(errors, reminderTimeErrors(values[reminder.id], values.time));
+  }
   return errors;
 };
 

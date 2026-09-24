@@ -154,7 +154,8 @@ Three consequences worth stating out loud:
   `LiveQuery` (`src/data/live.ts`), a Lit `ReactiveController` wrapping
   Dexie's `liveQuery` — see "Data layer" below.
 - **Dexie / IndexedDB** is the persistence layer (`src/data/`). No
-  localStorage, no fetch/API calls, no backend. `HorseView`, `PostsView`,
+  localStorage. The only network call is push reminders (see "PWA / offline"),
+  which the app works without. `HorseView`, `PostsView`,
   every view now reads real data. The user's name and email live in the
   `profiles` table (schema v12), edited on `/profile/interface` (Profil tab)
   and read everywhere through `displayProfile()` (`data/account.ts`), which
@@ -302,8 +303,9 @@ src/
   types/                  # taxonomy.ts, document.types.ts, horse.types.ts
   assets/icons/           # raw SVGs; built into /icons.svg by vite/icon-sprite.ts
   data/                   # persistence — see below
-  pwa/                    # service worker + registration — see below
+  pwa/                    # service worker, registration, push reminders — see below
 vite/                     # build plugins (icon-sprite.ts)
+server/                   # push scheduler, a Cloudflare Worker with its own package.json
 scripts/                  # one-off tooling, not part of the build
 vite.config.ts            # plugins: the icon sprite, then the service worker emitter
 ```
@@ -541,8 +543,9 @@ its`<svg>` is safe.
 
 ## Backend migration readiness
 
-Persistence is local-only today: Dexie/IndexedDB, offline-first, no network
-calls anywhere in the app. The data layer was nonetheless built so that
+Persistence is local-only today: Dexie/IndexedDB, offline-first. The one
+network call — push reminders — sends a list derived from IndexedDB and
+reads nothing back. The data layer was nonetheless built so that
 swapping it for a hosted backend later is a bounded change, not a rewrite.
 What's already in place:
 
@@ -1000,6 +1003,8 @@ message }` for `fieldMessages()` and `describedBy()`.
 ```
 src/pwa/
   index.ts             # initPwa() / applyUpdate(), called from app-root
+  push.ts              # enablePush() / initPushSync() — push reminders
+  push-config.ts       # the push server's URL and VAPID public key
   service-worker.js    # SW source — plain JS, never bundled or type checked
 public/
   manifest.webmanifest
@@ -1013,9 +1018,9 @@ public/
   hashed from the _contents_ of every file. Hashing contents matters —
   `index.html` is not content-hashed, so a build that only changes it must
   still produce a different `sw.js` or the browser sees no update.
-- The app has no backend, so the whole build is precached on install and
-  everything is served **cache-first**; `index.html` is cached under `/`
-  and returned for every navigation, which is what makes deep links like
+- The push server only sends reminders, so the whole build is precached on
+  install and everything is served **cache-first**; `index.html` is cached
+  under `/` and returned for every navigation, which is what makes deep links like
   `/horse/<id>` work offline. Cache lookups pass `ignoreVary: true` — some
   servers send `Vary: Origin`, and module scripts do send an `Origin`
   header while the worker's own precache requests don't, so without it
@@ -1038,6 +1043,16 @@ public/
   `npm i -D sharp && node scripts/generate-icons.mjs && npm un sharp`.
 - Any host serving this must fall back to `index.html` for unknown paths,
   or a cold deep link 404s before the worker is ever installed.
+- **Push reminders need a server** — iOS gives a web app no way to wake
+  itself at a set time. A category field with `role: "reminder"` ("Créer une
+  notification", on Cures and Traitements) stores a delay code; with the
+  post's `date` and `time` it becomes a `Reminder` (`src/data/reminders.ts`).
+  `initPushSync` watches that list through a `liveQuery` and `PUT`s it whole
+  to the Worker in `server/` on every change, so nothing but the list ever
+  leaves the device, and a deleted post cannot linger server-side. The worker
+  shows each push and opens `/posts/<id>` on tap. On iOS it only works from
+  the Home Screen app, and `enablePush` must run inside the tap that asked
+  for it. Setup and deploy: `server/README.md`.
 
 ## Other conventions worth knowing
 

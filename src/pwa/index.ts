@@ -9,6 +9,7 @@
  */
 
 import { appHref } from "../commons/base-path.ts";
+import { initPushSync } from "./push.ts";
 
 /** Fired on `window` once a new version is installed and waiting. */
 export const UPDATE_READY_EVENT = "pwa-update-ready";
@@ -41,6 +42,7 @@ export function initPwa() {
   window.addEventListener("load", () => {
     void registerServiceWorker();
   });
+  initPushSync();
 }
 
 /**

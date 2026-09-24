@@ -28,6 +28,7 @@ import {
   type ResolvedCategory,
 } from "../../data/index.ts";
 import type { ActivityItem, Post } from "../../data/types.ts";
+import { enablePush, type PushRefusal } from "../../pwa/push.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
@@ -56,6 +57,14 @@ import "../app-unit-select/app-unit-select.ts";
  * @fires sheet-close - No detail. Fired on dismissal and after a successful
  * save; the owner clears `open` in response.
  */
+/** What the reminder box says when it had to untick itself. */
+const PUSH_REFUSALS: Record<PushRefusal, string> = {
+  "not-installed":
+    "Installez l’application sur l’écran d’accueil pour recevoir des notifications.",
+  denied: "Les notifications sont refusées dans les réglages de l’appareil.",
+  unavailable: "Les notifications sont indisponibles pour le moment.",
+};
+
 @customElement("post-sheet")
 export class PostSheet extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
@@ -78,6 +87,12 @@ export class PostSheet extends BaseElement {
    */
   @state() private errors: Record<string, string> = {};
   @state() private saveError = "";
+  /**
+   * Why ticking "Créer une notification" was undone, by field id. A hint
+   * rather than an `error`: an error would block the submit, and the post
+   * itself is still worth saving without its reminder.
+   */
+  @state() private pushNotice: Record<string, string> = {};
 
   @query("form") private formEl?: HTMLFormElement;
 
@@ -305,6 +320,7 @@ export class PostSheet extends BaseElement {
     );
     this.errors = {};
     this.saveError = "";
+    this.pushNotice = {};
   }
 
   /**
@@ -335,6 +351,7 @@ export class PostSheet extends BaseElement {
       case "money":
       case "number":
       case "date":
+      case "time":
       case "text":
         return this.#renderInput(field);
     }
@@ -607,7 +624,7 @@ export class PostSheet extends BaseElement {
   /**
    * Whatever the record stored for this field, as text.
    *
-   * The three base rows read their `Post` column rather than the bag —
+   * The four base rows read their `Post` column rather than the bag —
    * they are fields in the type's array like any other, but they are not
    * `customFields` entries. A new event's date opens on today: every other
    * control opens blank unless its field carries a `defaultValue`, but a date
@@ -622,6 +639,7 @@ export class PostSheet extends BaseElement {
     if (field.id === "title") return event?.title ?? "";
     if (field.id === "notes") return event?.notes ?? "";
     if (field.id === "date") return event?.date ?? todayISO();
+    if (field.id === "time") return event?.time ?? "";
 
     const value = event?.customFields[field.id];
     if (value !== null && value !== undefined) return String(value);
@@ -629,7 +647,7 @@ export class PostSheet extends BaseElement {
   }
 
   /**
-   * `text`, `number`, `money` and `date` — one `app-input`, configured from the
+   * `text`, `number`, `money`, `date` and `time` — one `app-input`, configured from the
    * field rather than from its id.
    *
    * A `units` field draws a second control beside it: the amount and the unit
@@ -650,7 +668,11 @@ export class PostSheet extends BaseElement {
         flat
         label=${field.label}
         name=${field.id}
-        type=${field.control === "date" ? "date" : "text"}
+        type=${
+          field.control === "date" || field.control === "time"
+            ? field.control
+            : "text"
+        }
         inputmode=${numeric ? "decimal" : nothing}
         ${
           /* An empty `pattern` attribute is a pattern that matches only the
@@ -711,16 +733,34 @@ export class PostSheet extends BaseElement {
           label=${field.label}
           name=${field.id}
           ?checked=${on}
+          help-text=${this.pushNotice[field.id] ?? ""}
           @checkbox-change=${(event: CustomEvent<{ checked: boolean }>) => {
             this.revealed = {
               ...this.revealed,
               [field.id]: event.detail.checked,
             };
+            if (field.role === "reminder" && event.detail.checked) {
+              void this.#enableReminder(field.id);
+            }
           }}
         ></app-checkbox>
         ${on ? (field.reveals ?? []).map((child) => this.#renderField(child)) : nothing}
       </div>
     `;
+  }
+
+  /**
+   * Subscribes this device to push as the reminder box is ticked — the tap is
+   * the user gesture iOS requires for the permission prompt. Refused, the box
+   * unticks itself and says why, so a reminder that can never arrive is not
+   * saved as if it would.
+   */
+  async #enableReminder(fieldId: string) {
+    this.pushNotice = { ...this.pushNotice, [fieldId]: "" };
+    const refusal = await enablePush();
+    if (!refusal) return;
+    this.revealed = { ...this.revealed, [fieldId]: false };
+    this.pushNotice = { ...this.pushNotice, [fieldId]: PUSH_REFUSALS[refusal] };
   }
 
   /** A closed list. */

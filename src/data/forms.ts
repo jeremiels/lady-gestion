@@ -187,6 +187,25 @@ export function isoDate(
   };
 }
 
+/** A clock time, `HH:mm` — the format `<input type="time">` submits. */
+export function time(options: { required: true }): FieldParser<string>;
+export function time(options?: {
+  required?: boolean;
+}): FieldParser<string | null>;
+export function time(
+  options: { required?: boolean } = {},
+): FieldParser<string | null> {
+  return (raw) => {
+    const value = asString(raw)?.trim() ?? "";
+    if (value === "")
+      return options.required ? fail("Ce champ est requis.") : ok(null);
+
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
+      ? ok(value)
+      : fail("Saisissez une heure valide.");
+  };
+}
+
 export type FormSchema = Record<string, FieldParser<unknown>>;
 
 /** The parsed shape a schema produces. */

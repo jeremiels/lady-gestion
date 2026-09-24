@@ -240,6 +240,17 @@ export class PostDetailView extends LightElement {
       });
     }
 
+    // Read back through the field's own options, which is where the wording
+    // the form offered lives.
+    const reminderField = type && fieldWithRole(type, "reminder");
+    const reminderValue = reminderField && event.customFields[reminderField.id];
+    const reminderLabel = reminderField?.reveals
+      ?.flatMap((child) => child.options ?? [])
+      .find((option) => option.value === reminderValue)?.label;
+    if (reminderLabel) {
+      rows.push({ label: "Notification", value: reminderLabel });
+    }
+
     if (event.location) rows.push({ label: "Lieu", value: event.location });
     if (event.notes) rows.push({ label: "Note", value: event.notes });
 

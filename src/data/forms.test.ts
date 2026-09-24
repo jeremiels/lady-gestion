@@ -4,6 +4,7 @@ import {
   cents,
   decimal,
   isoDate,
+  time,
   oneOf,
   readForm,
   text,
@@ -165,6 +166,22 @@ describe("isoDate", () => {
   it("reads blank as null unless required", () => {
     expect(isoDate()("")).toEqual({ ok: true, value: null });
     expect(isoDate({ required: true })("")).toMatchObject({ ok: false });
+  });
+});
+
+describe("time", () => {
+  it('accepts what <input type="time"> submits', () => {
+    expect(time()("08:30")).toEqual({ ok: true, value: "08:30" });
+  });
+
+  it("rejects anything that is not a clock time", () => {
+    expect(time()("8h30")).toMatchObject({ ok: false });
+    expect(time()("24:00")).toMatchObject({ ok: false });
+  });
+
+  it("reads blank as null unless required", () => {
+    expect(time()("")).toEqual({ ok: true, value: null });
+    expect(time({ required: true })("")).toMatchObject({ ok: false });
   });
 });
 

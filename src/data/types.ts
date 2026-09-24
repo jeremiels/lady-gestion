@@ -152,7 +152,8 @@ export type FieldControl =
   | "checkbox"
   | "select"
   | "combobox"
-  | "date";
+  | "date"
+  | "time";
 
 /** One option in a `select` or `combobox`. */
 export type FieldOption = { value: string; label: string };
@@ -200,12 +201,13 @@ export type CustomFieldDef = {
    */
   reveals?: CustomFieldDef[];
   /**
-   * The two behaviours the app keys off a field rather than a type: the
-   * session name that doubles as the record's title, and the follow-up the
-   * detail view offers to schedule. Presentation stays in `control` above —
-   * this is only how non-form code finds the field it means.
+   * The behaviours the app keys off a field rather than a type: the session
+   * name that doubles as the record's title, the follow-up the detail view
+   * offers to schedule, and the push reminder sent ahead of the record's time.
+   * Presentation stays in `control` above — this is only how non-form code
+   * finds the field it means.
    */
-  role?: "workActivity" | "followUp";
+  role?: "workActivity" | "followUp" | "reminder";
 };
 
 /**

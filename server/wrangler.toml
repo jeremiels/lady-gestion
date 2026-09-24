@@ -1,0 +1,18 @@
+# lady-gestion's push scheduler. Setup and deploy: README.md.
+name = "lady-gestion-push"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+ALLOWED_ORIGINS = "https://jeremiels.github.io"
+VAPID_SUBJECT = "https://jeremiels.github.io/lady-gestion/"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lady-gestion-push"
+# Printed by `npx wrangler d1 create lady-gestion-push` — see README.md.
+database_id = "7eb25da7-8d66-4e31-8637-81a02f1b2ecf"
+migrations_dir = "migrations"

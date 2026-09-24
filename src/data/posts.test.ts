@@ -17,10 +17,12 @@ import {
   formatDosePerDay,
   isCourseOngoing,
   parseFollowUpValue,
+  reminderFireAt,
+  reminderTimeErrors,
   statusForDate,
   workSessionByDate,
 } from "./posts.ts";
-import { FOLLOW_UP_OPTIONS } from "./categories.ts";
+import { FOLLOW_UP_OPTIONS, REMINDER_OPTIONS } from "./categories.ts";
 import { BUILT_IN_CATEGORY_ROWS, makePost } from "./__tests__/factories.ts";
 
 /** The real 14 built-ins — `travail` is the one `tracksWork` type. */
@@ -367,5 +369,48 @@ describe("courses", () => {
     });
     expect(endDateErrors("2026-01-10", "2026-01-10")).toEqual({});
     expect(endDateErrors("2026-01-10", null)).toEqual({});
+  });
+});
+
+describe("reminders", () => {
+  it("counts back from the date and time, on the local clock", () => {
+    expect(reminderFireAt("2026-06-15", "08:30", "10min")).toBe(
+      new Date(2026, 5, 15, 8, 20).getTime(),
+    );
+    expect(reminderFireAt("2026-06-15", "08:30", "48h")).toBe(
+      new Date(2026, 5, 13, 8, 30).getTime(),
+    );
+  });
+
+  it("counts real hours across a clock change", () => {
+    // Europe/Paris goes to summer time on 29 March 2026: 24 hours before
+    // 09:00 on the 30th is 08:00 on the 29th by the wall clock there, and
+    // exactly 24 hours of elapsed time wherever this runs.
+    const start = new Date(2026, 2, 30, 9, 0).getTime();
+    expect(reminderFireAt("2026-03-30", "09:00", "24h")).toBe(
+      start - 24 * 60 * 60 * 1000,
+    );
+  });
+
+  it("has no instant without a time, or with a code it does not know", () => {
+    expect(reminderFireAt("2026-06-15", null, "1h")).toBeNull();
+    expect(reminderFireAt("2026-06-15", "08:30", "3h")).toBeNull();
+    expect(reminderFireAt("2026-06-15", "08:30", null)).toBeNull();
+  });
+
+  it("knows every delay the form offers", () => {
+    for (const option of REMINDER_OPTIONS) {
+      expect(
+        reminderFireAt("2026-06-15", "08:30", option.value),
+      ).not.toBeNull();
+    }
+  });
+
+  it("asks for a time only when the box is ticked", () => {
+    expect(reminderTimeErrors(true, null)).toEqual({
+      time: "Indiquez une heure pour la notification.",
+    });
+    expect(reminderTimeErrors(true, "08:30")).toEqual({});
+    expect(reminderTimeErrors(false, null)).toEqual({});
   });
 });

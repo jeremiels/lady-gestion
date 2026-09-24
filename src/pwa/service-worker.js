@@ -3,8 +3,9 @@
  * checked — the plugin in `vite.config.ts` reads this file, replaces the two
  * `__…__` tokens below and writes the result to `dist/sw.js`.
  *
- * Strategy: precache the whole build on install (the app has no backend, so
- * "the whole build" is the entire app), then serve everything cache-first.
+ * Strategy: precache the whole build on install ("the whole build" is the
+ * entire app — the push server only sends reminders), then serve everything
+ * cache-first. Push reminders are shown from here too, at the end of the file.
  * A new build produces a new `CACHE_NAME`, so the old cache is dropped
  * wholesale on activate instead of being invalidated entry by entry.
  *
@@ -240,6 +241,58 @@ self.addEventListener("fetch", (event) => {
         );
         return Response.error();
       }
+    })(),
+  );
+});
+
+/**
+ * A reminder sent by the push server (`server/`), as `{ postId, title, body }`.
+ *
+ * Every push must show a notification: the subscription is `userVisibleOnly`,
+ * and Safari revokes one whose pushes stay silent. `tag` is the post, so a
+ * reminder re-sent for the same post replaces the first instead of stacking.
+ */
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    // Not JSON — still shown, with the fallback title below.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "Lady Gestion", {
+      body: payload.body ?? "",
+      tag: payload.postId,
+      icon: `${BASE}icons/icon-192.png`,
+      data: { postId: payload.postId },
+    }),
+  );
+});
+
+/**
+ * Opens the post a reminder is about — in the app window already open when
+ * there is one, so a tap does not stack a second copy of the app.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const postId = event.notification.data?.postId;
+  const url = new URL(
+    postId ? `${BASE}posts/${encodeURIComponent(postId)}` : BASE,
+    self.location.origin,
+  ).href;
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      const client = windows[0];
+      if (!client) return self.clients.openWindow(url);
+      await client.focus();
+      // `navigate` refuses a window this worker does not control yet.
+      return client.navigate(url).catch(() => self.clients.openWindow(url));
     })(),
   );
 });
