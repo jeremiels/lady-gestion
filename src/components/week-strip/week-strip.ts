@@ -17,7 +17,6 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { Today } from "../../commons/controllers/today.ts";
 
 import "../day-card/day-card.ts";
-import "../activity-sheet/activity-sheet.ts";
 
 /**
  * The dashboard's week at a glance, and the way to fill it in.
@@ -126,11 +125,19 @@ export class WeekStrip extends BaseElement {
     }
   `;
 
-  #open = (date: IsoDate) => () => {
+  #open = (date: IsoDate) => async () => {
     // No work type to record against once the catalogue has settled: `travail`
     // is switched off in Personnaliser › Catégories, so there is nothing for
     // the sheet to write. Before it settles, open as always.
     if (this.#categories.value !== undefined && !this.#workType) return;
+
+    // Loaded on the first tap rather than imported with the strip: the sheet
+    // brings app-bottom-sheet and the form fields with it, which the dashboard
+    // otherwise never draws, and the strip sits on the landing route. Both
+    // flags land in one update afterwards, so the sheet's first render is
+    // already open and its entry animation plays — as app-root does for the
+    // post sheet.
+    await import("../activity-sheet/activity-sheet.ts");
     this.selected = date;
     this.sheetOpen = true;
   };

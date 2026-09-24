@@ -9,6 +9,9 @@ import {
 } from "../../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../__tests__/fixture.ts";
 import "./week-strip.ts";
+// The strip imports the sheet on the first tap; loading it here as well keeps
+// that import to a resolved module, so a tap lands within one waitFor.
+import "../activity-sheet/activity-sheet.ts";
 import type { WeekStrip } from "./week-strip.ts";
 
 /**
@@ -30,6 +33,12 @@ const buttonsOf = (el: WeekStrip) => [
 ];
 const sheetOf = (el: WeekStrip) =>
   el.renderRoot.querySelector("activity-sheet");
+
+/** Taps a day and waits for the sheet the strip loads and mounts behind it. */
+const tap = async (el: WeekStrip, index: number) => {
+  buttonsOf(el)[index]!.click();
+  await waitFor(el, () => sheetOf(el)?.open === true);
+};
 
 beforeEach(async () => {
   await resetDb();
@@ -140,8 +149,7 @@ describe("week-strip", () => {
     await waitFor(el, () => buttonsOf(el).length > 0);
 
     const thursday = addDays(startOfWeek(todayISO(), 1), 3);
-    buttonsOf(el)[3]!.click();
-    await settled(el);
+    await tap(el, 3);
 
     expect(sheetOf(el)?.open).toBe(true);
     expect(sheetOf(el)?.date).toBe(thursday);
@@ -161,8 +169,7 @@ describe("week-strip", () => {
     const el = await mount();
     await waitFor(el, () => cardsOf(el).some((card) => card.activity));
 
-    buttonsOf(el)[2]!.click();
-    await settled(el);
+    await tap(el, 2);
 
     // The row itself, not a second lookup — the sheet edits what the strip drew.
     expect(sheetOf(el)?.existing?.id).toBe("work");
@@ -172,8 +179,7 @@ describe("week-strip", () => {
     const el = await mount();
     await waitFor(el, () => buttonsOf(el).length > 0);
 
-    buttonsOf(el)[0]!.click();
-    await settled(el);
+    await tap(el, 0);
 
     expect(sheetOf(el)?.existing).toBeNull();
   });
@@ -188,8 +194,7 @@ describe("week-strip", () => {
       ),
     ).toBe(true);
 
-    buttonsOf(el)[3]!.click();
-    await settled(el);
+    await tap(el, 3);
 
     expect(
       buttonsOf(el).map(
@@ -202,8 +207,7 @@ describe("week-strip", () => {
     const el = await mount();
     await waitFor(el, () => buttonsOf(el).length > 0);
 
-    buttonsOf(el)[3]!.click();
-    await settled(el);
+    await tap(el, 3);
 
     sheetOf(el)!.dispatchEvent(
       new CustomEvent("sheet-close", { bubbles: true, composed: true }),
