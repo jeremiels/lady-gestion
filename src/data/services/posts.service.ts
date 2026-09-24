@@ -1,7 +1,9 @@
-import { todayISO, type IsoDate } from "../dates.ts";
+import { isIsoDate, todayISO, type IsoDate } from "../dates.ts";
 import { BASE_FIELD_IDS, fieldWithRole } from "../categories.ts";
 import {
+  followUpDate,
   formatWorkActivity,
+  parseFollowUpValue,
   statusForDate,
   type WorkActivity,
   type WorkSession,
@@ -95,23 +97,77 @@ export type SavePostCommand = {
 type PostFields = Omit<NewRecord<Post>, "horseId" | "id">;
 
 /**
- * Creates or updates the event, whichever `existing` calls for.
+ * Creates or updates the event, whichever `existing` calls for — and, when
+ * this save ticks "Planifier un rendez-vous", the appointment it asks for
+ * (`followUpOf` below), in the same transaction so neither lands alone.
  *
- * Returns `undefined` only in one case: an edit whose record was soft-deleted
- * between being loaded and being saved — `crud.update` reports a missing row
- * that way rather than throwing. There is nothing left to write and nothing for
- * the caller to do about it, so the sheet treats it as a save.
+ * Returns the saved event, never the follow-up. `undefined` only in one case:
+ * an edit whose record was soft-deleted between being loaded and being saved —
+ * `crud.update` reports a missing row that way rather than throwing. There is
+ * nothing left to write and nothing for the caller to do about it, so the
+ * sheet treats it as a save.
  */
-export const savePost = async ({
+export const savePost = ({
   horseId,
   existing = null,
   type,
   input,
 }: SavePostCommand): Promise<Post | undefined> => {
   const fields = postFields(type, input, existing);
-  return existing
-    ? postsRepo.update(existing.id, fields)
-    : postsRepo.create({ horseId, ...fields });
+  return db.transaction("rw", db.posts, async () => {
+    const saved = existing
+      ? await postsRepo.update(existing.id, fields)
+      : await postsRepo.create({ horseId, ...fields });
+    const next = saved && followUpOf(type, saved, existing);
+    if (next) await postsRepo.create(next);
+    return saved;
+  });
+};
+
+/**
+ * The appointment "Planifier un rendez-vous" asks for: a copy of the saved
+ * event, moved on by the picked interval — or `null` when there is none to make.
+ *
+ * Only on the save that ticks the box. An edit of an event already ticked made
+ * its appointment when it was ticked, and another one per later edit would
+ * stack duplicates in "Rendez-vous à venir".
+ *
+ * The copy is left unticked: its own next appointment is not planned yet, and
+ * ticking it once it has happened is what plans it. A course (`endDate`) moves
+ * its end by the same interval, so a renewed cure keeps its length rather than
+ * ending before it starts.
+ */
+const followUpOf = (
+  type: Category,
+  saved: Post,
+  existing: Post | null,
+): NewRecord<Post> | null => {
+  const field = fieldWithRole(type, "followUp");
+  if (!field || existing?.customFields[field.id]) return null;
+  const interval = parseFollowUpValue(saved.customFields[field.id]);
+  if (!interval) return null;
+
+  const date = followUpDate(saved.date as IsoDate, interval);
+  const endDate = saved.customFields.endDate;
+  return {
+    horseId: saved.horseId,
+    categoryKey: saved.categoryKey,
+    title: saved.title,
+    date,
+    time: saved.time,
+    status: statusForDate(date),
+    currency: saved.currency,
+    location: saved.location,
+    notes: saved.notes,
+    recurrenceId: saved.recurrenceId,
+    customFields: {
+      ...saved.customFields,
+      [field.id]: null,
+      ...(isIsoDate(endDate)
+        ? { endDate: followUpDate(endDate, interval) }
+        : {}),
+    },
+  };
 };
 
 /**

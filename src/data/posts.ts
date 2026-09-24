@@ -1,4 +1,11 @@
-import { daysBetween, isIsoDate, todayISO, type IsoDate } from "./dates.ts";
+import {
+  addDays,
+  addMonths,
+  daysBetween,
+  isIsoDate,
+  todayISO,
+  type IsoDate,
+} from "./dates.ts";
 import type { FieldError } from "./forms.ts";
 import type { PostStatus, Category, Post } from "./types.ts";
 
@@ -32,9 +39,8 @@ export const statusForDate = (
  * calendar. Structured for the same reason `RationSeason` is: the pair is only
  * ever meaningful together, so a half-set value cannot be represented.
  *
- * Recorded when "Planifier un rendez-vous" is ticked. **Nothing derives a date
- * from it yet** — ticking the box does not create a second event. Reminders
- * will be what reads this.
+ * Recorded when "Planifier un rendez-vous" is ticked, and read by `savePost`
+ * (`services/posts.service.ts`) to create that appointment at `followUpDate`.
  */
 export type FollowUpUnit = "week" | "month";
 
@@ -314,6 +320,19 @@ export const parseFollowUpValue = (value: unknown): FollowUpInterval | null => {
   };
   return isFollowUpInterval(interval) ? interval : null;
 };
+
+/**
+ * The day a follow-up falls on: `2026-06-15` + 6 weeks is `2026-07-27`. Months
+ * go through `addMonths`, so "3 mois" from 31 January lands on 30 April rather
+ * than rolling into May.
+ */
+export const followUpDate = (
+  from: IsoDate,
+  interval: FollowUpInterval,
+): IsoDate =>
+  interval.unit === "week"
+    ? addDays(from, interval.amount * 7)
+    : addMonths(from, interval.amount);
 
 /** `{ amount: 6, unit: 'week' }` -> `6 semaines`. `mois` is already invariant. */
 export const formatFollowUpInterval = (interval: FollowUpInterval): string => {

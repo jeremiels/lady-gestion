@@ -219,6 +219,75 @@ describe("follow-up interval", () => {
   });
 });
 
+describe("follow-up appointment", () => {
+  const upcoming = () => postsRepo.listUpcoming(HORSE_ID);
+
+  it("adds a planned copy of the event at its date plus the interval", async () => {
+    // Logged the day it happened, so the copy is the only thing upcoming.
+    const date = todayISO();
+    const event = await create({ type: "marechal", date, notes: "Fers AV" });
+
+    const [next] = await upcoming();
+    expect(next).toMatchObject({
+      categoryKey: "marechal",
+      title: event.title,
+      date: addDays(date, 42),
+      status: "planned",
+      notes: "Fers AV",
+      customFields: {
+        ...event.customFields,
+        followUp: null,
+      },
+    });
+    expect(next!.id).not.toBe(event.id);
+  });
+
+  it("counts months on the calendar", async () => {
+    await create({ date: "2026-01-31", followUpInterval: "3m" });
+
+    const rows = await postsRepo.listByHorse(HORSE_ID);
+    expect(rows.map((row) => row.date)).toEqual(["2026-04-30", "2026-01-31"]);
+  });
+
+  it("is not made when the box is left unticked", async () => {
+    await create({ planFollowUp: false });
+
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
+  });
+
+  it("is made by the edit that ticks the box, and by no later one", async () => {
+    const created = await create({ planFollowUp: false });
+
+    const ticked = await savePost({
+      horseId: HORSE_ID,
+      existing: created,
+      type: typeFor("veto"),
+      input: input(),
+    });
+    await savePost({
+      horseId: HORSE_ID,
+      existing: ticked!,
+      type: typeFor("veto"),
+      input: input({ notes: "Rappel vaccin" }),
+    });
+
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(2);
+  });
+
+  it("moves a course's end date with its start", async () => {
+    const type = typeFor("cures");
+    const merged = input({ type: "cures", date: "2026-06-01" });
+    merged.values.endDate = "2026-06-10";
+    await savePost({ horseId: HORSE_ID, type, input: merged });
+
+    const [next] = await postsRepo.listByHorse(HORSE_ID);
+    expect(next).toMatchObject({
+      date: "2026-07-13",
+      customFields: { endDate: "2026-07-22", followUp: null },
+    });
+  });
+});
+
 describe("quantity field", () => {
   it("writes the concatenated amount and unit for a type that has the field", async () => {
     const event = await create({
@@ -387,13 +456,13 @@ describe("editing", () => {
   });
 
   it("updates in place rather than adding a second row", async () => {
-    const created = await create();
+    const created = await create({ planFollowUp: false });
 
     await savePost({
       horseId: HORSE_ID,
       existing: created,
       type: typeFor("veto"),
-      input: input({ title: "Rappel" }),
+      input: input({ title: "Rappel", planFollowUp: false }),
     });
 
     const events = await postsRepo.listByHorse(HORSE_ID);
@@ -415,7 +484,7 @@ describe("editing", () => {
   });
 
   it("reports a record deleted underneath it rather than resurrecting it", async () => {
-    const created = await create();
+    const created = await create({ planFollowUp: false });
     await postsRepo.remove(created.id);
 
     expect(
