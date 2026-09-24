@@ -30,6 +30,19 @@
       crossorigin
     />
 
+    <!-- The dashboard's LCP: the bundled horse photo. horse-card draws it inside
+         its shadow root, and only once the database has answered, so without
+         this the request would wait for the scripts and IndexedDB. Aimed at the
+         default photo: drop it, or make it conditional, once a photo of the
+         user's own can replace it. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/avif"
+      fetchpriority="high"
+      href="/src/assets/lea-ladympala-trop-mignonnes.avif"
+    />
+
     <!-- The icons.svg preload tag is injected by vite/icon-sprite.ts, not
          written here — see the comment on its transformIndexHtml hook. -->
 

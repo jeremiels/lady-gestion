@@ -125,10 +125,10 @@ export class HorseCard extends BaseElement {
     // Falls back to the bundled photo until a cover image has been uploaded.
     const imageUrl = horseImageUrl;
 
-    // fetchpriority="high" because this is the dashboard's LCP element: it is
-    // discovered inside a shadow root by the renderer rather than by the
-    // preload scanner, so without the hint it queues behind the route
-    // chunks. The intrinsic 1536x2304 is the file's own size — it changes no
+    // The dashboard's LCP element. It renders inside a shadow root, and only
+    // once the database has answered, so index.html preloads the same URL;
+    // fetchpriority="high" still ranks the request for any photo that is not
+    // preloaded. The intrinsic 1536x2304 is the file's own size — it changes no
     // layout here (the card's aspect-ratio and object-fit already decide that)
     // but it keeps the box reserved if this ever renders somewhere that does
     // not size it.
