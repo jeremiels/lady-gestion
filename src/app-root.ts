@@ -84,6 +84,19 @@ const HORSE_SECTION = "horses";
 const ROUTE_SETTLE_MS = 150;
 
 /**
+ * The same wait for the screen the app opens on, which also covers opening
+ * the database. Longer, because a cold start has more to do before the first
+ * answer — past it, the screen is shown as it stands.
+ */
+const FIRST_SETTLE_MS = 300;
+
+/**
+ * The latest the first screen is shown, counted from app-root connecting,
+ * whatever the database is doing — see `contentReady`.
+ */
+const FIRST_SCREEN_MAX_MS = 1500;
+
+/**
  * The route table.
  *
  * A list rather than a `switch`, so adding `/posts/:id` is a new entry with
@@ -233,6 +246,16 @@ export class AppRoot extends LightElement {
   @state() private postSheetOpen = false;
 
   /**
+   * False until the screen the app opened on has its first query results, or
+   * `FIRST_SETTLE_MS` has gone by. Until then `<main>` is drawn transparent, so
+   * a cold start shows that screen once, whole. Shown straight away, the
+   * dashboard would appear on "Aucun rendez-vous à venir.", then gain its
+   * appointments, its "En cours" block and its horse card one query at a
+   * time, each one pushing the cards below it down.
+   */
+  @state() private contentReady = false;
+
+  /**
    * False until the `+` is pressed for the first time.
    *
    * `post-sheet` is mounted in the shell so the `+` works from every route,
@@ -320,7 +343,23 @@ export class AppRoot extends LightElement {
     // so nothing else would load its chunk — a cold deep link to /budget
     // would render an undefined element and show an empty page. Static imports
     // used to cover this for free; the split makes it explicit.
-    void this.#prepareRoute(this.#router.path).then(() => this.requestUpdate());
+    const firstRoute = this.#prepareRoute(this.#router.path);
+    void firstRoute.then(() => this.requestUpdate());
+
+    const firstScreen = Promise.allSettled([initData(), firstRoute])
+      .then(() => this.updateComplete)
+      .then(() => this.#viewSettled(FIRST_SETTLE_MS));
+    // Never held back for good: a database that never opens, or a render that
+    // throws — already reported where it was thrown — must still leave the
+    // screen showing rather than a blank app.
+    void Promise.race([
+      firstScreen,
+      new Promise((resolve) => setTimeout(resolve, FIRST_SCREEN_MAX_MS)),
+    ])
+      .catch(() => {})
+      .then(() => {
+        this.contentReady = true;
+      });
   }
 
   /**
@@ -352,7 +391,14 @@ export class AppRoot extends LightElement {
         )}
       </nav-bar>
 
-      <main class="main-content">${this.renderView()}</main>
+      <!-- Held back until the first screen has its data — see contentReady.
+           The error and database screens are never held back. -->
+      <main
+        class="main-content"
+        ?data-pending=${!this.contentReady && !this.dataError && !this.databaseNotice}
+      >
+        ${this.renderView()}
+      </main>
 
       <!-- Mounted in the shell, not in a view: the + is in the nav bar, so the
            sheet has to be reachable from every route. Rendered only once its
@@ -455,11 +501,11 @@ export class AppRoot extends LightElement {
    * results, or after `budget` ms, whichever comes first.
    *
    * A view's `LiveQuery`s subscribe as it connects and answer a few
-   * milliseconds later. Captured before that, the dashboard slid in on
+   * milliseconds later. Captured before that, the dashboard would slide in on
    * "Aucun rendez-vous à venir." with no horse card for the `--horse-card`
-   * morph to land on, and a traversal back to the list restored its scroll
-   * before the rows it scrolls to existed. Loops because an answer can mount a
-   * component with queries of its own.
+   * morph to land on, and a traversal back to the list would restore its
+   * scroll before the rows it scrolls to exist. Loops because an answer can
+   * mount a component with queries of its own.
    */
   async #viewSettled(budget: number) {
     const deadline = performance.now() + budget;
