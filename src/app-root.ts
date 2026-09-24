@@ -359,7 +359,36 @@ export class AppRoot extends LightElement {
       .catch(() => {})
       .then(() => {
         this.contentReady = true;
+        this.#prefetchChunks();
       });
+  }
+
+  /**
+   * Loads every route's chunk and both sheets in the background once the first
+   * screen is showing, so the first visit to a screen in a session starts its
+   * transition without waiting on a fetch and a compile. A chunk that fails
+   * here is simply loaded again by the navigation that needs it.
+   *
+   * Only once the service worker serves the page, when every chunk is a cache
+   * read. Before that — a first visit — each one is a download sharing the
+   * network with the photo still coming in, which it measurably delays, for
+   * files the worker's install is about to fetch anyway.
+   *
+   * `requestIdleCallback` is feature-detected rather than assumed: Safari ships
+   * it only behind a flag, so there this runs as the next task instead.
+   */
+  #prefetchChunks() {
+    if (!navigator.serviceWorker?.controller) return;
+
+    const load = () => {
+      for (const route of ROUTES) void route.load?.().catch(() => {});
+      void import("./components/post-sheet/post-sheet.ts").catch(() => {});
+      void import("./components/activity-sheet/activity-sheet.ts").catch(
+        () => {},
+      );
+    };
+    if ("requestIdleCallback" in window) requestIdleCallback(load);
+    else setTimeout(load);
   }
 
   /**
