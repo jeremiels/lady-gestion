@@ -29,6 +29,31 @@
       type="font/woff2"
       crossorigin
     />
+    <!-- Poppins sets the dashboard's headings, week strip and day cards, but is
+         requested only once Lit has rendered that text, so every cold start
+         drew them in the fallback font first. All three weights appear on the
+         landing page. -->
+    <link
+      rel="preload"
+      href="/fonts/poppins-latin-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/poppins-latin-600.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/poppins-latin-500.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
 
     <!-- The dashboard's LCP: the bundled horse photo. horse-card draws it inside
          its shadow root, and only once the database has answered, so without
