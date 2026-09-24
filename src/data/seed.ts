@@ -19,17 +19,16 @@ const REPORT_EVENT_TITLE = "Contrôle œil";
 /**
  * Brings the built-in event types on this device up to what the app ships.
  *
- * Inserting only when the table is empty — which is all this did — meant a
- * device seeded once never saw another edit to `BUILT_IN_CATEGORIES` again:
- * adding a type, relabelling one, recolouring one or changing the fields its
- * form draws all reached a fresh install and nothing else. That is what forced
- * schema versions v7, v9 and v10, none of which changed a table's shape; it is
- * also why a stale row whose `fields` predate a change to their shape renders
- * an empty form rather than a wrong one.
+ * A device seeded once must still receive every later edit to
+ * `BUILT_IN_CATEGORIES` — a type added, relabelled, recoloured or given other
+ * form fields — so this reconciles rather than inserting only into an empty
+ * table: a shipped built-in whose row differs is written back over the row
+ * carrying its `key`, and one with no row yet is inserted. Adding or editing a
+ * built-in is an edit to that array and nothing else.
  *
- * So this reconciles instead: every shipped built-in is written back over the
- * row carrying its `key`, and one with no row yet is inserted. Adding or
- * editing a built-in is now an edit to that array and nothing else.
+ * A row that already matches is not written at all. This runs at every launch,
+ * ahead of every view's first query, and rewriting fourteen identical rows
+ * there cost a readwrite transaction on every cold start for nothing.
  *
  * Four things are deliberately left alone:
  *
@@ -81,28 +80,49 @@ export const reconcileCategories = async (
     // `seedCategories` stamps `parentId` with the literal key the array is
     // written with, which only resolves because a freshly seeded row's `id`
     // *is* its key. Against rows already on the device that does not hold, so
-    // the parent is looked up — the same resolution `db.ts`'s v9 and v10
-    // upgrades do, and for the same reason.
+    // the parent is looked up.
     const parentId = idFor(type.parentId);
 
     if (!current) return [{ ...type, parentId }];
     if (!current.isBuiltIn || current.deletedAt !== null) return [];
 
-    return [
-      {
-        ...type,
-        parentId,
-        id: current.id,
-        ownerId: current.ownerId,
-        createdAt: current.createdAt,
-        updatedAt: current.updatedAt,
-        enabled: current.enabled,
-      },
-    ];
+    const reconciled = {
+      ...type,
+      parentId,
+      id: current.id,
+      ownerId: current.ownerId,
+      createdAt: current.createdAt,
+      updatedAt: current.updatedAt,
+      enabled: current.enabled,
+    };
+    return sameRow(reconciled, current) ? [] : [reconciled];
   });
 
   if (writes.length > 0) await db.categories.bulkPut(writes);
 };
+
+/** `value` with every object's keys sorted, all the way down. */
+const canonical = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
+  );
+};
+
+/**
+ * Whether two rows hold the same data, whatever order their keys are in.
+ *
+ * Order-blind because IndexedDB hands a row back with its keys in the order it
+ * was stored, which is not necessarily the order this build assembles them in.
+ * Anything else counts as a difference — a key the stored row carries and this
+ * build no longer ships included — so such a row is rewritten. The one blind
+ * spot is a key holding `undefined`, which reads back the same either way.
+ */
+const sameRow = (a: object, b: object): boolean =>
+  JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 
 /**
  * The id every device stamps on the seeded profile.
