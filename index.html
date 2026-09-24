@@ -30,9 +30,10 @@
       crossorigin
     />
     <!-- Poppins sets the dashboard's headings, week strip and day cards, but is
-         requested only once Lit has rendered that text, so every cold start
-         drew them in the fallback font first. All three weights appear on the
-         landing page. -->
+         requested only once Lit has rendered that text, so whenever the files
+         were not already in memory — a first visit, measurably — that text was
+         drawn in the fallback font and swapped a beat later. All three weights
+         appear on the landing page. -->
     <link
       rel="preload"
       href="/fonts/poppins-latin-700.woff2"
@@ -57,14 +58,15 @@
 
     <!-- The dashboard's LCP: the bundled horse photo. horse-card draws it inside
          its shadow root, and only once the database has answered, so without
-         this the request would wait for the scripts and IndexedDB. Aimed at the
+         this the request would wait for the scripts and IndexedDB. Default
+         priority on purpose: raised, it takes bandwidth from the scripts and
+         delays the first paint for no gain on the photo itself. Aimed at the
          default photo: drop it, or make it conditional, once a photo of the
          user's own can replace it. -->
     <link
       rel="preload"
       as="image"
       type="image/avif"
-      fetchpriority="high"
       href="/src/assets/lea-ladympala-trop-mignonnes.avif"
     />
 
