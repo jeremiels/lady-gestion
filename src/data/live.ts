@@ -3,6 +3,39 @@ import { liveQuery } from "./db.ts";
 import { dataReady, isDataReady } from "./ready.ts";
 
 /**
+ * The first value of every connected `LiveQuery` that has not delivered one
+ * yet — what `liveQueriesSettled` waits on.
+ */
+const firstValues = new Set<Promise<void>>();
+
+/**
+ * Waits for every connected `LiveQuery` still missing its first value, for at
+ * most `timeoutMs`.
+ *
+ * For a caller that wants a view whole before showing it — the route
+ * transition, which otherwise captures a view on its empty state and fills it
+ * in mid-slide. Resolves `true` when some were pending and all of them
+ * answered, `false` when none were pending or time ran out: an answer can
+ * mount a component with queries of its own, so a caller loops while this
+ * keeps returning `true`.
+ */
+export const liveQueriesSettled = async (
+  timeoutMs: number,
+): Promise<boolean> => {
+  if (firstValues.size === 0 || timeoutMs <= 0) return false;
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const answered = await Promise.race([
+    Promise.all(firstValues).then(() => true),
+    new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs);
+    }),
+  ]);
+  clearTimeout(timer);
+  return answered;
+};
+
+/**
  * Bridges Dexie's `liveQuery` to Lit's reactive update cycle.
  *
  * This is the whole of the app's state management. A `liveQuery` re-runs
@@ -40,6 +73,8 @@ export class LiveQuery<T> implements ReactiveController {
   #subscription: { unsubscribe(): void } | undefined;
   #settled = false;
   #connected = false;
+  /** This connection's entry in `firstValues`, until its first value arrives. */
+  #firstValue: PromiseWithResolvers<void> | undefined;
 
   constructor(host: ReactiveControllerHost, query: () => T | Promise<T>) {
     this.#host = host;
@@ -62,6 +97,10 @@ export class LiveQuery<T> implements ReactiveController {
 
   hostConnected() {
     this.#connected = true;
+    // Counted from the moment the host connects, not from the subscribe: a
+    // query still waiting on the gate below is just as far from its value.
+    this.#firstValue = Promise.withResolvers<void>();
+    firstValues.add(this.#firstValue.promise);
 
     // Already open on every navigation after the first, so this is a straight
     // synchronous subscribe rather than a wasted tick of loading state.
@@ -82,6 +121,8 @@ export class LiveQuery<T> implements ReactiveController {
     this.#connected = false;
     this.#subscription?.unsubscribe();
     this.#subscription = undefined;
+    // A host that leaves before its first value must not hold a waiter up.
+    this.#releaseFirstValue();
     // Reconnecting re-subscribes and re-runs the query, so the next emission is
     // genuinely a first one again.
     this.#settled = false;
@@ -106,12 +147,21 @@ export class LiveQuery<T> implements ReactiveController {
         this.error = undefined;
         this.#settled = true;
         this.#host.requestUpdate();
+        this.#releaseFirstValue();
       },
       error: (error: unknown) => {
         this.error = error;
         this.#settled = true;
         this.#host.requestUpdate();
+        this.#releaseFirstValue();
       },
     });
+  }
+
+  #releaseFirstValue() {
+    if (!this.#firstValue) return;
+    firstValues.delete(this.#firstValue.promise);
+    this.#firstValue.resolve();
+    this.#firstValue = undefined;
   }
 }

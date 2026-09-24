@@ -11,6 +11,7 @@ import {
   horsesRepo,
   initData,
   LiveQuery,
+  liveQueriesSettled,
   watchDatabase,
 } from "./data/index.ts";
 import { BackupActions } from "./commons/backup-actions.ts";
@@ -72,6 +73,15 @@ const ADD_BUTTON_BEFORE = "budget";
 
 /** The one section whose nav link is per-horse — see `#sectionHref`. */
 const HORSE_SECTION = "horses";
+
+/**
+ * How long a route change may hold the old page on screen while the incoming
+ * view's queries answer — see `#viewSettled`. IndexedDB answers in a few
+ * milliseconds; the cap only stops a query that never answers from stalling a
+ * navigation. Past it, the view is captured as it stands and fills in on
+ * screen.
+ */
+const ROUTE_SETTLE_MS = 150;
 
 /**
  * The route table.
@@ -246,6 +256,7 @@ export class AppRoot extends LightElement {
    */
   readonly #router = new Router(this, {
     beforeRender: (path) => this.#prepareRoute(path),
+    settle: () => this.#viewSettled(ROUTE_SETTLE_MS),
     afterRender: () => this.#focusHeading(),
     // `horse` on home↔horse-view, so `transitions/horse.css` can give
     // `--horse-card` its shared-element morph only there; `horse-subpage`
@@ -437,6 +448,25 @@ export class AppRoot extends LightElement {
     if (view instanceof LitElement) await view.updateComplete;
 
     this.querySelector<HTMLElement>("h1")?.focus();
+  }
+
+  /**
+   * Resolves once the view in `<main>` has rendered with its first query
+   * results, or after `budget` ms, whichever comes first.
+   *
+   * A view's `LiveQuery`s subscribe as it connects and answer a few
+   * milliseconds later. Captured before that, the dashboard slid in on
+   * "Aucun rendez-vous à venir." with no horse card for the `--horse-card`
+   * morph to land on, and a traversal back to the list restored its scroll
+   * before the rows it scrolls to existed. Loops because an answer can mount a
+   * component with queries of its own.
+   */
+  async #viewSettled(budget: number) {
+    const deadline = performance.now() + budget;
+    do {
+      const view = this.querySelector("main")?.firstElementChild;
+      if (view instanceof LitElement) await view.updateComplete;
+    } while (await liveQueriesSettled(deadline - performance.now()));
   }
 
   private renderView() {

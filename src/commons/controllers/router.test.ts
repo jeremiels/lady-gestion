@@ -98,6 +98,7 @@ class RouterTestHost extends LitElement {
 
   readonly router = new Router(this, {
     beforeRender: (p) => this.options.beforeRender?.(p),
+    settle: (p) => this.options.settle?.(p),
     afterRender: (p) => this.options.afterRender?.(p),
   });
 
@@ -185,6 +186,39 @@ describe("Router", () => {
 
     expect(pathWhenGateOpened).toBe(origin);
     expect(el.router.path).toBe("/profile");
+  });
+
+  it("holds the transition's capture until settle resolves, after the swap", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let pathWhenSettling = "";
+
+    const el = await mount({
+      settle: async () => {
+        pathWhenSettling = el.router.path;
+        await gate;
+      },
+    });
+    const spy = vi.spyOn(document, "startViewTransition");
+
+    try {
+      const navigated = go("/documents");
+      // Called once the new path has rendered — that is what it waits on.
+      await vi.waitFor(() => expect(pathWhenSettling).toBe("/documents"));
+
+      let captured = false;
+      void spy.mock.results[0]!.value.updateCallbackDone.then(() => {
+        captured = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(captured).toBe(false);
+
+      release();
+      await navigated;
+      expect(captured).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("wraps the swap in a view transition", async () => {
