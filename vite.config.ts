@@ -18,15 +18,17 @@ import { ICON_NAMES } from "./src/components/app-icon/icons.ts";
  * - `404.html` is a byte copy of the shell that only the *host* ever serves, on
  *   a cold deep link before this worker exists; once it does, navigations are
  *   answered from `/`. Precaching it would store the shell twice;
- * - the font licence has to be distributed alongside the font, not cached.
+ * - the font licences (`LICENSE.txt`, `POPPINS-LICENSE.txt`) have to be
+ *   distributed alongside the fonts, not cached — hence any name ending in
+ *   `LICENSE.txt`, not only the bare one.
  *
- * The last two are also written after this plugin has walked the output — see
- * `githubPages` below — so they are absent rather than excluded on a normal
- * build. They are listed anyway: that ordering is an implementation detail of
- * the plugin array, and this regex is where the intent belongs.
+ * `404.html` and `.nojekyll` are also written after this plugin has walked the
+ * output — see `githubPages` below — so they are absent rather than excluded on
+ * a normal build. They are listed anyway: that ordering is an implementation
+ * detail of the plugin array, and this regex is where the intent belongs.
  */
 const PRECACHE_EXCLUDED =
-  /(\.map|[\\/]sw\.js|[\\/]_redirects|[\\/]\.nojekyll|[\\/]404\.html|[\\/]LICENSE\.txt)$/;
+  /(\.map|[\\/]sw\.js|[\\/]_redirects|[\\/]\.nojekyll|[\\/]404\.html|[\\/][^\\/]*LICENSE\.txt)$/;
 
 async function filesIn(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true });
