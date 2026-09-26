@@ -3,6 +3,7 @@ import { BASE_FIELD_IDS, fieldById, fieldWithRole } from "../categories.ts";
 import {
   followUpDate,
   formatWorkActivity,
+  hasCustomTitle,
   parseFollowUpValue,
   statusForDate,
   type WorkActivity,
@@ -244,13 +245,12 @@ export const setDayActivity = ({
     });
   }
 
-  const renamed = existing.title === formatWorkActivity(existing.activity);
   // Merged rather than replaced: `existing.customFields` may hold other keys
   // in principle, and a plain overwrite would drop them.
   const customFields = { ...existing.customFields, [fieldId]: activity };
   return postsRepo.update(
     existing.id,
-    renamed ? { customFields, title } : { customFields },
+    hasCustomTitle(existing) ? { customFields } : { customFields, title },
   );
 };
 

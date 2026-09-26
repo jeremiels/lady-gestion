@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../../data/db.ts";
 import { workSessionByDate } from "../../data/posts.ts";
 import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
@@ -195,6 +195,7 @@ describe("activity-sheet", () => {
       makePost({
         id: "work",
         categoryKey: "travail",
+        title: "Longe",
         date: DATE,
         customFields: { activity: "longe" },
       }),
@@ -206,6 +207,85 @@ describe("activity-sheet", () => {
 
     expect(await sessionOn(DATE)).toBeNull();
     expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(0);
+  });
+
+  describe("retracting a session that holds more than its activity", () => {
+    const withNote = async () => {
+      await db.posts.add(
+        makePost({
+          id: "work",
+          categoryKey: "travail",
+          date: DATE,
+          notes: "Très attentive",
+          customFields: { activity: "longe" },
+        }),
+      );
+      return ready(await mount({ existing: (await sessionOn(DATE))! }));
+    };
+
+    const modalButton = (el: ActivitySheet, label: string) =>
+      [
+        ...el.renderRoot.querySelectorAll<HTMLButtonElement>(
+          "app-modal button",
+        ),
+      ].find((button) => button.textContent?.trim() === label)!;
+
+    it("asks before deleting and keeps the session until confirmed", async () => {
+      const el = await withNote();
+
+      chipNamed(el, "Longe").click();
+      await settled(el);
+
+      expect(el.renderRoot.querySelector("app-modal")!.open).toBe(true);
+      expect(el.open).toBe(true);
+      expect(await sessionOn(DATE)).not.toBeNull();
+    });
+
+    it("keeps the session when the question is declined", async () => {
+      const el = await withNote();
+
+      chipNamed(el, "Longe").click();
+      await settled(el);
+      modalButton(el, "Annuler").click();
+      await settled(el);
+
+      expect(el.renderRoot.querySelector("app-modal")!.open).toBe(false);
+      expect(await sessionOn(DATE)).not.toBeNull();
+    });
+
+    it("deletes the session once confirmed", async () => {
+      const el = await withNote();
+
+      chipNamed(el, "Longe").click();
+      await settled(el);
+      modalButton(el, "Supprimer").click();
+      await waitFor(el, () => el.open === false);
+
+      expect(await sessionOn(DATE)).toBeNull();
+    });
+
+    it("closes the question to show a failed delete in the sheet", async () => {
+      const el = await withNote();
+      const put = vi
+        .spyOn(db.posts, "put")
+        .mockRejectedValueOnce(new Error("Disque plein"));
+
+      chipNamed(el, "Longe").click();
+      await settled(el);
+      modalButton(el, "Supprimer").click();
+      await waitFor(
+        el,
+        () => el.renderRoot.querySelector(".activity-sheet__error") !== null,
+      );
+      put.mockRestore();
+
+      expect(el.renderRoot.querySelector("app-modal")!.open).toBe(false);
+      expect(
+        el.renderRoot.querySelector(".activity-sheet__error")!.textContent,
+      ).toContain("Disque plein");
+      expect(el.open).toBe(true);
+      expect(await sessionOn(DATE)).not.toBeNull();
+    });
   });
 
   it("applies rather than retracts when a different chip is tapped", async () => {

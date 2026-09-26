@@ -19,6 +19,7 @@ import {
   parseFollowUpValue,
   reminderFireAt,
   reminderTimeErrors,
+  sessionHasDetails,
   statusForDate,
   workSessionByDate,
 } from "./posts.ts";
@@ -412,5 +413,28 @@ describe("reminders", () => {
     });
     expect(reminderTimeErrors(true, "08:30")).toEqual({});
     expect(reminderTimeErrors(false, null)).toEqual({});
+  });
+});
+
+describe("sessionHasDetails", () => {
+  const session = (over = {}) => {
+    const post = makePost({
+      categoryKey: "travail",
+      title: "Longe",
+      customFields: { activity: "longe" },
+      ...over,
+    });
+    return { ...post, activity: "longe" };
+  };
+
+  it("is false for a session that is only its activity", () => {
+    expect(sessionHasDetails(session())).toBe(false);
+  });
+
+  it.each([
+    ["a note", { notes: "Très attentive" }],
+    ["a renamed title", { title: "Séance du matin" }],
+  ])("is true once it carries %s", (_, over) => {
+    expect(sessionHasDetails(session(over))).toBe(true);
   });
 });

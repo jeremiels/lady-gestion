@@ -5,8 +5,8 @@ import {
   activeHorseQuery,
   activitiesRepo,
   activityChoices,
-  postsRepo,
   postsService,
+  sessionHasDetails,
   formatDayShortMonth,
   formatWorkActivity,
   horsesRepo,
@@ -24,6 +24,7 @@ import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-chip/app-chip.ts";
 import "../app-icon/app-icon.ts";
 import "../app-input/app-input.ts";
+import "../app-modal/app-modal.ts";
 
 /** Long enough for "Balade à pied", short enough to stay on one chip. */
 const MAX_LABEL = 40;
@@ -66,6 +67,8 @@ export class ActivitySheet extends BaseElement {
   @property({ attribute: false }) existing: WorkSession | null = null;
 
   @state() private error = "";
+  /** Asking before retracting a session that holds more than its activity. */
+  @state() private confirmOpen = false;
 
   @query("form") private formEl?: HTMLFormElement;
 
@@ -136,6 +139,36 @@ export class ActivitySheet extends BaseElement {
        on rather than at the comment. */
     .activity-sheet__error-region {
       display: contents;
+    }
+
+    .activity-sheet__confirm {
+      margin: 0;
+      font-size: var(--font-size-sm);
+      line-height: 1.4;
+      color: var(--color-brown-middle);
+    }
+
+    .activity-sheet__confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-12);
+    }
+
+    .activity-sheet__button {
+      appearance: none;
+      border: none;
+      border-radius: var(--radius-8);
+      padding: var(--spacing-12);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      background-color: var(--color-brown-light-bg);
+      color: var(--color-brown-dark);
+    }
+
+    .activity-sheet__button--danger {
+      background-color: var(--color-danger);
+      color: var(--color-white);
     }
 
     .activity-sheet__error {
@@ -256,15 +289,19 @@ export class ActivitySheet extends BaseElement {
   /**
    * Clears the day back to no activity — the other half of the chip gesture.
    *
-   * A soft delete of the whole row, the same one `PostDetailView`'s own
-   * delete does, not a second write path: the day sheet's model is one row
-   * per day, so retracting the activity retracts the session.
+   * The day sheet's model is one row per day, so retracting the activity
+   * retracts the session, through the same `postsService.deletePost` as
+   * `PostDetailView`: one transaction that also detaches its documents.
+   *
+   * The confirmation closes first, whatever the outcome: a failure is written
+   * into the sheet, which the modal would otherwise cover.
    */
   #remove = async () => {
+    this.confirmOpen = false;
     if (!this.existing) return;
 
     try {
-      await postsRepo.remove(this.existing.id);
+      await postsService.deletePost(this.existing.id);
     } catch (error: unknown) {
       this.error =
         error instanceof Error ? error.message : "Suppression impossible.";
@@ -276,14 +313,20 @@ export class ActivitySheet extends BaseElement {
 
   /**
    * A tap on a chip: applies that activity, unless it is already the day's —
-   * in which case the same tap retracts it. The gesture that lets a chip
-   * double as an undo, so clearing a day needs nothing beyond the chip
-   * already on screen.
+   * in which case the same tap retracts it. A session that holds only its
+   * activity goes at once; one that also carries a note or its own title asks
+   * first, since the tombstone outlives any backup restore.
    */
-  #onChipClick = (activity: WorkActivity) => () =>
-    void (activity === (this.existing?.activity ?? null)
-      ? this.#remove()
-      : this.#apply(activity));
+  #onChipClick = (activity: WorkActivity) => () => {
+    const existing = this.existing;
+    if (!existing || activity !== existing.activity) {
+      void this.#apply(activity);
+    } else if (sessionHasDetails(existing)) {
+      this.confirmOpen = true;
+    } else {
+      void this.#remove();
+    }
+  };
 
   /**
    * Adds a typed activity to the catalogue, then applies it to the day.
@@ -361,6 +404,37 @@ export class ActivitySheet extends BaseElement {
           ${this.error ? html`<p class="activity-sheet__error">${this.error}</p>` : nothing}
         </div>
       </app-bottom-sheet>
+
+      <app-modal
+        heading="Supprimer la séance ?"
+        description=${this.existing ? `« ${this.existing.title} » sera retirée du calendrier.` : ""}
+        .open=${this.confirmOpen}
+        @modal-close=${() => {
+          this.confirmOpen = false;
+        }}
+      >
+        <p class="activity-sheet__confirm">
+          Sa note et ses informations seront perdues.
+        </p>
+        <div slot="footer" class="activity-sheet__confirm-actions">
+          <button
+            class="activity-sheet__button"
+            type="button"
+            @click=${() => {
+              this.confirmOpen = false;
+            }}
+          >
+            Annuler
+          </button>
+          <button
+            class="activity-sheet__button activity-sheet__button--danger"
+            type="button"
+            @click=${this.#remove}
+          >
+            Supprimer
+          </button>
+        </div>
+      </app-modal>
     `;
   }
 }

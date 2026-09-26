@@ -1,5 +1,7 @@
 import { css, html, nothing, type PropertyValues } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
+import { keyed } from "lit/directives/keyed.js";
+import { repeat } from "lit/directives/repeat.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import {
   type CustomFieldDef,
@@ -95,6 +97,9 @@ export class PostSheet extends BaseElement {
   @state() private pushNotice: Record<string, string> = {};
 
   @query("form") private formEl?: HTMLFormElement;
+
+  /** The form's key — see `#startFresh`. */
+  #generation = 0;
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
 
@@ -288,25 +293,28 @@ export class PostSheet extends BaseElement {
   }
 
   /**
-   * Seeds the state-backed controls from the record.
+   * Every opening starts from the stored record.
    *
-   * In `willUpdate` rather than `render`, because `type` and `planFollowUp`
+   * In `willUpdate` rather than `render`, because `type` and `revealed`
    * decide *which fields exist* — assigning them during render would be a
-   * write inside the render pass. The plain inputs below are prefilled from
-   * `event` directly and need nothing here.
+   * write inside the render pass. Only on opening, not on a new `post`: an
+   * owner's `LiveQuery` re-emitting mid-edit must not undo the user's picks.
    */
   protected willUpdate(changed: PropertyValues<this>) {
-    if (changed.has("post")) this.#seedFromPost();
+    if (changed.has("open") && this.open) this.#startFresh();
   }
 
   /**
-   * The state-backed controls, back to what `event` says — blank when creating.
+   * Back to what `post` says — blank when creating — in both halves at once.
    *
-   * Shared by `willUpdate` and `#reset` because they want exactly the same
-   * thing, and had the same four assignments each. The plain inputs are
-   * prefilled from `event` in the template and need nothing here.
+   * The state-backed controls are assigned here. The plain inputs are
+   * prefilled from `post` in the template, but Lit does not re-push a
+   * `.value` that has not changed, so an abandoned or already-saved edit would
+   * stay on screen; bumping `#generation`, the form's key, rebuilds them
+   * instead.
    */
-  #seedFromPost() {
+  #startFresh() {
+    this.#generation += 1;
     this.type = this.post?.categoryKey ?? "";
 
     const recordType =
@@ -377,16 +385,6 @@ export class PostSheet extends BaseElement {
       new CustomEvent("sheet-close", { bubbles: true, composed: true }),
     );
   };
-
-  /**
-   * Back to the starting point — blank when creating, the stored record when
-   * editing. `form.reset()` restores each field's *default* value, which is
-   * the value rendered from `event`, so the two halves agree.
-   */
-  #reset() {
-    this.formEl?.reset();
-    this.#seedFromPost();
-  }
 
   /**
    * Reads the form and hands the answers to `postsService.savePost`.
@@ -480,7 +478,6 @@ export class PostSheet extends BaseElement {
       return;
     }
 
-    this.#reset();
     this.#close();
   };
 
@@ -576,37 +573,44 @@ export class PostSheet extends BaseElement {
         .open=${this.open}
         @sheet-close=${this.#close}
       >
-        <form
-          id="post-form"
-          class="post-form"
-          novalidate
-          @submit=${this.#onSubmit}
-        >
-          <app-select
-            label="Type"
-            name="type"
-            placeholder="Choisir un type"
-            .options=${options}
-            .value=${this.type}
-            .error=${this.errors.type ?? ""}
-            required
-            @select-change=${this.#onTypeChange}
-          ></app-select>
+        ${keyed(
+          this.#generation,
+          html`<form
+            id="post-form"
+            class="post-form"
+            novalidate
+            @submit=${this.#onSubmit}
+          >
+            <app-select
+              label="Type"
+              name="type"
+              placeholder="Choisir un type"
+              .options=${options}
+              .value=${this.type}
+              .error=${this.errors.type ?? ""}
+              required
+              @select-change=${this.#onTypeChange}
+            ></app-select>
 
-          ${
-            /* The whole form, in the order the type's own `fields` array lists
+            ${
+              /* The whole form, in the order the type's own `fields` array lists
                it. Nothing else is drawn: Nom, Date and Note are rows in that
                array like any other, which is what lets a type state its entire
                form in one place. */
-            type
-              ? type.fields.map((field) => this.#renderField(field))
-              : nothing
-          }
+              type
+                ? repeat(
+                    type.fields,
+                    (field) => field.id,
+                    (field) => this.#renderField(field),
+                  )
+                : nothing
+            }
 
-          <div class="post-form__error-region" role="alert">
-            ${this.saveError ? html`<p class="post-form__error">${this.saveError}</p>` : nothing}
-          </div>
-        </form>
+            <div class="post-form__error-region" role="alert">
+              ${this.saveError ? html`<p class="post-form__error">${this.saveError}</p>` : nothing}
+            </div>
+          </form>`,
+        )}
 
         <button
           slot="footer"
@@ -744,7 +748,15 @@ export class PostSheet extends BaseElement {
             }
           }}
         ></app-checkbox>
-        ${on ? (field.reveals ?? []).map((child) => this.#renderField(child)) : nothing}
+        ${
+          on
+            ? repeat(
+                field.reveals ?? [],
+                (child) => child.id,
+                (child) => this.#renderField(child),
+              )
+            : nothing
+        }
       </div>
     `;
   }

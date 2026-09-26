@@ -16,6 +16,7 @@ import type { AppInput } from "../app-input/app-input.ts";
 import type { AppSelect } from "../app-select/app-select.ts";
 import type { AppUnitSelect } from "../app-unit-select/app-unit-select.ts";
 import type { AppCheckbox } from "../app-checkbox/app-checkbox.ts";
+import type { Post } from "../../data/types.ts";
 import { enablePush } from "../../pwa/push.ts";
 import "./post-sheet.ts";
 import type { PostSheet } from "./post-sheet.ts";
@@ -726,5 +727,93 @@ describe("post-sheet — start time and notification", () => {
     ).toBe(
       "Installez l’application sur l’écran d’accueil pour recevoir des notifications.",
     );
+  });
+});
+
+describe("post-sheet — reopening", () => {
+  const valueOf = (el: PostSheet, name: string) =>
+    fieldNamed<AppInput>(
+      el.renderRoot.querySelector("form")!,
+      name,
+    ).renderRoot.querySelector("input")!.value;
+
+  // Waits for the horse too: without it a submit bails out before saving.
+  const mountEditing = async (post: Post) => {
+    const el = await fixture<PostSheet>(
+      html`<post-sheet open .post=${post}></post-sheet>`,
+    );
+    await waitFor(
+      el,
+      () =>
+        el.renderRoot.querySelector('[name="date"]') !== null &&
+        !el.renderRoot
+          .querySelector('button[type="submit"]')!
+          .hasAttribute("disabled"),
+    );
+    return el;
+  };
+
+  const reopen = async (el: PostSheet, post: Post) => {
+    el.open = false;
+    el.post = post;
+    await settled(el);
+    el.open = true;
+    await settled(el);
+    await waitFor(
+      el,
+      () => el.renderRoot.querySelector('[name="date"]') !== null,
+    );
+  };
+
+  const saveAndFetch = async (el: PostSheet) => {
+    await submit(el);
+    await waitFor(el, () => !el.open);
+    return (await db.posts.toArray())[0]!;
+  };
+
+  it("shows the stored value of a field an earlier edit left alone", async () => {
+    const v1 = makePost({ categoryKey: "veto", date: "2026-10-15" });
+    await db.posts.add(v1);
+    const el = await mountEditing(v1);
+
+    await fill(el, "date", "2026-12-01");
+    const v2 = await saveAndFetch(el);
+    expect(v2.date).toBe("2026-12-01");
+
+    await reopen(el, v2);
+    await fill(el, "notes", "Rappel annuel");
+    const v3 = await saveAndFetch(el);
+    expect(v3).toMatchObject({ date: "2026-12-01", notes: "Rappel annuel" });
+
+    await reopen(el, v3);
+    expect(valueOf(el, "date")).toBe("2026-12-01");
+    expect((await saveAndFetch(el)).date).toBe("2026-12-01");
+  });
+
+  it("drops an abandoned edit when the sheet is opened again", async () => {
+    const post = makePost({ categoryKey: "veto", date: "2026-10-15" });
+    await db.posts.add(post);
+    const el = await mountEditing(post);
+
+    await fill(el, "date", "2026-12-01");
+    await reopen(el, post);
+
+    expect(valueOf(el, "date")).toBe("2026-10-15");
+  });
+});
+
+describe("post-sheet — changing type mid-entry", () => {
+  it("keeps a typed note on its own field instead of sliding it into the next one", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "pension");
+    await fill(el, "notes", "Mois de septembre");
+
+    await pick(el, "type", "achat");
+
+    const form = el.renderRoot.querySelector("form")!;
+    const input = (name: string) =>
+      fieldNamed<AppInput>(form, name).renderRoot.querySelector("input")!;
+    expect(input("notes").value).toBe("Mois de septembre");
+    expect(input("counterparty").value).toBe("");
   });
 });

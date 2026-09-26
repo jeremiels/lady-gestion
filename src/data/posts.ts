@@ -212,6 +212,21 @@ const compareSessions = (a: Post, b: Post): number => {
 export type WorkSession = Post & { activity: WorkActivity };
 
 /**
+ * Whether a session's title is its own rather than the one its activity
+ * gives it — renamed in the post sheet, so a chip tap must leave it alone.
+ */
+export const hasCustomTitle = (session: WorkSession): boolean =>
+  session.title !== formatWorkActivity(session.activity);
+
+/**
+ * Whether a session holds anything a tap on the day's chip would lose beyond
+ * the activity itself. A `tracksWork` form writes only the activity, the date
+ * and a note, so a note and a renamed title are the whole list.
+ */
+export const sessionHasDetails = (session: WorkSession): boolean =>
+  Boolean(session.notes) || hasCustomTitle(session);
+
+/**
  * The session each day's activity comes from — the dashboard's week strip.
  *
  * One entry per day, the day's first session, so a cell keeps a fixed height
