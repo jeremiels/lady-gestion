@@ -486,17 +486,17 @@ src/data/
   other type.
 - **`db.ts` declares only the current version (14)**, with the one
   `upgrade()` that brings a v13 device up to it (`Horse.name` split into
-  `firstName` + `lastName` by `horseRowToV14`, `data/migrations.ts`). A v13
-  backup file goes through the same function as `STEPS[13]` in
-  `backup/migrate.ts`.
+  `firstName` + `lastName` by `horseRowToV14`). It runs `ROW_STEPS[13]`
+  (`data/migrations.ts`), and a v13 backup file is walked through the same
+  entry by `backup/migrate.ts`.
   Nothing below v13 is supported: such a database cannot be upgraded, and
   `importBackup` refuses such a file with "version trop ancienne", and a newer
   one with "version plus récente".
 - **Bumping `SCHEMA_VERSION` means deciding for both a device and a file**: a
   `this.version(n).upgrade()` in `db.ts` for databases already on a device, and
-  for backup files written at the previous version either a step in `STEPS`
-  (`backup/migrate.ts`), which `importBackup` runs before the merge — or
-  refusing them.
+  for backup files written at the previous version. A row transform goes in
+  `ROW_STEPS` (`data/migrations.ts`), which both the upgrade and `importBackup`
+  (before the merge) run; a file version with no entry is refused.
   Merging an old file's rows unread is the one wrong answer: the current build
   silently misreads them. `db.test.ts` opens a database really written at the
   last version — keep its `V13_STORES` frozen, and add the new upgrade's test

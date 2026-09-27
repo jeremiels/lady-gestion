@@ -1,5 +1,5 @@
 import Dexie, { liveQuery, type Table } from "dexie";
-import { horseRowToV14 } from "./migrations.ts";
+import { ROW_STEPS } from "./migrations.ts";
 import type {
   ActivityItem,
   DocumentBlob,
@@ -86,16 +86,20 @@ export class LadyGestionDb extends Dexie {
   constructor() {
     super("lady-gestion");
 
-    // v13 -> v14: `Horse.name` split into `firstName` + `lastName`.
+    // Only the step from v13 runs: no device is older (see SCHEMA_VERSION).
     this.version(SCHEMA_VERSION)
       .stores(STORES)
       .upgrade((tx) =>
-        tx
-          .table("horses")
-          .toCollection()
-          .modify((row: Record<string, unknown>, ref) => {
-            ref.value = horseRowToV14(row);
-          }),
+        Promise.all(
+          Object.entries(ROW_STEPS[13] ?? {}).map(([table, step]) =>
+            tx
+              .table(table)
+              .toCollection()
+              .modify((row: Record<string, unknown>, ref) => {
+                ref.value = step(row);
+              }),
+          ),
+        ),
       );
   }
 }
