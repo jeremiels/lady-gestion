@@ -59,11 +59,11 @@ export class HomeView extends LightElement {
     categoriesRepo.listEnabled(),
   );
 
-  // Already filtered to still-to-happen `planned` events, soonest first — not
-  // yet narrowed to appointments or capped to `UPCOMING_LIMIT`; `render()`
-  // does both, joined against `#categories` fresh on every render. See
-  // `upcomingAppointments`'s doc comment for why that join cannot live inside
-  // this query instead.
+  // Already filtered to still-to-happen events (`listUpcoming`), soonest
+  // first — not yet narrowed to appointments or capped to `UPCOMING_LIMIT`;
+  // `render()` does both, joined against `#categories` fresh on every
+  // render. See `upcomingAppointments`'s doc comment for why that join cannot
+  // live inside this query instead.
   #upcoming = activeHorseQuery<Post[]>(
     this,
     (horseId) => postsRepo.listUpcoming(horseId),

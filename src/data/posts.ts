@@ -26,6 +26,11 @@ import type { PostStatus, Category, Post } from "./types.ts";
  * says which one is meant: you schedule a vet visit ahead of time and you log a
  * purchase after the fact. Today counts as `done` — an appointment entered on
  * the day it happened has happened.
+ *
+ * Only the calendar export reads `planned` and `done`. Lists judge what is
+ * still to come by date and time at read time (`postsRepo.listUpcoming`),
+ * because a stamp fixed at write time cannot know an appointment entered this
+ * morning is for this afternoon.
  */
 export const statusForDate = (
   date: IsoDate,

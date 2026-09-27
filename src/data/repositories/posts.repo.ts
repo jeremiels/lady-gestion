@@ -1,5 +1,5 @@
 import { db } from "../db.ts";
-import { todayISO, type IsoDate } from "../dates.ts";
+import { nowTime, todayISO, type IsoDate } from "../dates.ts";
 import { sumByCategory } from "../budget.ts";
 import { sumCents } from "../money.ts";
 import { hiddenKeys } from "../categories.ts";
@@ -81,20 +81,35 @@ export const listFrom = async (from: IsoDate): Promise<Post[]> =>
   visible(await db.posts.where("date").aboveOrEqual(from).toArray());
 
 /**
- * Still-to-happen posts, soonest first.
+ * Still-to-happen posts, soonest first: not cancelled, and dated after today,
+ * or today at a time not yet passed.
  *
- * Not narrowed to appointments here — that used to filter on the type
- * catalogue inside this query, but a Dexie `liveQuery` only re-runs for
+ * Judged by the date and time at read time rather than by `status`, which is
+ * fixed at write time — an appointment entered this morning for this
+ * afternoon is stored `done` (`statusForDate`) and would otherwise never be
+ * listed.
+ *
+ * **A post of today with no time stays listed until midnight**, whether it
+ * has happened or not: nothing says which. The time is read when the query
+ * runs — at opening, on any write, and at midnight — so a passed time drops
+ * out at the next of those, not on the minute.
+ *
+ * Not narrowed to appointments here: a Dexie `liveQuery` only re-runs for
  * tables its own query function reads, and a catalogue received as a plain
  * argument is invisible to that tracking. Narrowing to appointments, and
- * capping to a limit, is `upcomingAppointments` (`categories.ts`)'s job
- * instead — the caller (`HomeView`) joins this against its own `categories`
- * `LiveQuery` in `render()`, the same way `BudgetView`/`PostsView` already
- * join posts against types, so either one updating re-renders correctly.
+ * capping to a limit, is `upcomingAppointments` (`categories.ts`)'s job —
+ * the caller (`HomeView`) joins this against its own `categories`
+ * `LiveQuery` in `render()`, so either one updating re-renders correctly.
  */
 export const listUpcoming = async (horseId: string): Promise<Post[]> => {
-  const posts = await byHorseAndDateRange(horseId, todayISO(), MAX_DATE);
-  return (await visible(posts)).filter((post) => post.status === "planned");
+  const today = todayISO();
+  const now = nowTime();
+  const posts = await byHorseAndDateRange(horseId, today, MAX_DATE);
+  return (await visible(posts)).filter(
+    (post) =>
+      post.status !== "cancelled" &&
+      (post.date > today || post.time === null || post.time >= now),
+  );
 };
 
 /**

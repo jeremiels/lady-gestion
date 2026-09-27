@@ -23,6 +23,14 @@ export const nowISO = (): IsoTimestamp => new Date().toISOString();
 /** Today as a *local* calendar date — not `toISOString()`, which shifts to UTC. */
 export const todayISO = (): IsoDate => toIsoDate(new Date());
 
+/** The local time of day as `HH:MM`, the shape `Post.time` is stored in. */
+export const nowTime = (): string => {
+  const now = new Date();
+  const hours = `${now.getHours()}`.padStart(2, "0");
+  const minutes = `${now.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
 export const toIsoDate = (date: Date): IsoDate => {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");

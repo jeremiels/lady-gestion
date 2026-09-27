@@ -235,11 +235,11 @@ describe("follow-up appointment", () => {
   const upcoming = () => postsRepo.listUpcoming(HORSE_ID);
 
   it("adds a planned copy of the event at its date plus the interval", async () => {
-    // Logged the day it happened, so the copy is the only thing upcoming.
     const date = todayISO();
     const event = await create({ type: "marechal", date, notes: "Fers AV" });
 
-    const [next] = await upcoming();
+    // Dated today, the event itself is upcoming too; the copy is the other one.
+    const next = (await upcoming()).find((row) => row.id !== event.id);
     expect(next).toMatchObject({
       categoryKey: "marechal",
       title: event.title,

@@ -1,5 +1,5 @@
 import { liveQuery } from "dexie";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db.ts";
 import { addDays, todayISO } from "../dates.ts";
 import {
@@ -117,17 +117,52 @@ describe("listUpcoming", () => {
     expect(events.map((event) => event.id)).toEqual(["near", "far"]);
   });
 
-  it("keeps only planned events — done and cancelled are not upcoming", async () => {
+  it("drops cancelled events only", async () => {
     const today = todayISO();
     await seedEvents([
       { id: "planned", date: addDays(today, 1), status: "planned" },
-      { id: "done", date: addDays(today, 2), status: "done" },
       { id: "cancelled", date: addDays(today, 3), status: "cancelled" },
     ]);
 
     const events = await postsRepo.listUpcoming(HORSE_ID);
 
     expect(events.map((event) => event.id)).toEqual(["planned"]);
+  });
+
+  describe("today, by time", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("drops a passed time, keeps a coming one and one with no time", async () => {
+      const today = todayISO();
+      // Only the clock: IndexedDB still needs its real timers.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(`${today}T12:00:00`));
+      await seedEvents([
+        { id: "morning", date: today, time: "09:30", status: "done" },
+        { id: "noon", date: today, time: "12:00", status: "done" },
+        { id: "evening", date: today, time: "18:00", status: "done" },
+        { id: "all-day", date: today, time: null, status: "done" },
+      ]);
+
+      const events = await postsRepo.listUpcoming(HORSE_ID);
+
+      expect(events.map((event) => event.id).sort()).toEqual([
+        "all-day",
+        "evening",
+        "noon",
+      ]);
+    });
+  });
+
+  it("lists an event entered today for later today, which is stored done", async () => {
+    // `statusForDate` stamps today's date `done` at write time.
+    await seedEvents([
+      { id: "this-afternoon", date: todayISO(), status: "done" },
+    ]);
+
+    const events = await postsRepo.listUpcoming(HORSE_ID);
+
+    expect(events.map((event) => event.id)).toEqual(["this-afternoon"]);
   });
 
   // Narrowing to appointment types and capping to a limit is
