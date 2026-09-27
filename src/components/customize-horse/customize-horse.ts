@@ -131,11 +131,11 @@ export class CustomizeHorse extends BaseElement {
           </ul>
         </section>
         <button class="submit pressable" type="submit">Enregistrer</button>
-        ${
-          this.status
-            ? html`<p class="status" role="status">${this.status}</p>`
-            : nothing
-        }
+        <!-- Always mounted: a status region inserted already filled is not
+             announced, only one whose text changes. -->
+        <div class="status-region" role="status">
+          ${this.status ? html`<p class="status">${this.status}</p>` : nothing}
+        </div>
       </form>
     `;
   }

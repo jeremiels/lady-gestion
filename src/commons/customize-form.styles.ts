@@ -108,6 +108,11 @@ export const customizeFormStyles = css`
     cursor: pointer;
   }
 
+  /* Generates no box, so an empty region adds no gap to the form. */
+  .status-region {
+    display: contents;
+  }
+
   .status {
     margin: 0;
     font-size: 0.813rem;

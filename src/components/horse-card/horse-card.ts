@@ -137,7 +137,7 @@ export class HorseCard extends BaseElement {
       <img
         class="horse-card__image"
         src="${imageUrl}"
-        alt="${horseFullName(horse)}"
+        alt=""
         width="1536"
         height="2304"
         fetchpriority="high"

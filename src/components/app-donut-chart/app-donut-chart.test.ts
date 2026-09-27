@@ -79,7 +79,7 @@ describe("app-donut-chart", () => {
     expect(wedges(el)).toHaveLength(3);
     expect(centre(el)).toBe("100");
     expect(description(el)).toBe(
-      "Répartition : Alpha 60 %, Bravo 30 %, Charlie 10 %",
+      "100. Répartition : Alpha 60 %, Bravo 30 %, Charlie 10 %",
     );
   });
 
@@ -94,7 +94,7 @@ describe("app-donut-chart", () => {
     expect(centre(el)).toBe("70");
     // Re-based on what is left, not on the period's total: a ring that adds up
     // to 100% of nothing it is showing is worse than no percentages at all.
-    expect(description(el)).toBe("Répartition : Alpha 86 %, Charlie 14 %");
+    expect(description(el)).toBe("70. Répartition : Alpha 86 %, Charlie 14 %");
   });
 
   it("shows it again when it leaves the hidden set", async () => {

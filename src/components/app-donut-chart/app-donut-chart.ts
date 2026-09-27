@@ -552,7 +552,10 @@ export class AppDonutChart extends BaseElement {
     });
   }
 
-  /** The SVG's accessible name — the legend beside it repeats this as text. */
+  /**
+   * The SVG's accessible name: the centre figure, then the split — which the
+   * legend beside it repeats as text.
+   */
   #description(): string {
     const total = this.#total;
 
@@ -571,7 +574,12 @@ export class AppDonutChart extends BaseElement {
         (slice) =>
           `${slice.label} ${Math.round((slice.value / total) * 100)} %`,
       );
-    return `Répartition : ${parts.join(", ")}`;
+    // The centre figure is `aria-hidden` — it counts up frame by frame — so
+    // its final value, with its caption and note, is said here instead.
+    const figure = [this.caption, this.formatValue(total), this.note]
+      .filter(Boolean)
+      .join(" ");
+    return `${figure}. Répartition : ${parts.join(", ")}`;
   }
 }
 

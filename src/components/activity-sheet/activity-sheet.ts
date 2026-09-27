@@ -396,9 +396,10 @@ export class ActivitySheet extends BaseElement {
           <button
             class="activity-sheet__submit pressable pressable--small"
             type="submit"
+            aria-label="Ajouter l’activité"
             ?disabled=${this.saving}
           >
-            <app-icon icon="check" aria-label="Ajouter l’activité"></app-icon>
+            <app-icon icon="check"></app-icon>
           </button>
         </form>
 

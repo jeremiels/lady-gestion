@@ -425,6 +425,7 @@ export class AppRoot extends LightElement {
               label=${section.label}
               .icon=${section.icon}
               ?active=${section.matches(this.#router.path)}
+              ?landing=${this.#router.path === this.#sectionHref(section)}
             ></nav-item>
           `,
         )}

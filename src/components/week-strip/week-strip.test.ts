@@ -220,3 +220,30 @@ describe("week-strip", () => {
     expect(sheetOf(el)?.open).toBe(false);
   });
 });
+
+describe("week-strip — what a screen reader hears", () => {
+  it("names each day with its activity, and today as today", async () => {
+    const today = todayISO();
+    await db.posts.add(
+      makePost({
+        id: "work",
+        categoryKey: "travail",
+        date: today,
+        customFields: { activity: "trotting" },
+      }),
+    );
+
+    const el = await mount();
+    await waitFor(el, () => cardsOf(el).some((card) => card.activity));
+
+    const button = buttonsOf(el).find(
+      (one) => one.getAttribute("aria-current") === "date",
+    )!;
+    expect(button.getAttribute("aria-label")).toMatch(
+      /, aujourd’hui : Trotting$/,
+    );
+    expect(
+      buttonsOf(el).filter((one) => one.hasAttribute("aria-current")),
+    ).toHaveLength(1);
+  });
+});

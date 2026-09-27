@@ -21,6 +21,12 @@ export class NavItem extends BaseElement {
   @property({ type: String }) label = "";
   @property({ type: String }) icon: IconName | "" = "";
   @property({ type: Boolean, reflect: true }) active = false;
+  /**
+   * Whether the page shown *is* this destination rather than a page inside
+   * its section — `aria-current="page"` then, `"true"` otherwise, so a
+   * sub-page with its own current tab does not announce two current pages.
+   */
+  @property({ type: Boolean }) landing = false;
 
   static componentStyles = css`
     .nav-item {
@@ -78,7 +84,7 @@ export class NavItem extends BaseElement {
           "is-active": this.active,
         })}
         href=${this.href}
-        aria-current=${this.active ? "page" : "false"}
+        aria-current=${this.active ? (this.landing ? "page" : "true") : "false"}
       >
         <app-icon
           class="nav-item__icon"

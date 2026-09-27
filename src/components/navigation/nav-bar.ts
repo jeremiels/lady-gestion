@@ -36,7 +36,7 @@ export class NavBar extends BaseElement {
 
   render() {
     return html`
-      <nav class="nav-bar">
+      <nav class="nav-bar" aria-label="Navigation principale">
         <div class="nav-bar__items">
           <slot></slot>
         </div>

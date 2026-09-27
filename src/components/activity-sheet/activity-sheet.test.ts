@@ -404,3 +404,12 @@ describe("activity-sheet — while saving", () => {
     expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
   });
 });
+
+describe("activity-sheet — names", () => {
+  it("names the add button itself, not the icon inside it", async () => {
+    const el = await ready(await mount());
+
+    const button = el.renderRoot.querySelector("button[type=submit]")!;
+    expect(button.getAttribute("aria-label")).toBe("Ajouter l’activité");
+  });
+});

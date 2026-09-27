@@ -6,11 +6,13 @@ import {
   postsRepo,
   categoriesRepo,
   formatDayLong,
+  formatWorkActivity,
   LiveQuery,
   weekGrid,
   workSessionByDate,
   type IsoDate,
   type ResolvedCategory,
+  type WorkActivity,
 } from "../../data/index.ts";
 import type { Post } from "../../data/types.ts";
 import { BaseElement } from "../../commons/base-element.ts";
@@ -146,6 +148,25 @@ export class WeekStrip extends BaseElement {
     this.sheetOpen = false;
   };
 
+  /**
+   * The button's whole accessible name. An `aria-label` replaces the content
+   * it sits on, so the `day-card` inside — its activity, its "today" — is
+   * never read out; the label has to say all of it, the way the card shows it.
+   */
+  #dayLabel(
+    date: IsoDate,
+    isToday: boolean,
+    course: boolean,
+    activity: WorkActivity | null,
+  ): string {
+    const what = course
+      ? "Cours"
+      : activity === null
+        ? "aucune"
+        : formatWorkActivity(activity);
+    return `Activité du ${formatDayLong(date)}${isToday ? ", aujourd’hui" : ""} : ${what}`;
+  }
+
   render() {
     // Resolved once and used for both the grid and the today flag, so the strip
     // cannot draw a week that disagrees with the day it highlights.
@@ -170,7 +191,13 @@ export class WeekStrip extends BaseElement {
                 type="button"
                 aria-haspopup="dialog"
                 aria-expanded=${sheetOpen && selected === date ? "true" : "false"}
-                aria-label=${`Activité du ${formatDayLong(date)}`}
+                aria-current=${date === today ? "date" : nothing}
+                aria-label=${this.#dayLabel(
+                  date,
+                  date === today,
+                  courseDates.has(date),
+                  sessions.get(date)?.activity ?? null,
+                )}
                 @click=${this.#open(date)}
               >
                 <day-card

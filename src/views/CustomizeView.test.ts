@@ -344,3 +344,22 @@ describe("customize-view — a write that fails", () => {
     put.mockRestore();
   });
 });
+
+describe("customize-view — the saved message", () => {
+  it("lands in a status region that was already there", async () => {
+    const el = await mount("cheval");
+    const card = () => el.querySelector<CustomizeHorse>("customize-horse")!;
+    await waitFor(el, () => card()?.horse !== null);
+    const region = card().renderRoot.querySelector('[role="status"]');
+    expect(region).not.toBeNull();
+
+    card().renderRoot.querySelector("form")!.requestSubmit();
+    await waitFor(
+      el,
+      () =>
+        region?.textContent?.includes("Modifications enregistrées") ?? false,
+    );
+
+    expect(card().renderRoot.querySelector('[role="status"]')).toBe(region);
+  });
+});

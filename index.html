@@ -2,9 +2,13 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+    <!-- maximum-scale=1: Safari on iOS zooms the whole app in when a field
+         under 16px takes focus, and the installed app has no address bar to
+         reset it from. iOS ignores it for pinch-zoom, so the user can still
+         zoom by hand; only the automatic zoom on focus goes. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
 
     <title>Ladympala.cc</title>
