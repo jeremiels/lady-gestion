@@ -91,6 +91,12 @@ export class PostSheet extends BaseElement {
   @state() private errors: Record<string, string> = {};
   @state() private saveError = "";
   /**
+   * Raised before the save's first `await` and lowered when it fails or the
+   * sheet closes, so a second tap on Enregistrer while the first is writing
+   * adds nothing.
+   */
+  @state() private saving = false;
+  /**
    * Why ticking "Créer une notification" was undone, by field id. A hint
    * rather than an `error`: an error would block the submit, and the post
    * itself is still worth saving without its reminder.
@@ -408,6 +414,7 @@ export class PostSheet extends BaseElement {
    */
   #onSubmit = async (submitEvent: SubmitEvent) => {
     submitEvent.preventDefault();
+    if (this.saving) return;
 
     const horse = this.#horse.value;
     if (!horse) {
@@ -453,6 +460,7 @@ export class PostSheet extends BaseElement {
 
     const answers = foldAnswers(resolvedType, result.values);
 
+    this.saving = true;
     try {
       await postsService.savePost({
         horseId: horse.id,
@@ -460,24 +468,33 @@ export class PostSheet extends BaseElement {
         type: resolvedType,
         input: { type: result.categoryKey, values: answers },
       });
-
-      // A freshly typed activity — one `priorChoices` didn't already know —
-      // joins the horse's catalogue, so it shows up as a suggestion next time
-      // here and as a chip on the week strip, exactly as if it had been added
-      // from there instead.
-      const activity = activityField ? answers[activityField.id] : null;
-      if (
-        typeof activity === "string" &&
-        activity !== "" &&
-        !matchActivity(activity, priorChoices)
-      ) {
-        await activitiesRepo.add({ horseId: horse.id, label: activity });
-      }
     } catch (error: unknown) {
       this.saveError = errorMessage(error, "Enregistrement impossible.");
+      this.saving = false;
       return;
     }
 
+    // A freshly typed activity — one `priorChoices` didn't already know —
+    // joins the horse's catalogue, so it shows up as a suggestion next time
+    // here and as a chip on the week strip, exactly as if it had been added
+    // from there instead. Only a suggestion: the post is saved, and failing
+    // here would leave the sheet open for an Enregistrer that writes it twice.
+    const activity = activityField ? answers[activityField.id] : null;
+    if (
+      typeof activity === "string" &&
+      activity !== "" &&
+      !matchActivity(activity, priorChoices)
+    ) {
+      await activitiesRepo
+        .add({ horseId: horse.id, label: activity })
+        .catch((error: unknown) =>
+          console.error("Activité non ajoutée au catalogue", error),
+        );
+    }
+
+    // Lowered only now: until the sheet closes, Enregistrer must not write
+    // the post a second time.
+    this.saving = false;
     this.#close();
   };
 
@@ -617,7 +634,8 @@ export class PostSheet extends BaseElement {
           class="post-form__submit pressable"
           type="submit"
           form="post-form"
-          ?disabled=${this.#horse.value === undefined}
+          ?disabled=${this.#horse.value === undefined || this.saving}
+          aria-busy=${this.saving}
         >
           Enregistrer
         </button>

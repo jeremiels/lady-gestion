@@ -1,5 +1,6 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AppSwitch } from "../components/app-switch/app-switch.ts";
 import { db, SCHEMA_VERSION } from "../data/db.ts";
 import { metaRepo, nowISO } from "../data/index.ts";
 import { OWNER, makeHorse, resetDb } from "../data/__tests__/factories.ts";
@@ -124,5 +125,28 @@ describe("profile-view", () => {
 
     await waitFor(el, () => region.textContent!.includes("restauré"));
     expect(region.textContent).toContain("0 enregistrement(s) restauré(s)");
+  });
+});
+
+describe("profile-view — the notifications switch", () => {
+  it("says so when the preference does not save, and switches back", async () => {
+    const el = await mount();
+    const toggle = () => el.querySelector<AppSwitch>("app-switch")!;
+    await waitFor(el, () => toggle()?.checked === true);
+    const put = vi
+      .spyOn(db.meta, "put")
+      .mockRejectedValue(new Error("illisible"));
+
+    toggle().renderRoot.querySelector<HTMLInputElement>("input")!.click();
+
+    await waitFor(
+      el,
+      () =>
+        el
+          .querySelector(".profile-view__error")
+          ?.textContent?.includes("Modification impossible") ?? false,
+    );
+    expect(toggle().checked).toBe(true);
+    put.mockRestore();
   });
 });

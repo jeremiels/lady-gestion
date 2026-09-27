@@ -7,6 +7,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vitest";
 import { db } from "../data/db.ts";
 import { makePost, resetDb } from "../data/__tests__/factories.ts";
@@ -162,5 +163,21 @@ describe("post-detail-view", () => {
       stored = await db.posts.get("to-delete");
     }
     expect(stored?.deletedAt).not.toBeNull();
+  });
+});
+
+describe("post-detail-view — a failed read", () => {
+  it("says the event could not be read, not that it may have been deleted", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const get = vi
+      .spyOn(db.posts, "get")
+      .mockRejectedValue(new Error("illisible"));
+
+    const el = await mount("event-1");
+    await waitFor(el, () => el.textContent!.includes("Lecture impossible"));
+
+    expect(el.textContent).not.toContain("introuvable");
+    get.mockRestore();
+    quiet.mockRestore();
   });
 });

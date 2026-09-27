@@ -71,6 +71,9 @@ export class PostDetailView extends LightElement {
     }
 
     const event = this.#event.value;
+    // A failed read is not a deleted event: "Il a peut-être été supprimé"
+    // would send the user to type it in again.
+    if (!event && this.#event.error) return this.#renderUnreadable();
     if (!event) return this.#renderNotFound();
     const type = findCategory(this.#categories.value ?? [], event.categoryKey);
 
@@ -135,6 +138,26 @@ export class PostDetailView extends LightElement {
       </section>
 
       ${this.#renderOverlays(event)}
+    `;
+  }
+
+  #renderUnreadable() {
+    return html`
+      <section class="post-detail">
+        <hgroup class="section-group">
+          <h1 class="page-title" tabindex="-1">Lecture impossible</h1>
+          <p class="section-subtitle">
+            Cet évènement n’a pas pu être lu. Rechargez l’application.
+          </p>
+        </hgroup>
+        <button
+          class="post-detail__back-link pressable"
+          type="button"
+          @click=${this.#goBack}
+        >
+          Retour
+        </button>
+      </section>
     `;
   }
 

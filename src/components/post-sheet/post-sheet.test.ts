@@ -830,3 +830,35 @@ describe("post-sheet — changing type mid-entry", () => {
     expect(input("counterparty").value).toBe("");
   });
 });
+
+describe("post-sheet — while saving", () => {
+  it("writes one post when Enregistrer is pressed twice", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "pension");
+    await fill(el, "title", "Pension");
+
+    const form = el.renderRoot.querySelector("form")!;
+    form.requestSubmit();
+    form.requestSubmit();
+    await waitFor(el, () => !el.open);
+
+    expect(await db.posts.count()).toBe(1);
+  });
+
+  it("closes on a saved post even when its activity cannot join the catalogue", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const add = vi
+      .spyOn(db.activities, "add")
+      .mockRejectedValue(new Error("plein"));
+    const el = await openSheet();
+    await pick(el, "type", "travail");
+    await pickActivity(el, "Voltige");
+
+    await submit(el);
+    await waitFor(el, () => !el.open);
+
+    expect(await db.posts.count()).toBe(1);
+    add.mockRestore();
+    quiet.mockRestore();
+  });
+});

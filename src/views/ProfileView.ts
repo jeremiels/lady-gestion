@@ -1,5 +1,6 @@
-import { html } from "lit";
-import { customElement } from "lit/decorators.js";
+import { html, nothing } from "lit";
+import { customElement, state } from "lit/decorators.js";
+import { live } from "lit/directives/live.js";
 import { LightElement } from "../commons/base-element.ts";
 import { appHref } from "../commons/base-path.ts";
 import { goBack } from "../commons/navigation.ts";
@@ -9,6 +10,7 @@ import { Today } from "../commons/controllers/today.ts";
 import {
   LiveQuery,
   daysBetween,
+  errorMessage,
   metaRepo,
   profileRepo,
   toIsoDate,
@@ -42,10 +44,20 @@ export class ProfileView extends LightElement {
 
   #goBack = () => goBack(HOME);
 
+  /** Why the last switch of the notifications preference did not save. */
+  @state() private notificationsError = "";
+
   // Written straight to `meta` rather than held in component state: a
   // preference that forgets itself on every navigation is a bug the user sees.
-  #onNotificationsChange = (event: CustomEvent<{ checked: boolean }>) => {
-    void metaRepo.setNotificationsEnabled(event.detail.checked);
+  #onNotificationsChange = async (event: CustomEvent<{ checked: boolean }>) => {
+    this.notificationsError = "";
+    try {
+      await metaRepo.setNotificationsEnabled(event.detail.checked);
+    } catch (error: unknown) {
+      this.notificationsError = errorMessage(error, "Modification impossible.");
+      // The switch already moved; `live()` puts it back where `meta` says.
+      this.requestUpdate();
+    }
   };
 
   render() {
@@ -123,9 +135,18 @@ export class ProfileView extends LightElement {
         <div class="container">
           <app-switch
             label="Notifications"
-            .checked=${this.#notifications.value ?? true}
+            .checked=${live(this.#notifications.value ?? true)}
             @switch-change=${this.#onNotificationsChange}
           ></app-switch>
+          <div class="profile-view__message-region" role="alert">
+            ${
+              this.notificationsError
+                ? html`<p class="profile-view__error">
+                    ${this.notificationsError}
+                  </p>`
+                : nothing
+            }
+          </div>
         </div>
       </section>
     `;

@@ -12,6 +12,7 @@ import {
   initData,
   isDatabaseOpen,
   LiveQuery,
+  onReadError,
   liveQueriesSettled,
   watchDatabase,
 } from "./data/index.ts";
@@ -229,6 +230,9 @@ export class AppRoot extends LightElement {
   /** Set when `initData()` rejects; replaces the whole view with an explanation. */
   @state() private dataError = "";
 
+  /** Set when a `LiveQuery` failed to read — see `onReadError`. */
+  @state() private readError = false;
+
   /**
    * Another tab or window holds this database across a schema bump — see
    * `watchDatabase`. `superseded` is terminal; `blocked` clears once
@@ -298,6 +302,11 @@ export class AppRoot extends LightElement {
 
   connectedCallback() {
     super.connectedCallback();
+
+    // Never unsubscribed: the shell lives as long as the page.
+    onReadError(() => {
+      this.readError = true;
+    });
 
     // Before `initData()`, whose `db.open()` is where a block is reported.
     watchDatabase({
@@ -443,6 +452,26 @@ export class AppRoot extends LightElement {
             `
           : nothing
       }
+
+      <!-- Always mounted, so the alert is announced when its text lands.
+           Outside main, which holds only the view. -->
+      <div class="read-error-region" role="alert">
+        ${
+          // Not over the data-error screen, which already says more.
+          this.readError && !this.dataError
+            ? html`<p class="read-error">
+                Certaines données n’ont pas pu être lues.
+                <button
+                  class="read-error__button pressable"
+                  type="button"
+                  @click=${() => location.reload()}
+                >
+                  Recharger
+                </button>
+              </p>`
+            : nothing
+        }
+      </div>
 
       <app-update-toast></app-update-toast>
     `;

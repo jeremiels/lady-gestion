@@ -42,6 +42,18 @@
     gap: 1.5rem;
   }
 
+  /* Generates no box, so an empty region adds no gap. */
+  .customize-view__error-region {
+    display: contents;
+  }
+
+  .customize-view__error {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-danger);
+  }
+
   .customize-view__confirm-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;

@@ -8,6 +8,29 @@ import { dataReady, isDataReady } from "./ready.ts";
  */
 const firstValues = new Set<Promise<void>>();
 
+/** Told whenever a `LiveQuery` fails to read — see `onReadError`. */
+const readErrorListeners = new Set<(error: unknown) => void>();
+
+/**
+ * Calls `listener` whenever any `LiveQuery` fails to read, and returns the
+ * unsubscribe.
+ *
+ * One channel for the whole app because a failed read is not the view's to
+ * explain: the view only sees `value` stay empty, and "0,00 €" or "Aucun
+ * rendez-vous à venir" is the worst thing to show when IndexedDB is the only
+ * copy — it invites typing everything in again. `app-root` listens and says
+ * the data could not be read. Dexie itself swallows `DatabaseClosedError` and
+ * `AbortError` here, and reopens a connection the browser dropped, so what
+ * arrives is what it could not recover from — after which the subscription
+ * is over, and only a reload re-runs it.
+ */
+export const onReadError = (
+  listener: (error: unknown) => void,
+): (() => void) => {
+  readErrorListeners.add(listener);
+  return () => readErrorListeners.delete(listener);
+};
+
 /**
  * Waits for every connected `LiveQuery` still missing its first value, for at
  * most `timeoutMs`.
@@ -66,6 +89,11 @@ export const liveQueriesSettled = async (
  */
 export class LiveQuery<T> implements ReactiveController {
   value: T | undefined;
+  /**
+   * The read failure, once the query failed — `value` then keeps whatever it
+   * last held. A view that would otherwise draw its empty state reads this;
+   * every failure also reaches `onReadError`.
+   */
   error: unknown;
 
   #host: ReactiveControllerHost;
@@ -154,6 +182,8 @@ export class LiveQuery<T> implements ReactiveController {
         this.#settled = true;
         this.#host.requestUpdate();
         this.#releaseFirstValue();
+        console.error("Lecture impossible", error);
+        for (const listener of readErrorListeners) listener(error);
       },
     });
   }

@@ -392,3 +392,15 @@ describe("activity-sheet", () => {
     expect(fired).toBe(1);
   });
 });
+
+describe("activity-sheet — while saving", () => {
+  it("writes the day once when a chip is tapped twice", async () => {
+    const el = await ready(await mount());
+
+    chipNamed(el, "Longe").click();
+    chipNamed(el, "Longe").click();
+    await waitFor(el, () => el.open === false);
+
+    expect(await postsRepo.listByHorse(HORSE_ID)).toHaveLength(1);
+  });
+});

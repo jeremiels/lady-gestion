@@ -5,6 +5,7 @@ import {
   activeHorseQuery,
   activitiesRepo,
   errorMessage,
+  UserFacingError,
   activityChoices,
   postsService,
   sessionHasDetails,
@@ -68,6 +69,8 @@ export class ActivitySheet extends BaseElement {
   @property({ attribute: false }) existing: WorkSession | null = null;
 
   @state() private error = "";
+  /** Raised while a write is in flight — see `#save`. */
+  @state() private saving = false;
   /** Asking before retracting a session that holds more than its activity. */
   @state() private confirmOpen = false;
 
@@ -254,23 +257,16 @@ export class ActivitySheet extends BaseElement {
    * catalogue row landed, the chip is offered and the day is unchanged — an
    * activity nobody has used yet, which is what the catalogue is for anyway.
    */
-  #apply = async (activity: WorkActivity, add: string | null = null) => {
-    const horse = await horsesRepo.getActive();
-    if (!horse) {
-      this.error = "Aucun cheval sélectionné.";
-      return;
-    }
+  #apply = (activity: WorkActivity, add: string | null = null) =>
+    this.#save("Enregistrement impossible.", async () => {
+      const horse = await horsesRepo.getActive();
+      if (!horse) throw new UserFacingError("Aucun cheval sélectionné.");
+      const type = this.type;
+      if (!type) throw new UserFacingError("Type d’évènement introuvable.");
 
-    const type = this.type;
-    if (!type) {
-      this.error = "Type d’évènement introuvable.";
-      return;
-    }
-
-    try {
-      if (add !== null)
+      if (add !== null) {
         await activitiesRepo.add({ horseId: horse.id, label: add });
-
+      }
       await postsService.setDayActivity({
         horseId: horse.id,
         date: this.date,
@@ -278,13 +274,7 @@ export class ActivitySheet extends BaseElement {
         activity,
         existing: this.existing,
       });
-    } catch (error: unknown) {
-      this.error = errorMessage(error, "Enregistrement impossible.");
-      return;
-    }
-
-    this.#close();
-  };
+    });
 
   /**
    * Clears the day back to no activity — the other half of the chip gesture.
@@ -296,19 +286,35 @@ export class ActivitySheet extends BaseElement {
    * The confirmation closes first, whatever the outcome: a failure is written
    * into the sheet, which the modal would otherwise cover.
    */
-  #remove = async () => {
+  #remove = () => {
     this.confirmOpen = false;
-    if (!this.existing) return;
-
-    try {
-      await postsService.deletePost(this.existing.id);
-    } catch (error: unknown) {
-      this.error = errorMessage(error, "Suppression impossible.");
-      return;
-    }
-
-    this.#close();
+    const existing = this.existing;
+    if (!existing) return;
+    return this.#save("Suppression impossible.", () =>
+      postsService.deletePost(existing.id),
+    );
   };
+
+  /**
+   * Runs one write, then closes — or leaves the sheet open with the reason.
+   *
+   * `saving` is raised before the first `await`, so a second tap while the
+   * first is still writing is ignored rather than writing the day twice.
+   */
+  async #save(fallback: string, write: () => Promise<unknown>) {
+    if (this.saving) return;
+    this.saving = true;
+    this.error = "";
+    try {
+      await write();
+    } catch (error: unknown) {
+      this.error = errorMessage(error, fallback);
+      return;
+    } finally {
+      this.saving = false;
+    }
+    this.#close();
+  }
 
   /**
    * A tap on a chip: applies that activity, unless it is already the day's —
@@ -364,7 +370,7 @@ export class ActivitySheet extends BaseElement {
         .open=${this.open}
         @sheet-close=${this.#close}
       >
-        <ul class="activity-sheet__chips">
+        <ul class="activity-sheet__chips" aria-busy=${this.saving}>
           ${this.#choices.map(
             (activity) => html`
               <li>
@@ -390,6 +396,7 @@ export class ActivitySheet extends BaseElement {
           <button
             class="activity-sheet__submit pressable pressable--small"
             type="submit"
+            ?disabled=${this.saving}
           >
             <app-icon icon="check" aria-label="Ajouter l’activité"></app-icon>
           </button>

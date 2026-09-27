@@ -21,6 +21,11 @@
  * pre-empted here before it gets the chance. The same-element check is what
  * keeps two quick taps on two different controls — a real double-tap-shaped
  * interaction, just not aimed at one target — from losing their second tap.
+ *
+ * "Same element" is `composedPath()[0]`, the node actually touched. At
+ * `document`, `event.target` is retargeted to the outermost shadow host, so
+ * two different controls inside one component would compare equal and the
+ * second tap would be lost.
  */
 
 const DOUBLE_TAP_WINDOW_MS = 300;
@@ -33,14 +38,12 @@ export const initDoubleTapGuard = (): void => {
     "touchend",
     (event) => {
       const now = Date.now();
-      if (
-        event.target === lastTarget &&
-        now - lastTouchEnd <= DOUBLE_TAP_WINDOW_MS
-      ) {
+      const target = event.composedPath()[0] ?? null;
+      if (target === lastTarget && now - lastTouchEnd <= DOUBLE_TAP_WINDOW_MS) {
         event.preventDefault();
       }
       lastTouchEnd = now;
-      lastTarget = event.target;
+      lastTarget = target;
     },
     { passive: false },
   );

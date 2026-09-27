@@ -1,8 +1,8 @@
 import type { ReactiveController, ReactiveControllerHost } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "./db.ts";
 import { resetDb } from "./__tests__/factories.ts";
-import { LiveQuery, liveQueriesSettled } from "./live.ts";
+import { LiveQuery, liveQueriesSettled, onReadError } from "./live.ts";
 
 /** A host with nothing of Lit about it but the controller hooks. */
 const fakeHost = () => {
@@ -72,5 +72,27 @@ describe("liveQueriesSettled", () => {
 
     expect(await liveQueriesSettled(1000)).toBe(false);
     host.disconnect();
+  });
+});
+
+describe("onReadError", () => {
+  it("tells its listeners when a query fails, until they unsubscribe", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const seen: unknown[] = [];
+    const stop = onReadError((error) => seen.push(error));
+    const host = fakeHost();
+    const query = new LiveQuery(host, () =>
+      Promise.reject(new Error("illisible")),
+    );
+
+    host.connect();
+    await liveQueriesSettled(1_000);
+
+    expect(query.error).toBeInstanceOf(Error);
+    expect(seen).toHaveLength(1);
+
+    stop();
+    host.disconnect();
+    quiet.mockRestore();
   });
 });

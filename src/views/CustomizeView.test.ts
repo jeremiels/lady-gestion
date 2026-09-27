@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
 import { DEFAULT_SEASON, rationsRepo } from "../data/index.ts";
 import {
@@ -313,5 +313,34 @@ describe("customize-view › categories", () => {
     expect(
       (await db.categories.where("key").equals("veto").first())?.enabled,
     ).toBe(false);
+  });
+});
+
+describe("customize-view — a write that fails", () => {
+  const switches = (el: CustomizeView) => [
+    ...(el
+      .querySelector<CustomizeCategories>("customize-categories")
+      ?.renderRoot.querySelectorAll<AppSwitch>("app-switch") ?? []),
+  ];
+
+  it("says so, and puts the category switch back where the database has it", async () => {
+    const el = await mount("categories");
+    await waitFor(el, () => switches(el).length === 14);
+    const put = vi
+      .spyOn(db.categories, "put")
+      .mockRejectedValue(new DOMException("plein", "QuotaExceededError"));
+
+    const veto = () => switches(el).find((one) => one.label === "Vétérinaire")!;
+    veto().renderRoot.querySelector<HTMLInputElement>("input")!.click();
+
+    await waitFor(
+      el,
+      () =>
+        el
+          .querySelector(".customize-view__error")
+          ?.textContent?.includes("stockage") ?? false,
+    );
+    await waitFor(el, () => veto().checked);
+    put.mockRestore();
   });
 });

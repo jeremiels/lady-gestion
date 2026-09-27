@@ -33,9 +33,9 @@ export const isDataReady = (): boolean => open;
  * Opens the gate. Called when `initData()` settles — **including when it
  * fails**, and deliberately so: a rejected init must not leave every view
  * waiting forever on a promise that will never resolve. Queries that then run
- * against an unopened database surface their own error through
- * `LiveQuery.error`, and `app-root` has already replaced the whole view with
- * its data-error screen by that point.
+ * against a database that would not open fail, and `app-root` has by then
+ * replaced the whole view with its data-error screen, which it does not cover
+ * with the read-error banner (`onReadError`, `live.ts`).
  */
 export const markDataReady = (): void => {
   if (open) return;

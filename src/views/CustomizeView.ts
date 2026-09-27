@@ -1,4 +1,4 @@
-import { html } from "lit";
+import { html, nothing, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
@@ -14,6 +14,7 @@ import {
   LiveQuery,
   activeHorseQuery,
   categoriesRepo,
+  errorMessage,
   horsesRepo,
   horsesService,
   profileRepo,
@@ -60,6 +61,9 @@ const PROFILE_SCHEMA = {
   [PROFILE_FIELDS.email]: text({ required: true, maxLength: 254 }),
 };
 
+/** What `#write` answers when the write failed, whatever it would have returned. */
+const FAILED = Symbol("failed");
+
 /**
  * Personnaliser mon interface, and the container for its sub-pages — the same
  * split as `HorseView`: the tab is the URL, handed down by the route table;
@@ -88,6 +92,10 @@ export class CustomizeView extends LightElement {
   @state() private rationEditErrors: RationAddErrors = {};
   /** The line waiting on the delete confirmation, or `null` when it is closed. */
   @state() private rationToDelete: RationItem | null = null;
+  /** The last write that failed, in the panel's alert region; `''` when none. */
+  @state() private actionError = "";
+  /** Set while "Ajouter un produit" is saving, so a second tap adds nothing. */
+  #addingRation = false;
 
   #profile = new LiveQuery(this, () => profileRepo.get());
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
@@ -105,8 +113,37 @@ export class CustomizeView extends LightElement {
   // Profil's own Retour step back into this page, endlessly.
   #goBack = () => goBackOutOf(isCustomizePath, PROFILE);
 
+  protected willUpdate(changed: PropertyValues<this>) {
+    // A failure belongs to the tab it happened on.
+    if (changed.has("tab")) this.actionError = "";
+  }
+
+  /**
+   * Runs one write and answers its result, or `FAILED` after showing why in
+   * the panel's alert region — so a handler reports success only on one.
+   */
+  async #write<T>(
+    fallback: string,
+    write: () => Promise<T>,
+  ): Promise<T | typeof FAILED> {
+    this.actionError = "";
+    try {
+      return await write();
+    } catch (error: unknown) {
+      this.actionError = errorMessage(error, fallback);
+      return FAILED;
+    }
+  }
+
   #onCategoryToggle = async (event: CustomEvent<CategoryToggleDetail>) => {
-    await categoriesRepo.setEnabled(event.detail.id, event.detail.enabled);
+    const { id, enabled } = event.detail;
+    const saved = await this.#write("Modification impossible.", () =>
+      categoriesRepo.setEnabled(id, enabled),
+    );
+    // The switch already moved under the finger. Re-reading hands the list a
+    // new array, and its `live()` binding puts the switch back where the
+    // database says it is.
+    if (saved === FAILED) this.#categories.refresh();
   };
 
   #onProfileSubmit = async (event: CustomEvent<ProfileSubmitDetail>) => {
@@ -118,8 +155,10 @@ export class CustomizeView extends LightElement {
     }
 
     this.profileErrors = {};
-    await profileRepo.save(result.value);
-    this.profileStatus = "Modifications enregistrées.";
+    const saved = await this.#write("Enregistrement impossible.", () =>
+      profileRepo.save(result.value),
+    );
+    if (saved !== FAILED) this.profileStatus = "Modifications enregistrées.";
   };
 
   #onHorseSubmit = async (event: CustomEvent<HorseSubmitDetail>) => {
@@ -127,10 +166,10 @@ export class CustomizeView extends LightElement {
     if (!horse) return;
 
     this.horseStatus = "";
-    const result = await horsesService.saveHorseProfile(
-      horse,
-      event.detail.form,
+    const result = await this.#write("Enregistrement impossible.", () =>
+      horsesService.saveHorseProfile(horse, event.detail.form),
     );
+    if (result === FAILED) return;
     if (!result.ok) {
       this.horseErrors = result.errors;
       return;
@@ -142,10 +181,15 @@ export class CustomizeView extends LightElement {
 
   #onRationAdd = async (event: CustomEvent<RationAddDetail>) => {
     const horse = this.#horse.value;
-    if (!horse) return;
+    if (!horse || this.#addingRation) return;
 
     const { form } = event.detail;
-    const result = await rationsService.addRation(horse.id, form);
+    this.#addingRation = true;
+    const result = await this.#write("Ajout impossible.", () =>
+      rationsService.addRation(horse.id, form),
+    );
+    this.#addingRation = false;
+    if (result === FAILED) return;
     if (!result.ok) {
       this.rationErrors = result.errors;
       return;
@@ -170,14 +214,17 @@ export class CustomizeView extends LightElement {
   /**
    * Hands the sheet's form to `rationsService.updateRation`, against the line
    * the sheet was opened on. A failed parse leaves the sheet open with its
-   * errors.
+   * errors; a failed write closes it, so the reason — shown in the panel — is
+   * not hidden behind it.
    */
   #onRationSubmit = async (event: CustomEvent<RationSubmitDetail>) => {
     const ration = this.rationToEdit;
     if (!ration) return;
 
-    const result = await rationsService.updateRation(ration, event.detail.form);
-    if (!result.ok) {
+    const result = await this.#write("Enregistrement impossible.", () =>
+      rationsService.updateRation(ration, event.detail.form),
+    );
+    if (result !== FAILED && !result.ok) {
       this.rationEditErrors = result.errors;
       return;
     }
@@ -198,7 +245,11 @@ export class CustomizeView extends LightElement {
   #confirmRationDelete = async () => {
     const ration = this.rationToDelete;
     this.rationToDelete = null;
-    if (ration) await rationsRepo.remove(ration.id);
+    if (ration) {
+      await this.#write("Suppression impossible.", () =>
+        rationsRepo.remove(ration.id),
+      );
+    }
   };
 
   render() {
@@ -220,6 +271,14 @@ export class CustomizeView extends LightElement {
           .items=${this.#subnavItems()}
         ></app-subnav>
         <div class="customize-view__panel">${this.#renderTab()}</div>
+        <!-- Always mounted, so a failure is announced when its text lands. -->
+        <div class="customize-view__error-region" role="alert">
+          ${
+            this.actionError
+              ? html`<p class="customize-view__error">${this.actionError}</p>`
+              : nothing
+          }
+        </div>
       </section>
     `;
   }

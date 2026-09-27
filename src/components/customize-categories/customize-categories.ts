@@ -1,6 +1,7 @@
 import { css, html } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
+import { live } from "lit/directives/live.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import { customizeFormStyles } from "../../commons/customize-form.styles.ts";
 import { byOrder, type ResolvedCategory } from "../../data/categories.ts";
@@ -62,7 +63,7 @@ export class CustomizeCategories extends BaseElement {
               <li class="item">
                 <app-switch
                   label=${category.label}
-                  .checked=${category.enabled}
+                  .checked=${live(category.enabled)}
                   @switch-change=${this.#onToggle(category.id)}
                 ></app-switch>
               </li>

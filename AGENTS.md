@@ -587,15 +587,17 @@ would surface under real network latency:
   `liveQuery` directly, only `LiveQuery`.
 - **Loading almost always collapses into empty.** Most consumers do
   `.value ?? []`/`?? {}` instead of branching on `LiveQuery.loading` (only
-  `PostDetailView` and `HorseView` do). Fine when reads are near-instant;
-  would flash false-empty state otherwise.
-- **`LiveQuery.error` is never read** past the initial `initData()` failure
-  in `app-root.ts`. A read that fails after startup has no UI path today.
-- **No pending/disabled state on writes.** `post-sheet.ts` and
-  `activity-sheet.ts` await their service call without disabling the submit
-  control, so double-submit risk grows with latency.
-- **`ProfileView`'s `metaRepo.setNotificationsEnabled` call is `void`**
-  fire-and-forget and ignores rejection.
+  `PostDetailView` does). Fine when reads are near-instant; would flash
+  false-empty state otherwise.
+- **A failed read is reported app-wide, not per view.** `onReadError`
+  (`live.ts`) raises `app-root`'s "Recharger" banner; only `PostDetailView`
+  reads `LiveQuery.error` itself, to not call an unreadable event deleted.
+  Dexie swallows `DatabaseClosedError`/`AbortError` and reopens a dropped
+  connection on its own, so a remote backend's transient failures would need
+  a retry story this does not have.
+- **Writes guard against a second tap with a local `saving` flag**
+  (`post-sheet`, `activity-sheet`, the ration add in `CustomizeView`) — enough
+  at IndexedDB latency, not an idempotency key.
 - **`activity-sheet.ts`'s add-activity + apply-to-day is two independent
   writes, not one transaction** (documented at the call site) — would need
   real atomicity or compensation against a networked backend.
