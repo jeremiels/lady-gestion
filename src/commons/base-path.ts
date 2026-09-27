@@ -29,15 +29,31 @@ const PREFIX = BASE.slice(0, -1);
  * user gets by trimming the URL, and the host redirects it to the slashed form,
  * but a navigation can be observed before that lands.
  *
- * Anything outside the prefix is returned unchanged rather than rewritten, so
- * it matches no route and renders the 404 view. Silently mapping it onto a real
- * route would be worse than the 404: it would claim a page the URL never asked
- * for.
+ * Anything outside the prefix is returned unchanged rather than rewritten.
+ * Most such paths match no route and render the 404 view; one that happens to
+ * be an app path itself (`/posts`) still matches its route. Making this strict
+ * waits on the history fallback's removal, the other writer of bare paths.
  */
 export function toAppPath(pathname: string): string {
   if (!PREFIX) return pathname;
   if (pathname === PREFIX) return "/";
   return pathname.startsWith(BASE) ? pathname.slice(PREFIX.length) : pathname;
+}
+
+/**
+ * A browser pathname → its app path, decoded. A malformed escape (`/%E0`)
+ * throws from `decodeURI`, and at construction that takes the whole shell
+ * down to a blank page; it is kept undecoded instead, which matches no route
+ * and renders the 404.
+ */
+export function appPathOf(pathname: string): string {
+  let decoded = pathname;
+  try {
+    decoded = decodeURI(pathname);
+  } catch {
+    // Left as is — see above.
+  }
+  return toAppPath(decoded);
 }
 
 /**

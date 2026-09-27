@@ -51,9 +51,9 @@ export const SCHEMA_VERSION = 14;
  * what the tree is walked by: every root, which is most of the catalogue,
  * would vanish from the index. `Category.enabled` is unindexed because a
  * boolean is not a valid IndexedDB key, so that index would never hold a row.
- * The catalogue is read whole and filtered in memory. `key` and `order` are
- * indexed: `key` is what `Post.categoryKey` joins against, `order` is what the
- * budget donut sorts by.
+ * The catalogue is read whole and filtered in memory, so the `key` and
+ * `order` indexes serve no query today; like the unused `posts` and
+ * `documents` indexes, they are left for the next schema bump to drop.
  *
  * `activities` is indexed on `horseId` alone rather than a compound: the
  * catalogue is read whole, for one horse, and ordered in memory by `createdAt`.
@@ -122,9 +122,9 @@ export const db = new LadyGestionDb();
  * a table here and the export, the merge, the validator and the seed purge all
  * pick it up; `BackupTables` below makes the snapshot's type follow too.
  *
- * `documentBlobs` and `meta` are deliberately absent. Blobs travel separately
- * from the snapshot (see `backup/snapshot.ts`) and `meta` is device-local state
- * that is never exported — both are handled explicitly by the code that needs
+ * `documentBlobs` and `meta` are deliberately absent. Blobs are not in any
+ * backup yet — see `backup/snapshot.ts` — and `meta` is device-local state
+ * that is never exported; both are handled explicitly by the code that needs
  * them, which is the point of them not being in this list.
  */
 export const RECORD_TABLES = {

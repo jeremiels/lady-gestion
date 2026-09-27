@@ -114,8 +114,16 @@ export class CustomizeView extends LightElement {
   #goBack = () => goBackOutOf(isCustomizePath, PROFILE);
 
   protected willUpdate(changed: PropertyValues<this>) {
-    // A failure belongs to the tab it happened on.
-    if (changed.has("tab")) this.actionError = "";
+    // A message belongs to the visit it answered: back on a tab later, an old
+    // "Modifications enregistrées." or a stale error would describe nothing
+    // on screen.
+    if (!changed.has("tab")) return;
+    this.actionError = "";
+    this.profileStatus = "";
+    this.profileErrors = {};
+    this.horseStatus = "";
+    this.horseErrors = {};
+    this.rationErrors = {};
   }
 
   /**

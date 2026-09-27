@@ -1,7 +1,7 @@
 import { css, html } from "lit";
 import { customElement, property, query } from "lit/decorators.js";
 import { BaseElement } from "../../commons/base-element.ts";
-import type { FieldError } from "../../data/forms.ts";
+import { editableDecimal, type FieldError } from "../../data/forms.ts";
 import { MONTH_NUMBERS, formatMonthShort } from "../../data/seasons.ts";
 import {
   RATION_ADD_FIELDS,
@@ -10,10 +10,7 @@ import {
   type RationAddField,
 } from "../../data/services/rations.service.ts";
 import type { RationItem } from "../../data/types.ts";
-import {
-  RATION_UNIT_LABEL,
-  formatRationAmount,
-} from "../../types/horse.types.ts";
+import { RATION_UNIT_LABEL } from "../../types/horse.types.ts";
 
 import "../app-input/app-input.ts";
 import "../app-select/app-select.ts";
@@ -177,7 +174,7 @@ export class RationForm extends BaseElement {
             name=${RATION_ADD_FIELDS.quantity}
             type="text"
             inputmode="decimal"
-            .value=${ration ? formatRationAmount(ration.quantity) : ""}
+            .value=${ration ? editableDecimal(ration.quantity) : ""}
             .error=${errors.quantity ?? ""}
           ></app-input>
           <app-unit-select

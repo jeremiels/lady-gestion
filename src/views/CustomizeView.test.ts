@@ -363,3 +363,20 @@ describe("customize-view — the saved message", () => {
     expect(card().renderRoot.querySelector('[role="status"]')).toBe(region);
   });
 });
+
+describe("customize-view — coming back to a tab", () => {
+  it("does not show the last visit's saved message again", async () => {
+    const el = await mount("cheval");
+    const card = () => el.querySelector<CustomizeHorse>("customize-horse")!;
+    await waitFor(el, () => card()?.horse !== null);
+    card().renderRoot.querySelector("form")!.requestSubmit();
+    await waitFor(el, () => card().status === "Modifications enregistrées.");
+
+    el.tab = "ration";
+    await settled(el);
+    el.tab = "cheval";
+    await settled(el);
+
+    expect(card().status).toBe("");
+  });
+});

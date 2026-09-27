@@ -862,3 +862,21 @@ describe("post-sheet — while saving", () => {
     quiet.mockRestore();
   });
 });
+
+describe("post-sheet — closing", () => {
+  it("tells its owner once per closing", async () => {
+    const el = await openSheet();
+    let closes = 0;
+    el.parentElement!.addEventListener("sheet-close", () => (closes += 1));
+
+    el.renderRoot
+      .querySelector("app-bottom-sheet")!
+      .dispatchEvent(
+        new CustomEvent("sheet-close", { bubbles: true, composed: true }),
+      );
+    await settled(el);
+
+    expect(el.open).toBe(false);
+    expect(closes).toBe(1);
+  });
+});

@@ -25,9 +25,9 @@ import { toCents } from "./money.ts";
  *     if (!result.ok) return showErrors(result.errors);
  *     await postsRepo.create({ ...result.value });
  *
- * Native constraint validation still runs first and covers every normal path —
- * these parsers exist for the paths that skip it, where a `NaN` written to
- * IndexedDB is permanent and renders as "NaN g" for the life of the record.
+ * Every form here is `novalidate`, so these parsers are the validation, not a
+ * backstop behind the browser's: a `NaN` they let through is written to
+ * IndexedDB for good and renders as "NaN g" for the life of the record.
  */
 
 /** Why a field was rejected. French, because it is shown to the user. */
@@ -104,7 +104,9 @@ export function decimal(
     if (value === "")
       return options.required ? fail("Ce champ est requis.") : ok(null);
 
-    const parsed = Number(value.replace(",", "."));
+    // Spaces dropped, the thin one included: a French-formatted "1 200"
+    // is 1200, not NaN.
+    const parsed = Number(value.replace(/\s/g, "").replace(",", "."));
     if (!Number.isFinite(parsed)) return fail("Saisissez un nombre valide.");
     if (options.min !== undefined && parsed < options.min) {
       return fail(`La valeur doit être supérieure ou égale à ${options.min}.`);
@@ -115,6 +117,18 @@ export function decimal(
     return ok(parsed);
   };
 }
+
+/**
+ * A number as a field shows it for editing: the French comma, no digit
+ * grouping and no rounding, so `decimal()` reads back exactly the number
+ * stored. `toLocaleString("fr-FR")` alone groups past 999 and keeps three
+ * decimals, and a value it rounded would be saved back rounded.
+ */
+export const editableDecimal = (value: number): string =>
+  value.toLocaleString("fr-FR", {
+    useGrouping: false,
+    maximumFractionDigits: 20,
+  });
 
 /**
  * A money amount, stored as integer cents.

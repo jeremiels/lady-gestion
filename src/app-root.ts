@@ -283,7 +283,7 @@ export class AppRoot extends LightElement {
    * DOM swap. The route table stays here; the mechanics live in the controller.
    */
   readonly #router = new Router(this, {
-    beforeRender: (path) => this.#prepareRoute(path),
+    beforeRender: (path, signal) => this.#prepareRoute(path, signal),
     settle: () => this.#viewSettled(ROUTE_SETTLE_MS),
     afterRender: () => this.#focusHeading(),
     // `horse` on home↔horse-view, so `transitions/horse.css` can give
@@ -406,9 +406,11 @@ export class AppRoot extends LightElement {
    * loaded, and the tab labelled. Runs inside the navigate handler, so the view
    * transition does not start until the view is defined.
    */
-  async #prepareRoute(path: string) {
+  async #prepareRoute(path: string, signal?: AbortSignal) {
     const route = matchRoute(path) ?? NOT_FOUND;
     await route.load?.();
+    // Superseded while the chunk loaded: the title belongs to the newer route.
+    if (signal?.aborted) return;
     document.title = `${route.title} · Ladympala.cc`;
   }
 

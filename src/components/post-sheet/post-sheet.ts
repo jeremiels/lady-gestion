@@ -386,7 +386,16 @@ export class PostSheet extends BaseElement {
     );
   };
 
-  #close = () => {
+  /**
+   * Closes and tells the owner, once. Bound to the inner bottom sheet's own
+   * `sheet-close`, which is composed and would otherwise reach the owner too,
+   * as a second one — hence the `stopPropagation` and the `open` guard, the
+   * same shape as `activity-sheet`'s.
+   */
+  #close = (event?: Event) => {
+    event?.stopPropagation();
+    if (!this.open) return;
+
     this.open = false;
     this.dispatchEvent(
       new CustomEvent("sheet-close", { bubbles: true, composed: true }),

@@ -24,9 +24,8 @@ export interface UnitOption {
  * hidden with opacity rather than `display:none`, so it stays focusable and in
  * the accessibility tree while the visible surface is the `<label>` around it.
  *
- * `label` names the group (a visually-hidden legend) rather than appearing on
- * screen — the mockup shows no caption, and the adjacent amount field's own
- * label already says what the number is.
+ * `label` is drawn above the options, as every field's label is, and names the
+ * radiogroup through `aria-labelledby`.
  *
  * @fires unit-select-change - `{ value: string }`. Fired only when the value
  * actually changes; re-selecting the checked option is a no-op, same as

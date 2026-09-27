@@ -43,11 +43,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 /**
  * The current entry's whole state object.
  *
- * No Navigation API (Safari before 26.2, Firefox before 147 — both *above* the
- * browser floor, not below it, so this is the live path on most iPhones rather
- * than a legacy one) means every navigation is a real page load and the view is
- * rebuilt from the cached shell either way, so there is nothing to restore and
- * nothing to write. The visible cost there is that the calendar/list mode, the
+ * No Navigation API — Safari before 26.2, Firefox before 147, so only below
+ * the browser floor; this branch is dead code there, awaiting its removal —
+ * means every navigation is a real page load and the view is rebuilt from the
+ * cached shell either way, so there is nothing to restore and nothing to
+ * write. The visible cost there is that the calendar/list mode, the
  * type chip and the budget period reset on every Retour. AGENTS.md accepts that
  * degradation; a `history` shim would be a second code path the Chromium-only
  * component suite could never exercise.

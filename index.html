@@ -11,6 +11,16 @@
       content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
     />
 
+    <!-- Scripts only from the app itself, no plugins, and one outside
+         connection: the push reminder Worker (src/pwa/push-config.ts — keep the
+         two in step). A blob: URL opened from the document viewer inherits
+         this policy, so a file with a script in it cannot run it with access
+         to IndexedDB. frame-ancestors cannot be set from a meta tag. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="script-src 'self'; object-src 'none'; base-uri 'self'; connect-src 'self' https://lady-gestion-push.jeremie-ls.workers.dev"
+    />
+
     <title>Ladympala.cc</title>
     <meta
       name="description"

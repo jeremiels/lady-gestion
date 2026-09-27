@@ -263,3 +263,28 @@ describe("app-bottom-sheet drag-to-dismiss", () => {
     ).toBe("");
   });
 });
+
+describe("app-bottom-sheet — the footer", () => {
+  const footerOf = (el: AppBottomSheet) =>
+    el.renderRoot.querySelector<HTMLElement>(".dialog__footer")!;
+
+  it("takes no room when nothing is slotted into it", async () => {
+    const el = await fixture<AppBottomSheet>(
+      html`<app-bottom-sheet heading="Vide"><p>Corps</p></app-bottom-sheet>`,
+    );
+    await settled(el);
+
+    expect(getComputedStyle(footerOf(el)).display).toBe("none");
+  });
+
+  it("shows once something is", async () => {
+    const el = await fixture<AppBottomSheet>(
+      html`<app-bottom-sheet heading="Plein">
+        <button slot="footer">Enregistrer</button>
+      </app-bottom-sheet>`,
+    );
+    await settled(el);
+
+    expect(getComputedStyle(footerOf(el)).display).not.toBe("none");
+  });
+});

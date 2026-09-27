@@ -227,7 +227,7 @@ Three consequences worth stating out loud:
   used to be five hand-written copies of the same four names, where the one you
   missed failed silently — a table absent from the export is data that quietly
   does not survive a restore. `documentBlobs` and `meta` stay out of the list on
-  purpose (blobs travel separately, `meta` is device-local); `documents` still
+  purpose (blobs are in no backup yet, `meta` is device-local); `documents` still
   drops its matching `documentBlobs` row in the same transaction — the pairing
   `documentsRepo.remove` keeps — or the bytes are stranded with nothing
   pointing at them and no way to reclaim the space.

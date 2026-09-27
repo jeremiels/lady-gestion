@@ -97,7 +97,7 @@ class RouterTestHost extends LitElement {
   @state() accessor _unused = 0;
 
   readonly router = new Router(this, {
-    beforeRender: (p) => this.options.beforeRender?.(p),
+    beforeRender: (p, signal) => this.options.beforeRender?.(p, signal),
     settle: (p) => this.options.settle?.(p),
     afterRender: (p) => this.options.afterRender?.(p),
   });
@@ -554,5 +554,39 @@ describe("goBackOutOf", () => {
     await landedOn("/documents");
 
     expect(location.pathname).toBe("/documents");
+  });
+});
+
+describe("Router — URLs and navigations it must survive", () => {
+  it("keeps a malformed escape as it is rather than failing to start", async () => {
+    await go("/events/%E0");
+
+    const el = await mount();
+
+    expect(el.router.path).toBe("/events/%E0");
+  });
+
+  it("renders only the newer of two navigations when the first is still loading", async () => {
+    let releaseSlow = () => {};
+    const slow = new Promise<void>((resolve) => (releaseSlow = resolve));
+    const rendered: string[] = [];
+    const el = await mount({
+      beforeRender: (path) => (path === "/slow" ? slow : undefined),
+      afterRender: (path) => {
+        rendered.push(path);
+      },
+    });
+
+    // Not awaited: superseded, its `finished` rejects at once, well before
+    // the handler it started has finished running.
+    void navigation.navigate("/slow").finished?.catch(() => {});
+    await go("/fast");
+    releaseSlow();
+    // Long enough for a stale commit to run its view transition to the end.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await el.updateComplete;
+
+    expect(el.router.path).toBe("/fast");
+    expect(rendered).not.toContain("/slow");
   });
 });

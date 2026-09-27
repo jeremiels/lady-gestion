@@ -9,6 +9,7 @@
  */
 
 import { appHref } from "../commons/base-path.ts";
+import { navigateTo } from "../commons/navigation.ts";
 import { initPushSync } from "./push.ts";
 
 /** Fired on `window` once a new version is installed and waiting. */
@@ -41,6 +42,14 @@ export function initPwa() {
   // whole precache — off the critical path of the first paint.
   window.addEventListener("load", () => {
     void registerServiceWorker();
+  });
+  // A tapped reminder, routed in place — see `notificationclick` in the
+  // service worker, and why it does not simply navigate this window.
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    const data = event.data as { type?: unknown; path?: unknown } | null;
+    if (data?.type === "OPEN_PATH" && typeof data.path === "string") {
+      navigateTo(data.path);
+    }
   });
   initPushSync();
 }

@@ -22,10 +22,11 @@ import type { BaseRecord, Category } from "../types.ts";
  * reading. Records keep their original UUIDs, so importing a snapshot into a
  * database that already has data merges rather than duplicates.
  *
- * Document *bytes* are not included — only metadata. Embedding scanned PDFs as
- * base64 would bloat the file by a third and make every backup a full
- * re-upload. Files travel separately, alongside the snapshot, once Drive
- * backup lands.
+ * Document *bytes* are not included — only metadata, and nothing else backs
+ * them up yet: a restored document has a row and no file. Embedding scanned
+ * PDFs as base64 would bloat the file by a third and make every backup a full
+ * re-upload; carrying them beside the snapshot is the Drive backup's job, and
+ * has to land before the app can upload a document.
  */
 
 export type BackupSnapshot = {

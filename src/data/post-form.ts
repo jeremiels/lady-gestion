@@ -2,6 +2,7 @@ import {
   bool,
   cents,
   decimal,
+  editableDecimal,
   isoDate,
   oneOf,
   readForm,
@@ -128,7 +129,7 @@ export const valueOf = (
   if (field.units) {
     const unit = values[unitNameOf(field)];
     return typeof raw === "number" && typeof unit === "string"
-      ? `${raw.toLocaleString("fr-FR")} ${unit}`
+      ? `${editableDecimal(raw)} ${unit}`
       : null;
   }
 

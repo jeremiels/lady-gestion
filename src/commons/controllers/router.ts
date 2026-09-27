@@ -1,5 +1,5 @@
 import type { ReactiveController, ReactiveControllerHost } from "lit";
-import { appHref, toAppPath } from "../base-path.ts";
+import { appHref, appPathOf } from "../base-path.ts";
 import {
   APP_NAVIGATE,
   type AppNavigateDetail,
@@ -17,8 +17,11 @@ export interface RouterOptions {
    * loading a route's chunk, setting `document.title`. Throwing here abandons
    * the client-side navigation and falls back to `location.href = path`, so the
    * browser boots the shell fresh and resolves the route from there.
+   *
+   * `signal` aborts when a newer navigation supersedes this one; check it
+   * after anything awaited, before touching the page.
    */
-  beforeRender?: (path: string) => void | Promise<void>;
+  beforeRender?: (path: string, signal?: AbortSignal) => void | Promise<void>;
   /**
    * Runs after the DOM swap, inside the view transition's update callback, so
    * the transition captures the new view only once it resolves.
@@ -97,10 +100,10 @@ const isAnchor = (target: EventTarget): target is HTMLAnchorElement =>
  * the whole shell.
  *
  * **Where the Navigation API is missing** — Safari before 26.2 and Firefox
- * before 147, so two of the three engines at the project's stated floor — this
- * subscribes to nothing and every `<a href>` does a real page load instead.
- * That is the ordinary case on iOS today rather than an edge case, and it costs
- * every route animation: `startViewTransition` below is never reached at all.
+ * before 147, so only below the browser floor, where this path is dead code
+ * awaiting removal — this subscribes to nothing and every `<a href>` does a
+ * real page load instead, which costs every route animation:
+ * `startViewTransition` below is never reached at all.
  * The service worker answers any path with the cached shell, so deep links
  * still resolve. Nothing to polyfill — but don't touch the global unguarded,
  * which would throw and take the shell down before anything renders.
@@ -119,14 +122,14 @@ export class Router implements ReactiveController {
   constructor(host: ReactiveControllerHost, options: RouterOptions = {}) {
     this.#host = host;
     this.#options = options;
-    this.path = toAppPath(decodeURI(location.pathname));
+    this.path = appPathOf(location.pathname);
     host.addController(this);
   }
 
   hostConnected() {
     // Re-read on connect for the same reason `MediaQuery` does: the answer can
     // have moved between construction and connection.
-    this.path = toAppPath(decodeURI(location.pathname));
+    this.path = appPathOf(location.pathname);
 
     // One signal tears every listener down, with no `removeEventListener`
     // bookkeeping and no handler reference to keep in sync.
@@ -155,7 +158,7 @@ export class Router implements ReactiveController {
     // applying an update means reloading into the new build.
     if (event.navigationType === "reload") return;
 
-    const path = toAppPath(decodeURI(new URL(event.destination.url).pathname));
+    const path = appPathOf(new URL(event.destination.url).pathname);
 
     // A link to the page already on screen — the lit nav item, tapped again.
     // Chromium delivers it as a `replace` to the same URL, and committing it
@@ -175,7 +178,11 @@ export class Router implements ReactiveController {
     }
 
     const direction = this.#directionOf(event);
-    event.intercept({ handler: () => this.#commit(path, direction) });
+    // The signal aborts when a newer navigation supersedes this one — a second
+    // tap while a slow route chunk loads — so `#commit` can stand down.
+    event.intercept({
+      handler: () => this.#commit(path, direction, event.signal),
+    });
   };
 
   /**
@@ -269,14 +276,14 @@ export class Router implements ReactiveController {
     // never moved. Swallowed rather than returned early, or Safari reloads.
     if (url.pathname === location.pathname) return;
 
-    void this.#pushAndCommit(toAppPath(decodeURI(url.pathname)), url.href);
+    void this.#pushAndCommit(appPathOf(url.pathname), url.href);
   };
 
   /** The back/forward gesture, which the Navigation API calls a `traverse`. */
   #onPopState = (event: PopStateEvent) => {
     // The URL has already moved by the time this fires, so `location` is the
     // destination rather than the origin.
-    const path = toAppPath(decodeURI(location.pathname));
+    const path = appPathOf(location.pathname);
 
     // A fragment navigation is a same-document navigation, and the browser
     // reports it here as well — with the route unchanged. Committing it would
@@ -319,14 +326,20 @@ export class Router implements ReactiveController {
     await this.#commit(path, "forward");
   }
 
-  async #commit(path: string, direction?: NavigationDirection) {
+  async #commit(
+    path: string,
+    direction?: NavigationDirection,
+    signal?: AbortSignal,
+  ) {
     // Read before `#apply` overwrites it below — this is the one point where
     // both sides of the navigation are available at once.
     const previousPath = this.path;
 
     try {
-      await this.#options.beforeRender?.(path);
+      await this.#options.beforeRender?.(path, signal);
     } catch (error) {
+      // Superseded while loading: the newer navigation owns the page now.
+      if (signal?.aborted) return;
       // The only thing that throws here is a route chunk that would not load.
       // Rejecting the handler would leave the user on the old page with a URL
       // that says otherwise, so hand the navigation back to the browser: a real
@@ -339,6 +352,10 @@ export class Router implements ReactiveController {
       location.href = appHref(path);
       return;
     }
+
+    // Superseded while its chunk loaded: applying it now would render this
+    // route under the URL of the navigation that replaced it.
+    if (signal?.aborted) return;
 
     if (!("startViewTransition" in document)) {
       this.#apply(path);

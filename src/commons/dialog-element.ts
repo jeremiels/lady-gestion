@@ -1,5 +1,5 @@
 import { css, html, nothing, type TemplateResult } from "lit";
-import { property, query } from "lit/decorators.js";
+import { property, query, state } from "lit/decorators.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { BaseElement } from "./base-element.ts";
 import { ModalDialog } from "./controllers/modal-dialog.ts";
@@ -41,6 +41,18 @@ export abstract class DialogElement extends BaseElement {
   @property({ type: String }) description = "";
   /** When false, the close button, backdrop click and Esc are all inert. */
   @property({ type: Boolean }) dismissible = true;
+
+  /**
+   * Whether anything is slotted into `footer`. Tracked from `slotchange`
+   * because CSS cannot see it: the `<slot>` element is itself a child of the
+   * footer, so `:has(*)` would match an empty footer too.
+   */
+  @state() private hasFooter = false;
+
+  #onFooterChange = (event: Event) => {
+    this.hasFooter =
+      (event.target as HTMLSlotElement).assignedElements().length > 0;
+  };
 
   @query("dialog") protected dialogEl?: HTMLDialogElement;
 
@@ -133,8 +145,8 @@ export abstract class DialogElement extends BaseElement {
         <div class="dialog__body" part="body">
           <slot></slot>
         </div>
-        <footer class="dialog__footer" part="footer">
-          <slot name="footer"></slot>
+        <footer class="dialog__footer" part="footer" ?hidden=${!this.hasFooter}>
+          <slot name="footer" @slotchange=${this.#onFooterChange}></slot>
         </footer>
       </dialog>
     `;
@@ -240,8 +252,8 @@ export abstract class DialogElement extends BaseElement {
       border-top: 1px solid var(--color-divider);
     }
 
-    /* An empty footer slot must not draw its border or claim its padding. */
-    .dialog__footer:not(:has(*)) {
+    /* An empty footer must not draw its border or claim its padding. */
+    .dialog__footer[hidden] {
       display: none;
     }
   `;

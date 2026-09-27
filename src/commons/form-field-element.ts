@@ -65,7 +65,9 @@ export abstract class FormFieldElement
   readonly fieldId = `app-field-${++nextId}`;
 
   @property({ type: String }) label = "";
-  @property({ type: String }) name = "";
+  /** Reflected: a form only reads a field's `name` attribute, so a `.name=`
+   * binding would otherwise leave the field out of `FormData`. */
+  @property({ type: String, reflect: true }) name = "";
   @property({ type: Boolean, reflect: true }) required = false;
   @property({ type: Boolean, reflect: true }) disabled = false;
   @property({ type: String, attribute: "help-text" }) helpText = "";

@@ -224,9 +224,13 @@ self.addEventListener("fetch", (event) => {
 
         // Anything the build did not know about (a lazily added asset) is worth
         // keeping, but only if it actually came back intact.
+        // Held open with `waitUntil`: a worker may be stopped once the
+        // response is handed over, and the write with it.
         if (response.ok && response.type === "basic") {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(request, response.clone());
+          const copy = response.clone();
+          event.waitUntil(
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)),
+          );
         }
 
         return response;
@@ -273,14 +277,16 @@ self.addEventListener("push", (event) => {
 /**
  * Opens the post a reminder is about — in the app window already open when
  * there is one, so a tap does not stack a second copy of the app.
+ *
+ * That window is asked to route there itself (`OPEN_PATH`, handled in
+ * `pwa/index.ts`) rather than being navigated: `client.navigate` reloads the
+ * whole app, and with it any entry half-typed in a sheet.
  */
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const postId = event.notification.data?.postId;
-  const url = new URL(
-    postId ? `${BASE}posts/${encodeURIComponent(postId)}` : BASE,
-    self.location.origin,
-  ).href;
+  const path = postId ? `/posts/${encodeURIComponent(postId)}` : "/";
+  const url = new URL(`${BASE}${path.slice(1)}`, self.location.origin).href;
 
   event.waitUntil(
     (async () => {
@@ -291,8 +297,20 @@ self.addEventListener("notificationclick", (event) => {
       const client = windows[0];
       if (!client) return self.clients.openWindow(url);
       await client.focus();
-      // `navigate` refuses a window this worker does not control yet.
-      return client.navigate(url).catch(() => self.clients.openWindow(url));
+      client.postMessage({ type: "OPEN_PATH", path });
     })(),
   );
+});
+
+/**
+ * The browser replaced this device's push subscription — an expired endpoint,
+ * typically. Subscribing again with the old one's options gives a new
+ * endpoint, which the app sends to the reminder server on its next sync
+ * (`pwa/push.ts`). Not every engine fires this; where one does not, the app's
+ * own sync at each launch is what keeps the server's copy current.
+ */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  const options = event.oldSubscription?.options;
+  if (!options) return;
+  event.waitUntil(self.registration.pushManager.subscribe(options));
 });

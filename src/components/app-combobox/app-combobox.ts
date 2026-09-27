@@ -22,8 +22,9 @@ export interface AppComboboxOption {
  * of a combobox over a select here — the Nom field on a `travail` event wants
  * both "pick one already used" and "name a new one" from one control.
  *
- * @fires combobox-change - `{ value: string }`. Listen for this, not the
- * native `input`, which is `composed: false` and never leaves the shadow root.
+ * @fires combobox-change - `{ value: string }`, the committed value: a picked
+ * or blur-resolved option's `value`, or the typed text. Listen for this rather
+ * than the native `input`, which carries every keystroke's raw text.
  */
 @customElement("app-combobox")
 export class AppCombobox extends FormFieldElement {
@@ -146,9 +147,8 @@ export class AppCombobox extends FormFieldElement {
   };
 
   #dispatchChange() {
-    // The native `input` is `composed: false`, so it stops at this shadow
-    // boundary and a consumer's `@input` never fires. Re-dispatched as a
-    // composed custom event, matching `select-change` / `checkbox-change`.
+    // The committed value, as `select-change` / `checkbox-change` carry theirs
+    // — not the keystroke-by-keystroke text the native `input` reports.
     this.dispatchEvent(
       new CustomEvent("combobox-change", {
         detail: { value: this.value },
@@ -198,7 +198,10 @@ export class AppCombobox extends FormFieldElement {
       const match =
         typed !== "" &&
         this.options.find((option) => foldText(option.label) === typed);
-      if (match) this.value = match.value;
+      if (match && match.value !== this.value) {
+        this.value = match.value;
+        this.#dispatchChange();
+      }
     }
     this.open = false;
     this.activeIndex = -1;

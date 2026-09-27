@@ -6,14 +6,13 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { customizeFormStyles } from "../../commons/customize-form.styles.ts";
 import { byOrder, type ResolvedCategory } from "../../data/categories.ts";
 
-import "../app-icon/app-icon.ts";
 import "../app-switch/app-switch.ts";
 
 export type CategoryToggleDetail = { id: string; enabled: boolean };
 
 /**
  * The Catégories tab of Personnaliser mon interface: every category, one row
- * each — its icon, its label and a switch.
+ * each — its label and a switch.
  *
  * Flat on purpose, children listed at the same level as their parent: a
  * parent's switch does not reach its children, so a tree would suggest a

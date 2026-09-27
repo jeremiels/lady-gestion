@@ -87,6 +87,34 @@ describe("the installed app", () => {
     await context.close();
   });
 
+  it("routes a tapped reminder in the open window, without reloading it", async () => {
+    const { context, page } = await installed();
+    // Gone if the page reloads.
+    await page.evaluate(() => {
+      (window as { stillHere?: boolean }).stillHere = true;
+    });
+
+    // What `notificationclick` sends once it has focused the window.
+    const [worker] = context.serviceWorkers();
+    await worker!.evaluate(async () => {
+      const scope = self as unknown as {
+        clients: {
+          matchAll(o: object): Promise<{ postMessage(m: unknown): void }[]>;
+        };
+      };
+      const [client] = await scope.clients.matchAll({ type: "window" });
+      client!.postMessage({ type: "OPEN_PATH", path: "/posts" });
+    });
+
+    await page.waitForSelector("posts-view");
+    expect(new URL(page.url()).pathname).toBe("/lady-gestion/posts");
+    expect(
+      await page.evaluate(() => (window as { stillHere?: boolean }).stillHere),
+    ).toBe(true);
+
+    await context.close();
+  });
+
   it("parks a new version until Actualiser, then swaps to it", async () => {
     const { context, page } = await installed();
     const [before] = await cacheNames(page);

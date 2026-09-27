@@ -5,7 +5,7 @@
  * somewhere as the result of an action — a back button, or landing somewhere
  * sensible after deleting the record the page was showing.
  */
-import { appHref, toAppPath } from "./base-path.ts";
+import { appHref, appPathOf } from "./base-path.ts";
 import { historyIndex, requestNavigate } from "./history-fallback.ts";
 
 /**
@@ -103,7 +103,7 @@ export const goBackOutOf = (
     if (!entry?.url) continue;
     const url = new URL(entry.url);
     if (url.origin !== location.origin) break;
-    if (!isInside(toAppPath(decodeURI(url.pathname)))) {
+    if (!isInside(appPathOf(url.pathname))) {
       navigation.traverseTo(entry.key);
       return;
     }

@@ -9,6 +9,7 @@ import {
   readForm,
   text,
   type ParseResult,
+  editableDecimal,
 } from "./forms.ts";
 
 /**
@@ -72,6 +73,17 @@ describe("required narrows the result type", () => {
 });
 
 describe("decimal", () => {
+  it("reads a French-grouped thousand, thin space included", () => {
+    expect(decimal()("1\u202f200")).toEqual({ ok: true, value: 1200 });
+    expect(decimal()("1 200,5")).toEqual({ ok: true, value: 1200.5 });
+  });
+
+  it("reads back exactly what editableDecimal writes", () => {
+    for (const value of [1.5, 1200, 0.12345, 1234.5678]) {
+      expect(decimal()(editableDecimal(value))).toEqual({ ok: true, value });
+    }
+  });
+
   it("accepts a French decimal comma", () => {
     // The bug this whole helper exists to prevent: `type="number"` would have
     // handed back an empty string here and the edit would vanish silently.

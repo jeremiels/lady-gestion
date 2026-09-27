@@ -417,7 +417,7 @@ export type MetaKey =
   /** **Not wired yet:** no Drive integration reads or writes either of these. */
   | "driveFolderId"
   | "googleAccount"
-  /** Written by the profile switch; **nothing consumes it** — no reminders yet. */
+  /** Written by the profile switch; off, `listReminders` sends no reminder. */
   | "notificationsEnabled"
   | "seededAt"
   | "seedRecordIds";

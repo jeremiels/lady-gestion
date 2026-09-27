@@ -168,6 +168,19 @@ describe("valueOf", () => {
     );
   });
 
+  it("stores a quantity past 999 in a form it can be edited back from", () => {
+    const quantity = field({
+      id: "quantity",
+      control: "number",
+      units: ["kg"],
+    });
+
+    const stored = valueOf(quantity, { quantity: 1200, "quantity-unit": "kg" });
+
+    expect(stored).toBe("1200 kg");
+    expect(splitUnitValue(stored)).toEqual({ amount: "1200", unit: "kg" });
+  });
+
   it("stores nothing for a half-filled units pair", () => {
     const quantity = field({ id: "quantity", control: "number", units: ["L"] });
 
