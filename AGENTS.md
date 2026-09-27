@@ -159,7 +159,7 @@ Three consequences worth stating out loud:
   every view now reads real data. The user's name and email live in the
   `profiles` table (schema v12), edited on `/profile/interface` (Profil tab)
   and read everywhere through `displayProfile()` (`data/account.ts`), which
-  falls back to the `ACCOUNT` constant until a row exists. Still a
+  falls back to a blank identity until a row exists. Still a
   **deliberate** mock: the masked password (nothing signs anyone in) and the
   "Se déconnecter"/"Supprimer mon compte" buttons, kept until Google sign-in
   lands.

@@ -66,13 +66,11 @@ export const exportBackup = async (): Promise<BackupSnapshot> => {
  * this device *seeded* and the user has never touched, when the file holds a
  * different version of it.
  *
- * Two tables seed rows independently on every install — the built-in
- * categories (`reconcileCategories`) and the profile (`seedProfileIfEmpty`),
- * both in `seed.ts`. On a new phone those stamps are newer than every edit in
- * the backup, so plain last-write-wins kept the fresh seed: a category switched
- * off came back on, the restored profile was shadowed by the placeholder, and
- * every seeded row stayed under the new install's owner while the rest of the
- * database adopted the file's. **An install is not a choice, and must not
+ * The built-in categories (`reconcileCategories` in `seed.ts`) are seeded
+ * independently on every install. On a new phone those stamps are newer than
+ * every edit in the backup, so plain last-write-wins kept the fresh seed: a
+ * category switched off came back on, and every seeded row stayed under the
+ * new install's owner while the rest of the database adopted the file's. **An install is not a choice, and must not
  * outvote one.**
  *
  * "Never touched" is `createdAt === updatedAt`, the same test
@@ -97,10 +95,6 @@ const YIELDS_TO_FILE: Partial<
   // theirs, and is merged on its stamps like any other row.
   categories: (local, incoming) =>
     (local as Category).isBuiltIn && untouchedSeed(local, incoming),
-  // The profile has no equivalent flag: the only row `seedProfileIfEmpty`
-  // ever writes is the seeded one, and the moment the user edits it on the
-  // Personnaliser page `touch` moves `updatedAt` and this stops applying.
-  profiles: untouchedSeed,
 };
 
 /**

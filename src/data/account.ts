@@ -1,20 +1,5 @@
 import type { UserProfile } from "./types.ts";
 
-/**
- * The identity shown until the user saves one of their own on the
- * Personnaliser mon interface page (the `profiles` table): blank, because this
- * constant ships in the bundle of a publicly deployed app and must never carry
- * a real name or address.
- *
- * A pure constant, not a repository, so importing it never pulls in `db.ts`
- * or the rest of the data layer.
- */
-export const ACCOUNT = {
-  firstName: "",
-  lastName: "",
-  email: "",
-} as const;
-
 export type DisplayProfile = {
   firstName: string;
   lastName: string;
@@ -22,9 +7,13 @@ export type DisplayProfile = {
 };
 
 /**
- * What the UI shows: the saved profile, or `ACCOUNT` when there is none yet
- * (including the tick before the query's first emission). The one place that
- * decides the fallback, so `ProfileView`, `HomeView` and the edit form agree.
+ * What the UI shows: the saved profile, or a blank identity when there is none
+ * yet (including the tick before the query's first emission). The one place
+ * that decides the fallback, so `ProfileView`, `HomeView` and the edit form
+ * agree.
+ *
+ * A pure function, not a repository, so importing it never pulls in `db.ts`
+ * or the rest of the data layer.
  */
 export const displayProfile = (
   profile: UserProfile | undefined,
@@ -35,4 +24,4 @@ export const displayProfile = (
         lastName: profile.lastName ?? "",
         email: profile.email,
       }
-    : { ...ACCOUNT };
+    : { firstName: "", lastName: "", email: "" };
