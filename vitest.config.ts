@@ -25,6 +25,20 @@ import { ICON_NAMES } from "./src/components/app-icon/icons.ts";
  * a browser API — internals, `<dialog>`, `matchMedia`, the Navigation API.
  * They are component code that happens not to sit in a component folder.
  */
+/**
+ * The engines the `components` project runs in: Chromium unless
+ * `VITEST_BROWSERS` names others (`webkit`, `chromium,webkit`). WebKit is the
+ * engine the app actually runs in, on the iPhone, but Playwright ships it only
+ * for recent Linux distributions — CI runs it as its own job (`webkit` in
+ * `.github/workflows/ci.yml`) rather than every local run needing it.
+ */
+const BROWSERS = (process.env.VITEST_BROWSERS ?? "chromium")
+  .split(",")
+  .map((name) => name.trim())
+  .filter((name): name is "chromium" | "webkit" | "firefox" =>
+    ["chromium", "webkit", "firefox"].includes(name),
+  );
+
 export default defineConfig({
   // This config replaces `vite.config.ts` rather than extending it, so the
   // sprite plugin has to be named again here: without it `/icons.svg` 404s and
@@ -104,7 +118,7 @@ export default defineConfig({
             enabled: true,
             provider: playwright(),
             headless: true,
-            instances: [{ browser: "chromium" }],
+            instances: BROWSERS.map((browser) => ({ browser })),
           },
         },
       },

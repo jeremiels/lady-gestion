@@ -265,7 +265,8 @@ Three consequences worth stating out loud:
   `vite build` — a lint error fails the build), `npm run typecheck`,
   `npm run lint` (oxlint), `npm test` (Vitest, both projects),
   `npm run test:data` / `npm run test:components` (one project),
-  `npm run test:watch`, `npm run preview`, `npm run icons`.
+  `npm run test:e2e` (the built app in Chromium: offline, service worker
+  update), `npm run test:watch`, `npm run preview`, `npm run icons`.
 - **TypeScript is strict**, including `noUncheckedIndexedAccess` and
   `exactOptionalPropertyTypes`. Two configs: `tsconfig.json` for `src`
   (browser types only) and `tsconfig.node.json` for `vite.config.ts` /
@@ -1098,6 +1099,11 @@ allow-discrete` (see `app-bottom-sheet` for animating a native
   Reach for these before adding an animation library or extra JS.
 - **Two Vitest projects, declared in `vitest.config.ts`.** `npm test` runs both;
   `npm run test:data` and `npm run test:components` run one.
+  `VITEST_BROWSERS=webkit` (or `chromium,webkit`) runs `components` in other
+  engines; CI's `webkit` job does, since Playwright ships no WebKit for older
+  Linux distributions. A third suite, `e2e/`, has its own config
+  (`vitest.e2e.config.ts`): it builds the app into a temporary directory,
+  serves it with `vite preview` and drives it with Playwright.
 - **`data`** (`src/data/**/*.test.ts`, node environment) is where a bug is
   permanent — a bad row in IndexedDB outlives every reload — and it is pure
   TypeScript with no DOM. Dexie runs against `fake-indexeddb`, installed by

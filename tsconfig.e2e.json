@@ -1,0 +1,12 @@
+{
+  /**
+   * The end-to-end suite: Node code that also writes the callbacks Playwright
+   * runs inside the page, hence both Node's and the DOM's types — kept out of
+   * `tsconfig.node.json` so build tooling does not see the DOM.
+   */
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"]
+  },
+  "include": ["vitest.e2e.config.ts", "e2e"]
+}

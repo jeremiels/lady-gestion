@@ -44,6 +44,11 @@ jobs:
       - name: Test
         run: npm test
 
+      # The built app in a browser: offline, and a service worker update.
+      # Builds into a temporary directory of its own; `dist/` is the next step's.
+      - name: End-to-end
+        run: npm run test:e2e
+
       - name: Build
         run: npm run build
 
@@ -54,6 +59,31 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+  # The component suite in WebKit — the iPhone's engine, which the `verify`
+  # job's Chromium is not. Its own job, and not one `deploy` waits on, until it
+  # has been seen green: a WebKit-only failure should be read, not block a
+  # deploy of everything else.
+  webkit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install browser
+        run: npx playwright install --with-deps webkit
+
+      - name: Test (WebKit)
+        run: npm run test:components
+        env:
+          VITEST_BROWSERS: webkit
 
   deploy:
     # Publishes the artifact `verify` produced, so the bytes that go live are
