@@ -4,6 +4,7 @@ import { ifDefined } from "lit/directives/if-defined.js";
 import { live } from "lit/directives/live.js";
 import { describedBy, fieldMessages } from "../../commons/field-parts.ts";
 import { FormFieldElement } from "../../commons/form-field-element.ts";
+import { foldText } from "../../data/text.ts";
 
 export interface AppComboboxOption {
   value: string;
@@ -93,30 +94,38 @@ export class AppCombobox extends FormFieldElement {
     );
   }
 
-  /** Options whose label contains what's typed so far, all of them when blank. */
+  /**
+   * The text the list is filtered on: what the box shows, never the submitted
+   * `value` — right after a pick that is an option's key (`baladeApied`),
+   * which matches no label and would read as text to add.
+   */
+  get #query(): string {
+    return this.#displayValue.trim();
+  }
+
+  /**
+   * Options whose label contains what's typed so far, ignoring case and
+   * accents — "carriere" finds "Carrière" — and all of them when blank.
+   */
   get #filteredOptions(): AppComboboxOption[] {
-    const search = this.value.trim().toLocaleLowerCase("fr-FR");
+    const search = foldText(this.#query);
     if (search === "") return this.options;
     return this.options.filter((option) =>
-      option.label.toLocaleLowerCase("fr-FR").includes(search),
+      foldText(option.label).includes(search),
     );
   }
 
   /**
    * Whether an "add «typed text»" row belongs at the end of the list — only
    * when there is something to add and it isn't just an existing option
-   * spelled back, case- and accent-insensitively (`sensitivity: "base"`), so
-   * typing "trotting" for the built-in `trotting` (labelled "Trotting")
-   * offers to select it rather than to duplicate it.
+   * spelled back (`foldText`), so typing "trotting" for the built-in
+   * `trotting` (labelled "Trotting") offers to select it rather than to
+   * duplicate it.
    */
   get #showCreateRow(): boolean {
-    const typed = this.value.trim();
+    const typed = foldText(this.#query);
     if (typed === "") return false;
-    return !this.options.some(
-      (option) =>
-        option.label.localeCompare(typed, "fr-FR", { sensitivity: "base" }) ===
-        0,
-    );
+    return !this.options.some((option) => foldText(option.label) === typed);
   }
 
   #onFocus = () => {
@@ -185,15 +194,10 @@ export class AppCombobox extends FormFieldElement {
     if (this.open && this.activeIndex >= 0) {
       this.#selectRow(this.activeIndex);
     } else {
-      const typed = this.value.trim();
+      const typed = foldText(this.value);
       const match =
         typed !== "" &&
-        this.options.find(
-          (option) =>
-            option.label.localeCompare(typed, "fr-FR", {
-              sensitivity: "base",
-            }) === 0,
-        );
+        this.options.find((option) => foldText(option.label) === typed);
       if (match) this.value = match.value;
     }
     this.open = false;
@@ -623,7 +627,7 @@ export class AppCombobox extends FormFieldElement {
                       @mousedown=${(event: Event) => event.preventDefault()}
                       @click=${() => this.#selectFreeText()}
                     >
-                      Ajouter « ${this.value.trim()} »
+                      Ajouter « ${this.#query} »
                     </li>
                   `
                 : nothing

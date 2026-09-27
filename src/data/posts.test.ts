@@ -257,17 +257,27 @@ describe("activityChoices", () => {
   it("skips a blank label rather than offering an unlabelled chip", () => {
     expect(activityChoices(["   "])).toHaveLength(9);
   });
+
+  it("drops a custom row whose label is a built-in's key", () => {
+    expect(activityChoices(["baladeApied"])).toEqual(activityChoices([]));
+  });
 });
 
 describe("matchActivity", () => {
   const choices = activityChoices(["Voltige"]);
 
   it("resolves a typed label to the chip already offering it", () => {
+    expect(matchActivity("Voltige", choices)).toBe("Voltige");
     expect(matchActivity("voltige", choices)).toBe("Voltige");
   });
 
   it("resolves a built-in by its label, not by its storage key", () => {
     expect(matchActivity("Balade à pied", choices)).toBe("baladeApied");
+  });
+
+  it("resolves a built-in's key, which is what the Nom combobox submits", () => {
+    expect(matchActivity("baladeApied", choices)).toBe("baladeApied");
+    expect(matchActivity("carriere", choices)).toBe("carriere");
   });
 
   it("answers null for a label nothing offers yet", () => {

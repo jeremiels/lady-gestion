@@ -8,6 +8,7 @@ import {
   type IsoDate,
 } from "./dates.ts";
 import type { FieldError } from "./forms.ts";
+import { foldText } from "./text.ts";
 import type { PostStatus, Category, Post } from "./types.ts";
 
 /**
@@ -125,21 +126,6 @@ export const formatWorkActivity = (activity: WorkActivity): string =>
   LABELS.get(activity) ?? activity;
 
 /**
- * What two labels are compared on when deciding whether they are the same
- * activity — surrounding space, case and accents removed.
- *
- * Accents included deliberately. The comparison exists to stop a second chip
- * appearing that reads the same as one already there, and on a phone keyboard
- * "liberte" and "Liberté" are the same word typed twice.
- */
-const activityKey = (label: string): string =>
-  label
-    .trim()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("fr-FR");
-
-/**
  * The built-ins and the given custom labels, alphabetically by their
  * displayed label — so a custom activity takes its place among the built-ins
  * rather than always trailing them, and the list stays scannable as it grows.
@@ -151,12 +137,13 @@ const activityKey = (label: string): string =>
 export const activityChoices = (custom: string[]): WorkActivity[] => {
   const choices: WorkActivity[] = [...WORK_ACTIVITIES];
   const seen = new Set(
-    choices.map((choice) => activityKey(formatWorkActivity(choice))),
+    choices.map((choice) => foldText(formatWorkActivity(choice))),
   );
 
   for (const label of custom) {
-    const key = activityKey(label);
-    if (key === "" || seen.has(key)) continue;
+    const key = foldText(label);
+    // A label that *is* a built-in key (`baladeApied`) reads as that built-in.
+    if (key === "" || seen.has(key) || LABELS.has(label)) continue;
     seen.add(key);
     choices.push(label);
   }
@@ -172,16 +159,22 @@ export const activityChoices = (custom: string[]): WorkActivity[] => {
  * The sheet's input and its chips must not be able to disagree: typing the name
  * of a chip already on screen has to select that chip, not write a second
  * activity that renders identically to it.
+ *
+ * A choice given as itself matches first: the Nom combobox submits a picked
+ * built-in's key (`baladeApied`), which no label reads as.
  */
 export const matchActivity = (
   label: string,
   choices: WorkActivity[],
 ): WorkActivity | null => {
-  const key = activityKey(label);
+  const exact = choices.find((choice) => choice === label);
+  if (exact !== undefined) return exact;
+
+  const key = foldText(label);
   if (key === "") return null;
 
   return (
-    choices.find((choice) => activityKey(formatWorkActivity(choice)) === key) ??
+    choices.find((choice) => foldText(formatWorkActivity(choice)) === key) ??
     null
   );
 };

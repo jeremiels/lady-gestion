@@ -321,6 +321,19 @@ describe("post-sheet — the travail layout", () => {
     });
   });
 
+  it("adds nothing to the catalogue when a built-in is picked", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "travail");
+    await pickActivity(el, "Balade à pied");
+
+    await submit(el);
+
+    expect(await savedPost()).toMatchObject({
+      customFields: { activity: "baladeApied" },
+    });
+    expect(await activitiesRepo.listByHorse(HORSE_ID)).toEqual([]);
+  });
+
   it("keeps the Nom suggestions to the built-ins, not the horse’s custom catalogue", async () => {
     await activitiesRepo.add({ horseId: HORSE_ID, label: "Voltige" });
 

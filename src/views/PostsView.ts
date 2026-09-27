@@ -22,6 +22,7 @@ import {
   rootOf,
   rootsOf,
   subtreeKeys,
+  foldText,
   todayISO,
   type IsoDate,
   type ResolvedCategory,
@@ -58,16 +59,6 @@ const VIEW_MODES: SegmentedOption[] = [
   { value: "calendar", icon: "date", label: "Vue calendrier" },
   { value: "list", icon: "list", label: "Vue liste" },
 ];
-
-/**
- * Folds accents and case so "controle" finds "Contrôle" — the whole point of a
- * search box on French copy.
- */
-const normalize = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
 
 @customElement("posts-view")
 export class PostsView extends LightElement {
@@ -136,7 +127,7 @@ export class PostsView extends LightElement {
     categoryFilter: string | null,
   ): Post[] {
     const { query } = this.#ui.value;
-    const needle = normalize(query.trim());
+    const needle = foldText(query);
 
     // A root chip covers its children too — `subtreeKeys` is a singleton for a
     // type with none, which is exactly the `event.categoryKey === categoryFilter` this
@@ -158,7 +149,7 @@ export class PostsView extends LightElement {
         event.location ?? "",
         findCategory(types, event.categoryKey)?.label ?? "",
       ].join(" ");
-      return normalize(haystack).includes(needle);
+      return foldText(haystack).includes(needle);
     });
   }
 
