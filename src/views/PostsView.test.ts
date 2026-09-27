@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
 import { addDays, addMonths, todayISO } from "../data/index.ts";
 import {
@@ -417,5 +417,25 @@ describe("posts-view", () => {
     await calendar.updateComplete;
     expect(calendar.spans).toHaveLength(1);
     expect(calendar.events).toHaveLength(0);
+  });
+});
+
+describe("posts-view — the day turning", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("moves the calendar's today with it", async () => {
+    const el = await mount();
+    const calendar = () => el.querySelector("app-calendar")!;
+    await waitFor(el, () => calendar() !== null);
+    const tomorrow = addDays(todayISO(), 1);
+
+    // Only the clock: IndexedDB and Lit still need their real timers. A
+    // resumed app learns the day from `visibilitychange`, as on the phone.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${tomorrow}T08:00:00`));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await settled(el);
+
+    expect(calendar().today).toBe(tomorrow);
   });
 });

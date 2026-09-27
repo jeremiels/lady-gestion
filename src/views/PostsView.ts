@@ -229,6 +229,7 @@ export class PostsView extends LightElement {
         .events=${calendarEvents}
         .spans=${spans}
         .value=${selected}
+        .today=${today}
         @date-select=${this.#onDateSelect}
       ></app-calendar>
 
@@ -373,6 +374,7 @@ export class PostsView extends LightElement {
    * stopped matching. `repeat()` moves the DOM instead.
    */
   #renderCards(events: Post[], types: ResolvedCategory[]) {
+    const today = this.#today.value;
     return html`
       <ul class="posts-view__list">
         ${repeat(
@@ -384,6 +386,7 @@ export class PostsView extends LightElement {
                 isCourse(event)
                   ? html`<course-card
                       .post=${event}
+                      .today=${today}
                       .category=${findCategory(types, event.categoryKey) ?? null}
                     ></course-card>`
                   : html`<post-card
