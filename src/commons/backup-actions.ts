@@ -1,7 +1,24 @@
 import { html, nothing, type ReactiveControllerHost } from "lit";
-import { downloadBackup, readBackupFile } from "../data/index.ts";
+import {
+  downloadBackup,
+  errorMessage,
+  readBackupFile,
+  type ExportOutcome,
+} from "../data/index.ts";
 
 type MessageKind = "status" | "error";
+
+/**
+ * What an export says it did — no more than it knows. Only the share sheet
+ * confirms a file was kept; a download is handed to the browser, which does
+ * not say.
+ */
+const EXPORT_MESSAGES: Record<ExportOutcome, string> = {
+  shared: "Sauvegarde enregistrée.",
+  downloaded:
+    "Fichier de sauvegarde proposé au téléchargement. Vérifiez qu’il a bien été enregistré.",
+  cancelled: "Export annulé : aucune sauvegarde n’a été enregistrée.",
+};
 
 /**
  * Export and restore, with the message each leaves on screen, for the two
@@ -38,10 +55,10 @@ export class BackupActions {
   }
 
   export = () =>
-    this.#run("Export impossible.", async () => {
-      await downloadBackup();
-      return "Sauvegarde téléchargée.";
-    });
+    this.#run(
+      "Export impossible.",
+      async () => EXPORT_MESSAGES[await downloadBackup()],
+    );
 
   /**
    * Opens the file picker and restores the file picked. A fresh input per
@@ -107,10 +124,7 @@ export class BackupActions {
     try {
       this.#message = { kind: "status", text: await action() };
     } catch (error: unknown) {
-      this.#message = {
-        kind: "error",
-        text: error instanceof Error ? error.message : fallback,
-      };
+      this.#message = { kind: "error", text: errorMessage(error, fallback) };
     }
     this.#host.requestUpdate();
   }

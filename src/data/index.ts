@@ -55,6 +55,8 @@ export * as rationsService from "./services/rations.service.ts";
 export * from "./live.ts";
 export * from "./active-horse.ts";
 export * from "./backup/snapshot.ts";
+export * from "./backup/export.ts";
+export * from "./backup/file.ts";
 
 export * from "./types.ts";
 export * from "./money.ts";
@@ -69,6 +71,7 @@ export * from "./budget.ts";
 export * from "./post-form.ts";
 export * from "./forms.ts";
 export * from "./text.ts";
+export * from "./errors.ts";
 export * from "./reminders.ts";
 
 let ready: Promise<void> | undefined;
@@ -92,6 +95,12 @@ export const initData = (): Promise<void> => {
   })();
   return ready;
 };
+
+/**
+ * Whether Dexie holds the database open — false after `initData()` failed at
+ * `db.open()`, which is what decides whether anything can still be written.
+ */
+export const isDatabaseOpen = (): boolean => db.isOpen();
 
 /**
  * Reports another tab or window sharing this database across a schema bump —

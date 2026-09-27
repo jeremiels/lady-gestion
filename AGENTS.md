@@ -200,7 +200,7 @@ Three consequences worth stating out loud:
 - **`Télécharger` on the event detail page is a deliberate mock**, like
   `ProfileView`'s account block: it means "download from the Drive", and Drive
   sync does not exist. The bytes _are_ local, so if it should instead save the
-  file from IndexedDB, `downloadBackup` in `backup/snapshot.ts` is the existing
+  file from IndexedDB, `downloadFile` in `backup/file.ts` is the existing
   anchor-plus-`download` pattern to copy.
 - **Every form goes through `readForm()` (`src/data/forms.ts`).** It takes a
   schema of field parsers (`text`, `decimal`, `cents`, `bool`, `oneOf`,
@@ -331,7 +331,8 @@ src/data/
   ready.ts             # gate opened when initData() settles — see below
   repositories/        # horses|posts|categories|documents|rations|meta.repo.ts
   services/            # write-side commands — posts|rations.service.ts
-  backup/snapshot.ts   # versioned export/import envelope
+  backup/              # snapshot.ts envelope + merge, export.ts reader,
+                       # file.ts share/download/parse, validate.ts, migrate.ts
   seed.ts              # first-run data, only when no horse exists
 ```
 

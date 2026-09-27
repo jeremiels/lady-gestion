@@ -10,6 +10,7 @@ import { Router } from "./commons/controllers/router.ts";
 import {
   horsesRepo,
   initData,
+  isDatabaseOpen,
   LiveQuery,
   liveQueriesSettled,
   watchDatabase,
@@ -556,13 +557,14 @@ export class AppRoot extends LightElement {
    * Shown instead of any view when `initData()` rejected.
    *
    * Carries its own export and restore because every route renders this
-   * screen, so the profile page's are out of reach. `initData()` can fail
-   * after `db.open()` succeeded — in `reconcileCategories`, say — and then the
-   * data is intact and the export still works; it is worth trying before
-   * anything else. `readBackupFile` opens its own transaction, so a restore
-   * can also be attempted over a database that would not initialise.
+   * screen, so the profile page's are out of reach. The export works whatever
+   * failed: `exportBackup` reads IndexedDB directly, not through Dexie. A
+   * restore writes through Dexie, so it is
+   * offered only when the database did open — `initData()` failing later, in
+   * `reconcileCategories` say — and otherwise disabled, with the reason.
    */
   private renderDataError() {
+    const canRestore = isDatabaseOpen();
     return html`
       <section class="data-error">
         <hgroup class="section-group">
@@ -604,11 +606,21 @@ export class AppRoot extends LightElement {
           <button
             class="data-error__button pressable"
             type="button"
+            ?disabled=${!canRestore}
+            aria-describedby=${canRestore ? nothing : "data-error-restore-hint"}
             @click=${this.#recovery.restore}
           >
             Restaurer un fichier
           </button>
         </div>
+        ${
+          canRestore
+            ? nothing
+            : html`<p class="data-error__hint" id="data-error-restore-hint">
+                La restauration a besoin du stockage local, qui ne s’ouvre pas
+                pour l’instant : exportez vos données, puis rechargez.
+              </p>`
+        }
         ${this.#recovery.renderMessage({
           region: "data-error__message-region",
           status: "data-error__status",

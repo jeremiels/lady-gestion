@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "./__tests__/factories.ts";
 import { db } from "./db.ts";
 import { seedIfEmpty } from "./seed.ts";
@@ -66,5 +66,17 @@ describe("seedIfEmpty — event types", () => {
     // And it must not have also reseeded the demo horse/events on top of the
     // one already there.
     expect(await db.horses.count()).toBe(1);
+  });
+});
+
+describe("seedIfEmpty — the demo", () => {
+  it("writes all of it or none of it", async () => {
+    vi.spyOn(db.documentBlobs, "put").mockRejectedValueOnce(new Error("full"));
+
+    await expect(seedIfEmpty()).rejects.toThrow();
+
+    expect(await db.horses.count()).toBe(0);
+    expect(await db.posts.count()).toBe(0);
+    expect(await db.meta.get("seedRecordIds")).toBeUndefined();
   });
 });

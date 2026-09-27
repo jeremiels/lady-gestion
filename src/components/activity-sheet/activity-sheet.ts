@@ -4,6 +4,7 @@ import { BaseElement } from "../../commons/base-element.ts";
 import {
   activeHorseQuery,
   activitiesRepo,
+  errorMessage,
   activityChoices,
   postsService,
   sessionHasDetails,
@@ -278,8 +279,7 @@ export class ActivitySheet extends BaseElement {
         existing: this.existing,
       });
     } catch (error: unknown) {
-      this.error =
-        error instanceof Error ? error.message : "Enregistrement impossible.";
+      this.error = errorMessage(error, "Enregistrement impossible.");
       return;
     }
 
@@ -303,8 +303,7 @@ export class ActivitySheet extends BaseElement {
     try {
       await postsService.deletePost(this.existing.id);
     } catch (error: unknown) {
-      this.error =
-        error instanceof Error ? error.message : "Suppression impossible.";
+      this.error = errorMessage(error, "Suppression impossible.");
       return;
     }
 

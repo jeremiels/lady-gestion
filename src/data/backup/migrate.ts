@@ -1,3 +1,4 @@
+import { UserFacingError } from "../errors.ts";
 import { SCHEMA_VERSION } from "../db.ts";
 import { ROW_STEPS } from "../migrations.ts";
 
@@ -48,7 +49,7 @@ export const migrateTables = (
   for (let version = from; version < SCHEMA_VERSION; version++) {
     const steps = ROW_STEPS[version];
     if (!steps) {
-      throw new Error(
+      throw new UserFacingError(
         `Sauvegarde créée par une version trop ancienne de l'application (schéma ${from} < ${SCHEMA_VERSION}).`,
       );
     }

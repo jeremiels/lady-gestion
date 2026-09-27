@@ -19,6 +19,7 @@ import {
   childrenOf,
   postsService,
   categoriesRepo,
+  errorMessage,
   fieldWithRole,
   findCategory,
   formatWorkActivity,
@@ -473,8 +474,7 @@ export class PostSheet extends BaseElement {
         await activitiesRepo.add({ horseId: horse.id, label: activity });
       }
     } catch (error: unknown) {
-      this.saveError =
-        error instanceof Error ? error.message : "Enregistrement impossible.";
+      this.saveError = errorMessage(error, "Enregistrement impossible.");
       return;
     }
 

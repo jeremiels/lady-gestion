@@ -4,7 +4,8 @@ import { seedIfEmpty } from "../seed.ts";
 import { seedCategories } from "../categories.ts";
 import type { Post } from "../types.ts";
 import { migrateTables } from "./migrate.ts";
-import { exportBackup, importBackup } from "./snapshot.ts";
+import { exportBackup } from "./export.ts";
+import { importBackup } from "./snapshot.ts";
 import { resetDatabase } from "./snapshot.fixtures.ts";
 
 /**

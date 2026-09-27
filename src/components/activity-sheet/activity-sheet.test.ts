@@ -282,7 +282,7 @@ describe("activity-sheet", () => {
       expect(el.renderRoot.querySelector("app-modal")!.open).toBe(false);
       expect(
         el.renderRoot.querySelector(".activity-sheet__error")!.textContent,
-      ).toContain("Disque plein");
+      ).toContain("Suppression impossible.");
       expect(el.open).toBe(true);
       expect(await sessionOn(DATE)).not.toBeNull();
     });

@@ -8,7 +8,9 @@ import { seedIfEmpty } from "../seed.ts";
 import * as profileRepo from "../repositories/profile.repo.ts";
 import type { Category, Post, UserProfile } from "../types.ts";
 import { migrateTables, type MigratingTables } from "./migrate.ts";
-import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
+import { exportBackup } from "./export.ts";
+import { downloadBackup } from "./file.ts";
+import { importBackup, type BackupSnapshot } from "./snapshot.ts";
 import {
   categoryRows,
   horse,
@@ -722,5 +724,124 @@ describe("importBackup — a v13 file", () => {
       lastName: "Coupe Chêne",
       updatedAt: v13.updatedAt,
     });
+  });
+});
+
+describe("downloadBackup — the share sheet", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const stubShare = (share: () => Promise<void>) => {
+    const shared: File[] = [];
+    vi.stubGlobal("navigator", {
+      canShare: () => true,
+      share: async ({ files }: { files: File[] }) => {
+        shared.push(...files);
+        await share();
+      },
+    });
+    return shared;
+  };
+
+  it("stamps the backup only once the sheet confirms the file went somewhere", async () => {
+    stubShare(async () => {});
+
+    expect(await downloadBackup()).toBe("shared");
+    expect(await db.meta.get("lastBackupAt")).toBeDefined();
+  });
+
+  it("leaves the last backup as it was when the sheet is dismissed", async () => {
+    stubShare(async () => {
+      throw new DOMException("dismissed", "AbortError");
+    });
+
+    expect(await downloadBackup()).toBe("cancelled");
+    expect(await db.meta.get("lastBackupAt")).toBeUndefined();
+  });
+
+  it("still hands over a file when Dexie cannot open the database", async () => {
+    await db.horses.put(horse());
+    const shared = stubShare(async () => {});
+    db.close();
+
+    expect(await downloadBackup()).toBe("shared");
+    const file = JSON.parse(await shared[0]!.text()) as BackupSnapshot;
+    expect(file.tables.horses.map((row) => row.id)).toEqual(["horse-1"]);
+  });
+});
+
+describe("exportBackup — Dexie closed", () => {
+  it("reads every table and the owner, as a file the restore takes back", async () => {
+    await db.horses.put(horse());
+    await db.posts.put(post());
+    db.close();
+
+    const raw = await exportBackup();
+
+    expect(raw.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(raw.ownerId).toBe(LOCAL_OWNER);
+    expect(raw.tables.posts.map((row) => row.id)).toEqual(["event-1"]);
+
+    await resetDatabase();
+    await importBackup(raw);
+    expect(await db.horses.count()).toBe(1);
+    expect(await db.posts.count()).toBe(1);
+  });
+});
+
+describe("importBackup — the demo seed", () => {
+  const foreignFile = () =>
+    snapshot({ tables: { horses: [horse({ id: "other-horse" })] } });
+
+  it("clears an untouched demo on a fresh install, so there is one horse", async () => {
+    await seedIfEmpty();
+
+    await importBackup(foreignFile());
+
+    expect((await db.horses.toArray()).map((row) => row.id)).toEqual([
+      "other-horse",
+    ]);
+  });
+
+  it("keeps a demo horse the user has filled, and forgets the seed markers", async () => {
+    await seedIfEmpty();
+    const [demo] = await db.horses.toArray();
+    // The card never edited, so still `createdAt === updatedAt` — but a post
+    // of the user's own hangs off it.
+    await db.posts.put(post({ id: "mine", horseId: demo!.id }));
+
+    await importBackup(foreignFile());
+
+    expect(await db.horses.get(demo!.id)).toBeDefined();
+    expect(await db.meta.get("seedRecordIds")).toBeUndefined();
+  });
+});
+
+describe("importBackup — rows a read path would break on", () => {
+  it.each<[string, Partial<Post>]>([
+    ["a date that is not YYYY-MM-DD", { date: "15/10/2026" }],
+    ["a currency Intl cannot format", { currency: "EURO" }],
+  ])("refuses %s, writing nothing", async (_, over) => {
+    const file = snapshot({ tables: { posts: [post(over)] } });
+
+    await expect(importBackup(file)).rejects.toThrow(/Sauvegarde illisible/);
+    expect(await db.posts.count()).toBe(0);
+  });
+
+  it("refuses a row without deletedAt, which no view would ever show", async () => {
+    const { deletedAt: _, ...row } = post();
+    // Deliberately outside the type: this is the hand-edited file.
+    const file = snapshot({ tables: { posts: [row as Post] } });
+
+    await expect(importBackup(file)).rejects.toThrow(/champ « deletedAt »/);
+  });
+
+  it("refuses a ration season outside the twelve months", async () => {
+    const file = snapshot({
+      tables: {
+        rationItems: [ration({ season: { from: 13, to: 2 } as never })],
+      },
+    });
+
+    await expect(importBackup(file)).rejects.toThrow(/champ « season »/);
   });
 });

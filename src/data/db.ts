@@ -139,6 +139,11 @@ export const RECORD_TABLES = {
 
 export type RecordTableName = keyof typeof RECORD_TABLES;
 
+/** `RECORD_TABLES`' names, as the one list everything iterating them reads. */
+export const RECORD_TABLE_NAMES = Object.keys(
+  RECORD_TABLES,
+) as RecordTableName[];
+
 /** `{ horses: Horse[], posts: Post[], … }`, derived rather than restated. */
 export type BackupTables = {
   [K in RecordTableName]: (typeof RECORD_TABLES)[K] extends Table<

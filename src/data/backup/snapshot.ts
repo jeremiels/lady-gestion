@@ -1,16 +1,17 @@
 import {
   RECORD_TABLES,
+  RECORD_TABLE_NAMES,
   SCHEMA_VERSION,
   db,
   type BackupTables,
   type RecordTableName,
 } from "../db.ts";
-import { nowISO, type IsoTimestamp } from "../dates.ts";
+import type { IsoTimestamp } from "../dates.ts";
 import { newerOf } from "../record.ts";
-import { getOwnerId, setOwnerId } from "../owner.ts";
-import * as metaRepo from "../repositories/meta.repo.ts";
+import { setOwnerId } from "../owner.ts";
 import { clearUntouchedSeedData, reconcileCategories } from "../seed.ts";
 import { migrateTables, type MigratingTables } from "./migrate.ts";
+import { assertRows, assertSnapshot } from "./validate.ts";
 import type { BaseRecord, Category } from "../types.ts";
 
 /**
@@ -36,29 +37,9 @@ export type BackupSnapshot = {
   tables: BackupTables;
 };
 
-/** The tables a snapshot carries. One list, read by everything below. */
-const TABLE_NAMES = Object.keys(RECORD_TABLES) as RecordTableName[];
-
 export type ImportResult = {
   imported: number;
   skipped: number;
-};
-
-/** Reads every table, including soft-deleted rows — tombstones must survive. */
-export const exportBackup = async (): Promise<BackupSnapshot> => {
-  const rows = await Promise.all(
-    TABLE_NAMES.map((name) => RECORD_TABLES[name].toArray()),
-  );
-
-  return {
-    app: "lady-gestion",
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: nowISO(),
-    ownerId: getOwnerId(),
-    tables: Object.fromEntries(
-      TABLE_NAMES.map((name, index) => [name, rows[index]]),
-    ) as BackupTables,
-  };
 };
 
 /**
@@ -141,7 +122,7 @@ export const importBackup = async (
   const result = await db.transaction(
     "rw",
     [
-      ...TABLE_NAMES.map((name) => RECORD_TABLES[name]),
+      ...RECORD_TABLE_NAMES.map((name) => RECORD_TABLES[name]),
       db.documentBlobs,
       db.meta,
     ],
@@ -175,7 +156,7 @@ export const importBackup = async (
         }
       };
 
-      for (const name of TABLE_NAMES) {
+      for (const name of RECORD_TABLE_NAMES) {
         await merge<BaseRecord>(
           RECORD_TABLES[name],
           backup.tables[name],
@@ -218,257 +199,4 @@ export const importBackup = async (
   if (backup.ownerId) await setOwnerId(backup.ownerId);
 
   return result;
-};
-
-/**
- * How long the object URL is kept alive after the click. Revoking in the same
- * tick races the browser starting the download — the failure is a silently
- * empty or missing file, on the one action the user is relying on to not lose
- * their data.
- */
-const REVOKE_DELAY_MS = 1_000;
-
-/** Triggers a file download of the current snapshot. */
-export const downloadBackup = async (): Promise<void> => {
-  const snapshot = await exportBackup();
-  const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-
-  // The anchor has to be in the document: Firefox ignores `click()` on a
-  // detached one, so the export appears to do nothing at all.
-  const link = document.createElement("a");
-  link.href = url;
-  const exportedAt = new Date(snapshot.exportedAt);
-  const timestamp = [
-    exportedAt.getFullYear(),
-    exportedAt.getMonth() + 1,
-    exportedAt.getDate(),
-    exportedAt.getHours(),
-    exportedAt.getMinutes(),
-    exportedAt.getSeconds(),
-  ]
-    .map((part) => `${part}`.padStart(2, "0"))
-    .join("-");
-  link.download = `lady-gestion-${timestamp}.json`;
-  link.hidden = true;
-  document.body.append(link);
-  link.click();
-  link.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
-  await metaRepo.markBackedUp();
-};
-
-/** Parses a user-picked `.json` file and merges it. */
-export const readBackupFile = async (file: File): Promise<ImportResult> =>
-  importBackup(JSON.parse(await file.text()));
-
-/**
- * The two fields the merge actually reads. A row missing either would be
- * written to IndexedDB as an unaddressable or unresolvable record.
- *
- * Checked on the file as it arrives, before any migration, because these two
- * are the only fields whose name and meaning have never changed. Everything
- * else is checked after migration by `assertRows` — a pre-v13 file spells
- * `categoryKey` as `type`, so validating today's names against yesterday's
- * file would reject exactly the files the migration exists to rescue.
- */
-const isMergeableRow = (row: unknown): boolean =>
-  typeof row === "object" &&
-  row !== null &&
-  typeof (row as Partial<BaseRecord>).id === "string" &&
-  typeof (row as Partial<BaseRecord>).updatedAt === "string";
-
-const isString = (value: unknown): boolean => typeof value === "string";
-const isNumber = (value: unknown): boolean =>
-  typeof value === "number" && Number.isFinite(value);
-const isBoolean = (value: unknown): boolean => typeof value === "boolean";
-const isArray = (value: unknown): boolean => Array.isArray(value);
-const nullable =
-  (check: (value: unknown) => boolean) =>
-  (value: unknown): boolean =>
-    value === null || check(value);
-
-/**
- * `Post.customFields`, as a shape and nothing more.
- *
- * **Keys are deliberately not checked against the category's `fields`.** The
- * bag is open by design (`types.ts`), and a key no category declares any more
- * is not corruption — it is the user's data, stranded by a built-in that
- * dropped a field. There is one in the live database right now: two `cures`
- * posts carry a `duration` from a definition that predates
- * `courseFields()`. Validating keys would refuse that file on restore, which
- * is the precise opposite of what this function is for.
- *
- * What *is* checked is that every value survives a JSON round trip as a
- * scalar, because that is the promise `CustomFieldDef` makes to the backup
- * format, and a nested object here would come back from a file as something
- * no read path expects.
- */
-const isScalarBag = (value: unknown): boolean => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  return Object.values(value).every(
-    (entry) =>
-      entry === null ||
-      typeof entry === "string" ||
-      typeof entry === "number" ||
-      typeof entry === "boolean",
-  );
-};
-
-/**
- * What each table's rows must carry, beyond `id` and `updatedAt`.
- *
- * Only fields a read path would actually break on — this is a guard against a
- * corrupt or hand-edited file, not a schema re-declaration. Anything absent
- * from this table is passed through untouched, which is what keeps a field
- * added by a future build from making today's validator reject it.
- *
- * Derived from `RECORD_TABLES`' key set, so a table added there without a rule
- * here is a type error rather than a table that silently skips validation.
- */
-const ROW_RULES: Record<
-  RecordTableName,
-  Record<string, (value: unknown) => boolean>
-> = {
-  horses: {
-    firstName: isString,
-    lastName: nullable(isString),
-    sex: isString,
-  },
-  posts: {
-    horseId: isString,
-    categoryKey: isString,
-    title: isString,
-    date: isString,
-    status: isString,
-    currency: isString,
-    time: nullable(isString),
-    notes: nullable(isString),
-    location: nullable(isString),
-    customFields: isScalarBag,
-  },
-  documents: {
-    horseId: isString,
-    name: isString,
-    mimeType: isString,
-    size: isNumber,
-    category: isString,
-    postId: nullable(isString),
-  },
-  rationItems: {
-    horseId: isString,
-    label: isString,
-    quantity: isNumber,
-    unit: isString,
-  },
-  activities: { horseId: isString, label: isString },
-  categories: {
-    key: isString,
-    label: isString,
-    enabled: isBoolean,
-    order: isNumber,
-    fields: isArray,
-    parentId: nullable(isString),
-    isBuiltIn: isBoolean,
-  },
-  profiles: { firstName: isString, email: isString },
-};
-
-/**
- * Per-table validation, on the migrated tables — i.e. on today's field names —
- * and the one place that requires every table to be there: presence is a
- * property of the finished shape, which a file only has once migrated.
- *
- * Everything here goes straight into IndexedDB, where a bad row is permanent
- * and a `TypeError` at render is the first anyone hears of it. Validating at
- * the boundary is what lets the defensive guards further in — `resolveCatalogue`
- * for an unknown icon or theme, `THEME_KEYS` for a theme string — stay
- * belt-and-braces rather than the only thing standing between a hand-edited
- * file and a view that throws.
- *
- * A row is named by table and `id` in the message, because "la table posts
- * contient des enregistrements invalides" over 124 rows is not something a
- * user, or the person helping them, can act on.
- */
-const assertRows = (tables: MigratingTables): BackupTables => {
-  for (const name of TABLE_NAMES) {
-    const rows = tables[name];
-    if (!rows) {
-      throw new Error(
-        `Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`,
-      );
-    }
-
-    const rules = ROW_RULES[name];
-    for (const record of rows) {
-      for (const [field, check] of Object.entries(rules)) {
-        if (!check(record[field])) {
-          throw new Error(
-            `Sauvegarde illisible : la table « ${name} » contient un enregistrement invalide (${String(record.id)}, champ « ${field} »).`,
-          );
-        }
-      }
-    }
-  }
-  return tables as unknown as BackupTables;
-};
-
-/**
- * The envelope, and the one per-row check that predates every rename.
- *
- * Returns the file as it was written — **not** migrated. `importBackup` runs
- * `migrateTables` next and then `assertRows`; see `isMergeableRow` for why the
- * validation is split either side of that.
- */
-const assertSnapshot = (value: unknown): BackupSnapshot => {
-  const snapshot = value as Partial<BackupSnapshot> | null;
-
-  if (!snapshot || snapshot.app !== "lady-gestion") {
-    throw new Error("Ce fichier n'est pas une sauvegarde Ladympala.cc.");
-  }
-
-  if (typeof snapshot.schemaVersion !== "number" || !snapshot.tables) {
-    throw new Error("Sauvegarde illisible : en-tête manquant.");
-  }
-
-  // A newer file may contain fields this build does not understand; writing
-  // it would silently drop them on the next export.
-  if (snapshot.schemaVersion > SCHEMA_VERSION) {
-    throw new Error(
-      `Sauvegarde créée par une version plus récente de l'application (schéma ${snapshot.schemaVersion} > ${SCHEMA_VERSION}).`,
-    );
-  }
-
-  // How *old* a file may be is `migrate.ts`'s call, not this one's: it knows
-  // which versions it has a step for. This function's job is only to be sure
-  // there is something coherent to hand it.
-  const tables = snapshot.tables as Record<string, unknown>;
-
-  for (const name of TABLE_NAMES) {
-    const rows = tables[name];
-
-    // Whether a table may be missing is decided on the migrated tables, by
-    // `assertRows`: one a later schema introduces is absent from an older file
-    // until the step that introduces it supplies it.
-    if (rows === undefined) continue;
-
-    if (!Array.isArray(rows)) {
-      throw new Error(
-        `Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`,
-      );
-    }
-
-    if (!rows.every(isMergeableRow)) {
-      throw new Error(
-        `Sauvegarde illisible : la table « ${name} » contient des enregistrements invalides.`,
-      );
-    }
-  }
-
-  return snapshot as BackupSnapshot;
 };

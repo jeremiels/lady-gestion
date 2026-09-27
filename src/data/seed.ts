@@ -1,4 +1,4 @@
-import { RECORD_TABLES, db, type RecordTableName } from "./db.ts";
+import { RECORD_TABLES, RECORD_TABLE_NAMES, db } from "./db.ts";
 import { todayISO, toIsoDate, nowISO } from "./dates.ts";
 import { seedCategories } from "./categories.ts";
 import { followUpValue } from "./posts.ts";
@@ -131,10 +131,23 @@ const sameRow = (a: object, b: object): boolean =>
  * horse at all, so they can never overwrite real data or reappear after the
  * user deletes it. The event-type catalogue has its own gate — see
  * `reconcileCategories`.
+ *
+ * The demo is written in one transaction: a first launch cut short would
+ * otherwise leave a horse with half its rows and no `seedRecordIds`, so no
+ * restore could ever tell them apart from real data.
  */
 export const seedIfEmpty = async (): Promise<void> => {
   await reconcileCategories();
 
+  await db.transaction(
+    "rw",
+    [...Object.values(RECORD_TABLES), db.documentBlobs, db.meta],
+    seedDemo,
+  );
+};
+
+/** The demo horse and everything hung off it, on a database with no horse. */
+const seedDemo = async (): Promise<void> => {
   const count = await db.horses.count();
   if (count > 0) return;
 
@@ -215,12 +228,28 @@ export const seedIfEmpty = async (): Promise<void> => {
 };
 
 /**
- * Drops first-run demo rows the user never touched.
+ * The tables whose rows only the user writes, or the demo seed: every one but
+ * `categories`, whose built-ins every install seeds for itself, and
+ * `profiles`, which says who the user is rather than what they recorded.
+ */
+const USER_TABLES = RECORD_TABLE_NAMES.filter(
+  (name) => name !== "categories" && name !== "profiles",
+);
+
+/**
+ * Drops first-run demo rows the user never touched — **only on a database that
+ * holds nothing else**.
  *
  * Restoring a backup usually happens on a fresh install — which is exactly
  * when the seed has just run. Without this, the restore lands next to the
- * demo data and the user ends up with two Ladympalas. Rows that were edited
- * since being seeded are left alone: at that point they are real data.
+ * demo data and the user ends up with two horses.
+ *
+ * On a database already in use it deletes nothing and forgets
+ * `seedRecordIds`. A demo horse the user kept and filled with their own posts
+ * is still `createdAt === updatedAt` if its card was never edited; purging it
+ * on the restore of someone else's file would orphan every one of those posts
+ * and switch the app to the file's horse. Once a single row is the user's, the
+ * seed markers can only ever point at real data.
  *
  * Hard deletes on purpose. A tombstone here would propagate "this horse was
  * deleted" to every other device, and these rows never existed anywhere else.
@@ -229,14 +258,23 @@ export const clearUntouchedSeedData = async (): Promise<void> => {
   const ids = await metaRepo.get<string[]>("seedRecordIds");
   if (!ids?.length) return;
 
+  const seeded = new Set(ids);
+  const keys = await Promise.all(
+    USER_TABLES.map((name) => RECORD_TABLES[name].toCollection().primaryKeys()),
+  );
+  if (keys.flat().some((id) => !seeded.has(id))) {
+    await metaRepo.remove("seedRecordIds");
+    return;
+  }
+
   await db.transaction(
     "rw",
-    [...Object.values(RECORD_TABLES), db.documentBlobs],
+    [...USER_TABLES.map((name) => RECORD_TABLES[name]), db.documentBlobs],
     async () => {
-      // Driven by `RECORD_TABLES` rather than a fourth hand-written list of the
-      // same four tables: an unlisted table's demo rows would survive the very
-      // restore this exists to make room for, and nothing would say so.
-      for (const name of Object.keys(RECORD_TABLES) as RecordTableName[]) {
+      // `USER_TABLES`, derived rather than hand-written: an unlisted table's
+      // demo rows would survive the very restore this exists to make room for,
+      // and nothing would say so.
+      for (const name of USER_TABLES) {
         const table = RECORD_TABLES[name];
         for (const id of ids) {
           const row = await table.get(id);
