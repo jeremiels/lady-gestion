@@ -118,11 +118,12 @@ export const importBackup = async (
   const envelope = assertSnapshot(snapshot);
   // Migrate first, validate the rows second: the tables only have today's
   // field names once `migrateTables` has run.
-  const tables = migrateTables(
-    envelope.tables as unknown as MigratingTables,
-    envelope.schemaVersion,
+  const tables = assertRows(
+    migrateTables(
+      envelope.tables as unknown as MigratingTables,
+      envelope.schemaVersion,
+    ),
   );
-  assertRows(tables);
   const backup: BackupSnapshot = {
     ...envelope,
     schemaVersion: SCHEMA_VERSION,
@@ -385,7 +386,9 @@ const ROW_RULES: Record<
 };
 
 /**
- * Per-table validation, on the migrated tables — i.e. on today's field names.
+ * Per-table validation, on the migrated tables — i.e. on today's field names —
+ * and the one place that requires every table to be there: presence is a
+ * property of the finished shape, which a file only has once migrated.
  *
  * Everything here goes straight into IndexedDB, where a bad row is permanent
  * and a `TypeError` at render is the first anyone hears of it. Validating at
@@ -398,11 +401,17 @@ const ROW_RULES: Record<
  * contient des enregistrements invalides" over 124 rows is not something a
  * user, or the person helping them, can act on.
  */
-const assertRows = (tables: BackupTables): void => {
+const assertRows = (tables: MigratingTables): BackupTables => {
   for (const name of TABLE_NAMES) {
+    const rows = tables[name];
+    if (!rows) {
+      throw new Error(
+        `Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`,
+      );
+    }
+
     const rules = ROW_RULES[name];
-    for (const row of tables[name]) {
-      const record = row as unknown as Record<string, unknown>;
+    for (const record of rows) {
       for (const [field, check] of Object.entries(rules)) {
         if (!check(record[field])) {
           throw new Error(
@@ -412,6 +421,7 @@ const assertRows = (tables: BackupTables): void => {
       }
     }
   }
+  return tables as unknown as BackupTables;
 };
 
 /**
@@ -448,13 +458,10 @@ const assertSnapshot = (value: unknown): BackupSnapshot => {
   for (const name of TABLE_NAMES) {
     const rows = tables[name];
 
-    // A table introduced by a later schema is simply absent from an older
-    // file, and that is not corruption — the migration step that introduces it
-    // is what supplies it. Only a file already at the current version is
-    // required to carry every table. Without this, adding a table to
-    // `RECORD_TABLES` silently makes every backup ever exported unrestorable,
-    // on the one feature that exists to stop data being lost.
-    if (rows === undefined && snapshot.schemaVersion < SCHEMA_VERSION) continue;
+    // Whether a table may be missing is decided on the migrated tables, by
+    // `assertRows`: one a later schema introduces is absent from an older file
+    // until the step that introduces it supplies it.
+    if (rows === undefined) continue;
 
     if (!Array.isArray(rows)) {
       throw new Error(

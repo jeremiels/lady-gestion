@@ -1,4 +1,4 @@
-import { SCHEMA_VERSION, type BackupTables } from "../db.ts";
+import { SCHEMA_VERSION } from "../db.ts";
 import { horseRowToV14 } from "../migrations.ts";
 
 /**
@@ -34,10 +34,16 @@ import { horseRowToV14 } from "../migrations.ts";
 
 /**
  * The tables mid-walk. `BackupTables` states the *finished* shape, which a file
- * partway between two versions does not have — narrowed once, at the end.
- * Every row is an object: `assertSnapshot` checked that before any step runs.
+ * partway between two versions does not have — `assertRows` (`snapshot.ts`)
+ * narrows to it once the walk is done. Every row is an object: `assertSnapshot`
+ * checked that before any step runs. A table may be absent — one a later
+ * schema introduces is missing from an older file until the step that
+ * introduces it supplies it — and a step leaves an absent table absent, for
+ * `assertRows` to refuse.
  */
-export type MigratingTables = Record<string, Record<string, unknown>[]>;
+export type MigratingTables = Partial<
+  Record<string, Record<string, unknown>[]>
+>;
 
 /** Takes the tables at version `n`, returns them at version `n + 1`. */
 type MigrationStep = (tables: MigratingTables) => MigratingTables;
@@ -48,7 +54,7 @@ const STEPS: Partial<Record<number, MigrationStep>> = {
   // upgrade in `db.ts` writes.
   13: (tables) => ({
     ...tables,
-    horses: (tables.horses ?? []).map(horseRowToV14),
+    horses: tables.horses?.map(horseRowToV14),
   }),
 };
 
@@ -61,7 +67,7 @@ const STEPS: Partial<Record<number, MigrationStep>> = {
 export const migrateTables = (
   tables: MigratingTables,
   from: number,
-): BackupTables => {
+): MigratingTables => {
   let current = tables;
 
   for (let version = from; version < SCHEMA_VERSION; version++) {
@@ -74,5 +80,5 @@ export const migrateTables = (
     current = step(current);
   }
 
-  return current as unknown as BackupTables;
+  return current;
 };

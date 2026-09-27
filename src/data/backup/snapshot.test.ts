@@ -393,13 +393,24 @@ describe("importBackup — rejects bad input", () => {
   });
 
   it("still rejects a table missing from a current-version file", async () => {
-    // Every table is required: an older file, the only one that could
-    // legitimately lack a newer table, is refused before this is reached.
+    // Every table is required once the file is migrated, and no step
+    // supplies one to a file already at the current version.
     const { activities: _activities, ...incomplete } = snapshot().tables;
 
     await expect(
       importBackup({ ...snapshot(), tables: incomplete }),
     ).rejects.toThrow(/la table « activities » est absente/);
+  });
+
+  it("rejects an older file missing a table its own version had, writing nothing", async () => {
+    // v13 already had every table, so no step supplies a missing one: the
+    // file is incomplete, not old.
+    const { posts: _posts, ...incomplete } = snapshot().tables;
+
+    await expect(
+      importBackup({ ...snapshot(), schemaVersion: 13, tables: incomplete }),
+    ).rejects.toThrow(/la table « posts » est absente/);
+    expect(await db.horses.count()).toBe(0);
   });
 
   it("carries a current-version file's own categories rows through untouched", async () => {
@@ -551,7 +562,7 @@ describe("importBackup — a real v13 export", () => {
     const expected = migrateTables(
       structuredClone(REAL_V13_EXPORT.tables) as unknown as MigratingTables,
       REAL_V13_EXPORT.schemaVersion,
-    );
+    ) as unknown as BackupSnapshot["tables"];
     expect(exported.schemaVersion).toBe(SCHEMA_VERSION);
     expect(exported.ownerId).toBe(REAL_V13_EXPORT.ownerId);
     for (const name of REAL_V13_TABLES) {
