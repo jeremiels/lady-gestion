@@ -10,10 +10,12 @@
  * app-relative, and leaves one file to change if the app ever moves again.
  *
  * `import.meta.env.BASE_URL` is Vite's `base`, substituted at build time and
- * always carrying a trailing slash. It is `/` under `npm run dev` and under the
- * browser suite — `vitest.config.ts` is a separate config and deliberately does
- * not inherit `base` — which is why both keep working untouched: every function
- * here is the identity when the app is served from the root.
+ * always carrying a trailing slash. It is `/lady-gestion/` under `npm run dev`
+ * as in the deployed build, and `/` under the browser suite —
+ * `vitest.config.ts` is a separate config and deliberately does not inherit
+ * `base` — where every function here is the identity. That is why a missing
+ * prefix passes the suite: `*.deployed-base.test.ts` stub `BASE_URL` to catch
+ * it.
  */
 const BASE = import.meta.env.BASE_URL;
 

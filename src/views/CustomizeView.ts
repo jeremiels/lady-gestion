@@ -3,10 +3,11 @@ import { customElement, property, state } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
 import { Today } from "../commons/controllers/today.ts";
-import { navigateTo } from "../commons/navigation.ts";
+import { goBackOutOf } from "../commons/navigation.ts";
 import {
   CUSTOMIZE_TABS,
   customizeTabPath,
+  isCustomizePath,
   type CustomizeTab,
 } from "../commons/sections.ts";
 import {
@@ -50,10 +51,7 @@ import "../components/customize-ration/customize-ration.ts";
 import "../components/customize-categories/customize-categories.ts";
 import "../components/customize-horse/customize-horse.ts";
 
-/**
- * The parent page. Back goes there directly rather than through history:
- * switching tabs pushes entries, so `goBack` would walk back through the tabs.
- */
+/** Where Retour lands when nothing preceded the section — a cold deep link. */
 const PROFILE = "/profile";
 
 const PROFILE_SCHEMA = {
@@ -102,7 +100,10 @@ export class CustomizeView extends LightElement {
   /** Every category, switched off or not — the one list that shows both. */
   #categories = new LiveQuery(this, () => categoriesRepo.listResolved());
 
-  #goBack = () => navigateTo(appHref(PROFILE));
+  // Out of the whole section, like HorseView, rather than to a fixed link:
+  // every tab switch pushes an entry, and a pushed `/profile` would have
+  // Profil's own Retour step back into this page, endlessly.
+  #goBack = () => goBackOutOf(isCustomizePath, PROFILE);
 
   #onCategoryToggle = async (event: CustomEvent<CategoryToggleDetail>) => {
     await categoriesRepo.setEnabled(event.detail.id, event.detail.enabled);

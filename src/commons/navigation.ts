@@ -5,11 +5,13 @@
  * somewhere as the result of an action — a back button, or landing somewhere
  * sensible after deleting the record the page was showing.
  */
-import { toAppPath } from "./base-path.ts";
+import { appHref, toAppPath } from "./base-path.ts";
 import { historyIndex, requestNavigate } from "./history-fallback.ts";
 
 /**
- * Navigates to `path`.
+ * Navigates to `path`, an app path (`/posts`) like every path literal in the
+ * app — the deploy prefix is added here, not by the caller, so a URL written by
+ * a view never leaves the service worker's scope.
  *
  * `navigation` is optional — Safari before 26.2 and Firefox before 147 have no
  * Navigation API. There, `Router`'s history fallback claims this through
@@ -20,8 +22,8 @@ import { historyIndex, requestNavigate } from "./history-fallback.ts";
  * rather than failing.
  */
 export const navigateTo = (path: string): void => {
-  if ("navigation" in window) navigation.navigate(path);
-  else if (!requestNavigate(path)) location.href = path;
+  if ("navigation" in window) navigation.navigate(appHref(path));
+  else if (!requestNavigate(path)) location.href = appHref(path);
 };
 
 /**

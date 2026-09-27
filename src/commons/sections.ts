@@ -130,7 +130,7 @@ export const CUSTOMIZE_TABS = [
 
 export type CustomizeTab = (typeof CUSTOMIZE_TABS)[number]["id"];
 
-const isCustomizePath = (path: string): boolean =>
+export const isCustomizePath = (path: string): boolean =>
   isUnder(CUSTOMIZE_ROOT, path);
 
 /**
