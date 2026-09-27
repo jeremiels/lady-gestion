@@ -315,7 +315,7 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 ```
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
-  db.ts                # Dexie subclass + SCHEMA_VERSION (13), current stores only
+  db.ts                # Dexie subclass + SCHEMA_VERSION (14), current stores only
   types.ts             # BaseRecord, Horse, Post, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
@@ -484,18 +484,19 @@ src/data/
   `activity` is a `WorkActivity` key (`posts.ts`) — what was done in a
   `travail` session, from a closed list with French labels, `null` on every
   other type.
-- **`db.ts` declares only the current version (13).** The v1→v13 upgrade
-  chain and the matching backup-file migration were dropped on 2026-09-17,
-  once the one install in use was confirmed at v13 by a backup it exported
-  (history in git up to `b210ede`). A database below v13 can no longer be
-  upgraded, and `assertSnapshot` refuses any file whose `schemaVersion` is not
-  the current one — older with "version trop ancienne", newer with "version
-  plus récente".
+- **`db.ts` declares only the current version (14)**, with the one
+  `upgrade()` that brings a v13 device up to it (`Horse.name` split into
+  `firstName` + `lastName` by `horseRowToV14`, `data/migrations.ts`). A v13
+  backup file goes through the same function as `STEPS[13]` in
+  `backup/migrate.ts`.
+  Nothing below v13 is supported: such a database cannot be upgraded, and
+  `importBackup` refuses such a file with "version trop ancienne", and a newer
+  one with "version plus récente".
 - **Bumping `SCHEMA_VERSION` means deciding for both a device and a file**: a
   `this.version(n).upgrade()` in `db.ts` for databases already on a device, and
-  for backup files written at the previous version either a migration step in
-  `importBackup` (`backup/snapshot.ts`), before the merge, with
-  `assertSnapshot` relaxed to accept that version — or refusing them, as today.
+  for backup files written at the previous version either a step in `STEPS`
+  (`backup/migrate.ts`), which `importBackup` runs before the merge — or
+  refusing them.
   Merging an old file's rows unread is the one wrong answer: the current build
   silently misreads them. `db.test.ts` opens a database really written at the
   last version — keep its `V13_STORES` frozen, and add the new upgrade's test

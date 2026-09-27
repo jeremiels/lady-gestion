@@ -7,6 +7,7 @@ import { getOwnerId } from "../owner.ts";
 import { SEEDED_PROFILE_ID, seedIfEmpty } from "../seed.ts";
 import * as profileRepo from "../repositories/profile.repo.ts";
 import type { Category, Post, UserProfile } from "../types.ts";
+import { migrateTables, type MigratingTables } from "./migrate.ts";
 import { exportBackup, importBackup, type BackupSnapshot } from "./snapshot.ts";
 import {
   categoryRows,
@@ -63,12 +64,14 @@ describe("importBackup — merge semantics", () => {
     );
 
     expect(result).toEqual({ imported: 2, skipped: 0 });
-    expect(await db.horses.get("horse-1")).toMatchObject({ name: "Ladympala" });
+    expect(await db.horses.get("horse-1")).toMatchObject({
+      firstName: "Ladympala",
+    });
   });
 
   it("overwrites a local row when the snapshot is newer", async () => {
     await db.horses.put(
-      horse({ name: "Ancien nom", updatedAt: "2026-01-01T00:00:00.000Z" }),
+      horse({ firstName: "Ancien nom", updatedAt: "2026-01-01T00:00:00.000Z" }),
     );
 
     const result = await importBackup(
@@ -76,7 +79,7 @@ describe("importBackup — merge semantics", () => {
         tables: {
           horses: [
             horse({
-              name: "Nouveau nom",
+              firstName: "Nouveau nom",
               updatedAt: "2026-06-01T00:00:00.000Z",
             }),
           ],
@@ -86,13 +89,16 @@ describe("importBackup — merge semantics", () => {
 
     expect(result).toEqual({ imported: 1, skipped: 0 });
     expect(await db.horses.get("horse-1")).toMatchObject({
-      name: "Nouveau nom",
+      firstName: "Nouveau nom",
     });
   });
 
   it("keeps a newer local edit when restoring an older backup", async () => {
     await db.horses.put(
-      horse({ name: "Édité depuis", updatedAt: "2026-06-01T00:00:00.000Z" }),
+      horse({
+        firstName: "Édité depuis",
+        updatedAt: "2026-06-01T00:00:00.000Z",
+      }),
     );
 
     const result = await importBackup(
@@ -100,7 +106,7 @@ describe("importBackup — merge semantics", () => {
         tables: {
           horses: [
             horse({
-              name: "Vieille sauvegarde",
+              firstName: "Vieille sauvegarde",
               updatedAt: "2026-01-01T00:00:00.000Z",
             }),
           ],
@@ -110,7 +116,7 @@ describe("importBackup — merge semantics", () => {
 
     expect(result).toEqual({ imported: 0, skipped: 1 });
     expect(await db.horses.get("horse-1")).toMatchObject({
-      name: "Édité depuis",
+      firstName: "Édité depuis",
     });
   });
 
@@ -308,13 +314,11 @@ describe("importBackup — rejects bad input", () => {
   });
 
   it("rejects a backup written by an older build, writing nothing", async () => {
-    // No file below the current version is known to exist — the one install in
-    // use exports v13 and cannot go back — so `migrate.ts` registers no step
+    // No file below v13 is known to exist, so `migrate.ts` registers no step
     // to read one with. Refusing is right: merging rows this build misreads is
-    // the outcome that loses data. The seam is there for the *next* bump, when
-    // a v13 file will need a step to reach v14.
+    // the outcome that loses data.
     const old = snapshot({
-      schemaVersion: SCHEMA_VERSION - 1,
+      schemaVersion: 12,
       tables: { horses: [horse()] },
     });
 
@@ -542,13 +546,17 @@ describe("importBackup — a real v13 export", () => {
 
     const exported = await exportBackup();
 
-    expect(exported.schemaVersion).toBe(REAL_V13_EXPORT.schemaVersion);
+    // The file brought to the current schema: its horse split into prénom and
+    // nom, every other row as it was.
+    const expected = migrateTables(
+      structuredClone(REAL_V13_EXPORT.tables) as unknown as MigratingTables,
+      REAL_V13_EXPORT.schemaVersion,
+    );
+    expect(exported.schemaVersion).toBe(SCHEMA_VERSION);
     expect(exported.ownerId).toBe(REAL_V13_EXPORT.ownerId);
     for (const name of REAL_V13_TABLES) {
       if (name === "categories") continue;
-      expect(byId(exported.tables[name])).toStrictEqual(
-        byId(REAL_V13_EXPORT.tables[name]),
-      );
+      expect(byId(exported.tables[name])).toStrictEqual(byId(expected[name]));
     }
     expect(byId(exported.tables.categories.map(decidedByFile))).toStrictEqual(
       byId(REAL_V13_EXPORT.tables.categories.map(decidedByFile)),
@@ -687,5 +695,27 @@ describe("importBackup — the seeded profile", () => {
 
     expect(await db.profiles.count()).toBe(1);
     expect((await profileRepo.get())?.id).toBe(SEEDED_PROFILE_ID);
+  });
+});
+
+describe("importBackup — a v13 file", () => {
+  it("splits the horse's name, leaving its stamps as they were", async () => {
+    const { firstName: _firstName, lastName: _lastName, ...v13 } = horse();
+    await importBackup(
+      snapshot({
+        schemaVersion: 13,
+        tables: {
+          horses: [{ ...v13, name: "Ladympala Coupe Chêne" } as never],
+        },
+      }),
+    );
+
+    const [restored] = await db.horses.toArray();
+    expect(restored).not.toHaveProperty("name");
+    expect(restored).toMatchObject({
+      firstName: "Ladympala",
+      lastName: "Coupe Chêne",
+      updatedAt: v13.updatedAt,
+    });
   });
 });

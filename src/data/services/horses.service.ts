@@ -12,6 +12,8 @@ import type { Horse, HorseSex, RecordPatch } from "../types.ts";
 
 /** The form's field names, read by `customize-horse`'s markup and the schema. */
 export const HORSE_FIELDS = {
+  firstName: "firstName",
+  lastName: "lastName",
   sex: "sex",
   birthDate: "birthDate",
   breed: "breed",
@@ -29,6 +31,8 @@ export const HORSE_SEXES: readonly HorseSex[] = ["jument", "hongre", "etalon"];
 export const HORSE_TEXT_MAX = 80;
 
 const SCHEMA = {
+  [HORSE_FIELDS.firstName]: text({ required: true, maxLength: HORSE_TEXT_MAX }),
+  [HORSE_FIELDS.lastName]: text({ maxLength: HORSE_TEXT_MAX }),
   [HORSE_FIELDS.sex]: oneOf(HORSE_SEXES, { required: true }),
   [HORSE_FIELDS.birthDate]: isoDate(),
   [HORSE_FIELDS.breed]: text({ maxLength: HORSE_TEXT_MAX }),

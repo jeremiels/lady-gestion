@@ -16,13 +16,13 @@ const seedHorses = (horses: Parameters<typeof makeHorse>[0][]) =>
   db.horses.bulkAdd(horses.map((over) => makeHorse(over)));
 
 describe("list", () => {
-  it("orders by name", async () => {
+  it("orders by prénom", async () => {
     await seedHorses([
-      { id: "b", name: "Zephyr" },
-      { id: "a", name: "Ladympala" },
+      { id: "b", firstName: "Zephyr" },
+      { id: "a", firstName: "Ladympala" },
     ]);
 
-    expect((await horsesRepo.list()).map((horse) => horse.name)).toEqual([
+    expect((await horsesRepo.list()).map((horse) => horse.firstName)).toEqual([
       "Ladympala",
       "Zephyr",
     ]);
@@ -30,8 +30,12 @@ describe("list", () => {
 
   it("excludes archived horses, which are not deleted", async () => {
     await seedHorses([
-      { id: "active", name: "A" },
-      { id: "archived", name: "B", archivedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "active", firstName: "A" },
+      {
+        id: "archived",
+        firstName: "B",
+        archivedAt: "2026-01-01T00:00:00.000Z",
+      },
     ]);
 
     expect((await horsesRepo.list()).map((horse) => horse.id)).toEqual([
@@ -41,8 +45,8 @@ describe("list", () => {
 
   it("excludes soft-deleted horses", async () => {
     await seedHorses([
-      { id: "live", name: "A" },
-      { id: "gone", name: "B", deletedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "live", firstName: "A" },
+      { id: "gone", firstName: "B", deletedAt: "2026-01-01T00:00:00.000Z" },
     ]);
 
     expect((await horsesRepo.list()).map((horse) => horse.id)).toEqual([
@@ -54,8 +58,8 @@ describe("list", () => {
 describe("getActive", () => {
   it("returns the horse named by activeHorseId", async () => {
     await seedHorses([
-      { id: "first", name: "A" },
-      { id: "chosen", name: "Z" },
+      { id: "first", firstName: "A" },
+      { id: "chosen", firstName: "Z" },
     ]);
     await horsesRepo.setActive("chosen");
 
@@ -64,8 +68,8 @@ describe("getActive", () => {
 
   it("falls back to the first horse when nothing has been chosen", async () => {
     await seedHorses([
-      { id: "b", name: "Zephyr" },
-      { id: "a", name: "Ladympala" },
+      { id: "b", firstName: "Zephyr" },
+      { id: "a", firstName: "Ladympala" },
     ]);
 
     expect((await horsesRepo.getActive())?.id).toBe("a");
@@ -75,8 +79,8 @@ describe("getActive", () => {
     // Otherwise deleting the active horse blanks every view until the user
     // works out that they have to pick another one — with no UI to do it.
     await seedHorses([
-      { id: "gone", name: "A", deletedAt: "2026-01-01T00:00:00.000Z" },
-      { id: "survivor", name: "B" },
+      { id: "gone", firstName: "A", deletedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "survivor", firstName: "B" },
     ]);
     await horsesRepo.setActive("gone");
 
@@ -84,7 +88,7 @@ describe("getActive", () => {
   });
 
   it("falls back when activeHorseId points at nothing at all", async () => {
-    await seedHorses([{ id: "survivor", name: "B" }]);
+    await seedHorses([{ id: "survivor", firstName: "B" }]);
     await horsesRepo.setActive("never-existed");
 
     expect((await horsesRepo.getActive())?.id).toBe("survivor");
@@ -100,7 +104,8 @@ describe("getActive", () => {
 describe("write path", () => {
   it("stamps a created horse", async () => {
     const created = await horsesRepo.create({
-      name: "Ladympala",
+      firstName: "Ladympala",
+      lastName: null,
       sex: "jument",
       birthDate: "2021-05-01",
       breed: null,
@@ -119,11 +124,13 @@ describe("write path", () => {
   it("cannot have identity fields rewritten through a patch", async () => {
     await seedHorses([{ id: HORSE_ID }]);
 
-    const updated = await horsesRepo.update(HORSE_ID, { name: "Renommée" });
+    const updated = await horsesRepo.update(HORSE_ID, {
+      firstName: "Renommée",
+    });
 
     expect(updated?.id).toBe(HORSE_ID);
     expect(updated?.createdAt).toBe("2026-01-01T00:00:00.000Z");
-    expect(updated?.name).toBe("Renommée");
+    expect(updated?.firstName).toBe("Renommée");
   });
 
   it("soft-deletes, keeping the row as a tombstone", async () => {

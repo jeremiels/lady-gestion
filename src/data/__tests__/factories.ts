@@ -36,7 +36,8 @@ const base = (id: string) => ({
 
 export const makeHorse = (over: Partial<Horse> = {}): Horse => ({
   ...base(HORSE_ID),
-  name: "Ladympala",
+  firstName: "Ladympala",
+  lastName: null,
   sex: "jument",
   birthDate: "2021-05-01",
   breed: null,

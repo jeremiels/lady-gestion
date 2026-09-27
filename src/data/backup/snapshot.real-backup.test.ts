@@ -3,6 +3,7 @@ import { db } from "../db.ts";
 import { seedIfEmpty } from "../seed.ts";
 import { seedCategories } from "../categories.ts";
 import type { Post } from "../types.ts";
+import { migrateTables } from "./migrate.ts";
 import { exportBackup, importBackup } from "./snapshot.ts";
 import { resetDatabase } from "./snapshot.fixtures.ts";
 
@@ -84,12 +85,18 @@ describe.skipIf(newest === undefined)(
       const snapshot = real();
       await importBackup(snapshot);
 
+      // What the file holds once brought to the current schema — the shape a
+      // restore writes and an export reads back.
+      const expected = migrateTables(
+        structuredClone(snapshot.tables),
+        snapshot.schemaVersion,
+      ) as unknown as Record<string, { id: string }[]>;
       const exported = await exportBackup();
       for (const table of Object.keys(snapshot.tables)) {
         expect(
           byId(exported.tables[table as keyof typeof exported.tables]),
           `table ${table} did not survive the round trip`,
-        ).toStrictEqual(byId(snapshot.tables[table]!));
+        ).toStrictEqual(byId(expected[table]!));
       }
     });
 

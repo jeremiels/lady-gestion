@@ -1,4 +1,5 @@
 import Dexie, { liveQuery, type Table } from "dexie";
+import { horseRowToV14 } from "./migrations.ts";
 import type {
   ActivityItem,
   DocumentBlob,
@@ -24,18 +25,16 @@ import type {
  * Bumped whenever the shape of a table changes. Written into backup files so
  * a restore can tell what it is reading; see `backup/snapshot.ts`.
  *
- * Only the current version is declared. v1 to v13 each had their own
- * `this.version(n).upgrade()` here; the chain was dropped on 2026-09-17, once
- * the one install in use was confirmed at v13 by a backup it exported, and the
- * history is in git up to b210ede. The cost is deliberate: a database still
- * below v13 can no longer be upgraded — Dexie deletes a store the declared
- * schema does not list, so it would open with `posts` and `categories` empty.
+ * Only the current version is declared, with the one `upgrade()` that brings
+ * a v13 device up to it. A database below v13 cannot be upgraded — Dexie
+ * deletes a store the declared schema does not list, so it would open with
+ * `posts` and `categories` empty. No install below v13 is in use.
  *
  * Bumping this means declaring the new version below with an `upgrade()` for
- * databases already on a device, and deciding what a backup file from the
- * previous version becomes in `backup/snapshot.ts`.
+ * databases already on a device, and a step in `backup/migrate.ts` for backup
+ * files written at the previous version.
  */
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -61,7 +60,7 @@ export const SCHEMA_VERSION = 13;
  * `profiles` holds one row in practice, so only the bookkeeping is indexed.
  */
 const STORES = {
-  horses: "id, name, updatedAt",
+  horses: "id, firstName, updatedAt",
   posts:
     "id, horseId, date, categoryKey, status, [horseId+date], [horseId+categoryKey], updatedAt",
   documents: "id, horseId, postId, category, [horseId+category], updatedAt",
@@ -87,7 +86,17 @@ export class LadyGestionDb extends Dexie {
   constructor() {
     super("lady-gestion");
 
-    this.version(SCHEMA_VERSION).stores(STORES);
+    // v13 -> v14: `Horse.name` split into `firstName` + `lastName`.
+    this.version(SCHEMA_VERSION)
+      .stores(STORES)
+      .upgrade((tx) =>
+        tx
+          .table("horses")
+          .toCollection()
+          .modify((row: Record<string, unknown>, ref) => {
+            ref.value = horseRowToV14(row);
+          }),
+      );
   }
 }
 

@@ -122,7 +122,9 @@ export class HomeView extends LightElement {
         <div class="home-view__header">
           <hgroup class="section-group">
             <h1 class="page-title" tabindex="-1">Tableau de bord</h1>
-            <p class="section-subtitle">Suivi de Ladympala</p>
+            <p class="section-subtitle">
+              ${this.#horse.value ? `Suivi de ${this.#horse.value.firstName}` : nothing}
+            </p>
           </hgroup>
           <a
             class="home-view__profile-link pressable"

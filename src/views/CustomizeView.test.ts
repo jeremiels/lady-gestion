@@ -256,6 +256,32 @@ describe("customize-view › cheval", () => {
     await waitFor(el, () => card(el).status === "Modifications enregistrées.");
     expect((await db.horses.get(HORSE_ID))?.coat).toBe("Bai cerise");
   });
+
+  it("edits the prénom and nom, and refuses a blank prénom", async () => {
+    const el = await mount("cheval");
+    await waitFor(
+      el,
+      () =>
+        control<HTMLInputElement>(el, "horse-firstName")?.value === "Ladympala",
+    );
+    expect(control<HTMLInputElement>(el, "horse-lastName").value).toBe("");
+
+    control<HTMLInputElement>(el, "horse-firstName").value = "";
+    card(el).renderRoot.querySelector("form")!.requestSubmit();
+    await flush(el);
+    await waitFor(el, () => card(el).errors.firstName !== undefined);
+
+    control<HTMLInputElement>(el, "horse-firstName").value = "Lady";
+    control<HTMLInputElement>(el, "horse-lastName").value = "Coupe Chêne";
+    card(el).renderRoot.querySelector("form")!.requestSubmit();
+    await flush(el);
+
+    await waitFor(el, () => card(el).status === "Modifications enregistrées.");
+    expect(await db.horses.get(HORSE_ID)).toMatchObject({
+      firstName: "Lady",
+      lastName: "Coupe Chêne",
+    });
+  });
 });
 
 describe("customize-view › categories", () => {

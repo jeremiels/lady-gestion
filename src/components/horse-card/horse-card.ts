@@ -4,6 +4,7 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { appHref } from "../../commons/base-path.ts";
 import { horsePath } from "../../commons/sections.ts";
 import { ageInYears, formatAge } from "../../data/dates.ts";
+import { horseFullName } from "../../data/horses.ts";
 import { HORSE_SEX_LABEL } from "../../types/horse.types.ts";
 import type { Horse } from "../../data/types.ts";
 
@@ -136,14 +137,14 @@ export class HorseCard extends BaseElement {
       <img
         class="horse-card__image"
         src="${imageUrl}"
-        alt="${horse.name}"
+        alt="${horseFullName(horse)}"
         width="1536"
         height="2304"
         fetchpriority="high"
       />
       <div class="horse-card__info">
         <div class="horse-card__info-left">
-          <h2 class="horse-card__info-title">${horse.name}</h2>
+          <h2 class="horse-card__info-title">${horseFullName(horse)}</h2>
           <div class="horse-card__info-meta horse-card__text-small">
             <span class="horse-card__text-small"
               >${HORSE_SEX_LABEL[horse.sex]}</span

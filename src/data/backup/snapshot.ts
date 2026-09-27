@@ -10,7 +10,7 @@ import { newerOf } from "../record.ts";
 import { getOwnerId, setOwnerId } from "../owner.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
 import { clearUntouchedSeedData, reconcileCategories } from "../seed.ts";
-import { migrateTables } from "./migrate.ts";
+import { migrateTables, type MigratingTables } from "./migrate.ts";
 import type { BaseRecord, Category } from "../types.ts";
 
 /**
@@ -119,7 +119,7 @@ export const importBackup = async (
   // Migrate first, validate the rows second: the tables only have today's
   // field names once `migrateTables` has run.
   const tables = migrateTables(
-    envelope.tables as unknown as Record<string, unknown[]>,
+    envelope.tables as unknown as MigratingTables,
     envelope.schemaVersion,
   );
   assertRows(tables);
@@ -340,7 +340,11 @@ const ROW_RULES: Record<
   RecordTableName,
   Record<string, (value: unknown) => boolean>
 > = {
-  horses: { name: isString, sex: isString },
+  horses: {
+    firstName: isString,
+    lastName: nullable(isString),
+    sex: isString,
+  },
   posts: {
     horseId: isString,
     categoryKey: isString,

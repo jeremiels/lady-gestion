@@ -48,7 +48,7 @@ export const liveQueriesSettled = async (
  *
  *       render() {
  *         const horse = this.#horse.value;
- *         return horse ? html`<h1>${horse.name}</h1>` : nothing;
+ *         return horse ? html`<h1>${horse.firstName}</h1>` : nothing;
  *       }
  *     }
  *

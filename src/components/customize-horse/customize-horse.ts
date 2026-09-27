@@ -115,6 +115,8 @@ export class CustomizeHorse extends BaseElement {
         <section class="section">
           <h2 class="title">Identité</h2>
           <ul class="list">
+            ${this.#renderText("firstName", "Prénom", horse)}
+            ${this.#renderText("lastName", "Nom", horse)}
             ${this.#renderSex(horse)} ${this.#renderAge()}
             ${this.#renderText("breed", "Race", horse)}
             ${this.#renderText("sireNumber", "N° Sire", horse, 20)}

@@ -41,8 +41,12 @@ const V13_STORES = {
   categories: "id, key, order, updatedAt",
 };
 
+/** A horse as v13 stored it: one `name`, split into two columns at v14. */
+const { firstName: _firstName, lastName: _lastName, ...v14Horse } = makeHorse();
+const V13_HORSE = { ...v14Horse, name: "Ladympala Coupe Chêne" };
+
 const rows = {
-  horses: [makeHorse()],
+  horses: [V13_HORSE],
   posts: [makePost({ id: "post-1", categoryKey: "veto" })],
   documents: [makeDocument({ id: "doc-1", postId: "post-1" })],
   rationItems: [makeRation()],
@@ -85,13 +89,31 @@ describe("opening a database a v13 device already holds", () => {
     expect([...db.backendDB().objectStoreNames].sort()).toEqual(
       Object.keys(V13_STORES).sort(),
     );
-    expect(await db.horses.toArray()).toEqual(rows.horses);
+    expect(await db.horses.toArray()).toEqual([
+      makeHorse({ firstName: "Ladympala", lastName: "Coupe Chêne" }),
+    ]);
     expect(await db.posts.toArray()).toEqual(rows.posts);
     expect(await db.documents.toArray()).toEqual(rows.documents);
     expect(await db.rationItems.toArray()).toEqual(rows.rationItems);
     expect(await db.categories.toArray()).toEqual(rows.categories);
     expect(await db.meta.toArray()).toEqual(rows.meta);
     expect(await db.documentBlobs.count()).toBe(1);
+  });
+
+  it("splits the horse's name without restamping the row", async () => {
+    await writeV13Database();
+
+    await db.open();
+
+    const [horse] = await db.horses.toArray();
+    expect(horse).not.toHaveProperty("name");
+    expect(horse).toMatchObject({
+      firstName: "Ladympala",
+      lastName: "Coupe Chêne",
+      updatedAt: V13_HORSE.updatedAt,
+    });
+    // `horsesRepo.list` orders by the index the upgrade builds.
+    expect(await db.horses.orderBy("firstName").count()).toBe(1);
   });
 
   it("still answers the compound index queries the repositories run", async () => {

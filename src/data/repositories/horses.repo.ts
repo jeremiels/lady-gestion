@@ -11,7 +11,7 @@ import type { Horse, NewRecord } from "../types.ts";
 export const { get, update, remove } = crud<Horse>(db.horses);
 
 export const list = async (): Promise<Horse[]> => {
-  const horses = await db.horses.orderBy("name").toArray();
+  const horses = await db.horses.orderBy("firstName").toArray();
   return liveOnly(horses).filter((horse) => horse.archivedAt === null);
 };
 

@@ -175,7 +175,8 @@ export const seedIfEmpty = async (): Promise<void> => {
   if (count > 0) return;
 
   const horse = await horsesRepo.create({
-    name: "Étoile",
+    firstName: "Étoile",
+    lastName: null,
     sex: "jument",
     // Placeholder giving the "5 ans" the view used to hardcode — correct it
     // from the identity form once the real date is to hand.

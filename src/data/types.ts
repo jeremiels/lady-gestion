@@ -40,7 +40,10 @@ export type RecordPatch<T extends BaseRecord> = Partial<
 export type HorseSex = "jument" | "hongre" | "etalon";
 
 export type Horse = BaseRecord & {
-  name: string;
+  /** Prénom — the name used day to day, e.g. "Ladympala". */
+  firstName: string;
+  /** Nom — the rest of the registered name, or `null` when there is none. */
+  lastName: string | null;
   sex: HorseSex;
   /**
    * Calendar date, `YYYY-MM-DD`. Age is always derived from this — never
