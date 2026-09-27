@@ -52,9 +52,9 @@ Three consequences worth stating out loud:
   **CSS anchor positioning** shipped by default in Firefox 147 and Safari 26,
   so the four `@supports (anchor-name: --sliding-selection)` blocks
   (`commons/sliding-selection.styles.ts`, `commons/segmented.styles.ts`,
-  `app-unit-select`, `app-calendar`) always match. *Both removals are pending —
+  `app-unit-select`, `app-calendar`) always match. _Both removals are pending —
   the floor moved first on purpose, so the deletion is a change that can be
-  reviewed on its own.* Until then, this is the one place in the codebase
+  reviewed on its own._ Until then, this is the one place in the codebase
   where a guard is knowingly kept past its floor; do not copy the pattern.
   `document.startViewTransition` and view-transition **types** stay guarded:
   they sit at or below the floor and are checked only because the two halves
@@ -139,7 +139,7 @@ Three consequences worth stating out loud:
 - **The bottom bar has four sections** — Accueil, Activités, Budget, Cheval,
   with the `+` between Activités and Budget — and `SECTIONS` in
   `commons/sections.ts` is the only table that says so. Each entry's `matches`
-  claims its own paths *and its drill-downs*, which have no item of their own
+  claims its own paths _and its drill-downs_, which have no item of their own
   and must not unlight the one they were opened from: `/posts/<id>` keeps
   Activités lit, `/horse/<id>/<tab>` keeps Cheval lit. The predicates must
   partition the paths — two claiming one path lights two items at once.
@@ -978,6 +978,7 @@ message }` for `fieldMessages()` and `describedBy()`.
     `contain: layout style` in `commons/sliding-selection.styles.ts`, where
     the travelling pill animates `inset` — layout, not compositing — and the
     containment is a stated boundary rather than a measured win.
+
   - **No shadow tokens exist** — components hardcode `box-shadow` inline; do the
     same unless you introduce one deliberately.
 - To restyle a shadow component from a view, prefer a **custom property**

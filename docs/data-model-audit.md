@@ -30,11 +30,11 @@ parce que ce dépôt est publié sur GitHub Pages, et ce fichier ne l'est pas.
 
 ## 0. Décisions déjà prises
 
-| | Décision | Raison |
-|---|---|---|
-| ✅ | **Plancher navigateur remonté** à Safari 26.2 / Chrome 143 / Firefox 147, et rendu effectif via `build.target` | voir §1 |
-| ❌ | **Garde de version au démarrage** (refuser d'ouvrir une base < v13) — *rejeté* | Une seule installation, confirmée en v13, migrations précédentes supprimées volontairement. Conservé ici pour que la question ne soit pas reposée, pas pour être refaite. |
-| ⏸️ | **Suppression des gardes devenues mortes** (API Navigation, ancrage CSS) — *reporté* | Le plancher a bougé en premier exprès ; la suppression sera un changement à part. `AGENTS.md` dit que c'est en attente, donc la doc ne ment pas entre-temps. |
+|     | Décision                                                                                                       | Raison                                                                                                                                                                    |
+| --- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅  | **Plancher navigateur remonté** à Safari 26.2 / Chrome 143 / Firefox 147, et rendu effectif via `build.target` | voir §1                                                                                                                                                                   |
+| ❌  | **Garde de version au démarrage** (refuser d'ouvrir une base < v13) — _rejeté_                                 | Une seule installation, confirmée en v13, migrations précédentes supprimées volontairement. Conservé ici pour que la question ne soit pas reposée, pas pour être refaite. |
+| ⏸️  | **Suppression des gardes devenues mortes** (API Navigation, ancrage CSS) — _reporté_                           | Le plancher a bougé en premier exprès ; la suppression sera un changement à part. `AGENTS.md` dit que c'est en attente, donc la doc ne ment pas entre-temps.              |
 
 ---
 
@@ -45,10 +45,9 @@ parce que ce dépôt est publié sur GitHub Pages, et ce fichier ne l'est pas.
 
 **Choix des numéros.** Règle retenue : « latest − 10 au maximum ».
 Chrome 153 − 10 = **143** (4 déc. 2025). Firefox : **147** (13 janv. 2026,
-latest − 9) plutôt que 146, parce que 147 livre *à la fois* l'API Navigation et
+latest − 9) plutôt que 146, parce que 147 livre _à la fois_ l'API Navigation et
 l'ancrage CSS — un cran de plus achète les deux seams. Safari : l'utilisatrice
-est sur iOS dernière version (Safari 27, 14 sept. 2026) ; **26.2** (12 déc.
-2025) est une marge délibérée en dessous, choisie parce que c'est là que l'API
+est sur iOS dernière version (Safari 27, 14 sept. 2026) ; **26.2** (12 déc. 2025) est une marge délibérée en dessous, choisie parce que c'est là que l'API
 Navigation atterrit. Les trois tombent entre le 4 décembre 2025 et le
 13 janvier 2026.
 
@@ -100,19 +99,19 @@ Navigation atterrit. Les trois tombent entre le 4 décembre 2025 et le
 
 `db.ts:63-74`, une seule version déclarée (v13). Aucun `autoIncrement` : toutes
 les clés sont des UUID v4 clients (`ids.ts`), sauf `categories` (dont l'`id`
-*est* le `key`, voir §5.2) et `meta`.
+_est_ le `key`, voir §5.2) et `meta`.
 
-| Store | keyPath | Index déclarés | Index **réellement** interrogés |
-|---|---|---|---|
-| `horses` | `id` | `name`, `updatedAt` | `name` (`orderBy`) |
-| `posts` | `id` | `horseId`, `date`, `categoryKey`, `status`, `[horseId+date]`, `[horseId+categoryKey]`, `updatedAt` | **`[horseId+date]` seul** |
-| `documents` | `id` | `horseId`, `postId`, `category`, `[horseId+category]`, `updatedAt` | `horseId`, `postId` |
-| `documentBlobs` | `documentId` | — | accès par clé |
-| `rationItems` | `id` | `horseId`, `[horseId+sortOrder]`, `updatedAt` | `[horseId+sortOrder]` |
-| `activities` | `id` | `horseId`, `updatedAt` | `horseId` |
-| `categories` | `id` | `key`, `order`, `updatedAt` | **aucun** (`toArray()`) |
-| `profiles` | `id` | `updatedAt` | **aucun** (`toArray()`) |
-| `meta` | `key` | — | accès par clé |
+| Store           | keyPath      | Index déclarés                                                                                     | Index **réellement** interrogés |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `horses`        | `id`         | `name`, `updatedAt`                                                                                | `name` (`orderBy`)              |
+| `posts`         | `id`         | `horseId`, `date`, `categoryKey`, `status`, `[horseId+date]`, `[horseId+categoryKey]`, `updatedAt` | **`[horseId+date]` seul**       |
+| `documents`     | `id`         | `horseId`, `postId`, `category`, `[horseId+category]`, `updatedAt`                                 | `horseId`, `postId`             |
+| `documentBlobs` | `documentId` | —                                                                                                  | accès par clé                   |
+| `rationItems`   | `id`         | `horseId`, `[horseId+sortOrder]`, `updatedAt`                                                      | `[horseId+sortOrder]`           |
+| `activities`    | `id`         | `horseId`, `updatedAt`                                                                             | `horseId`                       |
+| `categories`    | `id`         | `key`, `order`, `updatedAt`                                                                        | **aucun** (`toArray()`)         |
+| `profiles`      | `id`         | `updatedAt`                                                                                        | **aucun** (`toArray()`)         |
+| `meta`          | `key`        | —                                                                                                  | accès par clé                   |
 
 `BaseRecord` = `{ id, ownerId, createdAt, updatedAt, deletedAt }` sur les
 7 tables d'enregistrements. `documentBlobs` et `meta` en sont exemptées,
@@ -146,15 +145,15 @@ cette réparation).
 
 ### 2.3 Patterns d'accès réels
 
-| Vue | Requête | Volume lu (données réelles) |
-|---|---|---|
-| `PostsView` (liste + calendrier) | `listByHorse` → scan `[horseId+date]`, filtré en mémoire (recherche, chip, annulés) | **113 lignes à chaque fois** |
-| `BudgetView` | `listBudget` = même scan + `amountCents != null` ; période filtrée en mémoire | 95 |
-| `HomeView` | `listUpcoming` (range `today..∞`), `listByCategory(['cures','traitement'])`, `totalSpent(mois)` | 3 requêtes |
-| `week-strip` | `listInRange(lundi..dimanche)` | 0–7 |
-| `HorseView` | `listByCategory` + `rationItems[horseId+sortOrder]` | 4 + 5 |
-| `DocumentsView` | `documents.where(horseId)` puis comptage en mémoire | 1 |
-| Toutes | `categories.toArray()` puis résolution + tri en mémoire | 14 |
+| Vue                              | Requête                                                                                         | Volume lu (données réelles)  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------- |
+| `PostsView` (liste + calendrier) | `listByHorse` → scan `[horseId+date]`, filtré en mémoire (recherche, chip, annulés)             | **113 lignes à chaque fois** |
+| `BudgetView`                     | `listBudget` = même scan + `amountCents != null` ; période filtrée en mémoire                   | 95                           |
+| `HomeView`                       | `listUpcoming` (range `today..∞`), `listByCategory(['cures','traitement'])`, `totalSpent(mois)` | 3 requêtes                   |
+| `week-strip`                     | `listInRange(lundi..dimanche)`                                                                  | 0–7                          |
+| `HorseView`                      | `listByCategory` + `rationItems[horseId+sortOrder]`                                             | 4 + 5                        |
+| `DocumentsView`                  | `documents.where(horseId)` puis comptage en mémoire                                             | 1                            |
+| Toutes                           | `categories.toArray()` puis résolution + tri en mémoire                                         | 14                           |
 
 Le filtrage en mémoire est **correct et documenté** (`BudgetView.ts:82`) : une
 `liveQuery` ne se relance que sur écriture, donc une requête bornée par une
@@ -215,7 +214,7 @@ pas une erreur visible : l'UI ne peut pas distinguer « cure en cours sans date
 de fin » de « on a perdu la date de fin ».
 
 **Pourquoi c'est de la conception et pas un bug ponctuel.** Le sac est le bon
-endroit pour ce qui est *propre à une catégorie et purement affiché*. Mais
+endroit pour ce qui est _propre à une catégorie et purement affiché_. Mais
 `amountCents` décide de l'appartenance au budget et des totaux ; `endDate`
 décide **quels jours du calendrier une ligne occupe**. Tout le reste du schéma
 en dépend, et rien ne les garantit : `assertRows` (`snapshot.ts:318`) ne valide
@@ -224,12 +223,12 @@ peut retirer un champ d'une catégorie intégrée à chaque lancement, laissant 
 anciennes lignes orphelines — c'est exactement ce qui est arrivé à `duration` ;
 et aucun index ne peut être posé dessus.
 
-Corollaire du même défaut : `currency` est une *colonne* réelle alors que le
+Corollaire du même défaut : `currency` est une _colonne_ réelle alors que le
 montant qu'elle qualifie est dans le sac. Le couple est réparti sur deux
 mécanismes de stockage.
 
-**La règle à retenir :** *un champ sort du sac le jour où autre chose que son
-propre affichage en dépend.* Aujourd'hui elle vise exactement deux champs.
+**La règle à retenir :** _un champ sort du sac le jour où autre chose que son
+propre affichage en dépend._ Aujourd'hui elle vise exactement deux champs.
 `dosage`, `counterparty`, `quantity`, `competition`, `result` restent dans le
 sac. `followUp` aussi, et devra en sortir le jour où les rappels le liront pour
 calculer une date.
@@ -246,13 +245,13 @@ code, et §4.1 pour le renommage simultané en `cost`.
 **Effort M · Risque données (dormant) · à trancher AVANT de livrer l'upload**
 
 `db.ts:117-125` : `RECORD_TABLES` exclut `documentBlobs`. `snapshot.ts:24-27` :
-« Document *bytes* are not included — only metadata. »
+« Document _bytes_ are not included — only metadata. »
 
 **Vérifié** sur les deux fichiers réels : `tables` =
 `[horses, posts, documents, rationItems, activities, categories, profiles]`.
 Pas de `documentBlobs`, pas de `meta`.
 
-La *métadonnée* du document est restaurée, le fichier non. `getBlob()` renvoie
+La _métadonnée_ du document est restaurée, le fichier non. `getBlob()` renvoie
 `undefined`, le visualiseur n'a rien à afficher, et la ligne survit pour faire
 croire que le document est là. Aujourd'hui sans conséquence : un seul PDF de
 697 octets généré par `seed.ts`, et aucun chemin d'upload. C'est une mine
@@ -266,6 +265,7 @@ sauvegarde d'une intégration qui n'existe pas et n'a pas de date. Entre-temps,
 le seul mécanisme anti-perte de données perd des données.
 
 **Options, par ordre de préférence :**
+
 1. Inclure les blobs en base64 dans le snapshot avec un **plafond par fichier**
    (2 Mo p. ex.) et un compteur des fichiers exclus affiché à l'export.
    Attention : `JSON.stringify` sur 50 Mo de base64 fait sauter la mémoire d'un
@@ -282,7 +282,7 @@ le seul mécanisme anti-perte de données perd des données.
 
 `rations.service.ts:153` : `rationsRepo.update(ration.id, { label, quantity, unit, season })`.
 
-`rationItems` est une table d'*état courant*. Le jour où la véto demande « elle
+`rationItems` est une table d'_état courant_. Le jour où la véto demande « elle
 était à combien de vitamine E en mars ? », la réponse n'existe nulle part. Idem
 pour la posologie d'une cure (`customFields.dosage`) modifiée en cours de route.
 
@@ -302,8 +302,12 @@ déjà la ligne complète avec son `deletedAt`. Sur un changement **matériel**
 // changement de plan ; `sortOrder` n'en est pas un et reste un update.
 await rationsRepo.remove(ration.id);
 await rationsRepo.add({
-  horseId: ration.horseId, sortOrder: ration.sortOrder,
-  label, quantity, unit, season,
+  horseId: ration.horseId,
+  sortOrder: ration.sortOrder,
+  label,
+  quantity,
+  unit,
+  season,
 });
 ```
 
@@ -312,7 +316,7 @@ Non-régressions vérifiées : `reorder`/`updateMany` continuent d'écrire
 `createdAt === updatedAt` et `softDelete` déplace `updatedAt`, donc une ligne
 semée puis éditée reste protégée ; la fusion de sauvegarde est par `id`, et les
 deux lignes ont des `id` distincts, donc une restauration ramène le tombstone
-*et* la ligne courante.
+_et_ la ligne courante.
 
 Si tu veux plus tard afficher la frise, tu passeras à `validFrom`/`validTo`
 explicites — mais les données seront là, ce qui est tout l'enjeu.
@@ -327,7 +331,7 @@ explicites — mais les données seront là, ce qui est tout l'enjeu.
 `planned` : 6 `travail` (08, 11, 12, 13, 15, 17 sept.) et 1 `cours` (09 sept.,
 20,00 €).
 
-`status` mélange deux questions : *l'intention* (c'était prévu) et *le résultat*
+`status` mélange deux questions : _l'intention_ (c'était prévu) et _le résultat_
 (ça a eu lieu). Dérivé de la date à l'écriture, il ne répond correctement ni à
 l'une ni à l'autre et dérive sans correction. Ces 7 lignes comptent dans les
 séances de la semaine et dans le budget (`listBudget` n'exclut que `cancelled`)
@@ -381,6 +385,7 @@ remonte aucun cours.** Une seule ligne concernée, mais c'est l'exception qui
 invalide la règle que le commentaire pose.
 
 **Trois temps :**
+
 - **(a) maintenant, gratuit** — `cours` passe sur
   `counterpartyField("Coach", …)`. Une ligne à migrer (`coach` → `counterparty`).
 - **(b) maintenant, peu cher, le point important** — passer `counterpartyField`
@@ -389,7 +394,7 @@ invalide la règle que le commentaire pose.
   `activity` utilise déjà** (`suggestions: "activities"`, `types.ts:175`). Ça
   arrête la dérive sans toucher au schéma.
 - **(c) pas maintenant** — une table `contacts`. Elle ne devient rentable que
-  quand deux utilisatrices distinctes ont le même maréchal *et* qu'on veut leur
+  quand deux utilisatrices distinctes ont le même maréchal _et_ qu'on veut leur
   montrer quelque chose de commun. Et elle sera propre à faire plus tard **à
   condition d'avoir fait (b)** — sinon il faudra dédoublonner à la main sans
   savoir qui est qui.
@@ -458,7 +463,9 @@ commentaire de cette fonction identifie précisément comme le scénario à évi
 await db.transaction(
   "rw",
   [...Object.values(RECORD_TABLES), db.documentBlobs, db.meta],
-  async () => { /* le corps actuel */ },
+  async () => {
+    /* le corps actuel */
+  },
 );
 ```
 
@@ -523,10 +530,10 @@ alors que rien ne l'utilise : le test garantit un index, pas un besoin.
 **Une nuance à corriger dans le docblock** : il traite le null-dropping
 d'IndexedDB comme un danger uniforme (« Indexing them would silently hide every
 live row »). C'est juste pour `deletedAt` (indexer donnerait les lignes
-*supprimées*, on veut les vivantes) et **à l'envers** pour `amountCents`
-(indexer donnerait les lignes *qui ont un montant*, c'est-à-dire le grand livre
-du budget). Même mécanisme, verdict opposé. *(Je ne recommande pas de l'indexer
-pour autant : `[horseId+date]` borne déjà bien.)*
+_supprimées_, on veut les vivantes) et **à l'envers** pour `amountCents`
+(indexer donnerait les lignes _qui ont un montant_, c'est-à-dire le grand livre
+du budget). Même mécanisme, verdict opposé. _(Je ne recommande pas de l'indexer
+pour autant : `[horseId+date]` borne déjà bien.)_
 
 **À garder** : les 6 `updatedAt` (futur curseur de sync — et l'écrire dans le
 commentaire est la seule raison de les garder) et les 6 index réellement
@@ -534,19 +541,19 @@ utilisés.
 
 ### 3.3 🟡 Mineur
 
-| | Constat | Effort |
-|---|---|---|
-| **M1** ✅ | *Fait : `watchDatabase` et son écran dédié (`7ccbf8a`, 23/09).* **Pas de gestion `blocked` / `versionchange`.** Aucune occurrence dans `src/`. Deux onglets, l'un met à niveau → Dexie ferme la base de l'autre et toutes ses requêtes échouent ; `LiveQuery.error` n'est **jamais lue** après le démarrage (`AGENTS.md` le dit déjà). Si l'ancien onglet garde la base ouverte, le nouveau reste bloqué sans message. → `db.on("blocked")` → « Fermez les autres onglets » ; `db.on("versionchange")` → `db.close()` + « Rechargez ». L'écran `data-error` existe déjà (`app-root.ts:395`). | S |
-| **M2** | **`currency` par ligne, sans contrôle de cohérence.** Les 125 lignes sont en `EUR`, `sumCents` additionne sans vérifier. Une utilisatrice belge ou suisse ferait mélanger les devises en silence. La devise appartient plutôt au cheval (ou au compte) : une pension se paie dans une monnaie. La colonne existe déjà, donc peu cher à déplacer. | S |
-| **M3** ✅ | *Fait autrement que proposé (`71e38b3`) : `matchActivity` reconnaît d'abord la clé exacte que le combobox soumet, et `activityChoices` écarte une ligne dont le libellé est une clé intégrée. Les trois lignes déjà en base sont invisibles, pas supprimées.* **Doublon de chip « Balade à pied ».** `activities` contient une ligne dont le `label` est `"baladeApied"` — la *clé* d'une activité intégrée, pas un libellé. `formatWorkActivity` la formate en « Balade à pied », donc deux chips identiques. Cause : `activityChoices` (`posts.ts:144-160`) dédoublonne sur la clé normalisée du libellé **formaté** pour les intégrées (`"balade a pied"`) et du libellé **brut** pour les personnalisées (`"baladeapied"`). `matchActivity` a le même biais, donc retaper la même chose recréerait un doublon. → normaliser les deux côtés via `formatWorkActivity`. Cause racine : §4.2. | S |
-| **M4** | **Colonnes inatteignables.** `Post.time` est `null` sur les 113 lignes vivantes (les 4 qui en portaient une sont les posts de démo, tous supprimés) et aucune catégorie ne déclare de contrôle d'heure — `postFields` fait `time: existing?.time ?? null`. `Post.location` : `null` partout. `Post.recurrenceId` : `null` partout. `StoredDocument.driveFileId`/`driveSyncedAt` : écrits `null`, jamais lus. → garder `time`/`location`/`recurrenceId` (un calendrier en aura besoin, et `recurrenceId` est au cœur de §3.4) ; couper les deux colonnes Drive. | S |
-| **M5** | **Tombstones jamais purgés.** 12 posts supprimés sur 125, croissance sans borne. Sans conséquence avant des décennies, et la purge ne devient *sûre* qu'après la sync (il faut la dernière synchro du plus ancien appareil). À noter, pas à faire. | — |
-| **M6** 🟡 | *`ACCOUNT` vidé après confirmation de la ligne `profiles` sur l'appareil (`7496b9c`, `b27b41c`) ; les `defaultValue` des praticiens sont gardées exprès jusqu'au form builder.* **Données personnelles réelles dans le bundle.** `account.ts:19-23` porte un prénom, un nom et une adresse e-mail réels ; `categories.ts` porte deux `defaultValue` qui sont des noms de praticiens. Le commentaire d'`account.ts` prévoit déjà le retrait et `seedProfileIfEmpty` a fait le travail côté profil — mais les deux sauvegardes ont `profiles: []`, donc **vérifier sur l'appareil que la ligne existe avant de vider `ACCOUNT`**. Les deux `defaultValue` n'ont pas d'équivalent : à vider, en laissant le combobox de §3.2 S5(b) faire le travail. Pour une app publiquement déployée qui doit s'ouvrir, ce sont trois personnes identifiables livrées dans le JS de chaque visiteur. | S |
+|           | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Effort |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **M1** ✅ | _Fait : `watchDatabase` et son écran dédié (`7ccbf8a`, 23/09)._ **Pas de gestion `blocked` / `versionchange`.** Aucune occurrence dans `src/`. Deux onglets, l'un met à niveau → Dexie ferme la base de l'autre et toutes ses requêtes échouent ; `LiveQuery.error` n'est **jamais lue** après le démarrage (`AGENTS.md` le dit déjà). Si l'ancien onglet garde la base ouverte, le nouveau reste bloqué sans message. → `db.on("blocked")` → « Fermez les autres onglets » ; `db.on("versionchange")` → `db.close()` + « Rechargez ». L'écran `data-error` existe déjà (`app-root.ts:395`).                                                                                                                                                                                                                                                                                                  | S      |
+| **M2**    | **`currency` par ligne, sans contrôle de cohérence.** Les 125 lignes sont en `EUR`, `sumCents` additionne sans vérifier. Une utilisatrice belge ou suisse ferait mélanger les devises en silence. La devise appartient plutôt au cheval (ou au compte) : une pension se paie dans une monnaie. La colonne existe déjà, donc peu cher à déplacer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | S      |
+| **M3** ✅ | _Fait autrement que proposé (`71e38b3`) : `matchActivity` reconnaît d'abord la clé exacte que le combobox soumet, et `activityChoices` écarte une ligne dont le libellé est une clé intégrée. Les trois lignes déjà en base sont invisibles, pas supprimées._ **Doublon de chip « Balade à pied ».** `activities` contient une ligne dont le `label` est `"baladeApied"` — la _clé_ d'une activité intégrée, pas un libellé. `formatWorkActivity` la formate en « Balade à pied », donc deux chips identiques. Cause : `activityChoices` (`posts.ts:144-160`) dédoublonne sur la clé normalisée du libellé **formaté** pour les intégrées (`"balade a pied"`) et du libellé **brut** pour les personnalisées (`"baladeapied"`). `matchActivity` a le même biais, donc retaper la même chose recréerait un doublon. → normaliser les deux côtés via `formatWorkActivity`. Cause racine : §4.2. | S      |
+| **M4**    | **Colonnes inatteignables.** `Post.time` est `null` sur les 113 lignes vivantes (les 4 qui en portaient une sont les posts de démo, tous supprimés) et aucune catégorie ne déclare de contrôle d'heure — `postFields` fait `time: existing?.time ?? null`. `Post.location` : `null` partout. `Post.recurrenceId` : `null` partout. `StoredDocument.driveFileId`/`driveSyncedAt` : écrits `null`, jamais lus. → garder `time`/`location`/`recurrenceId` (un calendrier en aura besoin, et `recurrenceId` est au cœur de §3.4) ; couper les deux colonnes Drive.                                                                                                                                                                                                                                                                                                                                | S      |
+| **M5**    | **Tombstones jamais purgés.** 12 posts supprimés sur 125, croissance sans borne. Sans conséquence avant des décennies, et la purge ne devient _sûre_ qu'après la sync (il faut la dernière synchro du plus ancien appareil). À noter, pas à faire.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | —      |
+| **M6** 🟡 | _`ACCOUNT` vidé après confirmation de la ligne `profiles` sur l'appareil (`7496b9c`, `b27b41c`) ; les `defaultValue` des praticiens sont gardées exprès jusqu'au form builder._ **Données personnelles réelles dans le bundle.** `account.ts:19-23` porte un prénom, un nom et une adresse e-mail réels ; `categories.ts` porte deux `defaultValue` qui sont des noms de praticiens. Le commentaire d'`account.ts` prévoit déjà le retrait et `seedProfileIfEmpty` a fait le travail côté profil — mais les deux sauvegardes ont `profiles: []`, donc **vérifier sur l'appareil que la ligne existe avant de vider `ACCOUNT`**. Les deux `defaultValue` n'ont pas d'équivalent : à vider, en laissant le combobox de §3.2 S5(b) faire le travail. Pour une app publiquement déployée qui doit s'ouvrir, ce sont trois personnes identifiables livrées dans le JS de chaque visiteur.          | S      |
 
-*(Au passage, non corrigé parce que la copie d'interface n'est pas du ressort de
-cet audit : `counterpartyField("Practicien", …)` sur `dentiste` — « Praticien ».)*
+_(Au passage, non corrigé parce que la copie d'interface n'est pas du ressort de
+cet audit : `counterpartyField("Practicien", …)` sur `dentiste` — « Praticien ».)_
 
-### 3.4 Récurrence : occurrences matérialisées, et une règle qui les *génère*
+### 3.4 Récurrence : occurrences matérialisées, et une règle qui les _génère_
 
 **Mesuré** — 12 lignes `pension`, saisies à la main, `recurrenceId = null`
 partout :
@@ -560,8 +567,8 @@ partout :
 **Une `RRULE` expansée à la lecture ne peut pas représenter ces données** : le
 premier mois a un montant différent, le dernier une date différente. Il faudrait
 des lignes d'exception — et on est reparti sur des occurrences matérialisées, en
-plus de la règle. Deux autres raisons : le budget a besoin d'un montant *par
-occurrence* (c'est un grand livre, pas une prévision), et une occurrence
+plus de la règle. Deux autres raisons : le budget a besoin d'un montant _par
+occurrence_ (c'est un grand livre, pas une prévision), et une occurrence
 expansée n'a pas de ligne à indexer, donc elle sort de `[horseId+date]`.
 
 1. **Maintenant, zéro schéma** — un bouton « Répéter » qui clone la ligne avec
@@ -580,7 +587,7 @@ expansée n'a pas de ligne à indexer, donc elle sort de `[horseId+date]`.
 ## 4. Cohérence des noms
 
 Objectif : supprimer la dette des premières versions (POC/MVP), où le formulaire
-*était* le modèle. Deux catégories qui ne coûtent pas la même chose :
+_était_ le modèle. Deux catégories qui ne coûtent pas la même chose :
 
 - **Renommages de stockage** → une migration, à regrouper avec §6.
 - **Renommages de code** → aucune migration, validés entièrement par le
@@ -593,7 +600,7 @@ Objectif : supprimer la dette des premières versions (POC/MVP), où le formulai
 1. **C'est un id de champ de formulaire qui sert de clé de stockage.**
    `amountCents` vit simultanément dans `Category.fields[].id` (un identifiant
    de contrôle), dans `Post.customFields` (le stockage) et dans `budget.ts` (la
-   lecture métier). C'est *ça*, la dette MVP : à l'époque, le formulaire **était**
+   lecture métier). C'est _ça_, la dette MVP : à l'époque, le formulaire **était**
    le modèle. §3.1 S1 dit la même chose par l'autre bout — c'est le même
    changement.
 2. **`amount` est le mauvais mot métier.** Ce que ça contient, c'est ce que la
@@ -623,16 +630,16 @@ plus, mais ça sortirait du style du fichier.
 
 ### 4.2 Les autres
 
-| Prio | Constat | Type | Ampleur |
-|---|---|---|---|
-| 🔴 | **`sireNumber` / `sireName` ne parlent pas de la même chose.** `sireName`/`damName` sont une paire correcte (père/mère). `sireNumber` est le **numéro SIRE**, le registre national — **rien à voir avec le père**, homographe pur. Trois champs qui se ressemblent, dont deux forment une paire et le troisième est un faux ami posé entre les deux. C'est le champ que quelqu'un « rangera » un jour en `sire: { number, name }` en corrompant les données. → **`nationalId`**, avec le commentaire « numéro SIRE » conservé. | stockage | 16 occ. / 12 fich. |
-| 🟠 | **Trois noms pour une même chose le long du pipeline.** `Category.fields` → `PostInput.values` → `Post.customFields` : la définition, la réponse et le stockage de la même notion sous trois mots. Et « custom » est relatif à quoi ? Ce sont les champs déclarés par la catégorie. → `fields` → `answers` → `answers`. | stockage | 183 occ. / 33 fich. |
-| 🟠 | **`order` vs `sortOrder`.** `Category.order` et `RationItem.sortOrder` sont le même concept sous deux noms dans deux tables. `order` est en plus un mot réservé SQL, ce qui piquera au moment du backend. → `Category.order` → `sortOrder`. | stockage | faible |
-| 🟠 | **`counterparty`** — vocabulaire de finance pour « le véto / la boutique / le coach ». L'UI dit « Praticien », « Site », « Coach ». Un seul id pour trois libellés est le **bon** design ; c'est le mot qui est emprunté ailleurs. → **`contact`**, qui est ce que ça est et ce que s'appellera la table le jour où elle existera (§3.2 S5c). À faire dans la même migration que la fusion `coach` → `counterparty`, sinon le champ est migré deux fois. | stockage | 74 occ. / 13 fich. |
-| 🟡 | **Le même problème résolu deux fois, de deux façons.** `Event` et `Document` sont tous deux des globales DOM. Pour `Document`, le code a préfixé (`StoredDocument`). Pour `Event`, il a renommé le concept (`HorseEvent` → `Post`). Deux stratégies pour un problème identique, et `Post` a dérivé loin du domaine : l'UI dit « évènement » et « activité », le code dit « post », mot de CMS. **Recommandation : ne pas y toucher** — 258 occ. / 43 fichiers, le renommage a été payé il y a trois semaines (`56f2fca`, schéma v13), et le gain est purement lexical. *Ce qui ferait changer d'avis :* si ces 43 fichiers s'ouvrent de toute façon pour autre chose. Dans ce cas `Entry` / `entries` est le mot juste (registre *et* calendrier, pas de collision DOM) et `StoredDocument` devient `StoredEntry`, ou l'inverse — à trancher une fois. | code | 258 occ. / 43 fich. |
-| 🟡 | **`add` vs `create`.** Trois repositories créent avec `add` (`activities`, `categories`, `rations`), trois avec `create` (`horses`, `posts`, `documents`). Il y a peut-être une règle cachée (catalogue/enfant → `add`, entité → `create`) et elle n'est écrite nulle part ; sinon c'est de la dérive. → l'écrire dans `AGENTS.md`, ou prendre un mot. Même remarque pour `categoriesRepo.listAll` vs `horsesRepo.list`, qui sont la même chose. | code | faible |
-| 🟡 | **Le nœud « activité » — neuf noms pour un concept** : `ActivityItem`, `WorkActivity`, `BuiltInActivity`, `WORK_ACTIVITIES`, `activityChoices`, `matchActivity`, `formatWorkActivity`, `WorkSession`, `workSessionByDate`. Les deux qui font mal sont les premiers : `ActivityItem` est le *catalogue*, `WorkActivity` est la *valeur stockée*, et rien dans les noms ne le dit. → `ActivityItem` → `ActivityTag` (ou `ActivityChoice`). C'est aussi la cause racine de §3.3 M3 : une *clé* rangée comme un *libellé*, parce que `WorkActivity = BuiltInActivity \| (string & {})` fait cohabiter les deux sans moyen de les distinguer. | code | 15 + 47 occ. |
-| 🟡 | **Petits.** `BASE_FIELD_IDS = {title, date, notes}` ne veut pas dire « colonnes » (`horseId`, `status`, `currency`, `time`, `location` en sont aussi) mais « colonnes que le formulaire peut écrire » → `FORM_COLUMN_IDS`. Préfixes booléens de `Category` : `isBuiltIn`, `isAppointment`, `tracksWork`, `enabled` — quatre champs, trois conventions. `visible()` (posts.repo) / `enabledOf` / `hiddenKeys` (categories) : trois mots pour un filtre. | code | faible |
+| Prio | Constat                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Type     | Ampleur             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ------------------- |
+| 🔴   | **`sireNumber` / `sireName` ne parlent pas de la même chose.** `sireName`/`damName` sont une paire correcte (père/mère). `sireNumber` est le **numéro SIRE**, le registre national — **rien à voir avec le père**, homographe pur. Trois champs qui se ressemblent, dont deux forment une paire et le troisième est un faux ami posé entre les deux. C'est le champ que quelqu'un « rangera » un jour en `sire: { number, name }` en corrompant les données. → **`nationalId`**, avec le commentaire « numéro SIRE » conservé.                                                                                                                                                                                                                                                                                                                         | stockage | 16 occ. / 12 fich.  |
+| 🟠   | **Trois noms pour une même chose le long du pipeline.** `Category.fields` → `PostInput.values` → `Post.customFields` : la définition, la réponse et le stockage de la même notion sous trois mots. Et « custom » est relatif à quoi ? Ce sont les champs déclarés par la catégorie. → `fields` → `answers` → `answers`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | stockage | 183 occ. / 33 fich. |
+| 🟠   | **`order` vs `sortOrder`.** `Category.order` et `RationItem.sortOrder` sont le même concept sous deux noms dans deux tables. `order` est en plus un mot réservé SQL, ce qui piquera au moment du backend. → `Category.order` → `sortOrder`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | stockage | faible              |
+| 🟠   | **`counterparty`** — vocabulaire de finance pour « le véto / la boutique / le coach ». L'UI dit « Praticien », « Site », « Coach ». Un seul id pour trois libellés est le **bon** design ; c'est le mot qui est emprunté ailleurs. → **`contact`**, qui est ce que ça est et ce que s'appellera la table le jour où elle existera (§3.2 S5c). À faire dans la même migration que la fusion `coach` → `counterparty`, sinon le champ est migré deux fois.                                                                                                                                                                                                                                                                                                                                                                                               | stockage | 74 occ. / 13 fich.  |
+| 🟡   | **Le même problème résolu deux fois, de deux façons.** `Event` et `Document` sont tous deux des globales DOM. Pour `Document`, le code a préfixé (`StoredDocument`). Pour `Event`, il a renommé le concept (`HorseEvent` → `Post`). Deux stratégies pour un problème identique, et `Post` a dérivé loin du domaine : l'UI dit « évènement » et « activité », le code dit « post », mot de CMS. **Recommandation : ne pas y toucher** — 258 occ. / 43 fichiers, le renommage a été payé il y a trois semaines (`56f2fca`, schéma v13), et le gain est purement lexical. _Ce qui ferait changer d'avis :_ si ces 43 fichiers s'ouvrent de toute façon pour autre chose. Dans ce cas `Entry` / `entries` est le mot juste (registre _et_ calendrier, pas de collision DOM) et `StoredDocument` devient `StoredEntry`, ou l'inverse — à trancher une fois. | code     | 258 occ. / 43 fich. |
+| 🟡   | **`add` vs `create`.** Trois repositories créent avec `add` (`activities`, `categories`, `rations`), trois avec `create` (`horses`, `posts`, `documents`). Il y a peut-être une règle cachée (catalogue/enfant → `add`, entité → `create`) et elle n'est écrite nulle part ; sinon c'est de la dérive. → l'écrire dans `AGENTS.md`, ou prendre un mot. Même remarque pour `categoriesRepo.listAll` vs `horsesRepo.list`, qui sont la même chose.                                                                                                                                                                                                                                                                                                                                                                                                       | code     | faible              |
+| 🟡   | **Le nœud « activité » — neuf noms pour un concept** : `ActivityItem`, `WorkActivity`, `BuiltInActivity`, `WORK_ACTIVITIES`, `activityChoices`, `matchActivity`, `formatWorkActivity`, `WorkSession`, `workSessionByDate`. Les deux qui font mal sont les premiers : `ActivityItem` est le _catalogue_, `WorkActivity` est la _valeur stockée_, et rien dans les noms ne le dit. → `ActivityItem` → `ActivityTag` (ou `ActivityChoice`). C'est aussi la cause racine de §3.3 M3 : une _clé_ rangée comme un _libellé_, parce que `WorkActivity = BuiltInActivity \| (string & {})` fait cohabiter les deux sans moyen de les distinguer.                                                                                                                                                                                                               | code     | 15 + 47 occ.        |
+| 🟡   | **Petits.** `BASE_FIELD_IDS = {title, date, notes}` ne veut pas dire « colonnes » (`horseId`, `status`, `currency`, `time`, `location` en sont aussi) mais « colonnes que le formulaire peut écrire » → `FORM_COLUMN_IDS`. Préfixes booléens de `Category` : `isBuiltIn`, `isAppointment`, `tracksWork`, `enabled` — quatre champs, trois conventions. `visible()` (posts.repo) / `enabledOf` / `hiddenKeys` (categories) : trois mots pour un filtre.                                                                                                                                                                                                                                                                                                                                                                                                 | code     | faible              |
 
 ---
 
@@ -643,11 +650,11 @@ plus, mais ça sortirait du style du fichier.
 `ownerId` + `createdAt`/`updatedAt`/`deletedAt` sur les 7 tables. `horseId` sur
 les 4 tables enfants, avec `getActive()` comme seule source de « quel cheval » —
 **aucune vue ne code un id en dur**. UUID clients. Un format de sauvegarde
-versionné qui fusionne idempotemment : déjà 80 % d'un protocole de sync *pull*.
+versionné qui fusionne idempotemment : déjà 80 % d'un protocole de sync _pull_.
 
 ### 5.2 À faire maintenant (cher plus tard)
 
-**O1 — Aucune requête ne filtre sur `ownerId`.** *Effort S · à faire tôt.*
+**O1 — Aucune requête ne filtre sur `ownerId`.** _Effort S · à faire tôt._
 `ownerId` est écrit par `createRecord` et lu par exactement deux endroits :
 `untouchedSeed` (une comparaison) et `exportBackup` (l'enveloppe). **Zéro
 `where("ownerId")` dans tout le dépôt.** Or `horsesRepo.list()` fait
@@ -660,15 +667,15 @@ plus tester une fois qu'il est faux** — poser le filtre et son test pendant
 qu'il est trivialement vérifiable.
 
 **O2 — Les catégories intégrées ont un `id` déterministe** (`"achat"`,
-`"veto"`, …). *Effort L · à décider avant la sync.* C'est le bon choix pour que
+`"veto"`, …). _Effort L · à décider avant la sync._ C'est le bon choix pour que
 deux appareils convergent sans se parler (`categories.ts:555-563` l'explique
 bien) et le mauvais pour une table serveur partagée : deux utilisatrices
 écriraient toutes les deux `categories.id = "achat"`. Deux sorties — (a) la clé
 primaire serveur devient `(ownerId, id)` ; (b) appliquer §3.2 S8 et sortir les
 intégrées de la table synchronisée. **(b) recommandé**, qui résout les deux.
 
-**O3 — `updatedAt` est l'horloge murale de l'appareil.** *Effort S le jour
-venu · la décision est à prendre avant d'écrire la sync.* `nowISO()` =
+**O3 — `updatedAt` est l'horloge murale de l'appareil.** _Effort S le jour
+venu · la décision est à prendre avant d'écrire la sync._ `nowISO()` =
 `new Date().toISOString()`. Pour une restauration depuis un fichier avec un
 appareil actif, c'est correct et c'est ce que le code prétend. Pour deux
 appareils actifs, une horloge décalée de trois minutes fait gagner la mauvaise
@@ -691,7 +698,7 @@ multi-compte sur un appareil.
 
 **O5 — Entités partageables (véto, maréchal, moniteur, catalogue produits) :
 non, pas d'entité dédiée maintenant.** Voir §3.2 S5. Le bon moment, c'est quand
-deux utilisatrices distinctes ont le même maréchal *et* qu'on veut leur montrer
+deux utilisatrices distinctes ont le même maréchal _et_ qu'on veut leur montrer
 quelque chose de commun. Ce qui est urgent, c'est d'arrêter la dérive
 orthographique.
 
@@ -712,35 +719,35 @@ chevaux sont visibles ; garder ça vrai.
 > (`src/data/migrations.ts`), qui sert à l'appareil et au fichier à la fois.
 
 Le changement le plus important n'est pas dans le tableau : c'est la **règle**.
-*Un champ sort de `answers` le jour où autre chose que son propre affichage en
-dépend.* Aujourd'hui elle désigne exactement deux champs.
+_Un champ sort de `answers` le jour où autre chose que son propre affichage en
+dépend._ Aujourd'hui elle désigne exactement deux champs.
 
 ```ts
 // db.ts — v14
 const STORES = {
-  horses:        "id, ownerId, name, updatedAt",
-  posts:         "id, [horseId+date], updatedAt",
-  documents:     "id, horseId, postId, updatedAt",
+  horses: "id, ownerId, name, updatedAt",
+  posts: "id, [horseId+date], updatedAt",
+  documents: "id, horseId, postId, updatedAt",
   documentBlobs: "documentId",
-  rationItems:   "id, [horseId+sortOrder], updatedAt",
-  activities:    "id, horseId, updatedAt",
-  categories:    "id, ownerId, updatedAt",
-  profiles:      "id, ownerId, updatedAt",
-  meta:          "key",
+  rationItems: "id, [horseId+sortOrder], updatedAt",
+  activities: "id, horseId, updatedAt",
+  categories: "id, ownerId, updatedAt",
+  profiles: "id, ownerId, updatedAt",
+  meta: "key",
 } as const;
 ```
 
-| Store | Index | Changements de champs | Justification |
-|---|---|---|---|
-| `horses` | `ownerId`, `name`, `updatedAt` | `sireNumber` → `nationalId` | `ownerId` : O1. §4.2 |
-| `posts` | `[horseId+date]`, `updatedAt` | **+ `cost: Cents \| null`**, **+ `endDate: IsoDate \| null`**, `status` → `statusOverride`, `customFields` → `answers`, `answers.coach` fusionné dans `answers.contact` | S1, S4, S5a, §4.1, §4.2. `horseId` seul retiré (redondant avec le compound) ; `date`/`categoryKey`/`status`/`[horseId+categoryKey]` retirés (S9) |
-| `documents` | `horseId`, `postId`, `updatedAt` | `driveFileId`/`driveSyncedAt` supprimés ; `postId` nullable *par intention* | M4, S6. `category`/`[horseId+category]` retirés : `countByCategory` compte en mémoire |
-| `documentBlobs` | — | inchangé | 1:1, accès par clé. Le blob reste hors de la table de métadonnées |
-| `rationItems` | `[horseId+sortOrder]`, `updatedAt` | inchangé | **S3 se fait sans changement de schéma.** `horseId` seul retiré |
-| `activities` | `horseId`, `updatedAt` | inchangé | Catalogue lu en entier, trié en mémoire |
-| `categories` | `ownerId`, `updatedAt` | `order` → `sortOrder` ; `coach` retiré de `cours.fields` ; `cost`/`endDate` ajoutés à `FORM_COLUMN_IDS` | §4.2, S5a. `key`/`order` retirés (S9) ; `ownerId` : O1 |
-| `profiles` | `ownerId`, `updatedAt` | inchangé | Une ligne en pratique ; `ownerId` : O1 |
-| `meta` | — | inchangé | État local d'appareil, jamais exporté. Bon choix |
+| Store           | Index                              | Changements de champs                                                                                                                                                   | Justification                                                                                                                                    |
+| --------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `horses`        | `ownerId`, `name`, `updatedAt`     | `sireNumber` → `nationalId`                                                                                                                                             | `ownerId` : O1. §4.2                                                                                                                             |
+| `posts`         | `[horseId+date]`, `updatedAt`      | **+ `cost: Cents \| null`**, **+ `endDate: IsoDate \| null`**, `status` → `statusOverride`, `customFields` → `answers`, `answers.coach` fusionné dans `answers.contact` | S1, S4, S5a, §4.1, §4.2. `horseId` seul retiré (redondant avec le compound) ; `date`/`categoryKey`/`status`/`[horseId+categoryKey]` retirés (S9) |
+| `documents`     | `horseId`, `postId`, `updatedAt`   | `driveFileId`/`driveSyncedAt` supprimés ; `postId` nullable _par intention_                                                                                             | M4, S6. `category`/`[horseId+category]` retirés : `countByCategory` compte en mémoire                                                            |
+| `documentBlobs` | —                                  | inchangé                                                                                                                                                                | 1:1, accès par clé. Le blob reste hors de la table de métadonnées                                                                                |
+| `rationItems`   | `[horseId+sortOrder]`, `updatedAt` | inchangé                                                                                                                                                                | **S3 se fait sans changement de schéma.** `horseId` seul retiré                                                                                  |
+| `activities`    | `horseId`, `updatedAt`             | inchangé                                                                                                                                                                | Catalogue lu en entier, trié en mémoire                                                                                                          |
+| `categories`    | `ownerId`, `updatedAt`             | `order` → `sortOrder` ; `coach` retiré de `cours.fields` ; `cost`/`endDate` ajoutés à `FORM_COLUMN_IDS`                                                                 | §4.2, S5a. `key`/`order` retirés (S9) ; `ownerId` : O1                                                                                           |
+| `profiles`      | `ownerId`, `updatedAt`             | inchangé                                                                                                                                                                | Une ligne en pratique ; `ownerId` : O1                                                                                                           |
+| `meta`          | —                                  | inchangé                                                                                                                                                                | État local d'appareil, jamais exporté. Bon choix                                                                                                 |
 
 **Ce qui n'est délibérément pas fait** : table `contacts` (S5c), table
 `recurrences` (§3.4), journal d'administration (S4), `validFrom`/`validTo` sur
@@ -810,50 +817,62 @@ constructor() {
  * les clés que plus aucune catégorie ne déclare, pour cette raison exacte.
  */
 const upgradeV13toV14 = async (tx: Transaction): Promise<void> => {
-  await tx.table("posts").toCollection().modify((post: Record<string, unknown>) => {
-    const bag = (post.customFields ?? {}) as Record<string, unknown>;
+  await tx
+    .table("posts")
+    .toCollection()
+    .modify((post: Record<string, unknown>) => {
+      const bag = (post.customFields ?? {}) as Record<string, unknown>;
 
-    const amount = bag.amountCents;
-    post.cost = typeof amount === "number" ? amount : null;
-    delete bag.amountCents;
+      const amount = bag.amountCents;
+      post.cost = typeof amount === "number" ? amount : null;
+      delete bag.amountCents;
 
-    const end = bag.endDate;
-    post.endDate = isIsoDate(end) ? end : null;
-    delete bag.endDate;
+      const end = bag.endDate;
+      post.endDate = isIsoDate(end) ? end : null;
+      delete bag.endDate;
 
-    // Un seul id pour « avec qui », ce que la recherche de PostsView cherche
-    // déjà. Ne recouvre jamais une valeur existante.
-    const contact = bag.counterparty ?? bag.coach ?? null;
-    bag.contact = typeof contact === "string" ? contact : null;
-    delete bag.counterparty;
-    delete bag.coach;
+      // Un seul id pour « avec qui », ce que la recherche de PostsView cherche
+      // déjà. Ne recouvre jamais une valeur existante.
+      const contact = bag.counterparty ?? bag.coach ?? null;
+      bag.contact = typeof contact === "string" ? contact : null;
+      delete bag.counterparty;
+      delete bag.coach;
 
-    // « À venir » et « fait » sont une lecture de la date. `cancelled` est le
-    // seul état qu'aucune date ne redérive.
-    post.statusOverride = post.status === "cancelled" ? "cancelled" : null;
-    delete post.status;
+      // « À venir » et « fait » sont une lecture de la date. `cancelled` est le
+      // seul état qu'aucune date ne redérive.
+      post.statusOverride = post.status === "cancelled" ? "cancelled" : null;
+      delete post.status;
 
-    post.answers = bag;
-    delete post.customFields;
-  });
+      post.answers = bag;
+      delete post.customFields;
+    });
 
-  await tx.table("horses").toCollection().modify((horse: Record<string, unknown>) => {
-    // `sireNumber` est le numéro SIRE, pas le nom du père : l'homographe est
-    // exactement ce que ce renommage supprime.
-    horse.nationalId = horse.sireNumber ?? null;
-    delete horse.sireNumber;
-  });
+  await tx
+    .table("horses")
+    .toCollection()
+    .modify((horse: Record<string, unknown>) => {
+      // `sireNumber` est le numéro SIRE, pas le nom du père : l'homographe est
+      // exactement ce que ce renommage supprime.
+      horse.nationalId = horse.sireNumber ?? null;
+      delete horse.sireNumber;
+    });
 
-  await tx.table("categories").toCollection().modify((type: Record<string, unknown>) => {
-    type.sortOrder = typeof type.order === "number" ? type.order : 0;
-    delete type.order;
-  });
+  await tx
+    .table("categories")
+    .toCollection()
+    .modify((type: Record<string, unknown>) => {
+      type.sortOrder = typeof type.order === "number" ? type.order : 0;
+      delete type.order;
+    });
 
   // M4 : deux colonnes d'une intégration Drive qui n'existe pas.
-  await tx.table("documents").toCollection().modify((doc: Record<string, unknown>) => {
-    delete doc.driveFileId;
-    delete doc.driveSyncedAt;
-  });
+  await tx
+    .table("documents")
+    .toCollection()
+    .modify((doc: Record<string, unknown>) => {
+      delete doc.driveFileId;
+      delete doc.driveSyncedAt;
+    });
 };
 ```
 
@@ -873,43 +892,67 @@ const migrateV13toV14: MigrationStep = (tables) => ({
   ...tables,
   posts: (tables.posts ?? []).map((row) => {
     const post = row as Record<string, unknown>;
-    const bag = { ...((post.answers ?? post.customFields ?? {}) as Record<string, unknown>) };
+    const bag = {
+      ...((post.answers ?? post.customFields ?? {}) as Record<string, unknown>),
+    };
 
     // Rejouable : une ligne déjà migrée porte la colonne et n'a plus la clé
     // dans le sac. Relire le sac recalculerait `null` et effacerait la valeur.
-    const cost = "cost" in post ? post.cost
-      : typeof bag.amountCents === "number" ? bag.amountCents : null;
+    const cost =
+      "cost" in post
+        ? post.cost
+        : typeof bag.amountCents === "number"
+          ? bag.amountCents
+          : null;
 
-    const endDate = "endDate" in post ? post.endDate
-      : isIsoDate(bag.endDate) ? bag.endDate : null;
+    const endDate =
+      "endDate" in post
+        ? post.endDate
+        : isIsoDate(bag.endDate)
+          ? bag.endDate
+          : null;
 
     if (!("contact" in bag)) {
       const contact = bag.counterparty ?? bag.coach ?? null;
       bag.contact = typeof contact === "string" ? contact : null;
     }
-    for (const key of ["amountCents", "endDate", "counterparty", "coach"]) delete bag[key];
+    for (const key of ["amountCents", "endDate", "counterparty", "coach"])
+      delete bag[key];
 
-    const statusOverride = "statusOverride" in post ? post.statusOverride
-      : post.status === "cancelled" ? "cancelled" : null;
+    const statusOverride =
+      "statusOverride" in post
+        ? post.statusOverride
+        : post.status === "cancelled"
+          ? "cancelled"
+          : null;
 
     const { status: _s, customFields: _c, ...rest } = post;
     return { ...rest, cost, endDate, statusOverride, answers: bag };
   }),
   horses: (tables.horses ?? []).map((row) => {
     const horse = row as Record<string, unknown>;
-    const nationalId = "nationalId" in horse ? horse.nationalId : (horse.sireNumber ?? null);
+    const nationalId =
+      "nationalId" in horse ? horse.nationalId : (horse.sireNumber ?? null);
     const { sireNumber: _n, ...rest } = horse;
     return { ...rest, nationalId };
   }),
   categories: (tables.categories ?? []).map((row) => {
     const type = row as Record<string, unknown>;
-    const sortOrder = "sortOrder" in type ? type.sortOrder
-      : typeof type.order === "number" ? type.order : 0;
+    const sortOrder =
+      "sortOrder" in type
+        ? type.sortOrder
+        : typeof type.order === "number"
+          ? type.order
+          : 0;
     const { order: _o, ...rest } = type;
     return { ...rest, sortOrder };
   }),
   documents: (tables.documents ?? []).map((row) => {
-    const { driveFileId: _f, driveSyncedAt: _s, ...rest } = row as Record<string, unknown>;
+    const {
+      driveFileId: _f,
+      driveSyncedAt: _s,
+      ...rest
+    } = row as Record<string, unknown>;
     return rest;
   }),
 });
@@ -941,8 +984,8 @@ categories: {
 
 ### 6.6 Tests, avant de livrer
 
-Le contrat de `migrate.ts:41` : *« give it a test that runs it twice and asserts
-the second run changes nothing »*. Et faire tourner
+Le contrat de `migrate.ts:41` : _« give it a test that runs it twice and asserts
+the second run changes nothing »_. Et faire tourner
 `snapshot.real-backup.test.ts` contre les deux fichiers réels : 125 posts, dont
 les 2 `duration`, le 1 `coach`, les 7 `planned` passés et les 12 tombstones. Si
 le round-trip n'est pas exact, s'arrêter là.
@@ -971,7 +1014,7 @@ le nettoyage.
    pas dupliqués**, ni dérivés des cures/traitements/cours : il n'y a qu'une
    source, et le calendrier, le budget, le tableau de bord et la fiche cheval
    sont quatre lectures de la même ligne. Une visite de maréchal est une ligne
-   qui a une date *et* un prix. La version éclatée (table événements + table
+   qui a une date _et_ un prix. La version éclatée (table événements + table
    budget) obligerait à saisir la visite deux fois et à la recoller dans chaque
    agrégat. Les cures s'étendent sur plusieurs jours sans aucune ligne
    supplémentaire : `courseLastDay` les transforme en barres au rendu
@@ -996,11 +1039,11 @@ le nettoyage.
 6. **La période budgétaire comme préfixe de date** (`budget.ts:18-24`) :
    `'2026-01'`, testé par `startsWith`. Exact, sans `Date`, insensible au fuseau.
 7. **`RECORD_TABLES` comme source unique** (`db.ts:117`), d'où dérivent
-   l'export, la fusion, le validateur, la purge de seed *et* le type
+   l'export, la fusion, le validateur, la purge de seed _et_ le type
    `BackupTables`. « La table qu'on oublie, c'est la donnée qui ne survit pas à
    une restauration » est le bon diagnostic.
 8. **`importBackup` en une seule transaction** (`snapshot.ts:132-153`), avec les
-   compteurs *dans* le callback parce que Dexie peut rejouer, et le cache
+   compteurs _dans_ le callback parce que Dexie peut rejouer, et le cache
    `owner.ts` mis à jour **après** le commit parce que c'est le seul état qu'un
    rollback ne défait pas.
 9. **`yieldsToFile`** (`snapshot.ts:88-104`) : « une installation n'est pas un
@@ -1008,15 +1051,15 @@ le nettoyage.
    problème, énoncé par table plutôt qu'en `if (name === "categories")`.
 10. **`navigator.storage.persist()` est appelé** (`pwa/index.ts:143-152`), avec
     la bonne justification et le bon silence sur l'échec.
-11. **`suggestions: "activities"`** — un catalogue qui n'est *pas* une table
+11. **`suggestions: "activities"`** — un catalogue qui n'est _pas_ une table
     parent : un post stocke le libellé, pas un id, donc supprimer une ligne du
     catalogue retire un chip et n'orpheline rien. C'est le motif que S5(b)
     recommande d'étendre aux contacts.
 12. **Plafond de profondeur à 2 sur `categories`**, avec `canBeParentOf` comme
-    unique prédicat et la cyclicité rendue *irreprésentable* plutôt que détectée
+    unique prédicat et la cyclicité rendue _irreprésentable_ plutôt que détectée
     (`categories.ts:727-741`). Et `BudgetSlice.children: BudgetLeaf[]` qui
     exprime ce plafond dans le type.
-13. **`backup/migrate.ts` existe, vide, avec son contrat écrit.** Dire *avant*
+13. **`backup/migrate.ts` existe, vide, avec son contrat écrit.** Dire _avant_
     d'en avoir besoin qu'un pas doit être pur et rejouable est ce qui fait que
     §6 est un pas + un test plutôt qu'une réécriture sous pression.
 14. **`snapshot.real-backup.test.ts`** : un test qui tourne contre les vraies
@@ -1033,58 +1076,58 @@ lots sont indépendants sauf indication.
 
 ### Lot A — sans schéma, livrable immédiatement, aucun risque de données
 
-| | Réf | Quoi | Effort |
-|---|---|---|---|
-| `[ ]` | S3 | Historique des rations : remplacer au lieu de modifier | S |
-| `[~]` | S6 | `deletePost` transactionnel + réparer le document orphelin existant — *transaction faite, orphelin toujours là* | S |
-| `[x]` | S7 | `seedIfEmpty` dans une transaction | S |
-| `[ ]` | S5b | `counterparty` en combobox à suggestions (arrête la dérive) | S |
-| `[x]` | M1 | `db.on("blocked")` / `db.on("versionchange")` | S |
-| `[x]` | M3 | Dédoublonnage des chips d'activité | S |
-| `[~]` | M6 | Vider `ACCOUNT` et les deux `defaultValue` — **après** avoir confirmé la ligne `profiles` sur l'appareil — *`ACCOUNT` vidé ; `defaultValue` gardées jusqu'au form builder* | S |
-| `[ ]` | O1 | Filtres `ownerId` + leur test | S |
+|       | Réf | Quoi                                                                                                                                                                       | Effort |
+| ----- | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `[ ]` | S3  | Historique des rations : remplacer au lieu de modifier                                                                                                                     | S      |
+| `[~]` | S6  | `deletePost` transactionnel + réparer le document orphelin existant — _transaction faite, orphelin toujours là_                                                            | S      |
+| `[x]` | S7  | `seedIfEmpty` dans une transaction                                                                                                                                         | S      |
+| `[ ]` | S5b | `counterparty` en combobox à suggestions (arrête la dérive)                                                                                                                | S      |
+| `[x]` | M1  | `db.on("blocked")` / `db.on("versionchange")`                                                                                                                              | S      |
+| `[x]` | M3  | Dédoublonnage des chips d'activité                                                                                                                                         | S      |
+| `[~]` | M6  | Vider `ACCOUNT` et les deux `defaultValue` — **après** avoir confirmé la ligne `profiles` sur l'appareil — _`ACCOUNT` vidé ; `defaultValue` gardées jusqu'au form builder_ | S      |
+| `[ ]` | O1  | Filtres `ownerId` + leur test                                                                                                                                              | S      |
 
 ### Lot B — une seule montée de schéma, désormais v14 → v15 (§6)
 
 Tout ce qui touche le stockage part ensemble : chaque bump est un risque sur une
 base irremplaçable, et il ne faut pas en faire trois.
 
-| | Réf | Ancien | Nouveau |
-|---|---|---|---|
-| `[ ]` | S1 + §4.1 | `customFields.amountCents` | colonne `cost: Cents \| null` |
-| `[ ]` | S1 | `customFields.endDate` | colonne `endDate: IsoDate \| null` |
-| `[ ]` | S4 | `status` | `statusOverride: PostStatus \| null` |
-| `[ ]` | S5a + §4.2 | `customFields.coach`, `customFields.counterparty` | `answers.contact` |
-| `[ ]` | §4.2 | `customFields` | `answers` |
-| `[ ]` | §4.2 | `Horse.sireNumber` | `Horse.nationalId` |
-| `[ ]` | §4.2 | `Category.order` | `Category.sortOrder` |
-| `[ ]` | S9 + M4 | 14 index morts, `driveFileId`/`driveSyncedAt`, docblock faux | supprimés / corrigé |
-| `[ ]` | O1 | — | index `ownerId` sur `horses`, `categories`, `profiles` |
-| `[ ]` | §6.6 | — | test de rejouabilité + `snapshot.real-backup.test.ts` au vert |
+|       | Réf        | Ancien                                                       | Nouveau                                                       |
+| ----- | ---------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| `[ ]` | S1 + §4.1  | `customFields.amountCents`                                   | colonne `cost: Cents \| null`                                 |
+| `[ ]` | S1         | `customFields.endDate`                                       | colonne `endDate: IsoDate \| null`                            |
+| `[ ]` | S4         | `status`                                                     | `statusOverride: PostStatus \| null`                          |
+| `[ ]` | S5a + §4.2 | `customFields.coach`, `customFields.counterparty`            | `answers.contact`                                             |
+| `[ ]` | §4.2       | `customFields`                                               | `answers`                                                     |
+| `[ ]` | §4.2       | `Horse.sireNumber`                                           | `Horse.nationalId`                                            |
+| `[ ]` | §4.2       | `Category.order`                                             | `Category.sortOrder`                                          |
+| `[ ]` | S9 + M4    | 14 index morts, `driveFileId`/`driveSyncedAt`, docblock faux | supprimés / corrigé                                           |
+| `[ ]` | O1         | —                                                            | index `ownerId` sur `horses`, `categories`, `profiles`        |
+| `[ ]` | §6.6       | —                                                            | test de rejouabilité + `snapshot.real-backup.test.ts` au vert |
 
 ### Lot C — renommages code seulement, zéro migration, validés par le typecheck
 
-| | Réf | Quoi | Ampleur |
-|---|---|---|---|
-| `[ ]` | §4.2 | `ActivityItem` → `ActivityTag` | 15 occ. |
-| `[ ]` | §4.2 | `BASE_FIELD_IDS` → `FORM_COLUMN_IDS` | 4 occ. |
-| `[ ]` | §4.2 | Unifier `add`/`create` et `list`/`listAll`, ou écrire la règle dans `AGENTS.md` | faible |
-| `[ ]` | §4.2 | Unifier `visible`/`enabledOf`/`hiddenKeys` | faible |
-| `[ ]` | §4.2 | *(optionnel, non recommandé seul)* `Post` → `Entry` | 258 occ. / 43 fich. |
+|       | Réf  | Quoi                                                                            | Ampleur             |
+| ----- | ---- | ------------------------------------------------------------------------------- | ------------------- |
+| `[ ]` | §4.2 | `ActivityItem` → `ActivityTag`                                                  | 15 occ.             |
+| `[ ]` | §4.2 | `BASE_FIELD_IDS` → `FORM_COLUMN_IDS`                                            | 4 occ.              |
+| `[ ]` | §4.2 | Unifier `add`/`create` et `list`/`listAll`, ou écrire la règle dans `AGENTS.md` | faible              |
+| `[ ]` | §4.2 | Unifier `visible`/`enabledOf`/`hiddenKeys`                                      | faible              |
+| `[ ]` | §4.2 | _(optionnel, non recommandé seul)_ `Post` → `Entry`                             | 258 occ. / 43 fich. |
 
 ### Lot D — reporté, mais la décision se prend avant le code
 
-| | Réf | Quoi | Quand |
-|---|---|---|---|
-| `[ ]` | §1 | Supprimer les gardes API Navigation + ancrage CSS | quand tu veux |
-| `[ ]` | S2 | Blobs dans la sauvegarde | **avant** de livrer l'upload de documents |
-| `[ ]` | S8 + O2 | Sortir les catégories intégrées de la table synchronisée | **avant** d'écrire la sync |
-| `[ ]` | O3 | Choisir l'horloge (version serveur vs HLC) | **avant** d'écrire la sync |
-| `[ ]` | O4 | `horsesService.deleteHorse` transactionnel | quand l'UI multi-chevaux arrive |
-| `[ ]` | §3.4 | Bouton « Répéter » (zéro schéma) puis table `recurrences` | quand la saisie manuelle pèse |
-| `[ ]` | M2 | Devise sur le cheval plutôt que par ligne | avec le multi-utilisateur |
-| `[ ]` | S5c | Table `contacts` | quand deux utilisatrices partagent un praticien |
-| `[ ]` | M5 | Purge des tombstones | après la sync |
+|       | Réf     | Quoi                                                      | Quand                                           |
+| ----- | ------- | --------------------------------------------------------- | ----------------------------------------------- |
+| `[ ]` | §1      | Supprimer les gardes API Navigation + ancrage CSS         | quand tu veux                                   |
+| `[ ]` | S2      | Blobs dans la sauvegarde                                  | **avant** de livrer l'upload de documents       |
+| `[ ]` | S8 + O2 | Sortir les catégories intégrées de la table synchronisée  | **avant** d'écrire la sync                      |
+| `[ ]` | O3      | Choisir l'horloge (version serveur vs HLC)                | **avant** d'écrire la sync                      |
+| `[ ]` | O4      | `horsesService.deleteHorse` transactionnel                | quand l'UI multi-chevaux arrive                 |
+| `[ ]` | §3.4    | Bouton « Répéter » (zéro schéma) puis table `recurrences` | quand la saisie manuelle pèse                   |
+| `[ ]` | M2      | Devise sur le cheval plutôt que par ligne                 | avec le multi-utilisateur                       |
+| `[ ]` | S5c     | Table `contacts`                                          | quand deux utilisatrices partagent un praticien |
+| `[ ]` | M5      | Purge des tombstones                                      | après la sync                                   |
 
 ---
 

@@ -327,9 +327,7 @@ export class BudgetView extends LightElement {
   ) {
     return html`
       <section class="budget-view__ledger">
-        <h2 class="section-title">
-          ${formatPeriodHeading(granularity)}
-        </h2>
+        <h2 class="section-title">${formatPeriodHeading(granularity)}</h2>
         <!-- Keyed: changing the period replaces the whole ledger, and the
              month/year segmented control is component state rather than a
              write, so this re-renders far more often than the data changes. -->
