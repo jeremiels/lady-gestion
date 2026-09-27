@@ -18,6 +18,14 @@ donc ce sont des déductions vérifiables, pas des observations d'écran.
 dans la base réelle sont remplacés ici par leur rôle : `/backup/` est gitignoré
 parce que ce dépôt est publié sur GitHub Pages, et ce fichier ne l'est pas.
 
+> **Suivi au 27 septembre 2026.** Une partie de cet audit a été traitée, en
+> amont puis dans les chantiers de la revue de code
+> ([`code-review-2026-09-suivi.md`](code-review-2026-09-suivi.md)). Les
+> constats concernés portent leur état dans leur titre et dans le tableau du
+> §8 : S6 🟡, S7 ✅, S9 🟡, M1 ✅, M3 ✅, M6 🟡. **Le schéma v14 a servi à autre
+> chose** (prénom et nom du cheval, `596e588`) : la montée décrite au §6 et au
+> lot B, rien n'en étant fait, devient v14 → v15.
+
 ---
 
 ## 0. Décisions déjà prises
@@ -386,7 +394,12 @@ invalide la règle que le commentaire pose.
   condition d'avoir fait (b)** — sinon il faudra dédoublonner à la main sans
   savoir qui est qui.
 
-#### S6 — Supprimer un post orpheline ses documents (déjà arrivé)
+#### S6 — Supprimer un post orpheline ses documents (déjà arrivé) — 🟡 code corrigé
+
+> **Suivi.** `postsService.deletePost` supprime le post et détache ses documents
+> en une transaction (`f64718f`, 23/09). **Le document orphelin déjà présent
+> n'est pas réparé** : la sauvegarde du 27/09 contient toujours un document
+> vivant rattaché à un post supprimé.
 
 **Effort S · Risque nul · 1 ligne à réparer**
 
@@ -424,7 +437,10 @@ Et réparer la ligne existante (`postId: null`), ou décider de la garder en
 documentant que `postId` peut désigner un post supprimé — auquel cas la lire via
 `db.posts.get()` et non `postsRepo.getVisible()`.
 
-#### S7 — `seedIfEmpty` n'est pas transactionnel, et `seedRecordIds` est écrit en dernier
+#### S7 — `seedIfEmpty` n'est pas transactionnel, et `seedRecordIds` est écrit en dernier — ✅ fait
+
+> **Suivi.** La démo est écrite en une transaction, `seedRecordIds` compris
+> (`38ff478`). La purge du seed ne touche plus qu'une base vierge.
 
 **Effort S · Risque nul · 1 wrapper**
 
@@ -478,7 +494,11 @@ pour une intégrée, la ligne complète pour une catégorie créée par elle. Re
 14 lignes de la surface de sync, supprime `reconcileCategories` et son cas
 spécial, et résout §5.2 d'un coup.
 
-#### S9 — 14 index morts, et un docblock faux sur deux points
+#### S9 — 14 index morts, et un docblock faux sur deux points — 🟡 docblock corrigé
+
+> **Suivi.** Le docblock de `db.ts` ne prétend plus que `key` et `order` servent
+> une jointure et un tri (`7fb102c`). Les index eux-mêmes attendent la prochaine
+> montée de schéma.
 
 **Effort S · Risque nul · à faire dans la même montée de version**
 
@@ -516,12 +536,12 @@ utilisés.
 
 | | Constat | Effort |
 |---|---|---|
-| **M1** | **Pas de gestion `blocked` / `versionchange`.** Aucune occurrence dans `src/`. Deux onglets, l'un met à niveau → Dexie ferme la base de l'autre et toutes ses requêtes échouent ; `LiveQuery.error` n'est **jamais lue** après le démarrage (`AGENTS.md` le dit déjà). Si l'ancien onglet garde la base ouverte, le nouveau reste bloqué sans message. → `db.on("blocked")` → « Fermez les autres onglets » ; `db.on("versionchange")` → `db.close()` + « Rechargez ». L'écran `data-error` existe déjà (`app-root.ts:395`). | S |
+| **M1** ✅ | *Fait : `watchDatabase` et son écran dédié (`7ccbf8a`, 23/09).* **Pas de gestion `blocked` / `versionchange`.** Aucune occurrence dans `src/`. Deux onglets, l'un met à niveau → Dexie ferme la base de l'autre et toutes ses requêtes échouent ; `LiveQuery.error` n'est **jamais lue** après le démarrage (`AGENTS.md` le dit déjà). Si l'ancien onglet garde la base ouverte, le nouveau reste bloqué sans message. → `db.on("blocked")` → « Fermez les autres onglets » ; `db.on("versionchange")` → `db.close()` + « Rechargez ». L'écran `data-error` existe déjà (`app-root.ts:395`). | S |
 | **M2** | **`currency` par ligne, sans contrôle de cohérence.** Les 125 lignes sont en `EUR`, `sumCents` additionne sans vérifier. Une utilisatrice belge ou suisse ferait mélanger les devises en silence. La devise appartient plutôt au cheval (ou au compte) : une pension se paie dans une monnaie. La colonne existe déjà, donc peu cher à déplacer. | S |
-| **M3** | **Doublon de chip « Balade à pied ».** `activities` contient une ligne dont le `label` est `"baladeApied"` — la *clé* d'une activité intégrée, pas un libellé. `formatWorkActivity` la formate en « Balade à pied », donc deux chips identiques. Cause : `activityChoices` (`posts.ts:144-160`) dédoublonne sur la clé normalisée du libellé **formaté** pour les intégrées (`"balade a pied"`) et du libellé **brut** pour les personnalisées (`"baladeapied"`). `matchActivity` a le même biais, donc retaper la même chose recréerait un doublon. → normaliser les deux côtés via `formatWorkActivity`. Cause racine : §4.2. | S |
+| **M3** ✅ | *Fait autrement que proposé (`71e38b3`) : `matchActivity` reconnaît d'abord la clé exacte que le combobox soumet, et `activityChoices` écarte une ligne dont le libellé est une clé intégrée. Les trois lignes déjà en base sont invisibles, pas supprimées.* **Doublon de chip « Balade à pied ».** `activities` contient une ligne dont le `label` est `"baladeApied"` — la *clé* d'une activité intégrée, pas un libellé. `formatWorkActivity` la formate en « Balade à pied », donc deux chips identiques. Cause : `activityChoices` (`posts.ts:144-160`) dédoublonne sur la clé normalisée du libellé **formaté** pour les intégrées (`"balade a pied"`) et du libellé **brut** pour les personnalisées (`"baladeapied"`). `matchActivity` a le même biais, donc retaper la même chose recréerait un doublon. → normaliser les deux côtés via `formatWorkActivity`. Cause racine : §4.2. | S |
 | **M4** | **Colonnes inatteignables.** `Post.time` est `null` sur les 113 lignes vivantes (les 4 qui en portaient une sont les posts de démo, tous supprimés) et aucune catégorie ne déclare de contrôle d'heure — `postFields` fait `time: existing?.time ?? null`. `Post.location` : `null` partout. `Post.recurrenceId` : `null` partout. `StoredDocument.driveFileId`/`driveSyncedAt` : écrits `null`, jamais lus. → garder `time`/`location`/`recurrenceId` (un calendrier en aura besoin, et `recurrenceId` est au cœur de §3.4) ; couper les deux colonnes Drive. | S |
 | **M5** | **Tombstones jamais purgés.** 12 posts supprimés sur 125, croissance sans borne. Sans conséquence avant des décennies, et la purge ne devient *sûre* qu'après la sync (il faut la dernière synchro du plus ancien appareil). À noter, pas à faire. | — |
-| **M6** | **Données personnelles réelles dans le bundle.** `account.ts:19-23` porte un prénom, un nom et une adresse e-mail réels ; `categories.ts` porte deux `defaultValue` qui sont des noms de praticiens. Le commentaire d'`account.ts` prévoit déjà le retrait et `seedProfileIfEmpty` a fait le travail côté profil — mais les deux sauvegardes ont `profiles: []`, donc **vérifier sur l'appareil que la ligne existe avant de vider `ACCOUNT`**. Les deux `defaultValue` n'ont pas d'équivalent : à vider, en laissant le combobox de §3.2 S5(b) faire le travail. Pour une app publiquement déployée qui doit s'ouvrir, ce sont trois personnes identifiables livrées dans le JS de chaque visiteur. | S |
+| **M6** 🟡 | *`ACCOUNT` vidé après confirmation de la ligne `profiles` sur l'appareil (`7496b9c`, `b27b41c`) ; les `defaultValue` des praticiens sont gardées exprès jusqu'au form builder.* **Données personnelles réelles dans le bundle.** `account.ts:19-23` porte un prénom, un nom et une adresse e-mail réels ; `categories.ts` porte deux `defaultValue` qui sont des noms de praticiens. Le commentaire d'`account.ts` prévoit déjà le retrait et `seedProfileIfEmpty` a fait le travail côté profil — mais les deux sauvegardes ont `profiles: []`, donc **vérifier sur l'appareil que la ligne existe avant de vider `ACCOUNT`**. Les deux `defaultValue` n'ont pas d'équivalent : à vider, en laissant le combobox de §3.2 S5(b) faire le travail. Pour une app publiquement déployée qui doit s'ouvrir, ce sont trois personnes identifiables livrées dans le JS de chaque visiteur. | S |
 
 *(Au passage, non corrigé parce que la copie d'interface n'est pas du ressort de
 cet audit : `counterpartyField("Practicien", …)` sur `dentiste` — « Praticien ».)*
@@ -686,6 +706,10 @@ chevaux sont visibles ; garder ça vrai.
 ---
 
 ## 6. Schéma cible et migration v13 → v14
+
+> **v14 est pris** (prénom et nom du cheval, `596e588`) : ce qui suit vaut pour
+> la prochaine montée, v14 → v15, et s'écrit désormais dans `ROW_STEPS`
+> (`src/data/migrations.ts`), qui sert à l'appareil et au fichier à la fois.
 
 Le changement le plus important n'est pas dans le tableau : c'est la **règle**.
 *Un champ sort de `answers` le jour où autre chose que son propre affichage en
@@ -1004,22 +1028,23 @@ le nettoyage.
 
 ## 8. Tableau de priorisation
 
-Tout est à `[ ]` : rien n'est engagé. Les lots sont indépendants sauf indication.
+Cochées (`[x]`) : faites ; `[~]` : faites en partie (voir le constat). Les
+lots sont indépendants sauf indication.
 
 ### Lot A — sans schéma, livrable immédiatement, aucun risque de données
 
 | | Réf | Quoi | Effort |
 |---|---|---|---|
 | `[ ]` | S3 | Historique des rations : remplacer au lieu de modifier | S |
-| `[ ]` | S6 | `deletePost` transactionnel + réparer le document orphelin existant | S |
-| `[ ]` | S7 | `seedIfEmpty` dans une transaction | S |
+| `[~]` | S6 | `deletePost` transactionnel + réparer le document orphelin existant — *transaction faite, orphelin toujours là* | S |
+| `[x]` | S7 | `seedIfEmpty` dans une transaction | S |
 | `[ ]` | S5b | `counterparty` en combobox à suggestions (arrête la dérive) | S |
-| `[ ]` | M1 | `db.on("blocked")` / `db.on("versionchange")` | S |
-| `[ ]` | M3 | Dédoublonnage des chips d'activité | S |
-| `[ ]` | M6 | Vider `ACCOUNT` et les deux `defaultValue` — **après** avoir confirmé la ligne `profiles` sur l'appareil | S |
+| `[x]` | M1 | `db.on("blocked")` / `db.on("versionchange")` | S |
+| `[x]` | M3 | Dédoublonnage des chips d'activité | S |
+| `[~]` | M6 | Vider `ACCOUNT` et les deux `defaultValue` — **après** avoir confirmé la ligne `profiles` sur l'appareil — *`ACCOUNT` vidé ; `defaultValue` gardées jusqu'au form builder* | S |
 | `[ ]` | O1 | Filtres `ownerId` + leur test | S |
 
-### Lot B — une seule montée v13 → v14 (§6)
+### Lot B — une seule montée de schéma, désormais v14 → v15 (§6)
 
 Tout ce qui touche le stockage part ensemble : chaque bump est un risque sur une
 base irremplaçable, et il ne faut pas en faire trois.
