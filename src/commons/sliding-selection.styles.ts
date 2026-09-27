@@ -28,12 +28,11 @@ import { css } from "lit";
  */
 export const slidingSelectionStyles = css`
   /*
-   * Anchor positioning sits *above* the browser floor on two engines out of
-   * three — Chrome 125, but Safari 26 and Firefox 147 (the floor is Safari
-   * 18.2 / Firefox 137). Everything below is therefore an enhancement: without
-   * it the consumer's own [selected] background rule stands and the control
-   * looks exactly as it did before this file existed. See "Browser floor" in
-   * AGENTS.md.
+   * Anchor positioning is below the browser floor (Chrome 125, Safari 26,
+   * Firefox 147; the floor is Safari 26.2 / Chrome 143 / Firefox 147), so this
+   * block always matches. The guard is dead code kept on purpose until its
+   * removal lands as a change of its own — see "Browser floor" in AGENTS.md.
+   * Do not copy it.
    */
   @supports (anchor-name: --sliding-selection) {
     .sliding-selection {

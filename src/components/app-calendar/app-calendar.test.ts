@@ -1,5 +1,6 @@
 import { html } from "lit";
 import { describe, expect, it } from "vitest";
+import { server } from "vitest/browser";
 import type { CalendarEvent } from "../../data/icalendar.ts";
 import { fixture, settled } from "../__tests__/fixture.ts";
 import "./app-calendar.ts";
@@ -380,6 +381,17 @@ describe("app-calendar", () => {
 
       el.value = "2026-03-23";
       await settled(el);
+
+      // WebKit snaps instead: moving the anchor name leaves the declared
+      // anchor() insets unchanged, so it sees nothing to transition. The
+      // slide is an enhancement and a snap is the fallback the mixin already
+      // accepts, so this pins the snap rather than skipping — if WebKit ever
+      // starts travelling, this fails and the branch can go.
+      if (server.browser === "webkit") {
+        expect(pillAt(el)).toEqual(selectedAt(el));
+        expect(pillAt(el)).not.toEqual(from);
+        return;
+      }
 
       // One frame in, five seconds of travel has barely started: the pill is
       // still where it was, which is what proves it moves at all.
