@@ -64,6 +64,7 @@ export * from "./dates.ts";
 export * from "./icalendar.ts";
 export * from "./seasons.ts";
 export * from "./posts.ts";
+export * from "./post-views.ts";
 export * from "./horses.ts";
 export * from "./categories.ts";
 export * from "./files.ts";

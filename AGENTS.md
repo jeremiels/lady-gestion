@@ -325,6 +325,7 @@ src/data/
   forms.ts             # readForm() + field parsers — the write path's front door
   categories.ts        # the category catalogue: seed rows, pure helpers
   posts.ts             # post rules that are neither persistence nor iCalendar
+  post-views.ts        # what the post views decide: card rows, search, agenda
   seasons.ts           # RationSeason: recurring annual windows — see below
   icalendar.ts         # RFC 5545 boundary — see below
   live.ts              # LiveQuery ReactiveController

@@ -21,8 +21,8 @@ import {
   isCourseOnDay,
   rootOf,
   rootsOf,
-  subtreeKeys,
-  foldText,
+  filterPosts,
+  splitCourses,
   todayISO,
   type IsoDate,
   type ResolvedCategory,
@@ -121,35 +121,14 @@ export class PostsView extends LightElement {
     return findCategory(types, categoryFilter) ? categoryFilter : null;
   }
 
-  /** Cancelled events are hidden here for the same reason the calendar hides them. */
+  /** The list's posts — see `filterPosts` (`post-views.ts`). */
   #visiblePosts(
     types: ResolvedCategory[],
     categoryFilter: string | null,
   ): Post[] {
-    const { query } = this.#ui.value;
-    const needle = foldText(query);
-
-    // A root chip covers its children too — `subtreeKeys` is a singleton for a
-    // type with none, which is exactly the `event.categoryKey === categoryFilter` this
-    // replaces on a flat catalogue.
-    const keys =
-      categoryFilter === null ? null : subtreeKeys(types, categoryFilter);
-
-    return (this.#events.value ?? []).filter((event) => {
-      if (event.status === "cancelled") return false;
-      if (keys && !keys.has(event.categoryKey)) return false;
-      if (!needle) return true;
-
-      const haystack = [
-        event.title,
-        event.notes ?? "",
-        typeof event.customFields.counterparty === "string"
-          ? event.customFields.counterparty
-          : "",
-        event.location ?? "",
-        findCategory(types, event.categoryKey)?.label ?? "",
-      ].join(" ");
-      return foldText(haystack).includes(needle);
+    return filterPosts(this.#events.value ?? [], types, {
+      categoryKey: categoryFilter,
+      query: this.#ui.value.query,
     });
   }
 
@@ -187,13 +166,9 @@ export class PostsView extends LightElement {
     const { selected } = this.#ui.value;
     const today = this.#today.value;
     const all = this.#events.value ?? [];
-    // A cure or a traitement is drawn as a bar over the days it runs, not as a
-    // dot on the day it started — and listed under every one of those days,
-    // not only the first. Cancelled ones go, as cancelled events do.
-    const courses = all.filter(
-      (event) => isCourse(event) && event.status !== "cancelled",
-    );
-    const events = all.filter((event) => !isCourse(event));
+    // A cure or a traitement is drawn as a bar over the days it runs, and
+    // listed under every one of those days, not only the first.
+    const { courses, events } = splitCourses(all);
     const calendarEvents = events.map(toCalendarEvent);
     const spans = courses.flatMap((course): CalendarSpan[] => {
       const type = findCategory(types, course.categoryKey);

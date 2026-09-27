@@ -6,21 +6,15 @@ import { LightElement } from "../commons/base-element.ts";
 import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
   categoriesRepo,
-  fieldById,
-  fieldWithRole,
   findCategory,
   LiveQuery,
   documentsRepo,
+  postInfoRows,
   postsRepo,
   postsService,
-  formatCents,
-  formatDateMedium,
   formatFileKind,
   formatFileSize,
-  formatFollowUpInterval,
-  formatTime,
-  formatWorkActivity,
-  parseFollowUpValue,
+  shareSummary,
   type ResolvedCategory,
 } from "../data/index.ts";
 import type { Post, StoredDocument } from "../data/types.ts";
@@ -180,21 +174,11 @@ export class PostDetailView extends LightElement {
   }
 
   /**
-   * The rows of the Informations card, in the order the design draws them.
-   *
-   * The practitioner/merchant row reads its label *and* its `customFields` key
-   * straight off the record's own type — the very definition the entry form
-   * writes from — so what is shown here and what was captured there cannot
-   * drift apart. Empty rows are dropped rather than rendered with a dash: a
-   * card of blanks reads as broken.
-   *
-   * `type` is `undefined` for the tick before the type catalogue's `LiveQuery`
-   * settles, or a type since deleted — every row but Nom/Date is guarded on a
-   * field actually being found, so the card degrades to its bare minimum
-   * rather than throwing.
+   * The Informations card: the type, as a tag, then `postInfoRows`
+   * (`post-views.ts`), which owns which rows a post shows.
    */
   #infoRows(event: Post, type: ResolvedCategory | undefined): InfoRow[] {
-    const rows: InfoRow[] = [
+    return [
       // `app-tag` resolves both the label and the colours from the type alone.
       {
         label: "Type",
@@ -203,81 +187,8 @@ export class PostDetailView extends LightElement {
           style=${styleMap(type ? tagStyle(THEME_META[type.theme]) : {})}
         ></app-tag>`,
       },
-      { label: "Nom", value: event.title },
-      {
-        label: "Date",
-        value: event.time
-          ? `${formatDateMedium(event.date)} · ${formatTime(event.time)}`
-          : formatDateMedium(event.date),
-      },
+      ...postInfoRows(event, type),
     ];
-
-    const activityField = type && fieldWithRole(type, "workActivity");
-    const activityValue = activityField && event.customFields[activityField.id];
-    if (typeof activityValue === "string" && activityValue) {
-      rows.push({
-        label: "Activité",
-        value: formatWorkActivity(activityValue),
-      });
-    }
-
-    const counterpartyField = type && fieldById(type, "counterparty");
-    const counterpartyValue =
-      counterpartyField && event.customFields[counterpartyField.id];
-    if (
-      counterpartyField &&
-      typeof counterpartyValue === "string" &&
-      counterpartyValue
-    ) {
-      rows.push({ label: counterpartyField.label, value: counterpartyValue });
-    }
-
-    const amountField = type && fieldById(type, "amountCents");
-    const amountValue = amountField && event.customFields[amountField.id];
-    if (typeof amountValue === "number") {
-      rows.push({
-        label: "Budget",
-        value: formatCents(amountValue, event.currency),
-      });
-    }
-
-    // Already display-ready — `formatQuantity` (`posts.ts`) is what wrote
-    // this string in the first place, so there is nothing left to format.
-    const quantityField = type && fieldById(type, "quantity");
-    const quantityValue = quantityField && event.customFields[quantityField.id];
-    if (typeof quantityValue === "string" && quantityValue) {
-      rows.push({ label: quantityField.label, value: quantityValue });
-    }
-
-    const followUpField = type && fieldWithRole(type, "followUp");
-    const followUpValueRaw =
-      followUpField && event.customFields[followUpField.id];
-    const interval =
-      typeof followUpValueRaw === "string"
-        ? parseFollowUpValue(followUpValueRaw)
-        : null;
-    if (interval) {
-      rows.push({
-        label: "Prochain rendez-vous",
-        value: formatFollowUpInterval(interval),
-      });
-    }
-
-    // Read back through the field's own options, which is where the wording
-    // the form offered lives.
-    const reminderField = type && fieldWithRole(type, "reminder");
-    const reminderValue = reminderField && event.customFields[reminderField.id];
-    const reminderLabel = reminderField?.reveals
-      ?.flatMap((child) => child.options ?? [])
-      .find((option) => option.value === reminderValue)?.label;
-    if (reminderLabel) {
-      rows.push({ label: "Notification", value: reminderLabel });
-    }
-
-    if (event.location) rows.push({ label: "Lieu", value: event.location });
-    if (event.notes) rows.push({ label: "Note", value: event.notes });
-
-    return rows;
   }
 
   #renderDocuments() {
@@ -455,17 +366,7 @@ export class PostDetailView extends LightElement {
   ) {
     this.actionError = "";
 
-    const amount = event.customFields.amountCents;
-    const summary = [
-      type?.label ?? "",
-      formatDateMedium(event.date),
-      typeof event.customFields.counterparty === "string"
-        ? event.customFields.counterparty
-        : "",
-      typeof amount === "number" ? formatCents(amount, event.currency) : "",
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    const summary = shareSummary(event, type);
 
     try {
       const file = doc && (await this.#toFile(doc));

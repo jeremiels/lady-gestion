@@ -11,14 +11,11 @@ import {
   endOfMonth,
   postsRepo,
   categoriesRepo,
-  coursePhase,
+  dashboardAgenda,
   findCategory,
   horsesRepo,
-  isCourse,
-  isCourseOngoing,
   profileRepo,
   startOfMonth,
-  upcomingAppointments,
   type ResolvedCategory,
 } from "../data/index.ts";
 import type { Post } from "../data/types.ts";
@@ -101,20 +98,12 @@ export class HomeView extends LightElement {
   render() {
     const types = this.#categories.value ?? [];
     const today = this.#today.value;
-    // A cure is an appointment category, so it sits in this list until the day
-    // it starts — from then on it belongs to "En cours" below, not to both.
-    // Only its first day can actually collide (`listUpcoming` is already
-    // `date >= today`), but phrasing it as the phase keeps it right for a row
-    // whose status was set by hand.
-    const upcoming = upcomingAppointments(
-      (this.#upcoming.value ?? []).filter(
-        (post) => !isCourse(post) || coursePhase(post, today) === "upcoming",
-      ),
+    const { upcoming, ongoing } = dashboardAgenda(
+      this.#upcoming.value ?? [],
+      this.#courses.value ?? [],
       types,
+      today,
       UPCOMING_LIMIT,
-    );
-    const ongoing = (this.#courses.value ?? []).filter((post) =>
-      isCourseOngoing(post, today),
     );
 
     return html`
