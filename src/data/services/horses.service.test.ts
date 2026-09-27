@@ -35,7 +35,7 @@ describe("saveHorseProfile", () => {
         sex: "hongre",
         birthDate: "2020-03-12",
         coat: " Bai cerise ",
-        damName: "Vaza de Roc O Cerf",
+        damName: "Mère de démo du Bois",
       }),
     );
 
@@ -44,7 +44,7 @@ describe("saveHorseProfile", () => {
       sex: "hongre",
       birthDate: "2020-03-12",
       coat: "Bai cerise",
-      damName: "Vaza de Roc O Cerf",
+      damName: "Mère de démo du Bois",
       breed: "Selle Français",
     });
   });

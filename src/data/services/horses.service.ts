@@ -25,7 +25,7 @@ export type HorseField = keyof typeof HORSE_FIELDS;
 
 export const HORSE_SEXES: readonly HorseSex[] = ["jument", "hongre", "etalon"];
 
-/** Long enough for "Vaza de Roc O Cerf" and its longer cousins. */
+/** Long enough for a full studbook name and its longer cousins. */
 export const HORSE_TEXT_MAX = 80;
 
 const SCHEMA = {
@@ -51,7 +51,7 @@ export type HorseProfileResult =
  * `rationsService.updateRation` skips an untouched line: `touch()` restamps `updatedAt`, and
  * `clearUntouchedSeedData` recognises the demo horse by
  * `createdAt === updatedAt`. Pressing Enregistrer on an untouched card would
- * otherwise keep the demo Ladympala alive through the next backup restore.
+ * otherwise keep the demo horse alive through the next backup restore.
  *
  * Blank text reads as `null` — "unknown", which the horse page shows as "—" —
  * never as an empty string.

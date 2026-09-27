@@ -4,8 +4,8 @@ import { db } from "../db.ts";
 import * as profileRepo from "./profile.repo.ts";
 
 const fields = {
-  firstName: "Léa",
-  lastName: "Garnier",
+  firstName: "Camille",
+  lastName: "Martin",
   email: "lea@example.com",
 };
 

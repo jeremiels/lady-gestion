@@ -426,10 +426,13 @@ describe("importBackup — rejects bad input", () => {
 });
 
 /**
- * Léa's own database, exported at schema v13 on 2026-09-17 — the day her
- * install was confirmed past every migration — and scrubbed of names: owner,
- * horse identity, practitioners, merchants, the coach and every note. Ids,
- * dates, amounts, titles and category rows are exactly what the phone wrote.
+ * The real user's database, exported at schema v13 — the day her install was
+ * confirmed past every migration — and scrubbed: names (owner, horse identity,
+ * practitioners, merchants, the coach, every note) are replaced, every date
+ * and timestamp is moved by one constant offset, and each amount is scaled by
+ * its own factor. Ids, titles, the order of every timestamp and which rows
+ * were never edited (`createdAt === updatedAt`) are exactly what the phone
+ * wrote.
  *
  * Every other test on this file builds the row it wants, which means every one
  * of them tests what its author was already thinking about. This one is the
@@ -444,16 +447,16 @@ describe("importBackup — rejects bad input", () => {
  * it through `node:fs` was not an option either; that would have meant
  * admitting Node's globals into the app's ambient types to serve a test.
  *
- * The totals below were computed from the file before it was scrubbed, and
- * scrubbing touched no amount. If a change makes one of them move, that is
- * money leaving a real ledger — not a fixture needing an update.
+ * The totals below were computed from the scrubbed file. If a change makes
+ * one of them move, that is money leaving the ledger a restore is meant to
+ * carry over — not a fixture needing an update.
  */
 const REAL_V13_EXPORT = JSON.parse(realV13ExportRaw) as BackupSnapshot;
 
 const REAL_V13_POST_COUNT = 124;
 const REAL_V13_TOMBSTONES = 12;
 /** Cents across every post in the fixture, tombstones included. */
-const REAL_V13_TOTAL_CENTS = 1_593_101;
+const REAL_V13_TOTAL_CENTS = 1_614_646;
 
 const realV13Export = (): BackupSnapshot => structuredClone(REAL_V13_EXPORT);
 
@@ -632,8 +635,8 @@ describe("importBackup — the seeded profile", () => {
     // Edited by the user at some point, so `createdAt !== updatedAt`.
     updatedAt: "2026-02-01T00:00:00.000Z",
     deletedAt: null,
-    firstName: "Léa",
-    lastName: "Garnier",
+    firstName: "Camille",
+    lastName: "Martin",
     email: "real@example.com",
     ...over,
   });

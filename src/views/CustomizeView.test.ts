@@ -231,7 +231,7 @@ describe("customize-view › cheval", () => {
   it("prefills the card, shows the age, and saves an edit", async () => {
     await db.horses.update(HORSE_ID, {
       breed: "Selle Français",
-      sireNumber: "2139236F",
+      sireNumber: "00000000A",
     });
     const el = await mount("cheval");
     await waitFor(
@@ -243,7 +243,7 @@ describe("customize-view › cheval", () => {
 
     expect(control<HTMLSelectElement>(el, "horse-sex").value).toBe("jument");
     expect(control<HTMLInputElement>(el, "horse-sireNumber").value).toBe(
-      "2139236F",
+      "00000000A",
     );
     expect(
       card(el).renderRoot.querySelector(".item__age")?.textContent,

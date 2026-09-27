@@ -71,9 +71,7 @@ describe("seedIfEmpty — event types", () => {
 });
 
 describe("seedProfileIfEmpty", () => {
-  it("writes the identity that used to be hardcoded into a real row", async () => {
-    // The point of the row: it is what lets `ACCOUNT` be emptied in a later
-    // release without the user's own name vanishing from the page.
+  it("writes the fallback identity into a real row", async () => {
     await seedProfileIfEmpty();
 
     const profile = await profileRepo.get();

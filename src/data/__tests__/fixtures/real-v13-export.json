@@ -1,14 +1,14 @@
 {
   "app": "lady-gestion",
   "schemaVersion": 13,
-  "exportedAt": "2026-09-17T06:11:53.894Z",
+  "exportedAt": "2026-06-12T06:11:53.894Z",
   "ownerId": "00000000-0000-4000-8000-000000000001",
   "tables": {
     "horses": [
       {
         "name": "Fixture",
         "sex": "jument",
-        "birthDate": "2021-05-01",
+        "birthDate": "2021-01-24",
         "breed": "Selle Français",
         "coat": "Bai cerise",
         "sireNumber": "00000000A",
@@ -18,8 +18,8 @@
         "archivedAt": null,
         "id": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.987Z",
-        "updatedAt": "2026-08-24T19:13:53.987Z",
+        "createdAt": "2026-05-19T19:13:53.987Z",
+        "updatedAt": "2026-05-19T19:13:53.987Z",
         "deletedAt": null
       }
     ],
@@ -27,7 +27,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle annuel",
-        "date": "2026-08-04",
+        "date": "2026-04-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -36,20 +36,20 @@
         "recurrenceId": null,
         "id": "0018dd21-dfab-4e6c-a08f-d95528de647e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-30T19:12:24.599Z",
-        "updatedAt": "2026-08-30T19:12:24.599Z",
+        "createdAt": "2026-05-25T19:12:24.599Z",
+        "updatedAt": "2026-05-25T19:12:24.599Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 1",
           "followUp": null,
-          "amountCents": 8000
+          "amountCents": 9000
         },
         "categoryKey": "osteo"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-05-04",
+        "date": "2026-01-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -58,18 +58,18 @@
         "recurrenceId": null,
         "id": "019c8ac4-c55b-46f9-9219-48b23ec688fe",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:53:00.013Z",
-        "updatedAt": "2026-08-31T20:53:00.013Z",
+        "createdAt": "2026-05-26T20:53:00.013Z",
+        "updatedAt": "2026-05-26T20:53:00.013Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 13900
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2025-11-04",
+        "date": "2025-07-30",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -78,18 +78,18 @@
         "recurrenceId": null,
         "id": "025766d1-d9d0-402e-8dbd-e1b3141812f8",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:12:34.407Z",
-        "updatedAt": "2026-08-31T21:12:34.407Z",
+        "createdAt": "2026-05-26T21:12:34.407Z",
+        "updatedAt": "2026-05-26T21:12:34.407Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 16000
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Vermifuge",
-        "date": "2026-02-19",
+        "date": "2025-11-14",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -98,20 +98,20 @@
         "recurrenceId": null,
         "id": "03cf8fd2-9cab-4750-a137-5c973ed2766d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:16:15.101Z",
-        "updatedAt": "2026-08-31T21:16:15.101Z",
+        "createdAt": "2026-05-26T21:16:15.101Z",
+        "updatedAt": "2026-05-26T21:16:15.101Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
           "followUp": null,
-          "amountCents": 1970
+          "amountCents": 1947
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Achat de Lady",
-        "date": "2025-10-11",
+        "date": "2025-07-06",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -120,19 +120,19 @@
         "recurrenceId": null,
         "id": "0573d5b6-7342-4fd7-b154-1a97a5727573",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:27:20.564Z",
-        "updatedAt": "2026-08-31T20:27:20.564Z",
+        "createdAt": "2026-05-26T20:27:20.564Z",
+        "updatedAt": "2026-05-26T20:27:20.564Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 801800
+          "amountCents": 839900
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Maréchal",
-        "date": "2025-12-29",
+        "date": "2025-09-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -141,20 +141,20 @@
         "recurrenceId": null,
         "id": "098b0924-a13a-445c-a30d-8e5b0d5f3050",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:05:24.868Z",
-        "updatedAt": "2026-08-31T21:05:24.868Z",
+        "createdAt": "2026-05-26T21:05:24.868Z",
+        "updatedAt": "2026-05-26T21:05:24.868Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 4300
+          "amountCents": 4600
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Huile de lin",
-        "date": "2026-02-10",
+        "date": "2025-11-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -163,19 +163,19 @@
         "recurrenceId": null,
         "id": "0a6ea0ef-908b-48c4-9b48-2ece415f83a7",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:46:53.551Z",
-        "updatedAt": "2026-08-31T20:46:53.551Z",
+        "createdAt": "2026-05-26T20:46:53.551Z",
+        "updatedAt": "2026-05-26T20:46:53.551Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 1",
-          "amountCents": 1579
+          "amountCents": 1563
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-01-02",
+        "date": "2025-09-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -184,20 +184,20 @@
         "recurrenceId": null,
         "id": "0c8d9e12-f374-4732-9f0c-e090d354b457",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:02:27.901Z",
-        "updatedAt": "2026-08-31T21:07:18.545Z",
-        "deletedAt": "2026-08-31T21:07:18.545Z",
+        "createdAt": "2026-05-26T21:02:27.901Z",
+        "updatedAt": "2026-05-26T21:07:18.545Z",
+        "deletedAt": "2026-05-26T21:07:18.545Z",
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 4300
+          "amountCents": 4600
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Longe",
-        "date": "2025-07-31",
+        "date": "2025-04-25",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -206,19 +206,19 @@
         "recurrenceId": null,
         "id": "0f3cd180-4ed1-4944-8576-02b2c337d85e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:01:07.190Z",
-        "updatedAt": "2026-09-03T20:01:07.190Z",
+        "createdAt": "2026-05-29T20:01:07.190Z",
+        "updatedAt": "2026-05-29T20:01:07.190Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 457
+          "amountCents": 448
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Matériels & accessoires divers",
-        "date": "2026-05-29",
+        "date": "2026-02-21",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -227,19 +227,19 @@
         "recurrenceId": null,
         "id": "10dbfc51-7aee-4c8d-9e22-964f518e77d8",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:56:12.215Z",
-        "updatedAt": "2026-08-31T20:56:12.215Z",
+        "createdAt": "2026-05-26T20:56:12.215Z",
+        "updatedAt": "2026-05-26T20:56:12.215Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 2",
-          "amountCents": 8092
+          "amountCents": 7121
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Cure immunitaire Cura Naturale",
-        "date": "2026-09-16",
+        "date": "2026-06-11",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -248,11 +248,11 @@
         "recurrenceId": null,
         "id": "144b084c-c93d-4cdc-893a-fad96fd57969",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T21:45:37.721Z",
-        "updatedAt": "2026-09-17T04:11:03.422Z",
+        "createdAt": "2026-05-29T21:45:37.721Z",
+        "updatedAt": "2026-06-12T04:11:03.422Z",
         "deletedAt": null,
         "customFields": {
-          "endDate": "2026-10-06",
+          "endDate": "2026-07-01",
           "dosage": "2 mL",
           "followUp": null
         },
@@ -261,7 +261,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotting",
-        "date": "2026-08-24",
+        "date": "2026-05-19",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -270,8 +270,8 @@
         "recurrenceId": null,
         "id": "15a5a593-4ac3-4a72-847d-0be7eceb9cc9",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:41:30.069Z",
-        "updatedAt": "2026-08-30T11:54:59.114Z",
+        "createdAt": "2026-05-19T19:41:30.069Z",
+        "updatedAt": "2026-05-25T11:54:59.114Z",
         "deletedAt": null,
         "customFields": {
           "activity": "trotting"
@@ -281,7 +281,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Engagement concours",
-        "date": "2026-05-25",
+        "date": "2026-02-17",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -290,18 +290,18 @@
         "recurrenceId": null,
         "id": "1629b8ff-c026-4a16-b268-e4511248a13d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:14:46.926Z",
-        "updatedAt": "2026-08-31T21:14:46.926Z",
+        "createdAt": "2026-05-26T21:14:46.926Z",
+        "updatedAt": "2026-05-26T21:14:46.926Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 1900
+          "amountCents": 1800
         },
         "categoryKey": "cours"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Licol éthologique",
-        "date": "2026-08-07",
+        "date": "2026-05-02",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -310,19 +310,19 @@
         "recurrenceId": null,
         "id": "1771321a-c6c4-4124-a6b8-6a14ab250add",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-30T19:14:01.797Z",
-        "updatedAt": "2026-08-30T19:14:01.797Z",
+        "createdAt": "2026-05-25T19:14:01.797Z",
+        "updatedAt": "2026-05-25T19:14:01.797Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 6700
+          "amountCents": 5500
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Remise en cours à l'obstacle",
-        "date": "2026-09-16",
+        "date": "2026-06-11",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -330,20 +330,20 @@
         "notes": "Note.",
         "recurrenceId": null,
         "customFields": {
-          "amountCents": 2000,
+          "amountCents": 1800,
           "coach": "Coach 1"
         },
         "id": "1951a9c7-d1ec-43eb-8156-7d4eb411222b",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-13T19:19:04.861Z",
-        "updatedAt": "2026-09-16T20:17:58.789Z",
+        "createdAt": "2026-06-08T19:19:04.861Z",
+        "updatedAt": "2026-06-11T20:17:58.789Z",
         "deletedAt": null,
         "categoryKey": "cours"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Fenugrec & CMV",
-        "date": "2026-01-04",
+        "date": "2025-09-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -352,19 +352,19 @@
         "recurrenceId": null,
         "id": "1cf0ce9f-9adb-4a20-9754-e07ab746e502",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:31:01.694Z",
-        "updatedAt": "2026-08-31T20:31:51.003Z",
+        "createdAt": "2026-05-26T20:31:01.694Z",
+        "updatedAt": "2026-05-26T20:31:51.003Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 3",
-          "amountCents": 5750
+          "amountCents": 5307
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Dynavena Fib & Fib",
-        "date": "2026-02-02",
+        "date": "2025-10-28",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -373,19 +373,19 @@
         "recurrenceId": null,
         "id": "1f6fdf0b-0192-4a18-9382-37b00547fe9a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:46:21.517Z",
-        "updatedAt": "2026-08-31T20:46:21.517Z",
+        "createdAt": "2026-05-26T20:46:21.517Z",
+        "updatedAt": "2026-05-26T20:46:21.517Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 4",
-          "amountCents": 2395
+          "amountCents": 2060
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Bilan nutritionnel",
-        "date": "2026-07-11",
+        "date": "2026-04-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -394,19 +394,19 @@
         "recurrenceId": null,
         "id": "1f807d02-447b-4393-a2a3-a8a850235215",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:54:34.117Z",
-        "updatedAt": "2026-08-31T20:54:34.117Z",
+        "createdAt": "2026-05-26T20:54:34.117Z",
+        "updatedAt": "2026-05-26T20:54:34.117Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 5",
-          "amountCents": 12000
+          "amountCents": 12100
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Vaccin",
-        "date": "2026-04-22",
+        "date": "2026-01-15",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -415,20 +415,20 @@
         "recurrenceId": null,
         "id": "2102aab3-3633-4cb6-9327-08aefe02a825",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:51:24.764Z",
-        "updatedAt": "2026-08-31T20:51:24.764Z",
+        "createdAt": "2026-05-26T20:51:24.764Z",
+        "updatedAt": "2026-05-26T20:51:24.764Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 3",
           "followUp": null,
-          "amountCents": 5768
+          "amountCents": 5896
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle œil",
-        "date": "2026-04-14",
+        "date": "2026-01-07",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -437,20 +437,20 @@
         "recurrenceId": null,
         "id": "21a9e6aa-22cd-49a4-af4f-02bea5c20464",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:50:36.194Z",
-        "updatedAt": "2026-08-31T20:50:36.194Z",
+        "createdAt": "2026-05-26T20:50:36.194Z",
+        "updatedAt": "2026-05-26T20:50:36.194Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 4",
           "followUp": null,
-          "amountCents": 4728
+          "amountCents": 4095
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Engagement concours",
-        "date": "2026-05-10",
+        "date": "2026-02-02",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -459,8 +459,8 @@
         "recurrenceId": null,
         "id": "228e2068-d50e-477a-a0cb-27d729106d11",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:14:28.757Z",
-        "updatedAt": "2026-08-31T21:14:28.757Z",
+        "createdAt": "2026-05-26T21:14:28.757Z",
+        "updatedAt": "2026-05-26T21:14:28.757Z",
         "deletedAt": null,
         "customFields": {
           "amountCents": 1900
@@ -470,7 +470,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2025-11-12",
+        "date": "2025-08-07",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -479,20 +479,20 @@
         "recurrenceId": null,
         "id": "22bc56c6-c479-4c87-aed1-ff16a08e53cc",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:01:45.328Z",
-        "updatedAt": "2026-08-31T21:04:51.331Z",
+        "createdAt": "2026-05-26T21:01:45.328Z",
+        "updatedAt": "2026-05-26T21:04:51.331Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 5100
+          "amountCents": 4900
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Balade",
-        "date": "2026-09-13",
+        "date": "2026-06-08",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -504,15 +504,15 @@
         },
         "id": "239fcd0f-0c7a-4675-87cc-44655c3c2d7f",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-12T13:20:33.186Z",
-        "updatedAt": "2026-09-12T13:20:33.186Z",
+        "createdAt": "2026-06-07T13:20:33.186Z",
+        "updatedAt": "2026-06-07T13:20:33.186Z",
         "deletedAt": null,
         "categoryKey": "travail"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Séchante",
-        "date": "2025-10-28",
+        "date": "2025-07-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -521,19 +521,19 @@
         "recurrenceId": null,
         "id": "2790ee70-5a33-492a-904b-735bbc494f2f",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:07:59.358Z",
-        "updatedAt": "2026-09-03T20:07:59.358Z",
+        "createdAt": "2026-05-29T20:07:59.358Z",
+        "updatedAt": "2026-05-29T20:07:59.358Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 5114
+          "amountCents": 5984
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Masque à mouche",
-        "date": "2025-12-25",
+        "date": "2025-09-19",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -542,19 +542,19 @@
         "recurrenceId": null,
         "id": "2f8efcbe-b6e4-4197-a79a-256f235df023",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:15:41.801Z",
-        "updatedAt": "2026-09-03T20:15:41.801Z",
+        "createdAt": "2026-05-29T20:15:41.801Z",
+        "updatedAt": "2026-05-29T20:15:41.801Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 3500
+          "amountCents": 3300
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotting",
-        "date": "2026-09-08",
+        "date": "2026-06-03",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -563,8 +563,8 @@
         "recurrenceId": null,
         "id": "3032f301-e462-46d4-8622-c0b8ad98df6e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-07T20:08:12.134Z",
-        "updatedAt": "2026-09-07T20:08:12.134Z",
+        "createdAt": "2026-06-02T20:08:12.134Z",
+        "updatedAt": "2026-06-02T20:08:12.134Z",
         "deletedAt": null,
         "customFields": {
           "activity": "trotting"
@@ -574,7 +574,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Longe",
-        "date": "2026-09-07",
+        "date": "2026-06-02",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -583,8 +583,8 @@
         "recurrenceId": null,
         "id": "311125a3-6628-4d5f-8c38-b9474da0358a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-07T19:35:12.095Z",
-        "updatedAt": "2026-09-07T19:35:12.095Z",
+        "createdAt": "2026-06-02T19:35:12.095Z",
+        "updatedAt": "2026-06-02T19:35:12.095Z",
         "deletedAt": null,
         "customFields": {
           "activity": "longe"
@@ -594,7 +594,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Longe",
-        "date": "2026-09-15",
+        "date": "2026-06-10",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -606,15 +606,15 @@
         },
         "id": "31a18030-efe9-4f99-98b2-8ee9a4867b61",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-14T05:39:17.689Z",
-        "updatedAt": "2026-09-14T05:39:17.689Z",
+        "createdAt": "2026-06-09T05:39:17.689Z",
+        "updatedAt": "2026-06-09T05:39:17.689Z",
         "deletedAt": null,
         "categoryKey": "travail"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-03-30",
+        "date": "2025-12-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -623,20 +623,20 @@
         "recurrenceId": null,
         "id": "347941fc-6176-47b7-a944-1ed74aa6ccfc",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:03:38.107Z",
-        "updatedAt": "2026-08-31T21:06:00.101Z",
+        "createdAt": "2026-05-26T21:03:38.107Z",
+        "updatedAt": "2026-05-26T21:06:00.101Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 5100
+          "amountCents": 6300
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-06-04",
+        "date": "2026-02-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -645,18 +645,18 @@
         "recurrenceId": null,
         "id": "38e9ebfb-139d-4feb-bf3f-5bcb284d3851",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:53:13.753Z",
-        "updatedAt": "2026-08-31T20:53:24.602Z",
+        "createdAt": "2026-05-26T20:53:13.753Z",
+        "updatedAt": "2026-05-26T20:53:24.602Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 14500
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotting",
-        "date": "2026-09-06",
+        "date": "2026-06-01",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -665,9 +665,9 @@
         "recurrenceId": null,
         "id": "3941b189-536d-4bf5-a84c-2ba5b16d5778",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-02T10:05:17.392Z",
-        "updatedAt": "2026-09-06T15:55:50.781Z",
-        "deletedAt": "2026-09-06T15:55:50.781Z",
+        "createdAt": "2026-05-28T10:05:17.392Z",
+        "updatedAt": "2026-06-01T15:55:50.781Z",
+        "deletedAt": "2026-06-01T15:55:50.781Z",
         "customFields": {
           "activity": "trotting"
         },
@@ -676,7 +676,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Protection de transport",
-        "date": "2025-07-31",
+        "date": "2025-04-25",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -685,19 +685,19 @@
         "recurrenceId": null,
         "id": "3b03c8f3-3bb2-42a4-af2a-f39238ebf57d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:00:43.457Z",
-        "updatedAt": "2026-09-03T20:00:43.457Z",
+        "createdAt": "2026-05-29T20:00:43.457Z",
+        "updatedAt": "2026-05-29T20:00:43.457Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 5648
+          "amountCents": 5455
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Bétadine",
-        "date": "2025-08-03",
+        "date": "2025-04-28",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -706,19 +706,19 @@
         "recurrenceId": null,
         "id": "41212870-ef18-407c-88a5-d6b04550507c",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:04:09.108Z",
-        "updatedAt": "2026-09-03T20:04:09.108Z",
+        "createdAt": "2026-05-29T20:04:09.108Z",
+        "updatedAt": "2026-05-29T20:04:09.108Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 7",
-          "amountCents": 554
+          "amountCents": 435
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Essence",
-        "date": "2025-10-11",
+        "date": "2025-07-06",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -727,19 +727,19 @@
         "recurrenceId": null,
         "id": "47939b00-81d4-4763-97ff-3ce9c20f93f0",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:28:17.509Z",
-        "updatedAt": "2026-08-31T20:28:17.509Z",
+        "createdAt": "2026-05-26T20:28:17.509Z",
+        "updatedAt": "2026-05-26T20:28:17.509Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 7200
+          "amountCents": 7600
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotting",
-        "date": "2026-09-12",
+        "date": "2026-06-07",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -748,8 +748,8 @@
         "recurrenceId": null,
         "id": "49b5a4ec-c6ac-4a7d-8b7c-d941f4fe1ce7",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-07T20:08:17.226Z",
-        "updatedAt": "2026-09-07T20:08:17.226Z",
+        "createdAt": "2026-06-02T20:08:17.226Z",
+        "updatedAt": "2026-06-02T20:08:17.226Z",
         "deletedAt": null,
         "customFields": {
           "activity": "trotting"
@@ -759,7 +759,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "CMV & Vitamine E & Huile de lin",
-        "date": "2026-07-26",
+        "date": "2026-04-20",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -768,19 +768,19 @@
         "recurrenceId": null,
         "id": "4ca468d9-182c-4a33-a0f8-89886cb15b77",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:21:25.196Z",
-        "updatedAt": "2026-08-31T21:21:25.196Z",
+        "createdAt": "2026-05-26T21:21:25.196Z",
+        "updatedAt": "2026-05-26T21:21:25.196Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 8",
-          "amountCents": 7600
+          "amountCents": 7400
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Première consultation œil",
-        "date": "2025-12-22",
+        "date": "2025-09-16",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -789,20 +789,20 @@
         "recurrenceId": null,
         "id": "4cea6b71-e859-4095-8b04-a4e97808ba2f",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:09:51.141Z",
-        "updatedAt": "2026-08-31T21:09:51.141Z",
+        "createdAt": "2026-05-26T21:09:51.141Z",
+        "updatedAt": "2026-05-26T21:09:51.141Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 5",
           "followUp": null,
-          "amountCents": 11949
+          "amountCents": 12706
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Huile de lin",
-        "date": "2025-11-25",
+        "date": "2025-08-20",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -811,19 +811,19 @@
         "recurrenceId": null,
         "id": "5321814a-3abf-4145-ad35-5826d96055d5",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:14:05.893Z",
-        "updatedAt": "2026-09-03T20:14:05.893Z",
+        "createdAt": "2026-05-29T20:14:05.893Z",
+        "updatedAt": "2026-05-29T20:14:05.893Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 9",
-          "amountCents": 3127
+          "amountCents": 2794
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Enrennement élastique",
-        "date": "2026-02-03",
+        "date": "2025-10-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -832,19 +832,19 @@
         "recurrenceId": null,
         "id": "53d2f74f-313f-4870-942f-9aa098bc7527",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:45:43.009Z",
-        "updatedAt": "2026-08-31T20:45:43.009Z",
+        "createdAt": "2026-05-26T20:45:43.009Z",
+        "updatedAt": "2026-05-26T20:45:43.009Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 988
+          "amountCents": 1199
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Soin émotionnel",
-        "date": "2026-09-08",
+        "date": "2026-06-03",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -853,20 +853,20 @@
         "recurrenceId": null,
         "customFields": {
           "counterparty": "Praticien 6",
-          "amountCents": 6500,
+          "amountCents": 5000,
           "followUp": null
         },
         "id": "5445b3b6-121a-410c-83f6-9b4fc26f2a61",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:23:31.571Z",
-        "updatedAt": "2026-09-10T04:23:31.571Z",
+        "createdAt": "2026-06-05T04:23:31.571Z",
+        "updatedAt": "2026-06-05T04:23:31.571Z",
         "deletedAt": null,
         "categoryKey": "soins"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle annuel",
-        "date": "2025-11-10",
+        "date": "2025-08-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -875,20 +875,20 @@
         "recurrenceId": null,
         "id": "54b68d28-853e-4a73-9585-3177c2cc2d35",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:08:27.488Z",
-        "updatedAt": "2026-08-31T21:08:27.488Z",
+        "createdAt": "2026-05-26T21:08:27.488Z",
+        "updatedAt": "2026-05-26T21:08:27.488Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 1",
           "followUp": null,
-          "amountCents": 8000
+          "amountCents": 8400
         },
         "categoryKey": "osteo"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Carte propriétaire",
-        "date": "2025-10-11",
+        "date": "2025-07-06",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -897,19 +897,19 @@
         "recurrenceId": null,
         "id": "552387a0-a758-4deb-8f04-d0106943b314",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:28:01.453Z",
-        "updatedAt": "2026-08-31T20:28:01.453Z",
+        "createdAt": "2026-05-26T20:28:01.453Z",
+        "updatedAt": "2026-05-26T20:28:01.453Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 1700
+          "amountCents": 1400
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Alliance de longe",
-        "date": "2025-09-10",
+        "date": "2025-06-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -918,19 +918,19 @@
         "recurrenceId": null,
         "id": "564932f9-0b04-484b-8760-d7d71d71831d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:06:28.351Z",
-        "updatedAt": "2026-09-03T20:06:28.351Z",
+        "createdAt": "2026-05-29T20:06:28.351Z",
+        "updatedAt": "2026-05-29T20:06:28.351Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 568
+          "amountCents": 611
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Balade à pied",
-        "date": "2026-09-01",
+        "date": "2026-05-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -939,8 +939,8 @@
         "recurrenceId": null,
         "id": "576c0923-0762-4b1f-ad54-61b7a01cde0b",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-01T17:24:37.159Z",
-        "updatedAt": "2026-09-01T17:24:37.159Z",
+        "createdAt": "2026-05-27T17:24:37.159Z",
+        "updatedAt": "2026-05-27T17:24:37.159Z",
         "deletedAt": null,
         "customFields": {
           "activity": "baladeApied"
@@ -950,7 +950,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle annuel",
-        "date": "2025-11-15",
+        "date": "2025-08-10",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -959,20 +959,20 @@
         "recurrenceId": null,
         "id": "5c75716b-149a-4779-a191-719ca17490de",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:59:41.413Z",
-        "updatedAt": "2026-08-31T20:59:41.413Z",
+        "createdAt": "2026-05-26T20:59:41.413Z",
+        "updatedAt": "2026-05-26T20:59:41.413Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 7",
           "followUp": "12m",
-          "amountCents": 12873
+          "amountCents": 13941
         },
         "categoryKey": "dentiste"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Liberté",
-        "date": "2026-08-25",
+        "date": "2026-05-20",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -981,8 +981,8 @@
         "recurrenceId": null,
         "id": "5e47b0ed-1e58-4331-ad6b-5e976266001b",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-25T17:21:08.736Z",
-        "updatedAt": "2026-08-30T11:54:48.848Z",
+        "createdAt": "2026-05-20T17:21:08.736Z",
+        "updatedAt": "2026-05-25T11:54:48.848Z",
         "deletedAt": null,
         "customFields": {
           "activity": "liberte"
@@ -992,7 +992,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-01-04",
+        "date": "2025-09-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1001,8 +1001,8 @@
         "recurrenceId": null,
         "id": "5fb3d744-32bf-460e-9511-70230d4e711a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:37:13.126Z",
-        "updatedAt": "2026-08-31T20:37:13.126Z",
+        "createdAt": "2026-05-26T20:37:13.126Z",
+        "updatedAt": "2026-05-26T20:37:13.126Z",
         "deletedAt": null,
         "customFields": {
           "amountCents": 18200
@@ -1012,7 +1012,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-08-04",
+        "date": "2026-04-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1021,18 +1021,18 @@
         "recurrenceId": null,
         "id": "5fc5e079-cec1-4e79-8f86-5f1bec29c114",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.992Z",
-        "updatedAt": "2026-08-31T21:23:25.613Z",
+        "createdAt": "2026-05-19T19:13:53.992Z",
+        "updatedAt": "2026-05-26T21:23:25.613Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 17500
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "jrjrhr",
-        "date": "2026-09-01",
+        "date": "2026-05-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1041,9 +1041,9 @@
         "recurrenceId": null,
         "id": "63cc558d-72f8-4f98-867a-4e69c1128fa8",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-01T06:03:12.108Z",
-        "updatedAt": "2026-09-01T06:03:41.057Z",
-        "deletedAt": "2026-09-01T06:03:41.057Z",
+        "createdAt": "2026-05-27T06:03:12.108Z",
+        "updatedAt": "2026-05-27T06:03:41.057Z",
+        "deletedAt": "2026-05-27T06:03:41.057Z",
         "customFields": {
           "counterparty": null,
           "amountCents": null
@@ -1053,7 +1053,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Fenugrec",
-        "date": "2026-01-28",
+        "date": "2025-10-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1062,19 +1062,19 @@
         "recurrenceId": null,
         "id": "64d220cf-f500-4069-a91c-7b00531da7af",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:36:42.471Z",
-        "updatedAt": "2026-08-31T20:36:42.471Z",
+        "createdAt": "2026-05-26T20:36:42.471Z",
+        "updatedAt": "2026-05-26T20:36:42.471Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 3",
-          "amountCents": 4220
+          "amountCents": 3805
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Masque et imperméabilisant",
-        "date": "2026-09-03",
+        "date": "2026-05-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1083,19 +1083,19 @@
         "recurrenceId": null,
         "id": "64e5f04c-11ff-4bfb-af7d-528e499dd671",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T16:00:08.138Z",
-        "updatedAt": "2026-09-03T16:00:08.138Z",
+        "createdAt": "2026-05-29T16:00:08.138Z",
+        "updatedAt": "2026-05-29T16:00:08.138Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 1",
-          "amountCents": 7793
+          "amountCents": 9138
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-07-04",
+        "date": "2026-03-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1104,18 +1104,18 @@
         "recurrenceId": null,
         "id": "6641d5ef-0c65-4039-ac6d-c585968b4448",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:53:41.647Z",
-        "updatedAt": "2026-08-31T20:53:41.647Z",
+        "createdAt": "2026-05-26T20:53:41.647Z",
+        "updatedAt": "2026-05-26T20:53:41.647Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 18000
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotting / Galoping",
-        "date": "2026-08-29",
+        "date": "2026-05-24",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1124,8 +1124,8 @@
         "recurrenceId": null,
         "id": "69e64de1-3f93-4c60-9d29-82ebba445419",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-30T11:54:05.961Z",
-        "updatedAt": "2026-08-30T11:54:05.961Z",
+        "createdAt": "2026-05-25T11:54:05.961Z",
+        "updatedAt": "2026-05-25T11:54:05.961Z",
         "deletedAt": null,
         "customFields": {
           "activity": "trotting"
@@ -1135,7 +1135,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-03-04",
+        "date": "2025-11-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1144,18 +1144,18 @@
         "recurrenceId": null,
         "id": "6e807034-c3a4-4906-b55a-ab737db3ad70",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:49:10.840Z",
-        "updatedAt": "2026-08-31T20:49:10.840Z",
+        "createdAt": "2026-05-26T20:49:10.840Z",
+        "updatedAt": "2026-05-26T20:49:10.840Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 22300
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Balade",
-        "date": "2026-09-19",
+        "date": "2026-06-14",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -1167,15 +1167,15 @@
         },
         "id": "6f2b4cf8-3021-4719-892b-475528875164",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-14T05:39:23.647Z",
-        "updatedAt": "2026-09-15T04:10:23.609Z",
+        "createdAt": "2026-06-09T05:39:23.647Z",
+        "updatedAt": "2026-06-10T04:10:23.609Z",
         "deletedAt": null,
         "categoryKey": "travail"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couverture 0g équithème",
-        "date": "2025-10-23",
+        "date": "2025-07-18",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1184,19 +1184,19 @@
         "recurrenceId": null,
         "id": "70f0a759-0e48-4225-8019-2d27a2ac6adc",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:17:38.828Z",
-        "updatedAt": "2026-08-31T21:17:38.828Z",
+        "createdAt": "2026-05-26T21:17:38.828Z",
+        "updatedAt": "2026-05-26T21:17:38.828Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 2",
-          "amountCents": 10525
+          "amountCents": 9025
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle œil",
-        "date": "2026-01-09",
+        "date": "2025-10-04",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1205,20 +1205,20 @@
         "recurrenceId": null,
         "id": "724114a0-cdbe-47fc-aa31-7b5927352093",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:32:39.209Z",
-        "updatedAt": "2026-08-31T20:32:39.209Z",
+        "createdAt": "2026-05-26T20:32:39.209Z",
+        "updatedAt": "2026-05-26T20:32:39.209Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 3",
           "followUp": null,
-          "amountCents": 5440
+          "amountCents": 4579
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Commande produits Ohlala",
-        "date": "2025-07-16",
+        "date": "2025-04-10",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1227,19 +1227,19 @@
         "recurrenceId": null,
         "id": "726198d2-9c6d-42de-ba39-98368a579ef5",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:04:36.126Z",
-        "updatedAt": "2026-09-05T07:26:00.283Z",
+        "createdAt": "2026-05-29T20:04:36.126Z",
+        "updatedAt": "2026-05-31T07:26:00.283Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 10",
-          "amountCents": 8072
+          "amountCents": 8166
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Dynavena Fib & Fib",
-        "date": "2026-01-17",
+        "date": "2025-10-12",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1248,19 +1248,19 @@
         "recurrenceId": null,
         "id": "7a638ce3-e293-4be7-acc1-aaf0b61ce025",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:31:40.682Z",
-        "updatedAt": "2026-08-31T20:31:40.682Z",
+        "createdAt": "2026-05-26T20:31:40.682Z",
+        "updatedAt": "2026-05-26T20:31:40.682Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 4",
-          "amountCents": 2395
+          "amountCents": 1847
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Masque à mouche x2",
-        "date": "2026-01-18",
+        "date": "2025-10-13",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1269,19 +1269,19 @@
         "recurrenceId": null,
         "id": "7d1b77d4-ae22-4840-9dd5-11129aaa926a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:35:28.604Z",
-        "updatedAt": "2026-08-31T20:35:28.604Z",
+        "createdAt": "2026-05-26T20:35:28.604Z",
+        "updatedAt": "2026-05-26T20:35:28.604Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 2016
+          "amountCents": 2193
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Séance ostéopathie",
-        "date": "2026-07-03",
+        "date": "2026-03-28",
         "time": "11:00",
         "status": "done",
         "currency": "EUR",
@@ -1290,20 +1290,20 @@
         "recurrenceId": null,
         "id": "7f0c1c51-d74e-4379-a2eb-5dd735443453",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.992Z",
-        "updatedAt": "2026-08-30T19:15:15.113Z",
-        "deletedAt": "2026-08-30T19:15:15.113Z",
+        "createdAt": "2026-05-19T19:13:53.992Z",
+        "updatedAt": "2026-05-25T19:15:15.113Z",
+        "deletedAt": "2026-05-25T19:15:15.113Z",
         "customFields": {
           "counterparty": null,
           "followUp": null,
-          "amountCents": 7500
+          "amountCents": 6200
         },
         "categoryKey": "osteo"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Huile de lin",
-        "date": "2026-09-03",
+        "date": "2026-05-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1312,19 +1312,19 @@
         "recurrenceId": null,
         "id": "81ca018c-be18-4eef-87a9-fce589032184",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T16:00:41.932Z",
-        "updatedAt": "2026-09-03T16:00:41.932Z",
+        "createdAt": "2026-05-29T16:00:41.932Z",
+        "updatedAt": "2026-05-29T16:00:41.932Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 11",
-          "amountCents": 3828
+          "amountCents": 4149
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-09-01",
+        "date": "2026-05-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1333,18 +1333,18 @@
         "recurrenceId": null,
         "id": "82f0db50-9df0-4ebe-8555-a85752ef2500",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-01T21:19:14.684Z",
-        "updatedAt": "2026-09-01T21:19:14.684Z",
+        "createdAt": "2026-05-27T21:19:14.684Z",
+        "updatedAt": "2026-05-27T21:19:14.684Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 18300
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Dynavena Fib & Fib",
-        "date": "2026-07-27",
+        "date": "2026-04-21",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1353,19 +1353,19 @@
         "recurrenceId": null,
         "id": "846dd8be-7eb4-49e1-82ee-6f7be5dad431",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:19:26.446Z",
-        "updatedAt": "2026-08-31T21:19:26.446Z",
+        "createdAt": "2026-05-26T21:19:26.446Z",
+        "updatedAt": "2026-05-26T21:19:26.446Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 4",
-          "amountCents": 2395
+          "amountCents": 1832
         },
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Uvemix",
-        "date": "2027-03-01",
+        "date": "2026-11-24",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -1378,15 +1378,15 @@
         },
         "id": "84eb9dcf-e2ae-4fad-a758-bcd5c0921fbe",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-15T21:32:13.158Z",
-        "updatedAt": "2026-09-17T04:11:55.240Z",
-        "deletedAt": "2026-09-17T04:11:55.240Z",
+        "createdAt": "2026-06-10T21:32:13.158Z",
+        "updatedAt": "2026-06-12T04:11:55.240Z",
+        "deletedAt": "2026-06-12T04:11:55.240Z",
         "categoryKey": "cures"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-09-15",
+        "date": "2026-06-10",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1395,8 +1395,8 @@
         "recurrenceId": null,
         "id": "8cc039db-88bf-42e3-9869-c7e05b55d70e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-25T17:22:34.862Z",
-        "updatedAt": "2026-09-15T08:57:17.665Z",
+        "createdAt": "2026-05-20T17:22:34.862Z",
+        "updatedAt": "2026-06-10T08:57:17.665Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
@@ -1408,7 +1408,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Seau gamelle",
-        "date": "2026-01-18",
+        "date": "2025-10-13",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1417,19 +1417,19 @@
         "recurrenceId": null,
         "id": "8e45f960-a021-4f00-9ea3-18e2613748aa",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:34:45.619Z",
-        "updatedAt": "2026-08-31T20:34:45.619Z",
+        "createdAt": "2026-05-26T20:34:45.619Z",
+        "updatedAt": "2026-05-26T20:34:45.619Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 1249
+          "amountCents": 1189
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotting",
-        "date": "2026-09-17",
+        "date": "2026-06-12",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -1441,15 +1441,15 @@
         },
         "id": "8edd7dd7-567e-4bd8-89b1-4bb374aa31d3",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-14T05:39:20.202Z",
-        "updatedAt": "2026-09-14T05:39:20.202Z",
+        "createdAt": "2026-06-09T05:39:20.202Z",
+        "updatedAt": "2026-06-09T05:39:20.202Z",
         "deletedAt": null,
         "categoryKey": "travail"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couvre cou équithème",
-        "date": "2025-10-29",
+        "date": "2025-07-24",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1458,19 +1458,19 @@
         "recurrenceId": null,
         "id": "8fa05282-af3a-4046-83b3-679321ef3129",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:12:40.719Z",
-        "updatedAt": "2026-09-03T20:12:40.719Z",
+        "createdAt": "2026-05-29T20:12:40.719Z",
+        "updatedAt": "2026-05-29T20:12:40.719Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 2",
-          "amountCents": 3899
+          "amountCents": 4013
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Cheval energy",
-        "date": "2026-09-16",
+        "date": "2026-06-11",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1478,21 +1478,21 @@
         "notes": null,
         "recurrenceId": null,
         "customFields": {
-          "amountCents": 7841,
+          "amountCents": 8480,
           "quantity": null,
           "counterparty": "Site 12"
         },
         "id": "8ff0fca9-caf2-4e85-ab8e-30b9f4485202",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-16T06:45:56.881Z",
-        "updatedAt": "2026-09-16T06:45:56.881Z",
+        "createdAt": "2026-06-11T06:45:56.881Z",
+        "updatedAt": "2026-06-11T06:45:56.881Z",
         "deletedAt": null,
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Séance cardio",
-        "date": "2026-09-04",
+        "date": "2026-05-30",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1501,8 +1501,8 @@
         "recurrenceId": null,
         "id": "92a2875b-eaa0-4c0e-8de8-dc7fd5e56f3d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-02T10:04:50.952Z",
-        "updatedAt": "2026-09-04T19:26:59.290Z",
+        "createdAt": "2026-05-28T10:04:50.952Z",
+        "updatedAt": "2026-05-30T19:26:59.290Z",
         "deletedAt": null,
         "customFields": {
           "activity": "trotting"
@@ -1512,7 +1512,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Gouttes préventives",
-        "date": "2026-08-29",
+        "date": "2026-05-24",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1520,7 +1520,7 @@
         "notes": null,
         "recurrenceId": null,
         "customFields": {
-          "endDate": "2026-08-31",
+          "endDate": "2026-05-26",
           "dosage": "3 mL",
           "counterparty": null,
           "amountCents": null,
@@ -1528,15 +1528,15 @@
         },
         "id": "94b8e18a-c676-465f-8837-51118d0077a0",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-13T13:45:59.781Z",
-        "updatedAt": "2026-09-17T04:09:31.671Z",
+        "createdAt": "2026-06-08T13:45:59.781Z",
+        "updatedAt": "2026-06-12T04:09:31.671Z",
         "deletedAt": null,
         "categoryKey": "traitement"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Licence & RC",
-        "date": "2026-01-01",
+        "date": "2025-09-26",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1545,19 +1545,19 @@
         "recurrenceId": null,
         "id": "991737ff-44a9-4515-91ff-0a8121dc1974",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:24:22.954Z",
-        "updatedAt": "2026-08-31T21:24:22.954Z",
+        "createdAt": "2026-05-26T21:24:22.954Z",
+        "updatedAt": "2026-05-26T21:24:22.954Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 7700
+          "amountCents": 8500
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2025-10-31",
+        "date": "2025-07-26",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1566,18 +1566,18 @@
         "recurrenceId": null,
         "id": "99d84f78-61ea-4b2e-99d9-078f5b858b5f",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:12:09.507Z",
-        "updatedAt": "2026-08-31T21:12:09.507Z",
+        "createdAt": "2026-05-26T21:12:09.507Z",
+        "updatedAt": "2026-05-26T21:12:09.507Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 12012
+          "amountCents": 14380
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-07-21",
+        "date": "2026-04-15",
         "time": "14:00",
         "status": "done",
         "currency": "EUR",
@@ -1586,20 +1586,20 @@
         "recurrenceId": null,
         "id": "9b5a25a4-aa1d-4792-a822-6dfbfc70eea5",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.992Z",
-        "updatedAt": "2026-08-30T19:15:19.006Z",
-        "deletedAt": "2026-08-30T19:15:19.006Z",
+        "createdAt": "2026-05-19T19:13:53.992Z",
+        "updatedAt": "2026-05-25T19:15:19.006Z",
+        "deletedAt": "2026-05-25T19:15:19.006Z",
         "customFields": {
           "counterparty": null,
           "followUp": null,
-          "amountCents": 9000
+          "amountCents": 9800
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Commande Agradi",
-        "date": "2025-08-02",
+        "date": "2025-04-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1608,19 +1608,19 @@
         "recurrenceId": null,
         "id": "9d201ef2-22c9-4c68-92a0-6d57bb6c9b19",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:01:32.379Z",
-        "updatedAt": "2026-09-03T20:01:32.379Z",
+        "createdAt": "2026-05-29T20:01:32.379Z",
+        "updatedAt": "2026-05-29T20:01:32.379Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 9",
-          "amountCents": 8340
+          "amountCents": 6316
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle œil",
-        "date": "2026-01-26",
+        "date": "2025-10-21",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1629,20 +1629,20 @@
         "recurrenceId": null,
         "id": "9ff338d7-618f-473e-9ffa-ea4efac78035",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:33:11.492Z",
-        "updatedAt": "2026-08-31T20:33:11.492Z",
+        "createdAt": "2026-05-26T20:33:11.492Z",
+        "updatedAt": "2026-05-26T20:33:11.492Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 3",
           "followUp": null,
-          "amountCents": 20651
+          "amountCents": 20230
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-02-04",
+        "date": "2025-10-30",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1651,18 +1651,18 @@
         "recurrenceId": null,
         "id": "a3dfcb4a-12b2-4c45-ad1b-75a3bb8cf775",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:47:54.421Z",
-        "updatedAt": "2026-08-31T20:47:54.421Z",
+        "createdAt": "2026-05-26T20:47:54.421Z",
+        "updatedAt": "2026-05-26T20:47:54.421Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 17100
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couvre cou 150g horseware",
-        "date": "2025-11-28",
+        "date": "2025-08-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1671,19 +1671,19 @@
         "recurrenceId": null,
         "id": "a5d39bbe-cdea-4d93-bd70-a2183c4c479e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:14:45.750Z",
-        "updatedAt": "2026-09-03T20:34:03.796Z",
+        "createdAt": "2026-05-29T20:14:45.750Z",
+        "updatedAt": "2026-05-29T20:34:03.796Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 13",
-          "amountCents": 6013
+          "amountCents": 6600
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Trotring",
-        "date": "2026-08-30",
+        "date": "2026-05-25",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1692,8 +1692,8 @@
         "recurrenceId": null,
         "id": "a628f5d4-766b-4279-8bfe-125fc706e367",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-30T15:58:33.867Z",
-        "updatedAt": "2026-08-30T15:58:33.867Z",
+        "createdAt": "2026-05-25T15:58:33.867Z",
+        "updatedAt": "2026-05-25T15:58:33.867Z",
         "deletedAt": null,
         "customFields": {
           "activity": "trotting"
@@ -1703,7 +1703,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Seconde consultation œil",
-        "date": "2025-12-26",
+        "date": "2025-09-20",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1712,20 +1712,20 @@
         "recurrenceId": null,
         "id": "a870174d-41af-4f75-a013-a9d2b8753b2d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:10:35.109Z",
-        "updatedAt": "2026-08-31T21:10:35.109Z",
+        "createdAt": "2026-05-26T21:10:35.109Z",
+        "updatedAt": "2026-05-26T21:10:35.109Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 5",
           "followUp": null,
-          "amountCents": 10230
+          "amountCents": 12634
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Test",
-        "date": "2026-09-10",
+        "date": "2026-06-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1739,15 +1739,15 @@
         },
         "id": "a8ed2b5a-a3a9-466e-b9af-fdab34d34ab1",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T06:03:37.580Z",
-        "updatedAt": "2026-09-10T06:03:57.021Z",
-        "deletedAt": "2026-09-10T06:03:57.021Z",
+        "createdAt": "2026-06-05T06:03:37.580Z",
+        "updatedAt": "2026-06-05T06:03:57.021Z",
+        "deletedAt": "2026-06-05T06:03:57.021Z",
         "categoryKey": "alimentation"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-02-10",
+        "date": "2025-11-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1756,20 +1756,20 @@
         "recurrenceId": null,
         "id": "ad5b6eb1-81bc-40e3-b1f8-d682f12eca83",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:02:59.665Z",
-        "updatedAt": "2026-08-31T21:05:38.476Z",
+        "createdAt": "2026-05-26T21:02:59.665Z",
+        "updatedAt": "2026-05-26T21:05:38.476Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 5100
+          "amountCents": 4900
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Balade en licol",
-        "date": "2026-09-02",
+        "date": "2026-05-28",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1778,8 +1778,8 @@
         "recurrenceId": null,
         "id": "ae56a450-8787-4c7d-920f-df64294f4f6f",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-02T10:04:34.548Z",
-        "updatedAt": "2026-09-03T20:44:43.252Z",
+        "createdAt": "2026-05-28T10:04:34.548Z",
+        "updatedAt": "2026-05-29T20:44:43.252Z",
         "deletedAt": null,
         "customFields": {
           "activity": "Balade en licol"
@@ -1789,7 +1789,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Accessoires éthologique",
-        "date": "2026-08-06",
+        "date": "2026-05-01",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1798,19 +1798,19 @@
         "recurrenceId": null,
         "id": "b27b1467-d720-427f-a941-0509aa75d38e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-30T19:14:43.779Z",
-        "updatedAt": "2026-08-30T19:14:43.779Z",
+        "createdAt": "2026-05-25T19:14:43.779Z",
+        "updatedAt": "2026-05-25T19:14:43.779Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 14",
-          "amountCents": 3272
+          "amountCents": 2804
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pommade œil",
-        "date": "2025-12-23",
+        "date": "2025-09-17",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1819,20 +1819,20 @@
         "recurrenceId": null,
         "id": "b3fd56f5-d905-4433-9be8-7be7e346343e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:16:22.314Z",
-        "updatedAt": "2026-09-03T20:17:07.429Z",
+        "createdAt": "2026-05-29T20:16:22.314Z",
+        "updatedAt": "2026-05-29T20:17:07.429Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 8",
           "followUp": null,
-          "amountCents": 307
+          "amountCents": 274
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Matériels",
-        "date": "2026-07-01",
+        "date": "2026-03-26",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1841,19 +1841,19 @@
         "recurrenceId": null,
         "id": "b7d3d252-4d64-4728-8db2-54936febd58e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:58:12.403Z",
-        "updatedAt": "2026-08-31T20:58:12.403Z",
+        "createdAt": "2026-05-26T20:58:12.403Z",
+        "updatedAt": "2026-05-26T20:58:12.403Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 2",
-          "amountCents": 15200
+          "amountCents": 17800
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Vermifuge",
-        "date": "2026-07-02",
+        "date": "2026-03-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1862,20 +1862,20 @@
         "recurrenceId": null,
         "id": "ba4fc593-0bc7-4960-8239-6a9a3e4c5916",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:15:51.953Z",
-        "updatedAt": "2026-08-31T21:15:51.953Z",
+        "createdAt": "2026-05-26T21:15:51.953Z",
+        "updatedAt": "2026-05-26T21:15:51.953Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
           "followUp": null,
-          "amountCents": 1945
+          "amountCents": 2160
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Enrennement pessoa",
-        "date": "2026-01-20",
+        "date": "2025-10-15",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1884,19 +1884,19 @@
         "recurrenceId": null,
         "id": "ba827179-7b4e-4073-b2ae-6546d9e1767d",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:34:15.596Z",
-        "updatedAt": "2026-08-31T20:34:15.596Z",
+        "createdAt": "2026-05-26T20:34:15.596Z",
+        "updatedAt": "2026-05-26T20:34:15.596Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 2479
+          "amountCents": 1965
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-05-11",
+        "date": "2026-02-03",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1905,20 +1905,20 @@
         "recurrenceId": null,
         "id": "bb507eef-7698-47cd-9e43-053f8ec0f927",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:04:06.317Z",
-        "updatedAt": "2026-08-31T21:06:13.167Z",
+        "createdAt": "2026-05-26T21:04:06.317Z",
+        "updatedAt": "2026-05-26T21:06:13.167Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 5100
+          "amountCents": 4800
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Tapis Harcours beige",
-        "date": "2026-03-10",
+        "date": "2025-12-03",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1927,19 +1927,19 @@
         "recurrenceId": null,
         "id": "bd0e431f-d590-4799-8659-def119dcd255",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:49:59.616Z",
-        "updatedAt": "2026-08-31T20:49:59.616Z",
+        "createdAt": "2026-05-26T20:49:59.616Z",
+        "updatedAt": "2026-05-26T20:49:59.616Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 15",
-          "amountCents": 7000
+          "amountCents": 6500
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Crème œil",
-        "date": "2026-02-18",
+        "date": "2025-11-13",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1948,20 +1948,20 @@
         "recurrenceId": null,
         "id": "bf08562f-b220-4888-bb03-8479525e21e4",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:47:35.968Z",
-        "updatedAt": "2026-08-31T21:11:04.747Z",
+        "createdAt": "2026-05-26T20:47:35.968Z",
+        "updatedAt": "2026-05-26T21:11:04.747Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 3",
           "followUp": null,
-          "amountCents": 6136
+          "amountCents": 7546
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2026-04-04",
+        "date": "2025-12-28",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1970,18 +1970,18 @@
         "recurrenceId": null,
         "id": "bfbfe39c-5dbc-416f-967e-1d478d313658",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:50:48.323Z",
-        "updatedAt": "2026-08-31T20:50:48.323Z",
+        "createdAt": "2026-05-26T20:50:48.323Z",
+        "updatedAt": "2026-05-26T20:50:48.323Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 14400
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Cure Uvemix",
-        "date": "2026-09-15",
+        "date": "2026-06-10",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -1990,11 +1990,11 @@
         "recurrenceId": null,
         "id": "c2eb9298-be05-498a-8b9f-86effe95c7b4",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T21:39:49.888Z",
-        "updatedAt": "2026-09-17T04:11:31.636Z",
+        "createdAt": "2026-05-29T21:39:49.888Z",
+        "updatedAt": "2026-06-12T04:11:31.636Z",
         "deletedAt": null,
         "customFields": {
-          "endDate": "2026-10-06",
+          "endDate": "2026-07-01",
           "dosage": null,
           "followUp": null
         },
@@ -2003,7 +2003,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Produit pied",
-        "date": "2025-12-31",
+        "date": "2025-09-25",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2012,19 +2012,19 @@
         "recurrenceId": null,
         "id": "c353c4b4-375c-4ddc-9d71-cd5ab4023794",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:15:19.535Z",
-        "updatedAt": "2026-09-03T20:15:19.535Z",
+        "createdAt": "2026-05-29T20:15:19.535Z",
+        "updatedAt": "2026-05-29T20:15:19.535Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 7418
+          "amountCents": 8623
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Plat en carrière",
-        "date": "2026-08-26",
+        "date": "2026-05-21",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2033,8 +2033,8 @@
         "recurrenceId": null,
         "id": "c6ad7e44-cee2-4bc8-be46-3c90663588eb",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-26T17:27:04.768Z",
-        "updatedAt": "2026-08-30T11:54:39.909Z",
+        "createdAt": "2026-05-21T17:27:04.768Z",
+        "updatedAt": "2026-05-25T11:54:39.909Z",
         "deletedAt": null,
         "customFields": {
           "activity": "plat"
@@ -2044,7 +2044,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Muserolle",
-        "date": "2025-10-27",
+        "date": "2025-07-22",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2053,19 +2053,19 @@
         "recurrenceId": null,
         "id": "c6d1bf68-01b8-4c43-b607-a4d8dafad761",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:11:10.355Z",
-        "updatedAt": "2026-09-03T20:11:10.355Z",
+        "createdAt": "2026-05-29T20:11:10.355Z",
+        "updatedAt": "2026-05-29T20:11:10.355Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 818
+          "amountCents": 645
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Argile assainissante",
-        "date": "2026-05-31",
+        "date": "2026-02-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2074,19 +2074,19 @@
         "recurrenceId": null,
         "id": "cab8da9e-a877-4f63-8045-51c10f39933a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:56:48.342Z",
-        "updatedAt": "2026-08-31T20:56:48.342Z",
+        "createdAt": "2026-05-26T20:56:48.342Z",
+        "updatedAt": "2026-05-26T20:56:48.342Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 16",
-          "amountCents": 4930
+          "amountCents": 5176
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Gouttes préventives",
-        "date": "2026-09-21",
+        "date": "2026-06-16",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -2094,7 +2094,7 @@
         "notes": null,
         "recurrenceId": null,
         "customFields": {
-          "endDate": "2026-09-23",
+          "endDate": "2026-06-18",
           "dosage": "3 mL",
           "counterparty": null,
           "amountCents": null,
@@ -2102,15 +2102,15 @@
         },
         "id": "d2c3d906-7dbc-400d-a8f9-8cfd3d6e8b20",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-13T13:46:20.630Z",
-        "updatedAt": "2026-09-17T04:09:50.347Z",
+        "createdAt": "2026-06-08T13:46:20.630Z",
+        "updatedAt": "2026-06-12T04:09:50.347Z",
         "deletedAt": null,
         "categoryKey": "traitement"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Longe",
-        "date": "2026-09-03",
+        "date": "2026-05-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2119,8 +2119,8 @@
         "recurrenceId": null,
         "id": "d3fa4aa5-1a1b-4451-824c-5a60c65ff143",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-02T10:05:03.733Z",
-        "updatedAt": "2026-09-03T19:31:15.253Z",
+        "createdAt": "2026-05-28T10:05:03.733Z",
+        "updatedAt": "2026-05-29T19:31:15.253Z",
         "deletedAt": null,
         "customFields": {
           "activity": "longe"
@@ -2130,7 +2130,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-08-03",
+        "date": "2026-04-28",
         "time": "14:00",
         "status": "done",
         "currency": "EUR",
@@ -2139,9 +2139,9 @@
         "recurrenceId": null,
         "id": "d66cd76c-80ea-4552-b8a9-adcf516184bd",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.991Z",
-        "updatedAt": "2026-08-31T21:07:09.226Z",
-        "deletedAt": "2026-08-31T21:07:09.226Z",
+        "createdAt": "2026-05-19T19:13:53.991Z",
+        "updatedAt": "2026-05-26T21:07:09.226Z",
+        "deletedAt": "2026-05-26T21:07:09.226Z",
         "customFields": {
           "counterparty": null,
           "followUp": "6w",
@@ -2152,7 +2152,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Tapis noir riding world",
-        "date": "2026-03-27",
+        "date": "2025-12-20",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2161,19 +2161,19 @@
         "recurrenceId": null,
         "id": "d7167e6e-9f9d-4d74-afc0-7263c5a1847a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:48:14.407Z",
-        "updatedAt": "2026-08-31T21:13:23.620Z",
+        "createdAt": "2026-05-26T20:48:14.407Z",
+        "updatedAt": "2026-05-26T21:13:23.620Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 1078
+          "amountCents": 1339
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Rappel vaccins",
-        "date": "2026-09-12",
+        "date": "2026-06-07",
         "time": "09:30",
         "status": "planned",
         "currency": "EUR",
@@ -2182,9 +2182,9 @@
         "recurrenceId": null,
         "id": "d7fc1638-e9db-4def-9013-965c8bc3902e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.992Z",
-        "updatedAt": "2026-08-30T19:11:23.418Z",
-        "deletedAt": "2026-08-30T19:11:23.418Z",
+        "createdAt": "2026-05-19T19:13:53.992Z",
+        "updatedAt": "2026-05-25T19:11:23.418Z",
+        "deletedAt": "2026-05-25T19:11:23.418Z",
         "customFields": {
           "counterparty": null,
           "followUp": null,
@@ -2195,7 +2195,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Selle",
-        "date": "2025-10-11",
+        "date": "2025-07-06",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2204,19 +2204,19 @@
         "recurrenceId": null,
         "id": "d846bbae-391e-41c4-8e13-c3700fc812dd",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:29:10.464Z",
-        "updatedAt": "2026-08-31T20:29:10.464Z",
+        "createdAt": "2026-05-26T20:29:10.464Z",
+        "updatedAt": "2026-05-26T20:29:10.464Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 150000
+          "amountCents": 142900
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-06-26",
+        "date": "2026-03-21",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2225,20 +2225,20 @@
         "recurrenceId": null,
         "id": "d8bb9202-9582-4015-ad6a-a5a84300f251",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:06:41.735Z",
-        "updatedAt": "2026-08-31T21:06:41.735Z",
+        "createdAt": "2026-05-26T21:06:41.735Z",
+        "updatedAt": "2026-05-26T21:06:41.735Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 5100
+          "amountCents": 4100
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Communication animale",
-        "date": "2026-07-22",
+        "date": "2026-04-16",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2247,20 +2247,20 @@
         "recurrenceId": null,
         "id": "da2f991a-4802-4c36-a266-47e15c6e9529",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-04T12:01:40.767Z",
-        "updatedAt": "2026-09-04T12:01:40.767Z",
+        "createdAt": "2026-05-30T12:01:40.767Z",
+        "updatedAt": "2026-05-30T12:01:40.767Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 9",
           "followUp": null,
-          "amountCents": 6500
+          "amountCents": 6800
         },
         "categoryKey": "osteo"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Chaussettes",
-        "date": "2026-06-12",
+        "date": "2026-03-07",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2269,19 +2269,19 @@
         "recurrenceId": null,
         "id": "db0e37a8-f6b7-4362-95be-ea4416a957cb",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:57:19.664Z",
-        "updatedAt": "2026-08-31T20:57:19.664Z",
+        "createdAt": "2026-05-26T20:57:19.664Z",
+        "updatedAt": "2026-05-26T20:57:19.664Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 17",
-          "amountCents": 2395
+          "amountCents": 2992
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-01-02",
+        "date": "2025-09-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2290,20 +2290,20 @@
         "recurrenceId": null,
         "id": "db121730-7aea-4096-9461-4ad850a07953",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:30:22.393Z",
-        "updatedAt": "2026-08-31T20:30:22.393Z",
+        "createdAt": "2026-05-26T20:30:22.393Z",
+        "updatedAt": "2026-05-26T20:30:22.393Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
           "followUp": null,
-          "amountCents": 4300
+          "amountCents": 4900
         },
         "categoryKey": "marechal"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Produits",
-        "date": "2025-07-27",
+        "date": "2025-04-21",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2312,19 +2312,19 @@
         "recurrenceId": null,
         "id": "db8ab770-b258-45e5-a5ee-19b043c91d31",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T19:57:54.077Z",
-        "updatedAt": "2026-09-03T19:57:54.077Z",
+        "createdAt": "2026-05-29T19:57:54.077Z",
+        "updatedAt": "2026-05-29T19:57:54.077Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 18",
-          "amountCents": 7560
+          "amountCents": 8380
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Selle",
-        "date": "2025-10-11",
+        "date": "2025-07-06",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2333,9 +2333,9 @@
         "recurrenceId": null,
         "id": "de84c6fa-b05a-4a7c-b845-6b66d364a9ed",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:28:33.267Z",
-        "updatedAt": "2026-09-03T20:10:28.689Z",
-        "deletedAt": "2026-09-03T20:10:28.689Z",
+        "createdAt": "2026-05-26T20:28:33.267Z",
+        "updatedAt": "2026-05-29T20:10:28.689Z",
+        "deletedAt": "2026-05-29T20:10:28.689Z",
         "customFields": {
           "counterparty": null,
           "amountCents": null
@@ -2345,7 +2345,7 @@
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Masque à mouche & Uvemix",
-        "date": "2026-04-18",
+        "date": "2026-01-11",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2354,19 +2354,19 @@
         "recurrenceId": null,
         "id": "e0883f9b-f76d-4aa7-8865-d406452a4622",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:51:54.867Z",
-        "updatedAt": "2026-08-31T20:51:54.867Z",
+        "createdAt": "2026-05-26T20:51:54.867Z",
+        "updatedAt": "2026-05-26T20:51:54.867Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 2",
-          "amountCents": 5960
+          "amountCents": 6957
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Masque à mouche",
-        "date": "2026-03-07",
+        "date": "2025-11-30",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2375,19 +2375,19 @@
         "recurrenceId": null,
         "id": "e11ab3cf-5af0-4108-940b-abc47a43e643",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:48:45.135Z",
-        "updatedAt": "2026-08-31T20:48:45.135Z",
+        "createdAt": "2026-05-26T20:48:45.135Z",
+        "updatedAt": "2026-05-26T20:48:45.135Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 1828
+          "amountCents": 2226
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Brouting",
-        "date": "2026-09-11",
+        "date": "2026-06-06",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -2399,15 +2399,15 @@
         },
         "id": "e397730c-cc06-4cc1-96f2-316a1ac7f153",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T17:55:34.702Z",
-        "updatedAt": "2026-09-10T17:55:34.702Z",
+        "createdAt": "2026-06-05T17:55:34.702Z",
+        "updatedAt": "2026-06-05T17:55:34.702Z",
         "deletedAt": null,
         "categoryKey": "travail"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Commande produit Ohlala",
-        "date": "2025-11-28",
+        "date": "2025-08-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2416,19 +2416,19 @@
         "recurrenceId": null,
         "id": "e4fd1532-7adc-447f-8daf-ff63a699c14f",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:13:37.738Z",
-        "updatedAt": "2026-09-03T20:13:37.738Z",
+        "createdAt": "2026-05-29T20:13:37.738Z",
+        "updatedAt": "2026-05-29T20:13:37.738Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 10",
-          "amountCents": 9006
+          "amountCents": 7271
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Séance",
-        "date": "2026-09-09",
+        "date": "2026-06-04",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -2437,18 +2437,18 @@
         "recurrenceId": null,
         "id": "e5b3b385-9ee2-4309-ae83-f3783090a68e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-07T20:08:34.076Z",
-        "updatedAt": "2026-09-07T20:08:45.154Z",
+        "createdAt": "2026-06-02T20:08:34.076Z",
+        "updatedAt": "2026-06-02T20:08:45.154Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 2000
+          "amountCents": 1500
         },
         "categoryKey": "cours"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couvre rein Paddock",
-        "date": "2026-01-02",
+        "date": "2025-09-27",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2457,19 +2457,19 @@
         "recurrenceId": null,
         "id": "e7c85adb-3595-4b59-94de-ea3e01944a67",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:36:16.478Z",
-        "updatedAt": "2026-08-31T20:36:16.478Z",
+        "createdAt": "2026-05-26T20:36:16.478Z",
+        "updatedAt": "2026-05-26T20:36:16.478Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 4858
+          "amountCents": 5563
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Pension",
-        "date": "2025-12-04",
+        "date": "2025-08-29",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2478,18 +2478,18 @@
         "recurrenceId": null,
         "id": "eedcf4c1-bfa2-4709-aff8-c1d476b7630a",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T21:12:45.998Z",
-        "updatedAt": "2026-08-31T21:12:45.998Z",
+        "createdAt": "2026-05-26T21:12:45.998Z",
+        "updatedAt": "2026-05-26T21:12:45.998Z",
         "deletedAt": null,
         "customFields": {
-          "amountCents": 18200
+          "amountCents": 13900
         },
         "categoryKey": "pension"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Muserolle noir",
-        "date": "2025-09-10",
+        "date": "2025-06-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2498,19 +2498,19 @@
         "recurrenceId": null,
         "id": "ef7c3785-5fe4-4aec-8352-2b02ff3f8622",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:06:46.071Z",
-        "updatedAt": "2026-09-03T20:06:46.071Z",
+        "createdAt": "2026-05-29T20:06:46.071Z",
+        "updatedAt": "2026-05-29T20:06:46.071Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 1405
+          "amountCents": 1169
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couvre rein noir",
-        "date": "2026-02-04",
+        "date": "2025-10-30",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2519,19 +2519,19 @@
         "recurrenceId": null,
         "id": "f4e998f0-2092-44e1-8c4a-65c62aae31cf",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-31T20:45:18.635Z",
-        "updatedAt": "2026-08-31T20:45:18.635Z",
+        "createdAt": "2026-05-26T20:45:18.635Z",
+        "updatedAt": "2026-05-26T20:45:18.635Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": null,
-          "amountCents": 4000
+          "amountCents": 3400
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couvre rein polaire Greenfield",
-        "date": "2025-09-10",
+        "date": "2025-06-05",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2540,19 +2540,19 @@
         "recurrenceId": null,
         "id": "f520d1c3-4eb1-4e9a-9e54-8d3fc7fa1780",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:07:27.772Z",
-        "updatedAt": "2026-09-03T20:07:27.772Z",
+        "createdAt": "2026-05-29T20:07:27.772Z",
+        "updatedAt": "2026-05-29T20:07:27.772Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 6",
-          "amountCents": 1429
+          "amountCents": 1403
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Contrôle œil",
-        "date": "2026-07-29",
+        "date": "2026-04-23",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2561,20 +2561,20 @@
         "recurrenceId": null,
         "id": "f6b20444-ebae-4915-95a5-4c09749ddd9e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.993Z",
-        "updatedAt": "2026-08-25T17:23:11.663Z",
-        "deletedAt": "2026-08-25T17:23:11.663Z",
+        "createdAt": "2026-05-19T19:13:53.993Z",
+        "updatedAt": "2026-05-20T17:23:11.663Z",
+        "deletedAt": "2026-05-20T17:23:11.663Z",
         "customFields": {
           "counterparty": "Praticien 3",
           "followUp": "6w",
-          "amountCents": 10000
+          "amountCents": 11200
         },
         "categoryKey": "veto"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Couverture 250g horseware",
-        "date": "2025-10-29",
+        "date": "2025-07-24",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2583,19 +2583,19 @@
         "recurrenceId": null,
         "id": "fa312faa-7c8c-43cb-857e-009fc751f881",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:12:09.887Z",
-        "updatedAt": "2026-09-03T20:12:09.887Z",
+        "createdAt": "2026-05-29T20:12:09.887Z",
+        "updatedAt": "2026-05-29T20:12:09.887Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Site 19",
-          "amountCents": 9998
+          "amountCents": 9615
         },
         "categoryKey": "achat"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "‼️ Fin cure Uvemix",
-        "date": "2026-10-06",
+        "date": "2026-07-01",
         "time": null,
         "status": "planned",
         "currency": "EUR",
@@ -2608,15 +2608,15 @@
         },
         "id": "fb58c43a-6a84-4277-8b81-4b5e97dac6bd",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-15T18:42:18.878Z",
-        "updatedAt": "2026-09-17T04:10:41.653Z",
-        "deletedAt": "2026-09-17T04:10:41.653Z",
+        "createdAt": "2026-06-10T18:42:18.878Z",
+        "updatedAt": "2026-06-12T04:10:41.653Z",
+        "deletedAt": "2026-06-12T04:10:41.653Z",
         "categoryKey": "cures"
       },
       {
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "title": "Ferrure",
-        "date": "2026-08-03",
+        "date": "2026-04-28",
         "time": null,
         "status": "done",
         "currency": "EUR",
@@ -2625,8 +2625,8 @@
         "recurrenceId": null,
         "id": "ff0f57ff-d089-487e-9a40-ca121d5d5baa",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-30T19:13:23.181Z",
-        "updatedAt": "2026-08-30T19:13:23.181Z",
+        "createdAt": "2026-05-25T19:13:23.181Z",
+        "updatedAt": "2026-05-25T19:13:23.181Z",
         "deletedAt": null,
         "customFields": {
           "counterparty": "Praticien 2",
@@ -2641,15 +2641,15 @@
         "horseId": "e28fd112-4070-4dac-a1e2-580cc44204e3",
         "category": "compte-rendu",
         "name": "Controle_oeil.pdf",
-        "issuedAt": "2026-07-29",
+        "issuedAt": "2026-04-23",
         "mimeType": "application/pdf",
         "size": 697,
         "driveFileId": null,
         "driveSyncedAt": null,
         "id": "a12c19b8-3c5b-4a83-bbb7-6c00f538ad4b",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.993Z",
-        "updatedAt": "2026-08-24T19:13:53.993Z",
+        "createdAt": "2026-05-19T19:13:53.993Z",
+        "updatedAt": "2026-05-19T19:13:53.993Z",
         "deletedAt": null,
         "postId": "f6b20444-ebae-4915-95a5-4c09749ddd9e"
       }
@@ -2664,8 +2664,8 @@
         "sortOrder": 1,
         "id": "89470c37-bdfb-425a-b4e0-d040bb16c1a0",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.989Z",
-        "updatedAt": "2026-08-24T19:13:53.989Z",
+        "createdAt": "2026-05-19T19:13:53.989Z",
+        "updatedAt": "2026-05-19T19:13:53.989Z",
         "deletedAt": null
       },
       {
@@ -2677,8 +2677,8 @@
         "sortOrder": 3,
         "id": "bb574a88-5205-431e-9555-02ff536911e0",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.990Z",
-        "updatedAt": "2026-09-03T20:44:53.712Z",
+        "createdAt": "2026-05-19T19:13:53.990Z",
+        "updatedAt": "2026-05-29T20:44:53.712Z",
         "deletedAt": null
       },
       {
@@ -2690,8 +2690,8 @@
         "sortOrder": 2,
         "id": "d3e805bb-4c0a-4ee2-9fc1-abce02d0877c",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.990Z",
-        "updatedAt": "2026-08-24T19:13:53.990Z",
+        "createdAt": "2026-05-19T19:13:53.990Z",
+        "updatedAt": "2026-05-19T19:13:53.990Z",
         "deletedAt": null
       },
       {
@@ -2703,8 +2703,8 @@
         "sortOrder": 0,
         "id": "dc123aef-33e5-49a7-b66d-43758a5e1410",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.988Z",
-        "updatedAt": "2026-08-25T17:28:50.688Z",
+        "createdAt": "2026-05-19T19:13:53.988Z",
+        "updatedAt": "2026-05-20T17:28:50.688Z",
         "deletedAt": null
       },
       {
@@ -2716,8 +2716,8 @@
         "sortOrder": 4,
         "id": "f736a9f6-0da7-4fd7-8497-91f0e4697c37",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-08-24T19:13:53.991Z",
-        "updatedAt": "2026-09-03T06:23:39.329Z",
+        "createdAt": "2026-05-19T19:13:53.991Z",
+        "updatedAt": "2026-05-29T06:23:39.329Z",
         "deletedAt": null
       }
     ],
@@ -2727,8 +2727,8 @@
         "label": "Test",
         "id": "0a04b9b1-aee0-4737-8506-5aa41237c5f5",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:44:31.138Z",
-        "updatedAt": "2026-09-03T20:44:31.138Z",
+        "createdAt": "2026-05-29T20:44:31.138Z",
+        "updatedAt": "2026-05-29T20:44:31.138Z",
         "deletedAt": null
       },
       {
@@ -2736,8 +2736,8 @@
         "label": "Brouting",
         "id": "5bf0180d-fd31-4f9e-bb56-68318333d83e",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T17:55:34.695Z",
-        "updatedAt": "2026-09-10T17:55:34.695Z",
+        "createdAt": "2026-06-05T17:55:34.695Z",
+        "updatedAt": "2026-06-05T17:55:34.695Z",
         "deletedAt": null
       },
       {
@@ -2745,8 +2745,8 @@
         "label": "Balade en licol",
         "id": "700a409b-2ab1-48ff-9590-22668eae9ebe",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-03T20:44:43.248Z",
-        "updatedAt": "2026-09-03T20:44:43.248Z",
+        "createdAt": "2026-05-29T20:44:43.248Z",
+        "updatedAt": "2026-05-29T20:44:43.248Z",
         "deletedAt": null
       }
     ],
@@ -2797,8 +2797,8 @@
         ],
         "id": "achat",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -2854,8 +2854,8 @@
         ],
         "id": "alimentation",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -2944,8 +2944,8 @@
         ],
         "id": "concours",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -2977,7 +2977,6 @@
             "required": false,
             "id": "coach",
             "label": "Coach",
-            "defaultValue": "Fabien Cassagnaud",
             "control": "text"
           },
           {
@@ -2995,8 +2994,8 @@
         ],
         "id": "cours",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3090,8 +3089,8 @@
         ],
         "id": "cures",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3122,7 +3121,6 @@
             "required": false,
             "id": "counterparty",
             "label": "Practicien",
-            "defaultValue": "Valérie de Picciotto",
             "control": "text"
           },
           {
@@ -3186,8 +3184,8 @@
         ],
         "id": "dentiste",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3218,7 +3216,6 @@
             "required": false,
             "id": "counterparty",
             "label": "Practicien",
-            "defaultValue": "Carl Delepine",
             "control": "text"
           },
           {
@@ -3282,8 +3279,8 @@
         ],
         "id": "marechal",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3377,8 +3374,8 @@
         ],
         "id": "massage",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3472,8 +3469,8 @@
         ],
         "id": "osteo",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3516,8 +3513,8 @@
         ],
         "id": "pension",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3611,8 +3608,8 @@
         ],
         "id": "soins",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3719,8 +3716,8 @@
         ],
         "id": "traitement",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3758,8 +3755,8 @@
         ],
         "id": "travail",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       },
       {
@@ -3790,7 +3787,6 @@
             "required": false,
             "id": "counterparty",
             "label": "Practicien",
-            "defaultValue": "Dr. Orange",
             "control": "text"
           },
           {
@@ -3854,8 +3850,8 @@
         ],
         "id": "veto",
         "ownerId": "00000000-0000-4000-8000-000000000001",
-        "createdAt": "2026-09-10T04:16:45.408Z",
-        "updatedAt": "2026-09-10T04:16:45.408Z",
+        "createdAt": "2026-06-05T04:16:45.408Z",
+        "updatedAt": "2026-06-05T04:16:45.408Z",
         "deletedAt": null
       }
     ],

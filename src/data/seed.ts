@@ -138,17 +138,11 @@ const sameRow = (a: object, b: object): boolean =>
 export const SEEDED_PROFILE_ID = "profile";
 
 /**
- * Writes the identity that used to be hardcoded in the UI into a real row.
+ * Gives every install its one `profiles` row, blank (`ACCOUNT`) until the user
+ * fills it in on the Personnaliser mon interface page.
  *
- * `displayProfile` (`account.ts`) falls back to the `ACCOUNT` constant whenever
- * `profiles` is empty, which means that constant — a real name and a real email
- * address — ships in the bundle of a publicly deployed app. Storing it once, as
- * data on the device, is what lets the constant be emptied in a later release
- * without the user's own name disappearing from the page in the meantime.
- *
- * Runs at every launch, *before* `seedIfEmpty`'s horse gate, because the
- * install that needs it already has a horse — it is an existing device that
- * never had a profile row, not a fresh one.
+ * Runs at every launch, *before* `seedIfEmpty`'s horse gate, so an install
+ * that already has a horse gets one too.
  *
  * This row is **not demo data**: it is the user's identity, so it is left out
  * of `seedRecordIds` and survives a restore rather than being purged by
@@ -181,16 +175,18 @@ export const seedIfEmpty = async (): Promise<void> => {
   if (count > 0) return;
 
   const horse = await horsesRepo.create({
-    name: "Ladympala Coupe Chêne",
+    name: "Étoile",
     sex: "jument",
     // Placeholder giving the "5 ans" the view used to hardcode — correct it
     // from the identity form once the real date is to hand.
     birthDate: "2021-05-01",
     breed: "Selle Français",
     coat: "Bai cerise",
-    sireNumber: "2139236F",
-    sireName: "Nouma d'Auzay",
-    damName: "Vaza de Roc O Cerf",
+    // Visibly fictitious: a demo that looks like a real studbook entry is one
+    // a real horse could be mistaken for.
+    sireNumber: "00000000A",
+    sireName: "Père de démo",
+    damName: "Mère de démo",
     photoDocumentId: null,
     archivedAt: null,
   });
@@ -385,7 +381,7 @@ const samplePosts = (horseId: string) => {
       recurrenceId: null,
       customFields: {
         amountCents: 10_000,
-        counterparty: "Dr. Orange",
+        counterparty: "Clinique vétérinaire",
         followUp: followUpValue({ amount: 6, unit: "week" }),
       },
     },

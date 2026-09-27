@@ -13,7 +13,7 @@ import { fixture, settled } from "../__tests__/fixture.ts";
 import "./horse-profile.ts";
 import type { HorseProfile } from "./horse-profile.ts";
 
-const SIRE = "2139236F";
+const SIRE = "00000000A";
 
 /**
  * `navigator.clipboard` is genuinely there — this suite runs in Chromium over

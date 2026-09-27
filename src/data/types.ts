@@ -51,7 +51,7 @@ export type Horse = BaseRecord & {
   breed: string | null;
   /** Robe, e.g. "Bai cerise". */
   coat: string | null;
-  /** Numéro SIRE, e.g. "2139236F". */
+  /** Numéro SIRE, e.g. "00000000A". */
   sireNumber: string | null;
   /** Père. */
   sireName: string | null;
