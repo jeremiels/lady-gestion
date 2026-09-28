@@ -303,12 +303,15 @@ redirection, et l'app « réclame » la session ensuite.
    `access_type=offline`, `prompt=consent`, PKCE, `state` signé (HMAC)
    contenant `claim_hash`.
 3. `/auth/google/callback` échange le code, chiffre le refresh token
-   (AES-GCM), crée la session, l'attache à `claim_hash` pour 10 min, affiche
-   « Revenez dans l'application ».
+   (AES-GCM) et le range sous `claim_hash` pour 10 min, puis affiche
+   « Revenez dans l'application ». La session n'est créée qu'à la
+   réclamation : une connexion jamais réclamée est effacée par le cron, jeton
+   compris.
 4. Au retour au premier plan, `POST /auth/claim {claim}` →
-   `{ sessionToken, email }`, usage unique, rangé dans `meta.googleAccount`.
+   `{ sessionToken, email, scope }`, usage unique (404 tant que la connexion
+   n'est pas finie), rangé dans `meta.googleAccount`.
 5. `POST /drive/token` (`Authorization: Bearer <sessionToken>`) →
-   `{ accessToken, expiresAt }`, gardé en mémoire seulement.
+   `{ accessToken, expiresAt, scope }`, gardé en mémoire seulement.
 6. `POST /auth/logout` révoque chez Google et efface la session. Le miroir
    local reste consultable ; plus de synchro.
 
@@ -317,24 +320,15 @@ et réaffiche « Connecter Google Drive ». Rien d'autre ne change.
 
 D1, migration `0002_drive.sql` :
 
-```sql
-CREATE TABLE drive_sessions (
-  id TEXT PRIMARY KEY,           -- sha256(sessionToken) ; le jeton brut n'est jamais stocké
-  refresh_token TEXT NOT NULL,   -- chiffré AES-GCM
-  email TEXT NOT NULL,
-  created_at INTEGER NOT NULL,
-  last_used_at INTEGER NOT NULL
-);
-CREATE TABLE drive_claims (
-  claim_hash TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
-);
-```
+`drive_claims` (`claim_hash`, `refresh_token` chiffré, `email`, `scope`,
+`expires_at`) et `drive_sessions` (`id` = sha256 du jeton de session, jamais
+le jeton brut ; `refresh_token` chiffré, `email`, `scope`, `created_at`,
+`last_used_at`).
 
-Secrets Worker : `GOOGLE_CLIENT_SECRET`, `TOKEN_KEY` (AES), `STATE_KEY`
-(HMAC). Variable : `GOOGLE_CLIENT_ID`. `corsHeaders` : ajouter `POST` et
-l'en-tête `Authorization`.
+Secrets Worker : `GOOGLE_CLIENT_SECRET`, `DRIVE_SECRET` (les clés AES et HMAC
+en sont dérivées par HKDF). Variable : `GOOGLE_CLIENT_ID`. `corsHeaders` :
+`POST` et l'en-tête `Authorization` en plus. Fait au lot 2 :
+`server/src/drive-auth.ts`, `drive-crypto.ts`.
 
 ### 7.3 Lien document ↔ post dans le Drive
 

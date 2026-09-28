@@ -1,8 +1,10 @@
+import * as driveAuth from "./drive-auth.ts";
 import { parseReminderList, splitDue, type Reminder } from "./reminders.ts";
 import { sendPush, type VapidConfig } from "./web-push.ts";
 
 /**
- * lady-gestion's push scheduler: the one thing the app cannot do on its own.
+ * lady-gestion's server: the push scheduler, and the Google Drive sign-in
+ * (`drive-auth.ts`) — the two things the app cannot do on its own.
  *
  * The app sends each device's whole reminder list (`PUT /reminders`) whenever
  * it changes; a cron every minute sends whatever has fallen due. It holds no
@@ -11,7 +13,7 @@ import { sendPush, type VapidConfig } from "./web-push.ts";
  * loses nothing the next sync does not rewrite.
  */
 
-interface Env {
+interface Env extends driveAuth.DriveEnv {
   DB: D1Database;
   /** The VAPID private key, as a JWK — `npm run vapid` prints it. Secret. */
   VAPID_PRIVATE_KEY: string;
@@ -40,8 +42,8 @@ const corsHeaders = (request: Request, env: Env): Record<string, string> => {
   return allowed
     ? {
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "PUT",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "PUT, POST",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400",
         Vary: "Origin",
       }
@@ -151,29 +153,60 @@ const sendDue = async (env: Env, now: number): Promise<void> => {
   }
 };
 
+type ApiRoute = {
+  method: string;
+  handle: (request: Request, env: Env, cors: HeadersInit) => Promise<Response>;
+};
+
+/** The app's API: called with `fetch`, so CORS applies. */
+const API = new Map<string, ApiRoute>([
+  [
+    "/reminders",
+    {
+      method: "PUT",
+      handle: async (request, env, cors) =>
+        new Response(null, {
+          status: await putReminders(request, env),
+          headers: cors,
+        }),
+    },
+  ],
+  ["/auth/claim", { method: "POST", handle: driveAuth.claim }],
+  ["/drive/token", { method: "POST", handle: driveAuth.token }],
+  ["/auth/logout", { method: "POST", handle: driveAuth.logout }],
+]);
+
 export default {
   async fetch(request, env): Promise<Response> {
-    const cors = corsHeaders(request, env);
     const { pathname } = new URL(request.url);
 
-    if (pathname !== "/reminders") {
+    // Navigations in the sign-in's Safari sheet, not API calls: no CORS.
+    if (request.method === "GET" && pathname === "/auth/google/start") {
+      return driveAuth.start(request, env);
+    }
+    if (request.method === "GET" && pathname === "/auth/google/callback") {
+      return driveAuth.callback(request, env);
+    }
+
+    const cors = corsHeaders(request, env);
+    const route = API.get(pathname);
+    if (!route) {
       return new Response(null, { status: 404, headers: cors });
     }
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: cors });
     }
-    if (request.method !== "PUT") {
+    if (request.method !== route.method) {
       return new Response(null, { status: 405, headers: cors });
     }
-    return new Response(null, {
-      status: await putReminders(request, env),
-      headers: cors,
-    });
+    return route.handle(request, env, cors);
   },
 
   async scheduled(_controller, env): Promise<void> {
     // Now rather than `scheduledTime`, the top of the minute: a reminder due a
     // few seconds into it goes out on this run, not the next.
-    await sendDue(env, Date.now());
+    const now = Date.now();
+    await sendDue(env, now);
+    await driveAuth.dropExpiredClaims(env, now);
   },
 } satisfies ExportedHandler<Env>;

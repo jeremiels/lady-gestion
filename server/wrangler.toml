@@ -1,4 +1,5 @@
-# lady-gestion's push scheduler. Setup and deploy: README.md.
+# lady-gestion's server: push scheduler and Google Drive sign-in.
+# Setup and deploy: README.md.
 name = "lady-gestion-push"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
@@ -9,6 +10,9 @@ crons = ["* * * * *"]
 [vars]
 ALLOWED_ORIGINS = "https://jeremiels.github.io"
 VAPID_SUBJECT = "https://jeremiels.github.io/lady-gestion/"
+# The OAuth client the Drive sign-in uses; public. Empty until README.md's
+# Google Cloud setup is done, and the sign-in says so.
+GOOGLE_CLIENT_ID = ""
 
 [[d1_databases]]
 binding = "DB"
