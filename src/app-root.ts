@@ -19,6 +19,7 @@ import {
 import { BackupActions } from "./commons/backup-actions.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
+import { initDriveAuth } from "./drive/auth.ts";
 import { appHref } from "./commons/base-path.ts";
 import {
   customizeRouteOf,
@@ -330,6 +331,8 @@ export class AppRoot extends LightElement {
     initData()
       .then(() => {
         if (this.databaseNotice === "blocked") this.databaseNotice = null;
+        // Reads and writes `meta`, so only once the database is open.
+        initDriveAuth();
       })
       .catch((error: unknown) => {
         console.error(

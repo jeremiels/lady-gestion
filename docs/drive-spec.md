@@ -192,9 +192,10 @@ updatedAt"` (on retire `category` et `[horseId+category]`).
 
 ### 6.3 `meta`
 
-`googleAccount` (`{ email, sessionToken }`) et `driveFolderId` (dossier
-général) existent déjà dans `MetaKey`. Ajout : `driveSyncedAt` (dernière synchro
-réussie, pour « mis à jour il y a … »).
+`googleAccount` (`{ email, sessionToken, scope }`), `driveClaim` (connexion
+ouverte, pas encore réclamée) et `driveFolder` (`{ id, name }`, dossier
+général), typés par `DriveMeta` dans `types.ts` (lot 3). Au lot 4 :
+`driveSyncedAt` (dernière synchro réussie, pour « mis à jour il y a … »).
 
 ### 6.4 Montée v13 / v14 → v15
 

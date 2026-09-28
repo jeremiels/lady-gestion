@@ -4,6 +4,34 @@
     gap: var(--spacing-24);
   }
 
+  /* The sign-in and folder-choice prompt, until both are done. */
+  .documents-drive {
+    display: grid;
+    gap: var(--spacing-12);
+  }
+
+  .documents-drive__text {
+    margin: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  /* A link for "Connecter Google Drive" — the sign-in window only opens from
+     one on iOS — and a button for "Choisir le dossier", dressed alike. */
+  .documents-drive__button {
+    display: block;
+    appearance: none;
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12) var(--spacing-16);
+    background: var(--color-brown-dark);
+    color: var(--color-white);
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
   /* Two folders across on a phone, more on a wider screen, with no breakpoint:
      `auto-fill` fits as many 9rem tracks as fit. `min(...)` stops the track
      from overflowing a container narrower than that minimum. */

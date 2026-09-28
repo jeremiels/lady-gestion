@@ -16,10 +16,12 @@ import {
   toIsoDate,
 } from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
+import { DriveConnection } from "../drive/connection.ts";
 
 import "../components/app-icon/app-icon.ts";
 import "../components/app-switch/app-switch.ts";
 import "../components/app-avatar/app-avatar.ts";
+import "../components/drive-folder-sheet/drive-folder-sheet.ts";
 
 /** Only ever opened from the dashboard's avatar, so that's the only fallback back needs. */
 const HOME = "/";
@@ -41,6 +43,9 @@ export class ProfileView extends LightElement {
   );
   #today = new Today(this);
   #backup = new BackupActions(this);
+  #drive = new DriveConnection(this);
+
+  @state() private folderSheetOpen = false;
 
   #goBack = () => goBack(HOME);
 
@@ -79,8 +84,8 @@ export class ProfileView extends LightElement {
         </header>
 
         ${this.#renderIdentity()} ${this.#renderPersonalInfo()}
-        ${this.#renderPreferences()} ${this.#renderAccount()}
-        ${this.#renderBackup()}
+        ${this.#renderPreferences()} ${this.#renderDrive()}
+        ${this.#renderAccount()} ${this.#renderBackup()}
       </section>
     `;
   }
@@ -151,6 +156,71 @@ export class ProfileView extends LightElement {
       </section>
     `;
   }
+
+  #renderDrive() {
+    const account = this.#drive.account;
+    const folder = this.#drive.folder;
+
+    return html`
+      <section class="profile-view__section">
+        <h2 class="section-title-small">Google Drive</h2>
+        <div class="container profile-view__backup">
+          ${
+            account
+              ? html`
+                  <ul class="meta-list">
+                    ${this.#renderMetaItem("Compte", account.email)}
+                    ${this.#renderMetaItem("Dossier", folder?.name ?? "Aucun")}
+                  </ul>
+                  <div class="profile-view__actions">
+                    <button
+                      class="profile-view__button pressable"
+                      type="button"
+                      @click=${() => {
+                        this.folderSheetOpen = true;
+                      }}
+                    >
+                      ${folder ? "Changer de dossier" : "Choisir le dossier"}
+                    </button>
+                    <button
+                      class="profile-view__button profile-view__button--ghost pressable"
+                      type="button"
+                      @click=${this.#drive.signOut}
+                    >
+                      Déconnecter Google Drive
+                    </button>
+                  </div>
+                `
+              : html`
+                  <p class="profile-view__note">
+                    Vos documents sont rangés dans votre Google Drive.
+                  </p>
+                  <div class="profile-view__actions">
+                    <a
+                      class="profile-view__button pressable"
+                      href=${this.#drive.href || nothing}
+                      target="_blank"
+                      rel="noopener"
+                      @click=${this.#drive.onLinkClick}
+                    >
+                      Connecter Google Drive
+                    </a>
+                  </div>
+                `
+          }
+        </div>
+      </section>
+      <drive-folder-sheet
+        .open=${this.folderSheetOpen}
+        @drive-folder-chosen=${this.#closeFolderSheet}
+        @sheet-close=${this.#closeFolderSheet}
+      ></drive-folder-sheet>
+    `;
+  }
+
+  #closeFolderSheet = () => {
+    this.folderSheetOpen = false;
+  };
 
   #renderAccount() {
     // "Se déconnecter" and "Supprimer mon compte" are inert: there is no

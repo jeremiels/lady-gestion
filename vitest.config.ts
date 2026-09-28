@@ -56,7 +56,9 @@ export default defineConfig({
           // app is French and `todayISO()` deliberately reads local calendar
           // fields.
           env: { TZ: "Europe/Paris" },
-          include: ["src/data/**/*.test.ts"],
+          // `src/drive/` too: its logic is `meta` plus `fetch`, and runs here
+          // against the same fake IndexedDB with `fetch` stubbed.
+          include: ["src/data/**/*.test.ts", "src/drive/**/*.test.ts"],
           setupFiles: ["./src/data/__tests__/setup.ts"],
           // Each file gets a fresh module registry and therefore a fresh
           // database.

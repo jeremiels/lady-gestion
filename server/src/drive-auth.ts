@@ -32,8 +32,18 @@ export interface DriveEnv {
   DRIVE_SECRET: string;
 }
 
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+
 /** `drive` (docs/drive-spec.md D10), plus the address shown as "connected as". */
-const SCOPE = "openid email https://www.googleapis.com/auth/drive";
+const SCOPE = `openid email ${DRIVE_SCOPE}`;
+
+/**
+ * Whether Google granted Drive itself. Its consent screen has one box per
+ * permission, and an unticked Drive box still comes back as a successful
+ * sign-in — one that can read no file.
+ */
+export const grantsDrive = (scope: string | undefined): boolean =>
+  (scope ?? "").split(" ").includes(DRIVE_SCOPE);
 
 /** How long the app has to come back and claim a finished sign-in. */
 export const CLAIM_TTL_MS = 10 * 60 * 1000;
@@ -157,6 +167,15 @@ export const callback = async (
     code_verifier: await pkceVerifier(keys, state.nonce),
   });
   const email = tokens.id_token ? emailOfIdToken(tokens.id_token) : null;
+  if (tokens.refresh_token && !grantsDrive(tokens.scope)) {
+    // Undone rather than kept: the next consent screen then asks afresh, with
+    // the Drive box shown again.
+    await revoke(tokens.refresh_token);
+    return page(
+      "Accès à Google Drive non autorisé",
+      "Revenez à l'application et recommencez : sur l'écran de Google, cochez la case qui donne accès à vos fichiers Google Drive.",
+    );
+  }
   if (!tokens.refresh_token || !email) {
     console.warn("drive token exchange refused", tokens.error);
     return page(
@@ -303,16 +322,21 @@ export const logout = async (
 ): Promise<Response> => {
   const session = await sessionOf(request, env);
   if (session) {
-    await fetch("https://oauth2.googleapis.com/revoke", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ token: session.refreshToken }),
-    }).catch(() => null);
+    await revoke(session.refreshToken);
     await env.DB.prepare("DELETE FROM drive_sessions WHERE id = ?1")
       .bind(session.id)
       .run();
   }
   return new Response(null, { status: 204, headers: cors });
+};
+
+/** Ends a grant at Google; best effort, since nothing here can retry it. */
+const revoke = async (refreshToken: string): Promise<void> => {
+  await fetch("https://oauth2.googleapis.com/revoke", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ token: refreshToken }),
+  }).catch(() => null);
 };
 
 /** Claims nobody came back for, dropped by the cron with their refresh token. */

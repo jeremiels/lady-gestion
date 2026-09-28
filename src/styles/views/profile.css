@@ -123,6 +123,14 @@
     cursor: pointer;
   }
 
+  /* "Connecter Google Drive" is a link — the sign-in window only opens from
+     one on iOS — dressed as the buttons beside it. */
+  a.profile-view__button {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+  }
+
   .profile-view__button--ghost {
     background: transparent;
     color: var(--color-brown-dark);

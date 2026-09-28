@@ -432,13 +432,31 @@ export type MetaEntry = {
   value: unknown;
 };
 
+/**
+ * What the Drive sign-in keeps in `meta` (`src/drive/auth.ts`,
+ * `docs/drive-spec.md` §7.2). Device-local like the rest of `meta`: a restore
+ * on another phone signs in again rather than inheriting a session.
+ */
+export type DriveMeta = {
+  /** Signed in: who, and the token the Worker trades for access tokens. */
+  googleAccount: { email: string; sessionToken: string; scope: string };
+  /**
+   * A sign-in opened and not yet claimed: the secret whose SHA-256 went to
+   * the Worker, and when, so a sign-in abandoned on Google's side expires.
+   */
+  driveClaim: { claim: string; createdAt: number };
+  /** The general folder she picked; the app shows nothing above it. */
+  driveFolder: { id: string; name: string };
+};
+
 export type MetaKey =
   | "ownerId"
   | "activeHorseId"
   | "lastBackupAt"
-  /** **Not wired yet:** no Drive integration reads or writes either of these. */
-  | "driveFolderId"
+  /** The Google Drive sign-in and folder — see `DriveMeta` below. */
   | "googleAccount"
+  | "driveClaim"
+  | "driveFolder"
   /** Written by the profile switch; off, `listReminders` sends no reminder. */
   | "notificationsEnabled"
   | "seededAt"

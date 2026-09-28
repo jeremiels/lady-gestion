@@ -1,5 +1,5 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSwitch } from "../components/app-switch/app-switch.ts";
 import { db, SCHEMA_VERSION } from "../data/db.ts";
 import { metaRepo, nowISO } from "../data/index.ts";
@@ -149,5 +149,54 @@ describe("profile-view — the notifications switch", () => {
     );
     expect(toggle().checked).toBe(true);
     put.mockRestore();
+  });
+});
+
+describe("profile-view — Google Drive", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const driveSection = (el: ProfileView) =>
+    [...el.querySelectorAll(".profile-view__section")].find((section) =>
+      section.textContent!.includes("Google Drive"),
+    )!;
+
+  it("offers a sign-in link to the Worker, ready before the tap", async () => {
+    const el = await mount();
+    const link = () =>
+      driveSection(el).querySelector<HTMLAnchorElement>("a[target=_blank]");
+    await waitFor(el, () => Boolean(link()?.getAttribute("href")));
+
+    expect(link()!.href).toMatch(
+      /\/auth\/google\/start\?claim_hash=[0-9a-f]{64}$/,
+    );
+    expect(await metaRepo.get("driveClaim")).toBeDefined();
+  });
+
+  it("shows who is connected and the folder, and signs out", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await metaRepo.set("googleAccount", {
+      email: "lea@example.com",
+      sessionToken: "session-token",
+      scope: "openid https://www.googleapis.com/auth/drive",
+    });
+    await metaRepo.set("driveFolder", { id: "f1", name: "PONEY" });
+
+    const el = await mount();
+    // Two queries, answering one after the other.
+    await waitFor(el, () => driveSection(el).textContent!.includes("PONEY"));
+    expect(driveSection(el).textContent).toContain("lea@example.com");
+
+    [...driveSection(el).querySelectorAll("button")]
+      .find((button) => button.textContent!.includes("Déconnecter"))!
+      .click();
+
+    await waitFor(el, () =>
+      driveSection(el).textContent!.includes("Connecter Google Drive"),
+    );
+    expect(await metaRepo.get("googleAccount")).toBeUndefined();
+    expect(fetchMock.mock.calls[0]![0]).toMatch(/\/auth\/logout$/);
   });
 });

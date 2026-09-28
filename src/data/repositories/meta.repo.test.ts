@@ -13,9 +13,9 @@ beforeEach(resetDb);
 
 describe("get / set", () => {
   it("round-trips a value", async () => {
-    await metaRepo.set("driveFolderId", "folder-123");
+    await metaRepo.set("driveFolder", "folder-123");
 
-    expect(await metaRepo.get<string>("driveFolderId")).toBe("folder-123");
+    expect(await metaRepo.get<string>("driveFolder")).toBe("folder-123");
   });
 
   it("round-trips a non-scalar, which is why the column is unknown", async () => {
@@ -25,21 +25,21 @@ describe("get / set", () => {
   });
 
   it("returns undefined for a key never written", async () => {
-    expect(await metaRepo.get("driveFolderId")).toBeUndefined();
+    expect(await metaRepo.get("driveFolder")).toBeUndefined();
   });
 
   it("overwrites rather than appending", async () => {
-    await metaRepo.set("driveFolderId", "first");
-    await metaRepo.set("driveFolderId", "second");
+    await metaRepo.set("driveFolder", "first");
+    await metaRepo.set("driveFolder", "second");
 
-    expect(await metaRepo.get<string>("driveFolderId")).toBe("second");
+    expect(await metaRepo.get<string>("driveFolder")).toBe("second");
   });
 
   it("removes a key", async () => {
-    await metaRepo.set("driveFolderId", "gone");
-    await metaRepo.remove("driveFolderId");
+    await metaRepo.set("driveFolder", "gone");
+    await metaRepo.remove("driveFolder");
 
-    expect(await metaRepo.get("driveFolderId")).toBeUndefined();
+    expect(await metaRepo.get("driveFolder")).toBeUndefined();
   });
 });
 

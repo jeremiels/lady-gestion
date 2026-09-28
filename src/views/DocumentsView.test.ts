@@ -1,13 +1,15 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
+import { liveQueriesSettled } from "../data/live.ts";
+import { metaRepo } from "../data/index.ts";
 import {
   makeDocument,
   makeDocumentFolder,
   makeHorse,
   resetDb,
 } from "../data/__tests__/factories.ts";
-import { fixture, waitFor } from "../components/__tests__/fixture.ts";
+import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./DocumentsView.ts";
 import type { DocumentsView } from "./DocumentsView.ts";
 
@@ -60,5 +62,45 @@ describe("documents-view", () => {
 
     expect(folderNamed(el, "Ostéopathe").number).toBe(2);
     expect(folderNamed(el, "Vétérinaire").number).toBe(0);
+  });
+});
+
+describe("documents-view — Google Drive setup", () => {
+  const prompt = (el: DocumentsView) => el.querySelector(".documents-drive");
+
+  it("asks to connect Drive first", async () => {
+    const el = await mount();
+    await waitFor(el, () => prompt(el) !== null);
+
+    expect(prompt(el)!.textContent).toContain("Connecter Google Drive");
+  });
+
+  it("then asks for the general folder", async () => {
+    await metaRepo.set("googleAccount", {
+      email: "lea@example.com",
+      sessionToken: "t",
+      scope: "openid https://www.googleapis.com/auth/drive",
+    });
+
+    const el = await mount();
+    await waitFor(el, () => prompt(el) !== null);
+
+    expect(prompt(el)!.textContent).toContain("Choisir le dossier");
+  });
+
+  it("steps aside once both are done", async () => {
+    await metaRepo.set("googleAccount", {
+      email: "lea@example.com",
+      sessionToken: "t",
+      scope: "openid https://www.googleapis.com/auth/drive",
+    });
+    await metaRepo.set("driveFolder", { id: "f1", name: "PONEY" });
+
+    const el = await mount();
+    // Absent while loading too, so wait for the account to have been read.
+    await liveQueriesSettled(1000);
+    await settled(el);
+
+    expect(prompt(el)).toBeNull();
   });
 });
