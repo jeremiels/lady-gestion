@@ -12,7 +12,7 @@ ALLOWED_ORIGINS = "https://jeremiels.github.io"
 VAPID_SUBJECT = "https://jeremiels.github.io/lady-gestion/"
 # The OAuth client the Drive sign-in uses; public. Empty until README.md's
 # Google Cloud setup is done, and the sign-in says so.
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "232150351032-3n3khc9rm25i3q7dt9tge5e9s4m32ncl.apps.googleusercontent.com"
 
 [[d1_databases]]
 binding = "DB"
