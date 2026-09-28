@@ -37,6 +37,7 @@ une fois.
 | D8  | **Seul le dossier général est affiché** : elle le crée (nom proposé « ladympala ») ou en choisit un existant, et l'app n'affiche, ne synchronise et n'écrit que ce qu'il contient. Le reste de son Drive n'est parcouru qu'une fois, pour ce choix. |
 | D9  | **Plusieurs niveaux** de sous-dossiers, on descend autant qu'il y en a.                                                                                                                                                                             |
 | D10 | Scope **`drive`** (+ `openid email`), retenu après le lot 0 (§9.1) : `drive.readonly` + `drive.file` refuse toute écriture sur ses fichiers existants.                                                                                              |
+| D11 | « Ajouter un fichier » sur les formulaires **Cures** et **Traitement** seulement (28 sept.), en bas du formulaire, bouton en pointillés. Porté par un drapeau de catégorie, `acceptsAttachments`.                                                   |
 
 ## 3. Autorisation Google
 
@@ -141,8 +142,9 @@ l'envoyer au véto ou l'enregistrer ailleurs.
 
 ### 5.5 Joindre depuis un formulaire
 
-- En bas du formulaire d'un post (création **et** modification) : bloc
-  « Pièces jointes », bouton « Ajouter un fichier ».
+- En bas du formulaire d'un post de **Cures** ou **Traitement** (D11), en
+  création et en modification : bouton en pointillés « Ajouter un fichier ».
+  Les fichiers déjà joints au post sont listés au-dessus.
 - Sélecteur iOS : **Prendre une photo**, **Photothèque**, **Choisir un
   fichier**. `accept="application/pdf,image/jpeg,image/png"` : sans
   `image/heic`, iOS convertit les photos HEIC en JPEG au choix (spike).
@@ -392,8 +394,9 @@ côté tant que ses documents font quelques pages.
 4. **Synchro en lecture** : parcours initial, `changes.list`, miroir, pages
    Documents et dossier, visionneuse pdf.js + photos + export Google Docs.
    **C'est ici qu'elle voit ses fichiers.**
-5. **Écritures** : pièces jointes dans `post-sheet`, envoi, nouveau dossier,
-   renommer / déplacer / supprimer, « Lier à un post ».
+5. **Écritures** : pièces jointes dans `post-sheet` et envoi (fait le 28,
+   Cures et Traitement) ; restent nouveau dossier, renommer / déplacer /
+   supprimer, « Lier à un post ».
 
 Chaque lot est livrable seul, dans l'ordre. Après le lot 4, elle consulte déjà
 tout son Drive dans l'app ; le lot 5 ajoute l'écriture.

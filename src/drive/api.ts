@@ -1,5 +1,5 @@
 import { accessToken } from "./auth.ts";
-import { DRIVE_API_URL } from "./drive-config.ts";
+import { DRIVE_API_URL, DRIVE_UPLOAD_URL } from "./drive-config.ts";
 
 /**
  * The Drive calls the app makes, typed. Each one fetches its own access
@@ -33,11 +33,12 @@ export class DriveRequestError extends Error {
 const request = async (
   path: string,
   init: RequestInit = {},
+  base = DRIVE_API_URL,
 ): Promise<Response> => {
   const token = await accessToken();
   let response: Response;
   try {
-    response = await fetch(`${DRIVE_API_URL}${path}`, {
+    response = await fetch(`${base}${path}`, {
       ...init,
       headers: { ...init.headers, Authorization: `Bearer ${token}` },
     });
@@ -134,4 +135,36 @@ export const downloadFile = async (
   return new Blob([await response.blob()], {
     type: exported ? "application/pdf" : mimeType,
   });
+};
+
+/**
+ * Uploads `blob` as `name` into `parentId` — one multipart request, since a
+ * scan or a photo is a few megabytes at most. `appProperties` are written on
+ * the file: the post it belongs to survives in the Drive itself
+ * (`docs/drive-spec.md` §7.3).
+ */
+export const uploadFile = async (
+  name: string,
+  blob: Blob,
+  parentId: string,
+  appProperties: Record<string, string>,
+): Promise<{ id: string; modifiedTime: string }> => {
+  const boundary = `lady-${crypto.randomUUID()}`;
+  const metadata = JSON.stringify({ name, parents: [parentId], appProperties });
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+    `--${boundary}\r\nContent-Type: ${blob.type || "application/octet-stream"}\r\n\r\n`,
+    blob,
+    `\r\n--${boundary}--`,
+  ]);
+  const response = await request(
+    "/files?uploadType=multipart&fields=id,modifiedTime",
+    {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    },
+    DRIVE_UPLOAD_URL,
+  );
+  return (await response.json()) as { id: string; modifiedTime: string };
 };

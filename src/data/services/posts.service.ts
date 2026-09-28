@@ -86,6 +86,18 @@ export type SavePostCommand = {
    */
   type: Category;
   input: PostInput;
+  /**
+   * Files joined from the form ("Ajouter un fichier"), written with the post
+   * so neither can exist without the other. They are uploaded to the Drive
+   * afterwards, by the sync (`src/drive/sync.ts`).
+   */
+  attachments?: NewAttachments;
+};
+
+export type NewAttachments = {
+  files: File[];
+  /** The mirrored folder they are filed in; `null` for the general folder. */
+  folderId: string | null;
 };
 
 /**
@@ -113,16 +125,33 @@ export const savePost = ({
   existing = null,
   type,
   input,
+  attachments,
 }: SavePostCommand): Promise<Post | undefined> => {
   const fields = postFields(type, input, existing);
-  return db.transaction("rw", db.posts, async () => {
-    const saved = existing
-      ? await postsRepo.update(existing.id, fields)
-      : await postsRepo.create({ horseId, ...fields });
-    const next = saved && followUpOf(type, saved, existing);
-    if (next) await postsRepo.create(next);
-    return saved;
-  });
+  return db.transaction(
+    "rw",
+    [db.posts, db.documents, db.documentBlobs],
+    async () => {
+      const saved = existing
+        ? await postsRepo.update(existing.id, fields)
+        : await postsRepo.create({ horseId, ...fields });
+      const next = saved && followUpOf(type, saved, existing);
+      if (next) await postsRepo.create(next);
+      for (const file of saved ? (attachments?.files ?? []) : []) {
+        await documentsRepo.create(
+          {
+            horseId: saved!.horseId,
+            postId: saved!.id,
+            folderId: attachments!.folderId,
+            name: file.name,
+            issuedAt: null,
+          },
+          file,
+        );
+      }
+      return saved;
+    },
+  );
 };
 
 /**

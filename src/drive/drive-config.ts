@@ -8,3 +8,6 @@ export const DRIVE_AUTH_URL: string = PUSH_API_URL;
 
 /** Drive's REST API, called straight from the phone (CORS-enabled). */
 export const DRIVE_API_URL = "https://www.googleapis.com/drive/v3";
+
+/** Where file bytes are sent: Drive's upload endpoint, same origin as the API. */
+export const DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3";

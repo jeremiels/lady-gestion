@@ -14,6 +14,10 @@ import {
   type WorkActivity,
   activeHorseQuery,
   activitiesRepo,
+  documentFoldersRepo,
+  documentsRepo,
+  formatFileSize,
+  metaRepo,
   activityChoices,
   byLabel,
   childrenOf,
@@ -30,13 +34,20 @@ import {
   rootsOf,
   type ResolvedCategory,
 } from "../../data/index.ts";
-import type { ActivityItem, Post } from "../../data/types.ts";
+import type {
+  ActivityItem,
+  DocumentFolder,
+  Post,
+  StoredDocument,
+} from "../../data/types.ts";
+import { syncDrive } from "../../drive/sync.ts";
 import { enablePush, type PushRefusal } from "../../pwa/push.ts";
 import type { AppSelectOption } from "../app-select/app-select.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-combobox/app-combobox.ts";
 import "../app-input/app-input.ts";
+import "../app-icon/app-icon.ts";
 import "../app-select/app-select.ts";
 import "../app-checkbox/app-checkbox.ts";
 import "../app-unit-select/app-unit-select.ts";
@@ -66,6 +77,24 @@ const PUSH_REFUSALS: Record<PushRefusal, string> = {
     "Installez l’application sur l’écran d’accueil pour recevoir des notifications.",
   denied: "Les notifications sont refusées dans les réglages de l’appareil.",
   unavailable: "Les notifications sont indisponibles pour le moment.",
+};
+
+/**
+ * The Dossier select: the general folder, then every mirrored folder by its
+ * path, so two "2025" under different parents read apart.
+ */
+const folderOptions = (folders: DocumentFolder[]): AppSelectOption[] => {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const path = (folder: DocumentFolder): string => {
+    const parent = folder.parentId ? byId.get(folder.parentId) : undefined;
+    return parent ? `${path(parent)} / ${folder.name}` : folder.name;
+  };
+  return [
+    { value: "", label: "Dossier général" },
+    ...folders
+      .map((folder) => ({ value: folder.id, label: path(folder) }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr")),
+  ];
 };
 
 @customElement("post-sheet")
@@ -102,6 +131,13 @@ export class PostSheet extends BaseElement {
    * itself is still worth saving without its reminder.
    */
   @state() private pushNotice: Record<string, string> = {};
+  /** Files picked with "Ajouter un fichier", written with the post on save. */
+  @state() private attachments: File[] = [];
+  /**
+   * The folder they go to, as the form's select says; `undefined` until the
+   * user picks one, which means the folder her last attachment went to.
+   */
+  @state() private attachmentFolder: string | null | undefined = undefined;
 
   @query("form") private formEl?: HTMLFormElement;
 
@@ -122,6 +158,20 @@ export class PostSheet extends BaseElement {
    * sheet reads and writes (`activity-sheet.ts`), so a label typed in either
    * place shows up as a suggestion in the other.
    */
+  /** What the post already has joined, listed above the new ones. */
+  #attached = new LiveQuery<StoredDocument[]>(this, () =>
+    this.post ? documentsRepo.listByPost(this.post.id) : [],
+  );
+
+  /** Where an attachment can be filed: the mirrored Drive folders. */
+  #folders = new LiveQuery<DocumentFolder[]>(this, () =>
+    documentFoldersRepo.list(),
+  );
+
+  #lastAttachmentFolder = new LiveQuery(this, () =>
+    metaRepo.get<string | null>("attachmentFolderId"),
+  );
+
   #customActivities = activeHorseQuery<ActivityItem[]>(
     this,
     (horseId) => activitiesRepo.listByHorse(horseId),
@@ -272,6 +322,82 @@ export class PostSheet extends BaseElement {
       color: var(--color-danger);
     }
 
+    .post-form__attachments {
+      display: grid;
+      gap: var(--spacing-12);
+    }
+
+    .post-form__files {
+      display: grid;
+      gap: var(--spacing-8);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .post-form__file {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-8);
+      min-height: 2.75rem;
+      padding: 0 var(--spacing-12);
+      border-radius: var(--radius-12);
+      /* A card like the fields above it: the sheet's own background is
+         --color-page. */
+      background: var(--color-white);
+    }
+
+    .post-form__file-name {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      /* File names have no spaces to break on. */
+      overflow-wrap: anywhere;
+    }
+
+    .post-form__file-size {
+      font-size: var(--font-size-sm);
+      color: var(--color-brown-light);
+    }
+
+    .post-form__file-remove {
+      appearance: none;
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: none;
+      background: none;
+      color: var(--color-brown-dark);
+      cursor: pointer;
+    }
+
+    /* The dashed full-width button the design ends these forms with. */
+    .post-form__attach {
+      display: block;
+      padding: var(--spacing-16);
+      border: 1.5px dashed var(--color-brown-light);
+      border-radius: var(--radius-16);
+      color: var(--color-brown-light);
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .post-form__attach:focus-within {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
+    }
+
+    .post-form__attach input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
     .post-form__submit {
       appearance: none;
       width: 100%;
@@ -323,6 +449,10 @@ export class PostSheet extends BaseElement {
   #startFresh() {
     this.#generation += 1;
     this.type = this.post?.categoryKey ?? "";
+    this.attachments = [];
+    this.attachmentFolder = undefined;
+    // Reads `post`, which a Dexie write does not signal.
+    this.#attached.refresh();
 
     const recordType =
       this.post &&
@@ -469,6 +599,9 @@ export class PostSheet extends BaseElement {
 
     const answers = foldAnswers(resolvedType, result.values);
 
+    const attachments = resolvedType.acceptsAttachments ? this.attachments : [];
+    const folderId = this.#attachmentFolderId;
+
     this.saving = true;
     try {
       await postsService.savePost({
@@ -476,6 +609,7 @@ export class PostSheet extends BaseElement {
         existing: this.post,
         type: resolvedType,
         input: { type: result.categoryKey, values: answers },
+        attachments: { files: attachments, folderId },
       });
     } catch (error: unknown) {
       this.saveError = errorMessage(error, "Enregistrement impossible.");
@@ -499,6 +633,14 @@ export class PostSheet extends BaseElement {
         .catch((error: unknown) =>
           console.error("Activité non ajoutée au catalogue", error),
         );
+    }
+
+    // Remembered for the next form, and sent to the Drive now rather than at
+    // the next foreground return. Neither can fail the save: the files are
+    // already on the device with the post.
+    if (attachments.length > 0) {
+      void metaRepo.set("attachmentFolderId", folderId).catch(() => {});
+      void syncDrive(true);
     }
 
     // Lowered only now: until the sheet closes, Enregistrer must not write
@@ -631,6 +773,7 @@ export class PostSheet extends BaseElement {
                   )
                 : nothing
             }
+            ${type?.acceptsAttachments ? this.#renderAttachments() : nothing}
 
             <div class="post-form__error-region" role="alert">
               ${this.saveError ? html`<p class="post-form__error">${this.saveError}</p>` : nothing}
@@ -649,6 +792,97 @@ export class PostSheet extends BaseElement {
           Enregistrer
         </button>
       </app-bottom-sheet>
+    `;
+  }
+
+  /** The picked folder, or the last one used while it still exists. */
+  get #attachmentFolderId(): string | null {
+    const folders = this.#folders.value ?? [];
+    const wanted =
+      this.attachmentFolder !== undefined
+        ? this.attachmentFolder
+        : (this.#lastAttachmentFolder.value ?? null);
+    return wanted !== null && folders.some(({ id }) => id === wanted)
+      ? wanted
+      : null;
+  }
+
+  /**
+   * "Ajouter un fichier", on the types that take files (`acceptsAttachments`):
+   * what the post already has, what was just picked, and where it will be
+   * filed in the Drive.
+   *
+   * A label around a hidden file input rather than a button that clicks one:
+   * iOS opens its picker (Prendre une photo, Photothèque, Choisir un fichier)
+   * only from a real user activation, and a label's is one. `image/heic` is
+   * left out on purpose, so iOS hands a photo over as JPEG.
+   */
+  #renderAttachments() {
+    const attached = this.#attached.value ?? [];
+    const folders = this.#folders.value ?? [];
+
+    return html`
+      <div class="post-form__attachments">
+        ${
+          attached.length + this.attachments.length > 0
+            ? html`<ul class="post-form__files">
+                ${attached.map(
+                  (doc) => html`<li class="post-form__file">
+                    <span class="post-form__file-name">${doc.name}</span>
+                    <span class="post-form__file-size"
+                      >${formatFileSize(doc.size)}</span
+                    >
+                  </li>`,
+                )}
+                ${this.attachments.map(
+                  (file, index) => html`<li class="post-form__file">
+                    <span class="post-form__file-name">${file.name}</span>
+                    <span class="post-form__file-size"
+                      >${formatFileSize(file.size)}</span
+                    >
+                    <button
+                      class="post-form__file-remove pressable"
+                      type="button"
+                      aria-label=${`Retirer ${file.name}`}
+                      @click=${() => {
+                        this.attachments = this.attachments.filter(
+                          (_, other) => other !== index,
+                        );
+                      }}
+                    >
+                      <app-icon icon="close"></app-icon>
+                    </button>
+                  </li>`,
+                )}
+              </ul>`
+            : nothing
+        }
+        ${
+          this.attachments.length > 0 && folders.length > 0
+            ? html`<app-select
+                label="Dossier"
+                .options=${folderOptions(folders)}
+                .value=${this.#attachmentFolderId ?? ""}
+                @select-change=${(event: CustomEvent<{ value: string }>) => {
+                  this.attachmentFolder = event.detail.value || null;
+                }}
+              ></app-select>`
+            : nothing
+        }
+        <label class="post-form__attach pressable">
+          Ajouter un fichier
+          <input
+            type="file"
+            multiple
+            accept="application/pdf,image/jpeg,image/png"
+            @change=${(event: Event) => {
+              const input = event.target as HTMLInputElement;
+              this.attachments = [...this.attachments, ...(input.files ?? [])];
+              input.value = "";
+            }}
+          />
+        </label>
+      </div>
     `;
   }
 

@@ -7,7 +7,7 @@ import {
   resetDb,
 } from "../data/__tests__/factories.ts";
 import { FOLDER } from "./api.ts";
-import { documentBytes, walkFolder } from "./sync.ts";
+import { documentBytes, syncFolder, walkFolder } from "./sync.ts";
 
 const T1 = "2026-09-01T10:00:00.000Z";
 
@@ -57,6 +57,7 @@ const DRIVE: Record<string, Item[]> = {
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
+let uploads: RequestInit[] = [];
 
 beforeEach(async () => {
   await resetDb();
@@ -66,13 +67,26 @@ beforeEach(async () => {
     sessionToken: `session-${Math.random()}`,
     scope: "openid https://www.googleapis.com/auth/drive",
   });
-  fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  uploads = [];
+  fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     if (url.pathname.endsWith("/drive/token")) {
       return Response.json({
         accessToken: "ya29.a",
         expiresAt: Date.now() + 3_600_000,
       });
+    }
+    if (url.pathname.startsWith("/upload/")) {
+      uploads.push(init!);
+      const id = `up-${uploads.length}`;
+      DRIVE.root!.push({
+        id,
+        name: "joint.pdf",
+        mimeType: "application/pdf",
+        size: "8",
+        modifiedTime: T1,
+      });
+      return Response.json({ id, modifiedTime: T1 });
     }
     const q = url.searchParams.get("q");
     if (q) {
@@ -145,5 +159,40 @@ describe("documentBytes", () => {
     expect(await blob!.text()).toContain(
       "/files/bilan/export?mimeType=application/pdf",
     );
+  });
+});
+
+describe("syncFolder", () => {
+  it("uploads a file joined in the app, then reads it back as the same row", async () => {
+    const pending = makeDocument({
+      id: "joint",
+      name: "joint.pdf",
+      postId: "post-1",
+      folderId: null,
+      driveFileId: null,
+    });
+    await db.documents.add(pending);
+    await documentsRepo.putBlob(
+      "joint",
+      new Blob(["%PDF"], { type: "application/pdf" }),
+    );
+
+    await syncFolder("root");
+
+    expect(uploads).toHaveLength(1);
+    const body = await new Response(uploads[0]!.body as Blob).text();
+    expect(body).toContain('"parents":["root"]');
+    expect(body).toContain('"ladyPostId":"post-1"');
+
+    const joined = (await db.documents.toArray()).filter(
+      (doc) => doc.name === "joint.pdf",
+    );
+    expect(joined).toHaveLength(1);
+    expect(joined[0]).toMatchObject({
+      id: "joint",
+      postId: "post-1",
+      driveFileId: "up-1",
+      deletedAt: null,
+    });
   });
 });

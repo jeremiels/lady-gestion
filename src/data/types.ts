@@ -283,6 +283,13 @@ export type Category = BaseRecord & {
   /** Drives the week strip's day-activity tracking — see `categories.ts`. */
   tracksWork: boolean;
   /**
+   * Its form ends with "Ajouter un fichier": files joined to the post, filed
+   * in her Drive (`docs/drive-spec.md` §5.5). A flag rather than a field — a
+   * file is not a value of the post but a document row pointing at it.
+   * Optional: rows written before it existed read as `false`.
+   */
+  acceptsAttachments?: boolean;
+  /**
    * `false` hides the category and every post filed under it from the whole
    * UI — pickers, lists, calendar, dashboard, budget totals. Nothing is
    * deleted: switching it back on brings everything back. A parent's flag does
@@ -457,6 +464,8 @@ export type MetaKey =
   | "googleAccount"
   | "driveClaim"
   | "driveFolder"
+  /** The folder her last attachment went to (`null`: the general folder). */
+  | "attachmentFolderId"
   /** Written by the profile switch; off, `listReminders` sends no reminder. */
   | "notificationsEnabled"
   | "seededAt"

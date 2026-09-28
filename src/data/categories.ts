@@ -522,6 +522,7 @@ export const BUILT_IN_CATEGORIES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
+    acceptsAttachments: true,
     enabled: true,
     order: 11,
     fields: [
@@ -548,6 +549,7 @@ export const BUILT_IN_CATEGORIES: Omit<
     isBuiltIn: true,
     isAppointment: true,
     tracksWork: false,
+    acceptsAttachments: true,
     enabled: true,
     order: 12,
     fields: [

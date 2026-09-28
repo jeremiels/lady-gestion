@@ -755,3 +755,70 @@ describe("deletePost", () => {
     expect(doc?.postId).toBeNull();
   });
 });
+
+describe("attachments", () => {
+  const file = (name: string) =>
+    new File(["%PDF-1.4"], name, { type: "application/pdf" });
+
+  it("writes each file as a document of the post, in the chosen folder, waiting for upload", async () => {
+    const saved = await savePost({
+      horseId: HORSE_ID,
+      type: typeFor("cures"),
+      input: input({ type: "cures" }),
+      attachments: {
+        files: [file("ordonnance.pdf"), file("facture.pdf")],
+        folderId: "osteo",
+      },
+    });
+
+    const documents = await documentsRepo.listByPost(saved!.id);
+    expect(documents.map((doc) => doc.name).sort()).toEqual([
+      "facture.pdf",
+      "ordonnance.pdf",
+    ]);
+    expect(documents[0]).toMatchObject({
+      folderId: "osteo",
+      mimeType: "application/pdf",
+      driveFileId: null,
+    });
+    expect(await documentsRepo.getBlob(documents[0]!.id)).toBeDefined();
+    expect(await documentsRepo.listPendingUpload()).toHaveLength(2);
+  });
+
+  it("adds to an edited post what it already had", async () => {
+    const event = await create({ type: "traitement" });
+    await db.documents.add(makeDocument({ id: "old", postId: event.id }));
+
+    await savePost({
+      horseId: HORSE_ID,
+      existing: event,
+      type: typeFor("traitement"),
+      input: input({ type: "traitement" }),
+      attachments: { files: [file("new.pdf")], folderId: null },
+    });
+
+    expect(
+      (await documentsRepo.listByPost(event.id)).map((doc) => doc.id),
+    ).toContain("old");
+    expect(await documentsRepo.listByPost(event.id)).toHaveLength(2);
+  });
+
+  it("marks an uploaded document as in the Drive, out of the queue", async () => {
+    const saved = await savePost({
+      horseId: HORSE_ID,
+      type: typeFor("cures"),
+      input: input({ type: "cures" }),
+      attachments: { files: [file("a.pdf")], folderId: null },
+    });
+    const [doc] = await documentsRepo.listByPost(saved!.id);
+
+    await documentsRepo.markUploaded(doc!.id, {
+      driveFileId: "d-1",
+      driveModifiedAt: "2026-09-28T10:00:00.000Z",
+    });
+
+    expect(await documentsRepo.listPendingUpload()).toEqual([]);
+    const uploaded = await documentsRepo.get(doc!.id);
+    expect(uploaded!.driveSyncedAt).toBe(uploaded!.updatedAt);
+  });
+});

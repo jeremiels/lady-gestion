@@ -1,5 +1,5 @@
 import { db } from "../db.ts";
-import { createRecord, crud, liveOnly, softDelete } from "../record.ts";
+import { createRecord, crud, liveOnly, softDelete, touch } from "../record.ts";
 import type { NewRecord, StoredDocument } from "../types.ts";
 
 /**
@@ -87,6 +87,26 @@ export const create = async (
 
 export const getBlob = async (id: string): Promise<Blob | undefined> =>
   (await db.documentBlobs.get(id))?.blob;
+
+/**
+ * Documents added in the app and not in the Drive yet, oldest first — the
+ * order they were joined in.
+ */
+export const listPendingUpload = async (): Promise<StoredDocument[]> =>
+  liveOnly(await db.documents.toArray())
+    .filter((document) => document.driveFileId === null)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+/** Records the Drive file an upload created, as in step with it. */
+export const markUploaded = async (
+  id: string,
+  drive: { driveFileId: string; driveModifiedAt: string },
+): Promise<void> => {
+  const existing = await get(id);
+  if (!existing) return;
+  const uploaded = touch(existing, drive);
+  await db.documents.put({ ...uploaded, driveSyncedAt: uploaded.updatedAt });
+};
 
 /** Caches bytes fetched from the Drive, so the file opens offline next time. */
 export const putBlob = async (id: string, blob: Blob): Promise<void> => {

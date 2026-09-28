@@ -2,7 +2,8 @@
  * Keeping the mirror in step with the general folder (`docs/drive-spec.md`
  * §6.5), and fetching a file's bytes when it is opened.
  *
- * A sync walks the general folder's tree, one request per folder, and hands
+ * A sync first uploads what was joined in the app, then walks the general
+ * folder's tree, one request per folder, and hands
  * the whole of it to `driveMirrorService.mirrorDrive` — which writes only
  * what changed. A folder of a horse's paperwork is a handful of requests, so
  * a full walk is cheaper to get right than following Drive's change feed.
@@ -13,6 +14,7 @@
  */
 
 import {
+  documentFoldersRepo,
   documentsRepo,
   driveMirrorService,
   watchDriveSetup,
@@ -21,7 +23,7 @@ import {
   type RemoteFolder,
 } from "../data/index.ts";
 import type { StoredDocument } from "../data/types.ts";
-import { downloadFile, FOLDER, listChildren } from "./api.ts";
+import { downloadFile, FOLDER, listChildren, uploadFile } from "./api.ts";
 
 /** Google Drive shortcuts point at a file elsewhere; there is nothing to show. */
 const SHORTCUT = "application/vnd.google-apps.shortcut";
@@ -31,6 +33,7 @@ const MIN_INTERVAL_MS = 30 * 1000;
 
 let setup: DriveSetup = { account: undefined, folder: undefined };
 let running: Promise<void> | null = null;
+let again = false;
 let lastRun = 0;
 
 /**
@@ -79,21 +82,33 @@ export const walkFolder = async (
 };
 
 /**
+ * One pass over the general folder: send what the app holds that the Drive
+ * does not, then read the whole tree back into the mirror.
+ */
+export const syncFolder = async (rootId: string): Promise<void> => {
+  await uploadPending(rootId);
+  const tree = await walkFolder(rootId);
+  await driveMirrorService.mirrorDrive({ rootDriveId: rootId, ...tree });
+};
+
+/**
  * One sync, unless one is running — then that one's result. `force` skips the
- * interval check, for a change of sign-in or folder.
+ * interval check, for a change of sign-in or folder or a file just joined.
  */
 export const syncDrive = (force = false): Promise<void> => {
-  if (running) return running;
+  if (running) {
+    // A forced sync asked mid-run — a file just joined — may have missed the
+    // pending list this run read: one more pass follows it.
+    if (force) again = true;
+    return running;
+  }
   if (!setup.account || !setup.folder) return Promise.resolve();
   if (!force && Date.now() - lastRun < MIN_INTERVAL_MS) {
     return Promise.resolve();
   }
 
   const rootId = setup.folder.id;
-  running = walkFolder(rootId)
-    .then((tree) =>
-      driveMirrorService.mirrorDrive({ rootDriveId: rootId, ...tree }),
-    )
+  running = syncFolder(rootId)
     .then(() => {
       lastRun = Date.now();
     })
@@ -104,8 +119,41 @@ export const syncDrive = (force = false): Promise<void> => {
     })
     .finally(() => {
       running = null;
+      if (again) {
+        again = false;
+        void syncDrive(true);
+      }
     });
   return running;
+};
+
+/**
+ * Sends what was joined in the app and is not in the Drive yet, before the
+ * walk — so the walk finds each file already known by its Drive id, rather
+ * than as a stranger it would add a second row for.
+ *
+ * One at a time, oldest first; the first failure stops the run and leaves the
+ * rest for the next sync. A file whose bytes are gone from the device cannot
+ * be sent and is skipped.
+ */
+const uploadPending = async (rootId: string): Promise<void> => {
+  for (const doc of await documentsRepo.listPendingUpload()) {
+    const blob = await documentsRepo.getBlob(doc.id);
+    if (!blob) continue;
+    const folder = doc.folderId
+      ? await documentFoldersRepo.get(doc.folderId)
+      : undefined;
+    const uploaded = await uploadFile(
+      doc.name,
+      blob,
+      folder?.driveFolderId ?? rootId,
+      doc.postId ? { ladyPostId: doc.postId } : {},
+    );
+    await documentsRepo.markUploaded(doc.id, {
+      driveFileId: uploaded.id,
+      driveModifiedAt: uploaded.modifiedTime,
+    });
+  }
 };
 
 /**

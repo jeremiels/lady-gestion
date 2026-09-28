@@ -880,3 +880,59 @@ describe("post-sheet — closing", () => {
     expect(closes).toBe(1);
   });
 });
+
+describe("post-sheet — Ajouter un fichier", () => {
+  const attachButton = (el: PostSheet) =>
+    el.renderRoot.querySelector<HTMLLabelElement>(".post-form__attach");
+
+  const chooseFiles = async (el: PostSheet, ...names: string[]) => {
+    const input = attachButton(el)!.querySelector("input")!;
+    const transfer = new DataTransfer();
+    for (const name of names) {
+      transfer.items.add(
+        new File(["%PDF-1.4"], name, { type: "application/pdf" }),
+      );
+    }
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await settled(el);
+  };
+
+  it("ends the Cures and Traitement forms, and no other", async () => {
+    const el = await openSheet();
+
+    await pick(el, "type", "cures");
+    expect(attachButton(el)?.textContent).toContain("Ajouter un fichier");
+    await pick(el, "type", "traitement");
+    expect(attachButton(el)).not.toBeNull();
+    await pick(el, "type", "veto");
+    expect(attachButton(el)).toBeNull();
+  });
+
+  it("lists what was picked, lets one go, and saves the rest with the post", async () => {
+    const el = await openSheet();
+    await pick(el, "type", "cures");
+    await fill(el, "title", "Uvemix");
+
+    await chooseFiles(el, "ordonnance.pdf", "erreur.pdf");
+    const files = () =>
+      [...el.renderRoot.querySelectorAll(".post-form__file")].map(
+        (row) => row.querySelector(".post-form__file-name")!.textContent,
+      );
+    expect(files()).toEqual(["ordonnance.pdf", "erreur.pdf"]);
+
+    el.renderRoot
+      .querySelector<HTMLButtonElement>('[aria-label="Retirer erreur.pdf"]')!
+      .click();
+    await settled(el);
+    expect(files()).toEqual(["ordonnance.pdf"]);
+
+    await submit(el);
+
+    const post = await savedPost();
+    const documents = await db.documents.toArray();
+    expect(documents.map((doc) => [doc.name, doc.postId])).toEqual([
+      ["ordonnance.pdf", post!.id],
+    ]);
+  });
+});

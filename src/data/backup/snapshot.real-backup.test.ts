@@ -2,7 +2,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db.ts";
 import { seedIfEmpty } from "../seed.ts";
 import { seedCategories } from "../categories.ts";
-import type { Post } from "../types.ts";
+import type { Category, Post } from "../types.ts";
+
+/** What a restore takes from the file for a category — as `snapshot.test.ts`. */
+const decidedByFile = ({
+  id,
+  key,
+  ownerId,
+  createdAt,
+  updatedAt,
+  deletedAt,
+  enabled,
+}: Category) => ({
+  id,
+  key,
+  ownerId,
+  createdAt,
+  updatedAt,
+  deletedAt,
+  enabled,
+});
 import { migrateTables } from "./migrate.ts";
 import { exportBackup } from "./export.ts";
 import { importBackup } from "./snapshot.ts";
@@ -112,10 +131,18 @@ describe.skipIf(newest === undefined)(
       ) as unknown as Record<string, { id: string }[]>;
       const exported = await exportBackup();
       for (const table of Object.keys(snapshot.tables)) {
+        // A category's definition — label, fields, flags — is this build's,
+        // reapplied after the merge; the file decides only which rows exist
+        // and whether each is switched on.
+        const view =
+          table === "categories"
+            ? (rows: { id: string }[]) =>
+                rows.map((row) => decidedByFile(row as unknown as Category))
+            : (rows: { id: string }[]) => rows;
         expect(
-          byId(exported.tables[table as keyof typeof exported.tables]),
+          byId(view(exported.tables[table as keyof typeof exported.tables])),
           `table ${table} did not survive the round trip`,
-        ).toStrictEqual(byId(expected[table]!));
+        ).toStrictEqual(byId(view(expected[table]!)));
       }
     });
 
