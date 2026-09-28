@@ -1,5 +1,4 @@
 import type { IconName } from "../components/app-icon/icons.ts";
-import type { DocumentCategory } from "../types/document.types.ts";
 import type { ThemeKey } from "../theme/theme.types.ts";
 import type { RationSeason } from "./seasons.ts";
 
@@ -315,10 +314,9 @@ export type Category = BaseRecord & {
  * That is what lets the list be edited freely without a cascade.
  *
  * The app's first user-editable taxonomy — `Category` above is the second,
- * added a schema version later. Every other closed list here — document
- * categories, ration units — is a TypeScript union with a hardcoded label
- * table, because the wording is a design decision. What the horse worked on
- * is not. Added in schema v5.
+ * added a schema version later. The other closed list here, ration units, is
+ * a TypeScript union with a hardcoded label table, because the wording is a
+ * design decision. What the horse worked on is not. Added in schema v5.
  */
 export type ActivityItem = BaseRecord & {
   horseId: string;
@@ -331,11 +329,33 @@ export type ActivityItem = BaseRecord & {
   label: string;
 };
 
+/**
+ * A folder of the user's Google Drive, under the general folder she picked.
+ *
+ * Named by her, in her Drive — which is why folders are rows rather than a
+ * closed union: the Drive is the reference for them, and this table mirrors it
+ * for offline use (`docs/drive-spec.md` §6). No `horseId`: a folder belongs to
+ * her Drive, not to a horse. Added in schema v14.
+ */
+export type DocumentFolder = BaseRecord & {
+  /** As named in the Drive. */
+  name: string;
+  /** The folder this one sits in; `null` for a folder directly under the general one. */
+  parentId: string | null;
+  /** `null` until a folder created in the app exists in the Drive. */
+  driveFolderId: string | null;
+  /** The Drive's `modifiedTime` as of the last sync. */
+  driveModifiedAt: string | null;
+  /** ISO timestamp of the last successful sync; compare against `updatedAt`. */
+  driveSyncedAt: string | null;
+};
+
 export type StoredDocument = BaseRecord & {
   horseId: string;
   /** The post this document supports (an invoice for a vet visit), if any. */
   postId: string | null;
-  category: DocumentCategory;
+  /** The `DocumentFolder` it is filed in; `null` for the general folder itself. */
+  folderId: string | null;
   /** File name as shown to the user. */
   name: string;
   mimeType: string;
@@ -346,11 +366,13 @@ export type StoredDocument = BaseRecord & {
   /**
    * Google Drive file id once uploaded.
    *
-   * **Not wired yet:** written `null` by `documents.repo.ts` and never read.
-   * Drive sync does not exist; this and `driveSyncedAt` below are the two
-   * columns it would need.
+   * **Not wired yet:** written `null` by `documents.repo.ts` and never read
+   * until Drive sync lands (`docs/drive-spec.md`, lots 4 and 5), like the two
+   * fields below.
    */
   driveFileId: string | null;
+  /** The Drive's `modifiedTime` as of the last sync. */
+  driveModifiedAt: string | null;
   /** ISO timestamp of the last successful upload; compare against `updatedAt`. */
   driveSyncedAt: string | null;
 };

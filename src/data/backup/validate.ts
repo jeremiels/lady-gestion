@@ -123,9 +123,13 @@ const ROW_RULES: Record<
     name: isString,
     mimeType: isString,
     size: isNumber,
-    category: isString,
+    folderId: nullable(isString),
     postId: nullable(isString),
     issuedAt: nullable(isIsoDate),
+  },
+  documentFolders: {
+    name: isString,
+    parentId: nullable(isString),
   },
   rationItems: {
     horseId: isString,

@@ -23,7 +23,7 @@ describe("create", () => {
       {
         horseId: HORSE_ID,
         postId: null,
-        category: "facture",
+        folderId: null,
         name: "facture.pdf",
         issuedAt: "2026-05-01",
       },
@@ -40,7 +40,7 @@ describe("create", () => {
       {
         horseId: HORSE_ID,
         postId: null,
-        category: "autre",
+        folderId: null,
         name: "scan",
         issuedAt: null,
       },
@@ -55,7 +55,7 @@ describe("create", () => {
       {
         horseId: HORSE_ID,
         postId: null,
-        category: "autre",
+        folderId: null,
         name: "scan",
         issuedAt: null,
       },
@@ -63,6 +63,7 @@ describe("create", () => {
     );
 
     expect(created.driveFileId).toBe(null);
+    expect(created.driveModifiedAt).toBe(null);
     expect(created.driveSyncedAt).toBe(null);
   });
 });
@@ -108,23 +109,25 @@ describe("listByHorse", () => {
   });
 });
 
-describe("countByCategory", () => {
-  it("counts live documents per category and omits empty ones", async () => {
+describe("countByFolder", () => {
+  it("counts live documents per folder and omits empty ones", async () => {
     await seedDocuments([
-      { id: "a", category: "facture" },
-      { id: "b", category: "facture" },
-      { id: "c", category: "ordonnance" },
-      { id: "d", category: "facture", deletedAt: "2026-06-01T00:00:00.000Z" },
+      { id: "a", folderId: "osteo" },
+      { id: "b", folderId: "osteo" },
+      { id: "c", folderId: "veto" },
+      { id: "d", folderId: "osteo", deletedAt: "2026-06-01T00:00:00.000Z" },
     ]);
 
-    expect(await documentsRepo.countByCategory(HORSE_ID)).toEqual({
-      facture: 2,
-      ordonnance: 1,
+    expect(await documentsRepo.countByFolder(HORSE_ID)).toEqual({
+      osteo: 2,
+      veto: 1,
     });
   });
 
-  it("returns an empty object rather than zeroes when there is nothing", async () => {
-    expect(await documentsRepo.countByCategory(HORSE_ID)).toEqual({});
+  it("leaves out documents filed directly in the general folder", async () => {
+    await seedDocuments([{ id: "loose", folderId: null }]);
+
+    expect(await documentsRepo.countByFolder(HORSE_ID)).toEqual({});
   });
 });
 
@@ -147,7 +150,7 @@ describe("remove", () => {
       {
         horseId: HORSE_ID,
         postId: null,
-        category: "facture",
+        folderId: null,
         name: "f.pdf",
         issuedAt: null,
       },

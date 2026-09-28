@@ -42,6 +42,7 @@ import { seedIfEmpty } from "./seed.ts";
 export * as horsesRepo from "./repositories/horses.repo.ts";
 export * as postsRepo from "./repositories/posts.repo.ts";
 export * as documentsRepo from "./repositories/documents.repo.ts";
+export * as documentFoldersRepo from "./repositories/documentFolders.repo.ts";
 export * as rationsRepo from "./repositories/rations.repo.ts";
 export * as activitiesRepo from "./repositories/activities.repo.ts";
 export * as categoriesRepo from "./repositories/categories.repo.ts";

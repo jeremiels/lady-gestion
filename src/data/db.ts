@@ -3,6 +3,7 @@ import { ROW_STEPS } from "./migrations.ts";
 import type {
   ActivityItem,
   DocumentBlob,
+  DocumentFolder,
   Category,
   Horse,
   MetaEntry,
@@ -52,8 +53,13 @@ export const SCHEMA_VERSION = 14;
  * would vanish from the index. `Category.enabled` is unindexed because a
  * boolean is not a valid IndexedDB key, so that index would never hold a row.
  * The catalogue is read whole and filtered in memory, so the `key` and
- * `order` indexes serve no query today; like the unused `posts` and
- * `documents` indexes, they are left for the next schema bump to drop.
+ * `order` indexes serve no query today; like the unused `posts` indexes, they
+ * are left for the next schema bump to drop.
+ *
+ * The document tables index nullable columns on purpose — `folderId`,
+ * `driveFileId`, `driveFolderId`, `parentId` — because every query on them is
+ * a lookup *by* a value (a folder's documents, the row a Drive id maps to),
+ * never a search for the nulls a null-valued row would be missing from.
  *
  * `activities` is indexed on `horseId` alone rather than a compound: the
  * catalogue is read whole, for one horse, and ordered in memory by `createdAt`.
@@ -63,7 +69,8 @@ const STORES = {
   horses: "id, firstName, updatedAt",
   posts:
     "id, horseId, date, categoryKey, status, [horseId+date], [horseId+categoryKey], updatedAt",
-  documents: "id, horseId, postId, category, [horseId+category], updatedAt",
+  documents: "id, horseId, postId, folderId, driveFileId, updatedAt",
+  documentFolders: "id, driveFolderId, parentId, updatedAt",
   documentBlobs: "documentId",
   rationItems: "id, horseId, [horseId+sortOrder], updatedAt",
   activities: "id, horseId, updatedAt",
@@ -76,6 +83,7 @@ export class LadyGestionDb extends Dexie {
   horses!: Table<Horse, string>;
   posts!: Table<Post, string>;
   documents!: Table<StoredDocument, string>;
+  documentFolders!: Table<DocumentFolder, string>;
   documentBlobs!: Table<DocumentBlob, string>;
   rationItems!: Table<RationItem, string>;
   activities!: Table<ActivityItem, string>;
@@ -87,20 +95,34 @@ export class LadyGestionDb extends Dexie {
     super("lady-gestion");
 
     // Only the step from v13 runs: no device is older (see SCHEMA_VERSION).
+    // `documentFolders` needs nothing here: Dexie creates a new store itself.
     this.version(SCHEMA_VERSION)
       .stores(STORES)
-      .upgrade((tx) =>
-        Promise.all(
+      .upgrade(async (tx) => {
+        await Promise.all(
           Object.entries(ROW_STEPS[13] ?? {}).map(([table, step]) =>
             tx
               .table(table)
               .toCollection()
               .modify((row: Record<string, unknown>, ref) => {
-                ref.value = step(row);
+                const next = step(row);
+                // Dexie's way of deleting the row being modified.
+                if (next === null) delete (ref as { value?: unknown }).value;
+                else ref.value = next;
               }),
           ),
-        ),
-      );
+        );
+        // Bytes whose document a step just dropped: nothing points at them
+        // any more, and a backup never carries them, so they could never be
+        // reached again.
+        const kept = new Set(
+          await tx.table("documents").toCollection().primaryKeys(),
+        );
+        await tx
+          .table("documentBlobs")
+          .filter((blob: DocumentBlob) => !kept.has(blob.documentId))
+          .delete();
+      });
   }
 }
 
@@ -131,6 +153,7 @@ export const RECORD_TABLES = {
   horses: db.horses,
   posts: db.posts,
   documents: db.documents,
+  documentFolders: db.documentFolders,
   rationItems: db.rationItems,
   activities: db.activities,
   categories: db.categories,

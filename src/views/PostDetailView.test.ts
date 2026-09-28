@@ -10,7 +10,12 @@ import {
   vi,
 } from "vitest";
 import { db } from "../data/db.ts";
-import { makePost, resetDb } from "../data/__tests__/factories.ts";
+import {
+  makeDocument,
+  makeDocumentFolder,
+  makePost,
+  resetDb,
+} from "../data/__tests__/factories.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./PostDetailView.ts";
 import type { PostDetailView } from "./PostDetailView.ts";
@@ -69,6 +74,41 @@ describe("post-detail-view", () => {
     await waitFor(el, () => el.textContent!.includes("introuvable"));
 
     expect(el.querySelector(".post-detail__back-link")).not.toBeNull();
+  });
+
+  it("tags an attachment with the folder it is filed in, and none at the top", async () => {
+    await db.posts.add(makePost({ id: "care-1", categoryKey: "veto" }));
+    await db.documentFolders.add(
+      makeDocumentFolder({ id: "osteo", name: "Ostéopathe" }),
+    );
+    await db.documents.bulkAdd([
+      makeDocument({
+        id: "filed",
+        postId: "care-1",
+        folderId: "osteo",
+        name: "facture.pdf",
+        size: 1_258_291,
+      }),
+      makeDocument({ id: "loose", postId: "care-1", name: "scan.pdf" }),
+    ]);
+
+    const el = await mount("care-1");
+    await waitFor(
+      el,
+      () => el.querySelectorAll(".post-detail__file").length === 2,
+    );
+    await waitFor(
+      el,
+      () => el.querySelector(".post-detail__file-tag") !== null,
+    );
+
+    const tagOf = (name: string) =>
+      [...el.querySelectorAll(".post-detail__file")]
+        .find((file) => file.textContent!.includes(name))!
+        .querySelector("app-tag");
+    expect(tagOf("facture.pdf")?.getAttribute("label")).toBe("Ostéopathe");
+    expect(tagOf("scan.pdf")).toBeNull();
+    expect(el.textContent).toContain("1,2 mo");
   });
 
   it("shows a care event’s practitioner and a purchase’s vendor, never the other", async () => {

@@ -10,16 +10,16 @@
 /** Kibibyte, not kilobyte: what every OS file browser shows. */
 const STEP = 1024;
 
-const UNITS = ["o", "Ko", "Mo", "Go", "To"] as const;
+const UNITS = ["o", "ko", "mo", "go", "to"] as const;
 
 const SIZE_FORMAT = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 1,
 });
 
 /**
- * `1_258_291` -> `1,2 Mo`. French uses the octet, and a comma for the decimal
+ * `1_258_291` -> `1,2 mo`. French uses the octet, and a comma for the decimal
  * separator — `Intl` handles the latter so the string matches every other
- * number in the app.
+ * number in the app. The unit is lower case because the design says so.
  *
  * Bytes are never shown fractionally: "1,5 o" is nonsense.
  */

@@ -301,7 +301,7 @@ src/
     tokens/               # color.css, spacing.css, radius.css, typography.css
     components/, views/   # per-component / per-view CSS, in matching sub-layers
   theme/                 # ThemeKey -> {color, backgroundColor} (var(--color-theme-*))
-  types/                  # taxonomy.ts, document.types.ts, horse.types.ts
+  types/                  # horse.types.ts
   assets/icons/           # raw SVGs; built into /icons.svg by vite/icon-sprite.ts
   data/                   # persistence — see below
   pwa/                    # service worker, registration, push reminders — see below
@@ -991,15 +991,14 @@ message }` for `fieldMessages()` and `describedBy()`.
 - `src/theme/theme.ts` (`ThemeKey` -> `{ color, backgroundColor }`, plus
   `THEME_KEYS` / `isThemeKey`) is the palette source of truth. An event type's
   own `{ label, icon, theme }` is a **row** since schema v6, read through
-  `listResolved` / `resolveCatalogue` rather than a compile-time table;
-  document categories still are one (`src/types/document.types.ts`). **`app-icon` and `app-tag` are domain-free and resolve
-  nothing themselves** — they read two custom properties, and the call site
-  composes them with `iconStyle(...)` / `tagStyle(...)` over a `ThemeMeta`:
-  `style=${styleMap(type ? tagStyle(THEME_META[type.theme]) : {})}`. That is what
-  lets the document taxonomy colour a tag exactly as the event taxonomy does;
-  an `event-type` attribute used to live on both and could only ever serve
-  one of them. Prefer this over hardcoding a colour whenever the thing being
-  displayed maps to a `ThemeKey`.
+  `listResolved` / `resolveCatalogue` rather than a compile-time table.
+  Document folders are rows too (schema v14), named by the user in her Drive,
+  with no theme of their own. **`app-icon` and `app-tag` are domain-free and
+  resolve nothing themselves** — they read two custom properties, and the call
+  site composes them with `iconStyle(...)` / `tagStyle(...)` over a
+  `ThemeMeta`: `style=${styleMap(type ? tagStyle(THEME_META[type.theme]) : {})}`,
+  or leaves them at their defaults. Prefer this over hardcoding a colour
+  whenever the thing being displayed maps to a `ThemeKey`.
 - Icons: names are camelCase (`shoppingCart`) and that is the **only**
   accepted spelling — `app-icon` does not normalise kebab-case, because a
   mismatch between `IconName` and what templates write is invisible to `tsc`.

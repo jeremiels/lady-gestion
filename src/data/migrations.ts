@@ -9,8 +9,13 @@ import type { BackupTables } from "./db.ts";
  * Its own module rather than `backup/migrate.ts`, which imports `db.ts`.
  */
 
-/** One row of one table, from one version to the next. */
-export type RowStep = (row: Record<string, unknown>) => Record<string, unknown>;
+/**
+ * One row of one table, from one version to the next — or `null` to drop the
+ * row altogether.
+ */
+export type RowStep = (
+  row: Record<string, unknown>,
+) => Record<string, unknown> | null;
 
 /**
  * A v13 horse row (`name`) at v14 (`firstName` + `lastName`): the first word
@@ -39,6 +44,22 @@ export const horseRowToV14 = (
 };
 
 /**
+ * A v13 document row (`category`, a closed union) is dropped at v14, where
+ * documents are filed in the user's own Drive folders (`folderId`).
+ *
+ * Dropped rather than mapped because there is nothing to map it to: v13 never
+ * had an upload path, so the only document any install holds is the first-run
+ * demo PDF, and folders at v14 are whatever the user names in her Drive. A
+ * backup file never carried the bytes either — a restored v13 document was
+ * already a name with no file behind it.
+ *
+ * A row without `category` is returned as it is: already at v14.
+ */
+export const documentRowToV14 = (
+  row: Record<string, unknown>,
+): Record<string, unknown> | null => ("category" in row ? null : row);
+
+/**
  * Keyed by the version each step migrates *from*, then by table. A table a
  * version leaves alone is not listed.
  *
@@ -51,5 +72,16 @@ export const horseRowToV14 = (
 export const ROW_STEPS: Partial<
   Record<number, Partial<Record<keyof BackupTables, RowStep>>>
 > = {
-  13: { horses: horseRowToV14 },
+  13: { horses: horseRowToV14, documents: documentRowToV14 },
+};
+
+/**
+ * Tables each version introduces, keyed like `ROW_STEPS`.
+ *
+ * Only a file needs this: Dexie creates a new store on the device by itself,
+ * but a file written before the table existed lacks it, and `assertRows`
+ * refuses a file with a table missing. The walk supplies it empty.
+ */
+export const NEW_TABLES: Partial<Record<number, (keyof BackupTables)[]>> = {
+  13: ["documentFolders"],
 };

@@ -13,26 +13,26 @@ describe("formatFileSize", () => {
 
   it("steps up at 1024, not 1000", () => {
     expect(normalize(formatFileSize(1023))).toBe("1 023 o");
-    expect(formatFileSize(1024)).toBe("1 Ko");
+    expect(formatFileSize(1024)).toBe("1 ko");
   });
 
   it("uses a French decimal comma", () => {
     // 1.2 MiB
-    expect(formatFileSize(1_258_291)).toBe("1,2 Mo");
+    expect(formatFileSize(1_258_291)).toBe("1,2 mo");
   });
 
   it("rounds to one decimal place", () => {
-    expect(formatFileSize(1536)).toBe("1,5 Ko");
-    expect(formatFileSize(1_500_000)).toBe("1,4 Mo");
+    expect(formatFileSize(1536)).toBe("1,5 ko");
+    expect(formatFileSize(1_500_000)).toBe("1,4 mo");
   });
 
   it("climbs through the whole unit scale", () => {
-    expect(formatFileSize(1024 ** 3)).toBe("1 Go");
-    expect(formatFileSize(1024 ** 4)).toBe("1 To");
+    expect(formatFileSize(1024 ** 3)).toBe("1 go");
+    expect(formatFileSize(1024 ** 4)).toBe("1 to");
   });
 
   it("stops at the largest unit rather than inventing one", () => {
-    expect(normalize(formatFileSize(1024 ** 5))).toBe("1 024 To");
+    expect(normalize(formatFileSize(1024 ** 5))).toBe("1 024 to");
   });
 
   it("returns a dash for a size that cannot be rendered", () => {

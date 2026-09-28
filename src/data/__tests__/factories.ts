@@ -8,6 +8,7 @@ import type {
   Post,
   RationItem,
   StoredDocument,
+  DocumentFolder,
 } from "../types.ts";
 
 /**
@@ -131,12 +132,25 @@ export const makeDocument = (
   ...base("document-1"),
   horseId: HORSE_ID,
   postId: null,
-  category: "facture",
+  folderId: null,
   name: "facture.pdf",
   mimeType: "application/pdf",
   size: 1024,
   issuedAt: null,
   driveFileId: null,
+  driveModifiedAt: null,
+  driveSyncedAt: null,
+  ...over,
+});
+
+export const makeDocumentFolder = (
+  over: Partial<DocumentFolder> = {},
+): DocumentFolder => ({
+  ...base("folder-1"),
+  name: "Factures",
+  parentId: null,
+  driveFolderId: null,
+  driveModifiedAt: null,
   driveSyncedAt: null,
   ...over,
 });

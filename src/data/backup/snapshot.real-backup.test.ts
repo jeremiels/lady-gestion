@@ -61,6 +61,19 @@ describe.skipIf(newest === undefined)(
         0,
       );
 
+    /**
+     * The rows a restore writes: the file once brought to the current schema,
+     * which at v14 no longer holds the v13 demo document.
+     */
+    const keptRowCount = (snapshot: RealSnapshot) =>
+      rowCount({
+        ...snapshot,
+        tables: migrateTables(
+          structuredClone(snapshot.tables),
+          snapshot.schemaVersion,
+        ) as RealSnapshot["tables"],
+      });
+
     const byId = (rows: { id: string }[]) =>
       Object.fromEntries(rows.map((row) => [row.id, row]));
 
@@ -76,9 +89,14 @@ describe.skipIf(newest === undefined)(
         `${label} carried ${rowCount(snapshot)} rows`,
       ).toBeGreaterThan(0);
 
+      // The migration drops the v13 demo document and nothing else.
+      expect(rowCount(snapshot) - keptRowCount(snapshot)).toBe(
+        snapshot.schemaVersion < 14 ? snapshot.tables.documents!.length : 0,
+      );
+
       // Nothing rejected, nothing skipped: an empty database has no local copy
       // to lose a last-write-wins argument to.
-      expect(result.imported).toBe(rowCount(snapshot));
+      expect(result.imported).toBe(keptRowCount(snapshot));
       expect(result.skipped).toBe(0);
     });
 
@@ -143,7 +161,7 @@ describe.skipIf(newest === undefined)(
       const second = await importBackup(snapshot);
 
       expect(second.imported).toBe(0);
-      expect(second.skipped).toBe(rowCount(snapshot));
+      expect(second.skipped).toBe(keptRowCount(snapshot));
       expect((await exportBackup()).tables).toStrictEqual(after.tables);
     });
 

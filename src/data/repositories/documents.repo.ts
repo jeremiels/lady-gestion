@@ -1,6 +1,5 @@
 import { db } from "../db.ts";
 import { createRecord, crud, liveOnly, softDelete } from "../record.ts";
-import type { DocumentCategory } from "../../types/document.types.ts";
 import type { NewRecord, StoredDocument } from "../types.ts";
 
 /**
@@ -26,14 +25,18 @@ export const listByPost = async (postId: string): Promise<StoredDocument[]> => {
   return sortByIssueDate(liveOnly(documents));
 };
 
-/** Document counts per category, for the folder tiles on the documents view. */
-export const countByCategory = async (
+/**
+ * Document counts per folder id, for the folder tiles on the documents view.
+ * Documents filed directly in the general folder (`folderId: null`) are not
+ * counted: no tile stands for it.
+ */
+export const countByFolder = async (
   horseId: string,
-): Promise<Partial<Record<DocumentCategory, number>>> => {
+): Promise<Record<string, number>> => {
   const documents = await listByHorse(horseId);
-  const counts: Partial<Record<DocumentCategory, number>> = {};
-  for (const document of documents) {
-    counts[document.category] = (counts[document.category] ?? 0) + 1;
+  const counts: Record<string, number> = {};
+  for (const { folderId } of documents) {
+    if (folderId !== null) counts[folderId] = (counts[folderId] ?? 0) + 1;
   }
   return counts;
 };
@@ -49,7 +52,7 @@ export const { get, update } = crud<StoredDocument>(db.documents);
 export const create = async (
   fields: Omit<
     NewRecord<StoredDocument>,
-    "mimeType" | "size" | "driveFileId" | "driveSyncedAt"
+    "mimeType" | "size" | "driveFileId" | "driveModifiedAt" | "driveSyncedAt"
   >,
   file: Blob,
 ): Promise<StoredDocument> => {
@@ -58,6 +61,7 @@ export const create = async (
     mimeType: file.type || "application/octet-stream",
     size: file.size,
     driveFileId: null,
+    driveModifiedAt: null,
     driveSyncedAt: null,
   });
 

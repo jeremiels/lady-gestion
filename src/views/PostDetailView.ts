@@ -8,6 +8,7 @@ import {
   categoriesRepo,
   findCategory,
   LiveQuery,
+  documentFoldersRepo,
   documentsRepo,
   postInfoRows,
   postsRepo,
@@ -17,10 +18,9 @@ import {
   shareSummary,
   type ResolvedCategory,
 } from "../data/index.ts";
-import type { Post, StoredDocument } from "../data/types.ts";
+import type { DocumentFolder, Post, StoredDocument } from "../data/types.ts";
 import { THEME_META } from "../theme/theme.ts";
 import type { IconName } from "../components/app-icon/icons.ts";
-import { documentCategory } from "../types/document.types.ts";
 
 import "../components/app-icon/app-icon.ts";
 import { tagStyle } from "../components/app-tag/app-tag.ts";
@@ -52,6 +52,9 @@ export class PostDetailView extends LightElement {
   );
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
     categoriesRepo.listEnabled(),
+  );
+  #folders = new LiveQuery<DocumentFolder[]>(this, () =>
+    documentFoldersRepo.list(),
   );
 
   /** Back to the calendar or the list, whichever this was opened from. */
@@ -194,6 +197,7 @@ export class PostDetailView extends LightElement {
   #renderDocuments() {
     const documents = this.#documents.value ?? [];
     if (documents.length === 0) return nothing;
+    const folders = this.#folders.value ?? [];
 
     return html`
       <ul class="post-detail__files">
@@ -212,17 +216,23 @@ export class PostDetailView extends LightElement {
                 <span class="post-detail__file-meta">
                   ${formatFileKind(doc.mimeType)} • ${formatFileSize(doc.size)}
                 </span>
-                <app-tag
-                  class="post-detail__file-tag"
-                  label=${documentCategory.label(doc.category)}
-                  style=${styleMap(tagStyle(documentCategory.theme(doc.category)))}
-                ></app-tag>
+                ${this.#renderFolderTag(folders, doc)}
               </button>
             </li>
           `,
         )}
       </ul>
     `;
+  }
+
+  /** The folder the file is filed in; none for the general folder itself. */
+  #renderFolderTag(folders: DocumentFolder[], doc: StoredDocument) {
+    const folder = folders.find(({ id }) => id === doc.folderId);
+    if (!folder) return nothing;
+    return html`<app-tag
+      class="post-detail__file-tag"
+      label=${folder.name}
+    ></app-tag>`;
   }
 
   #renderActions(event: Post, type: ResolvedCategory | undefined) {

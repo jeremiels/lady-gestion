@@ -1,6 +1,6 @@
 import { UserFacingError } from "../errors.ts";
 import { SCHEMA_VERSION } from "../db.ts";
-import { ROW_STEPS } from "../migrations.ts";
+import { NEW_TABLES, ROW_STEPS } from "../migrations.ts";
 
 /**
  * Brings an older backup file up to the current schema, in place of the
@@ -35,7 +35,9 @@ export type MigratingTables = Partial<
 >;
 
 /**
- * Walks `from` up to `SCHEMA_VERSION`, one version's `ROW_STEPS` at a time.
+ * Walks `from` up to `SCHEMA_VERSION`, one version's `ROW_STEPS` at a time,
+ * dropping the rows a step returns `null` for and supplying the tables that
+ * version introduces (`NEW_TABLES`) as empty.
  *
  * A file already at the current version is returned untouched, free of any
  * transformation at all.
@@ -55,9 +57,19 @@ export const migrateTables = (
     }
     const migrated = Object.entries(steps).map(([name, step]) => [
       name,
-      current[name]?.map(step),
+      current[name]
+        ?.map(step)
+        .filter((row): row is Record<string, unknown> => row !== null),
     ]);
-    current = { ...current, ...Object.fromEntries(migrated) };
+    const added = (NEW_TABLES[version] ?? []).map((name) => [
+      name,
+      current[name] ?? [],
+    ]);
+    current = {
+      ...current,
+      ...Object.fromEntries(migrated),
+      ...Object.fromEntries(added),
+    };
   }
 
   return current;

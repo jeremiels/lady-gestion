@@ -168,6 +168,8 @@ type DocumentFolder = BaseRecord & {
   driveFolderId: string | null;
   /** `modifiedTime` du Drive à la dernière synchro. */
   driveModifiedAt: string | null;
+  /** Dernière synchro réussie ; comparée à `updatedAt` par le §6.5. */
+  driveSyncedAt: string | null;
 };
 ```
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { horseFullName } from "./horses.ts";
-import { horseRowToV14 } from "./migrations.ts";
+import { documentRowToV14, horseRowToV14 } from "./migrations.ts";
 import type { Horse } from "./types.ts";
 
 describe("horseRowToV14", () => {
@@ -35,5 +35,18 @@ describe("horseRowToV14", () => {
   it("leaves a row without a string name for validation to refuse", () => {
     const row = { id: "h", name: 42 };
     expect(horseRowToV14(row)).toBe(row);
+  });
+});
+
+describe("documentRowToV14", () => {
+  it("drops a v13 document, filed by category", () => {
+    expect(
+      documentRowToV14({ id: "d", category: "compte-rendu", postId: "p" }),
+    ).toBe(null);
+  });
+
+  it("is replay-safe: a v14 document, filed by folder, passes through", () => {
+    const row = { id: "d", folderId: "osteo", postId: "p" };
+    expect(documentRowToV14(row)).toBe(row);
   });
 });

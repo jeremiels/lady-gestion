@@ -45,10 +45,24 @@ const V13_STORES = {
 const { firstName: _firstName, lastName: _lastName, ...v14Horse } = makeHorse();
 const V13_HORSE = { ...v14Horse, name: "Ladympala Coupe Chêne" };
 
+/**
+ * A document as v13 stored it — the first-run demo PDF, the only document any
+ * v13 install holds — filed by `category`, which v14 replaces with folders.
+ */
+const {
+  folderId: _folderId,
+  driveModifiedAt: _driveModifiedAt,
+  ...v14Document
+} = makeDocument({ id: "doc-1", postId: "post-1" });
+const V13_DOCUMENT = { ...v14Document, category: "compte-rendu" };
+
+/** The stores v14 adds to a v13 device. */
+const V14_NEW_STORES = ["documentFolders"];
+
 const rows = {
   horses: [V13_HORSE],
   posts: [makePost({ id: "post-1", categoryKey: "veto" })],
-  documents: [makeDocument({ id: "doc-1", postId: "post-1" })],
+  documents: [V13_DOCUMENT],
   rationItems: [makeRation()],
   categories: [makeCategory({ id: "veto", key: "veto" })],
   meta: [{ key: "activeHorseId", value: "horse-1" }],
@@ -87,17 +101,38 @@ describe("opening a database a v13 device already holds", () => {
     await db.open();
 
     expect([...db.backendDB().objectStoreNames].sort()).toEqual(
-      Object.keys(V13_STORES).sort(),
+      [...Object.keys(V13_STORES), ...V14_NEW_STORES].sort(),
     );
     expect(await db.horses.toArray()).toEqual([
       makeHorse({ firstName: "Ladympala", lastName: "Coupe Chêne" }),
     ]);
     expect(await db.posts.toArray()).toEqual(rows.posts);
-    expect(await db.documents.toArray()).toEqual(rows.documents);
     expect(await db.rationItems.toArray()).toEqual(rows.rationItems);
     expect(await db.categories.toArray()).toEqual(rows.categories);
     expect(await db.meta.toArray()).toEqual(rows.meta);
-    expect(await db.documentBlobs.count()).toBe(1);
+  });
+
+  it("drops the demo document and its bytes, and nothing else", async () => {
+    await writeV13Database();
+
+    await db.open();
+
+    expect(await db.documents.count()).toBe(0);
+    expect(await db.documentBlobs.count()).toBe(0);
+    expect(await db.documentFolders.count()).toBe(0);
+    // The post it hung off stays: it is her data, the PDF was the demo's.
+    expect(await db.posts.get("post-1")).toEqual(rows.posts[0]);
+  });
+
+  it("answers the new document indexes", async () => {
+    await writeV13Database();
+
+    await db.open();
+    await db.documents.add(makeDocument({ id: "doc-2", folderId: "osteo" }));
+
+    expect(await db.documents.where("folderId").equals("osteo").count()).toBe(
+      1,
+    );
   });
 
   it("splits the horse's name without restamping the row", async () => {
@@ -152,7 +187,7 @@ describe("a fresh install", () => {
 
     expect(db.verno).toBe(SCHEMA_VERSION);
     expect([...db.backendDB().objectStoreNames].sort()).toEqual(
-      Object.keys(V13_STORES).sort(),
+      [...Object.keys(V13_STORES), ...V14_NEW_STORES].sort(),
     );
   });
 });

@@ -3,23 +3,20 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "../data/db.ts";
 import {
   makeDocument,
+  makeDocumentFolder,
   makeHorse,
   resetDb,
 } from "../data/__tests__/factories.ts";
 import { fixture, waitFor } from "../components/__tests__/fixture.ts";
-import {
-  DOCUMENT_CATEGORIES,
-  documentCategory,
-} from "../types/document.types.ts";
 import "./DocumentsView.ts";
 import type { DocumentsView } from "./DocumentsView.ts";
 
 const mount = () =>
   fixture<DocumentsView>(html`<documents-view></documents-view>`);
 
-const folderNamed = (el: DocumentsView, label: string) =>
+const folderNamed = (el: DocumentsView, name: string) =>
   [...el.querySelectorAll("app-folder")].find(
-    (folder) => folder.name === label,
+    (folder) => folder.name === name,
   )!;
 
 beforeEach(async () => {
@@ -28,37 +25,40 @@ beforeEach(async () => {
 });
 
 describe("documents-view", () => {
-  it("shows every category up front, including ones with nothing filed yet", async () => {
-    const el = await mount();
-
-    // Every folder tile renders regardless of the live count, which is the
-    // whole point — a user filing the first ordonnance needs to see the
-    // folder before there is anything in it.
-    expect(el.querySelectorAll("app-folder")).toHaveLength(
-      DOCUMENT_CATEGORIES.length,
-    );
-    expect(
-      [...el.querySelectorAll("app-folder")].every(
-        (folder) => folder.number === 0,
-      ),
-    ).toBe(true);
-  });
-
-  it("counts documents per category, and leaves an empty one at zero", async () => {
-    await db.documents.bulkAdd([
-      makeDocument({ id: "doc-1", category: "facture" }),
-      makeDocument({ id: "doc-2", category: "facture" }),
-      makeDocument({ id: "doc-3", category: "ordonnance" }),
+  it("shows the folders directly under the general one, alphabetically", async () => {
+    await db.documentFolders.bulkAdd([
+      makeDocumentFolder({ id: "veto", name: "Vétérinaire" }),
+      makeDocumentFolder({ id: "osteo", name: "Ostéopathe" }),
+      makeDocumentFolder({ id: "nested", name: "2025", parentId: "osteo" }),
+      makeDocumentFolder({
+        id: "gone",
+        name: "Ancien",
+        deletedAt: "2026-06-01T00:00:00.000Z",
+      }),
     ]);
 
     const el = await mount();
-    const facture = () => folderNamed(el, documentCategory.label("facture"));
-    await waitFor(el, () => facture().number > 0);
+    await waitFor(el, () => el.querySelectorAll("app-folder").length > 0);
 
-    expect(facture().number).toBe(2);
-    expect(folderNamed(el, documentCategory.label("ordonnance")).number).toBe(
-      1,
-    );
-    expect(folderNamed(el, documentCategory.label("identite")).number).toBe(0);
+    expect(
+      [...el.querySelectorAll("app-folder")].map((folder) => folder.name),
+    ).toEqual(["Ostéopathe", "Vétérinaire"]);
+  });
+
+  it("counts the documents filed in each folder, and leaves an empty one at zero", async () => {
+    await db.documentFolders.bulkAdd([
+      makeDocumentFolder({ id: "osteo", name: "Ostéopathe" }),
+      makeDocumentFolder({ id: "veto", name: "Vétérinaire" }),
+    ]);
+    await db.documents.bulkAdd([
+      makeDocument({ id: "doc-1", folderId: "osteo" }),
+      makeDocument({ id: "doc-2", folderId: "osteo" }),
+    ]);
+
+    const el = await mount();
+    await waitFor(el, () => folderNamed(el, "Ostéopathe")?.number > 0);
+
+    expect(folderNamed(el, "Ostéopathe").number).toBe(2);
+    expect(folderNamed(el, "Vétérinaire").number).toBe(0);
   });
 });

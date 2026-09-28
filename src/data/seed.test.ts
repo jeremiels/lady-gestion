@@ -71,7 +71,8 @@ describe("seedIfEmpty — event types", () => {
 
 describe("seedIfEmpty — the demo", () => {
   it("writes all of it or none of it", async () => {
-    vi.spyOn(db.documentBlobs, "put").mockRejectedValueOnce(new Error("full"));
+    // The first bookkeeping write, which comes after the horse and its posts.
+    vi.spyOn(db.meta, "put").mockRejectedValueOnce(new Error("full"));
 
     await expect(seedIfEmpty()).rejects.toThrow();
 

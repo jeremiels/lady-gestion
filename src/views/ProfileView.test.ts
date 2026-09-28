@@ -102,6 +102,7 @@ describe("profile-view", () => {
         horses: [],
         posts: [],
         documents: [],
+        documentFolders: [],
         rationItems: [],
         activities: [],
         categories: [],

@@ -6,13 +6,9 @@ import { getOwnerId } from "./owner.ts";
 import * as horsesRepo from "./repositories/horses.repo.ts";
 import * as rationsRepo from "./repositories/rations.repo.ts";
 import * as postsRepo from "./repositories/posts.repo.ts";
-import * as documentsRepo from "./repositories/documents.repo.ts";
 import * as metaRepo from "./repositories/meta.repo.ts";
 import { DEFAULT_SEASON, type RationSeason } from "./seasons.ts";
-import type { Post, RationUnit } from "./types.ts";
-
-/** The seeded event the demo document hangs off. Matched by title below. */
-const REPORT_EVENT_TITLE = "Contrôle œil";
+import type { RationUnit } from "./types.ts";
 
 /**
  * Brings the built-in event types on this device up to what the app ships.
@@ -127,7 +123,7 @@ const sameRow = (a: object, b: object): boolean =>
  * into real rows so there is something to look at before anything has been
  * entered by hand.
  *
- * The demo horse/rations/events/document are gated on the database holding no
+ * The demo horse/rations/events are gated on the database holding no
  * horse at all, so they can never overwrite real data or reappear after the
  * user deletes it. The event-type catalogue has its own gate — see
  * `reconcileCategories`.
@@ -141,7 +137,7 @@ export const seedIfEmpty = async (): Promise<void> => {
 
   await db.transaction(
     "rw",
-    [...Object.values(RECORD_TABLES), db.documentBlobs, db.meta],
+    [...Object.values(RECORD_TABLES), db.meta],
     seedDemo,
   );
 };
@@ -195,30 +191,9 @@ const seedDemo = async (): Promise<void> => {
     seedRecordIds.push(item.id);
   }
 
-  const events: Post[] = [];
   for (const event of samplePosts(horse.id)) {
     const created = await postsRepo.create(event);
     seedRecordIds.push(created.id);
-    events.push(created);
-  }
-
-  // One document, so the event detail page's attachment block, its viewer and
-  // the share action have something real to act on. There is no upload path
-  // yet, so without this the block would be permanently empty — and a feature
-  // that can never be reached is a feature that is never known to be broken.
-  const report = events.find((event) => event.title === REPORT_EVENT_TITLE);
-  if (report) {
-    const document = await documentsRepo.create(
-      {
-        horseId: horse.id,
-        postId: report.id,
-        category: "compte-rendu",
-        name: "Controle_oeil.pdf",
-        issuedAt: report.date,
-      },
-      samplePdf(),
-    );
-    seedRecordIds.push(document.id);
   }
 
   await metaRepo.set("seededAt", todayISO());
@@ -269,7 +244,7 @@ export const clearUntouchedSeedData = async (): Promise<void> => {
 
   await db.transaction(
     "rw",
-    [...USER_TABLES.map((name) => RECORD_TABLES[name]), db.documentBlobs],
+    USER_TABLES.map((name) => RECORD_TABLES[name]),
     async () => {
       // `USER_TABLES`, derived rather than hand-written: an unlisted table's
       // demo rows would survive the very restore this exists to make room for,
@@ -281,11 +256,6 @@ export const clearUntouchedSeedData = async (): Promise<void> => {
           if (!row || row.createdAt !== row.updatedAt) continue;
 
           await table.delete(id);
-          // Metadata and bytes go together — the same pairing
-          // `documentsRepo.remove` keeps. Dropping only the row would strand the
-          // blob in `documentBlobs` with nothing left pointing at it and no way
-          // to ever reclaim the space.
-          if (name === "documents") await db.documentBlobs.delete(id);
         }
       }
     },
@@ -370,11 +340,11 @@ const samplePosts = (horseId: string) => {
     },
     // The one fully populated row: every optional field is set, so the detail
     // page renders each of its Informations rows at least once without anything
-    // having to be entered by hand first. Also the document's anchor.
+    // having to be entered by hand first.
     {
       horseId,
       categoryKey: "veto",
-      title: REPORT_EVENT_TITLE,
+      title: "Contrôle œil",
       date: inDays(-26),
       time: null,
       status: "done" as const,
@@ -389,49 +359,4 @@ const samplePosts = (horseId: string) => {
       },
     },
   ];
-};
-
-/**
- * A minimal but structurally valid one-page PDF.
- *
- * Generated rather than shipped as a binary under `src/assets/`: a real file
- * would be bundled into every production build to serve demo data that the
- * first backup restore deletes again.
- *
- * The xref offsets are computed, not hardcoded — a PDF with a wrong xref is
- * precisely the file that renders in one viewer and fails in the next, which
- * would make this useless as a test of the viewer. Offsets are character
- * counts, which is only safe because the content below is pure ASCII; keep the
- * accents out of it.
- */
-const samplePdf = (): Blob => {
-  const content = [
-    "BT /F1 20 Tf 60 780 Td (Compte rendu veterinaire) Tj ET",
-    "BT /F1 12 Tf 60 750 Td (Controle oeil - bilan annuel ophtalmologique.) Tj ET",
-    "BT /F1 12 Tf 60 730 Td (Pas d'anomalie detectee.) Tj ET",
-  ].join("\n");
-
-  const objects = [
-    "<</Type/Catalog/Pages 2 0 R>>",
-    "<</Type/Pages/Kids[3 0 R]/Count 1>>",
-    "<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Resources<</Font<</F1 5 0 R>>>>/Contents 4 0 R>>",
-    `<</Length ${content.length}>>\nstream\n${content}\nendstream`,
-    "<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>",
-  ];
-
-  let pdf = "%PDF-1.4\n";
-  const offsets: number[] = [];
-  for (const [index, body] of objects.entries()) {
-    offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
-  }
-
-  const startxref = pdf.length;
-  const size = objects.length + 1;
-  pdf += `xref\n0 ${size}\n0000000000 65535 f \n`;
-  for (const offset of offsets)
-    pdf += `${offset.toString().padStart(10, "0")} 00000 n \n`;
-  pdf += `trailer\n<</Size ${size}/Root 1 0 R>>\nstartxref\n${startxref}\n%%EOF\n`;
-
-  return new Blob([pdf], { type: "application/pdf" });
 };
