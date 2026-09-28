@@ -1,4 +1,5 @@
 import * as driveAuth from "./drive-auth.ts";
+import { homePage, privacyPage } from "./pages.ts";
 import { parseReminderList, splitDue, type Reminder } from "./reminders.ts";
 import { sendPush, type VapidConfig } from "./web-push.ts";
 
@@ -179,6 +180,12 @@ const API = new Map<string, ApiRoute>([
 export default {
   async fetch(request, env): Promise<Response> {
     const { pathname } = new URL(request.url);
+
+    // The two public pages Google's consent screen links to.
+    if (request.method === "GET" && pathname === "/") return homePage();
+    if (request.method === "GET" && pathname === "/confidentialite") {
+      return privacyPage();
+    }
 
     // Navigations in the sign-in's Safari sheet, not API calls: no CORS.
     if (request.method === "GET" && pathname === "/auth/google/start") {
