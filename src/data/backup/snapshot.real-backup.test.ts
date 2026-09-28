@@ -63,7 +63,7 @@ describe.skipIf(newest === undefined)(
 
     /**
      * The rows a restore writes: the file once brought to the current schema,
-     * which at v14 no longer holds the v13 demo document.
+     * which from v15 no longer holds the demo document.
      */
     const keptRowCount = (snapshot: RealSnapshot) =>
       rowCount({
@@ -91,7 +91,7 @@ describe.skipIf(newest === undefined)(
 
       // The migration drops the v13 demo document and nothing else.
       expect(rowCount(snapshot) - keptRowCount(snapshot)).toBe(
-        snapshot.schemaVersion < 14 ? snapshot.tables.documents!.length : 0,
+        snapshot.schemaVersion < 15 ? snapshot.tables.documents!.length : 0,
       );
 
       // Nothing rejected, nothing skipped: an empty database has no local copy

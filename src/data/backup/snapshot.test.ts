@@ -406,7 +406,7 @@ describe("importBackup — rejects bad input", () => {
   });
 
   it("rejects an older file missing a table its own version had, writing nothing", async () => {
-    // v13 already had \`posts\`, so no step supplies it: the file is
+    // v13 already had `posts`, so no step supplies it: the file is
     // incomplete, not old.
     const { posts: _posts, ...incomplete } = snapshot().tables;
 
@@ -517,7 +517,7 @@ describe("importBackup — a real v13 export", () => {
   it("restores into an empty database with every row written", async () => {
     const result = await importBackup(realV13Export());
 
-    // Every row but its documents, which v14 drops (\`documentRowToV14\`).
+    // Every row but its documents, which v15 drops (`documentRowToV15`).
     const rowCount = REAL_V13_TABLES.reduce(
       (sum, name) =>
         name === "documents" ? sum : sum + REAL_V13_EXPORT.tables[name].length,
@@ -708,7 +708,7 @@ describe("importBackup — the profile", () => {
   });
 });
 
-describe("importBackup — a v13 file", () => {
+describe.each([13, 14])("importBackup — a v%i file", (schemaVersion) => {
   it("drops its documents, filed by category, and supplies the folders table", async () => {
     const v13Document = {
       id: "doc-1",
@@ -728,10 +728,10 @@ describe("importBackup — a v13 file", () => {
     };
 
     const file = snapshot({
-      schemaVersion: 13,
+      schemaVersion,
       tables: { documents: [v13Document as never] },
     });
-    // A v13 file predates the table; the fixture supplies every current one.
+    // The file predates the table; the fixture supplies every current one.
     delete (file.tables as Partial<BackupSnapshot["tables"]>).documentFolders;
 
     await importBackup(file);
@@ -739,7 +739,9 @@ describe("importBackup — a v13 file", () => {
     expect(await db.documents.count()).toBe(0);
     expect(await db.documentFolders.count()).toBe(0);
   });
+});
 
+describe("importBackup — a v13 file", () => {
   it("splits the horse's name, leaving its stamps as they were", async () => {
     const { firstName: _firstName, lastName: _lastName, ...v13 } = horse();
     await importBackup(

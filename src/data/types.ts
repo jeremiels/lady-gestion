@@ -335,7 +335,7 @@ export type ActivityItem = BaseRecord & {
  * Named by her, in her Drive — which is why folders are rows rather than a
  * closed union: the Drive is the reference for them, and this table mirrors it
  * for offline use (`docs/drive-spec.md` §6). No `horseId`: a folder belongs to
- * her Drive, not to a horse. Added in schema v14.
+ * her Drive, not to a horse. Added in schema v15.
  */
 export type DocumentFolder = BaseRecord & {
   /** As named in the Drive. */

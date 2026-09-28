@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { horseFullName } from "./horses.ts";
-import { documentRowToV14, horseRowToV14 } from "./migrations.ts";
+import { documentRowToV15, horseRowToV14 } from "./migrations.ts";
 import type { Horse } from "./types.ts";
 
 describe("horseRowToV14", () => {
@@ -38,15 +38,15 @@ describe("horseRowToV14", () => {
   });
 });
 
-describe("documentRowToV14", () => {
-  it("drops a v13 document, filed by category", () => {
+describe("documentRowToV15", () => {
+  it("drops a v14 document, filed by category", () => {
     expect(
-      documentRowToV14({ id: "d", category: "compte-rendu", postId: "p" }),
+      documentRowToV15({ id: "d", category: "compte-rendu", postId: "p" }),
     ).toBe(null);
   });
 
-  it("is replay-safe: a v14 document, filed by folder, passes through", () => {
+  it("is replay-safe: a v15 document, filed by folder, passes through", () => {
     const row = { id: "d", folderId: "osteo", postId: "p" };
-    expect(documentRowToV14(row)).toBe(row);
+    expect(documentRowToV15(row)).toBe(row);
   });
 });

@@ -27,15 +27,16 @@ import type {
  * a restore can tell what it is reading; see `backup/snapshot.ts`.
  *
  * Only the current version is declared, with the one `upgrade()` that brings
- * a v13 device up to it. A database below v13 cannot be upgraded — Dexie
- * deletes a store the declared schema does not list, so it would open with
- * `posts` and `categories` empty. No install below v13 is in use.
+ * a v13 or v14 device up to it — v14 was published, so both are on phones. A
+ * database below v13 cannot be upgraded — Dexie deletes a store the declared
+ * schema does not list, so it would open with `posts` and `categories` empty.
+ * No install below v13 is in use.
  *
- * Bumping this means declaring the new version below with an `upgrade()` for
- * databases already on a device, and a step in `backup/migrate.ts` for backup
- * files written at the previous version.
+ * Bumping this means adding the previous version's steps to `ROW_STEPS` (and
+ * `NEW_TABLES`) in `migrations.ts`, which both the upgrade below and a backup
+ * file's walk run.
  */
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -94,24 +95,28 @@ export class LadyGestionDb extends Dexie {
   constructor() {
     super("lady-gestion");
 
-    // Only the step from v13 runs: no device is older (see SCHEMA_VERSION).
-    // `documentFolders` needs nothing here: Dexie creates a new store itself.
+    // Every step from v13 runs, in order, whichever of v13 and v14 the device
+    // is on: steps are replay-safe, so a v14 device's rows pass through the
+    // v13 step unchanged. `documentFolders` needs nothing here: Dexie creates
+    // a new store itself.
     this.version(SCHEMA_VERSION)
       .stores(STORES)
       .upgrade(async (tx) => {
-        await Promise.all(
-          Object.entries(ROW_STEPS[13] ?? {}).map(([table, step]) =>
-            tx
-              .table(table)
-              .toCollection()
-              .modify((row: Record<string, unknown>, ref) => {
-                const next = step(row);
-                // Dexie's way of deleting the row being modified.
-                if (next === null) delete (ref as { value?: unknown }).value;
-                else ref.value = next;
-              }),
-          ),
-        );
+        for (let version = 13; version < SCHEMA_VERSION; version++) {
+          await Promise.all(
+            Object.entries(ROW_STEPS[version] ?? {}).map(([table, step]) =>
+              tx
+                .table(table)
+                .toCollection()
+                .modify((row: Record<string, unknown>, ref) => {
+                  const next = step(row);
+                  // Dexie's way of deleting the row being modified.
+                  if (next === null) delete (ref as { value?: unknown }).value;
+                  else ref.value = next;
+                }),
+            ),
+          );
+        }
         // Bytes whose document a step just dropped: nothing points at them
         // any more, and a backup never carries them, so they could never be
         // reached again.

@@ -33,7 +33,7 @@ une fois.
 | D4  | **PDF et photos** acceptés à l'ajout ; tout fichier de son Drive est listé.                                                                                                                                                                         |
 | D5  | Le lien « Ouvrir dans un nouvel onglet » de la visionneuse disparaît au profit de la lecture dans l'app.                                                                                                                                            |
 | D6  | **Voie B** : autorisation large sur son Drive. Remplace la décision du 19 sept. (« `drive.file` seulement, jamais `drive.readonly` »).                                                                                                              |
-| D7  | La nouvelle structure rejoint la **v14**, pas encore publiée ; son appareil et ses trois exports sont en v13. Pas de v15.                                                                                                                           |
+| D7  | Nouvelle structure en **v15**. La v14 (prénom/nom) est en ligne depuis le 27 sept. au soir : son téléphone peut être en v13 ou en v14, la montée part des deux.                                                                                     |
 | D8  | **Seul le dossier général est affiché** : elle le crée (nom proposé « ladympala ») ou en choisit un existant, et l'app n'affiche, ne synchronise et n'écrit que ce qu'il contient. Le reste de son Drive n'est parcouru qu'une fois, pour ce choix. |
 | D9  | **Plusieurs niveaux** de sous-dossiers, on descend autant qu'il y en a.                                                                                                                                                                             |
 | D10 | Scope **`drive`** (+ `openid email`), retenu après le lot 0 (§9.1) : `drive.readonly` + `drive.file` refuse toute écriture sur ses fichiers existants.                                                                                              |
@@ -76,7 +76,7 @@ suppression définitive (corbeille uniquement, §6.6).
 | Le Worker est un courtier de jetons     | Il garde le refresh token, rend des access tokens d'une heure. Les fichiers vont **navigateur ↔ Drive** directement. Le Worker ne voit ni fichier, ni nom, ni post.                                                                                                                                       |
 | Pas de `localStorage`                   | Jeton de session dans `meta.googleAccount` (clé déjà réservée).                                                                                                                                                                                                                                           |
 | Plancher Safari 26.2                    | Tout ce qui suit est sous le plancher, pdf.js v5 compris.                                                                                                                                                                                                                                                 |
-| Une seule utilisatrice, données uniques | La montée v13 → v14 est vérifiée contre son export réel. Les documents n'ont jamais fonctionné : leur table repart de zéro sans risque (D3).                                                                                                                                                              |
+| Une seule utilisatrice, données uniques | La montée v13/v14 → v15 est vérifiée contre son export réel. Les documents n'ont jamais fonctionné : leur table repart de zéro sans risque (D3).                                                                                                                                                          |
 
 `CLAUDE.md` et `AGENTS.md` sont à mettre à jour avec le premier lot réseau :
 IndexedDB n'est plus la source de vérité **des documents**, et il y a deux
@@ -154,7 +154,7 @@ l'envoyer au véto ou l'enregistrer ailleurs.
 - « Enregistrer » écrit le post et ses documents dans une seule transaction
   IndexedDB ; l'envoi au Drive suit en arrière-plan.
 
-## 6. Données — schéma v14 (non publié, complété)
+## 6. Données — schéma v15
 
 ### 6.1 Nouvelle table `documentFolders`
 
@@ -196,27 +196,29 @@ updatedAt"` (on retire `category` et `[horseId+category]`).
 général) existent déjà dans `MetaKey`. Ajout : `driveSyncedAt` (dernière synchro
 réussie, pour « mis à jour il y a … »).
 
-### 6.4 Montée v13 → v14
+### 6.4 Montée v13 / v14 → v15
 
-Ses trois exports (17, 18 et 27 sept.) sont en v13, la v14 (prénom/nom du
-cheval, 596e588) n'est pas publiée : son appareil est en v13. Les changements
-ci-dessus rejoignent la v14, qui reste une seule étape v13 → v14.
+Ses trois exports (17, 18 et 27 sept.) sont en v13. La v14 (prénom/nom du
+cheval, 596e588) est en ligne depuis le 27 sept. à 21 h 22 : son téléphone est
+en v13 ou en v14 selon qu'elle a touché « Actualiser ». Une seule déclaration
+v15 dont la montée joue toutes les étapes depuis v13 ; elles sont rejouables,
+donc un appareil en v14 passe l'étape v13 sans rien changer.
 
 La seule ligne `documents` (le PDF d'exemple du seed) n'a pas de dossier et
 n'a aucune valeur (D3). La montée **vide `documents` et `documentBlobs`**.
 
-- Côté appareil : l'étape v13 de `db.ts`.
-- Côté fichier de sauvegarde : `backup/migrate.ts` écarte les lignes
-  `documents` d'un fichier v13. Les sauvegardes n'exportent pas les octets :
-  ces lignes étaient déjà des coquilles vides à la restauration.
-- `ROW_STEPS` ne transforme qu'une ligne en une ligne : il lui faut la
-  possibilité d'écarter une ligne (ou une étape par table), partagée par les
-  deux chemins.
+- Étapes dans `ROW_STEPS` (`migrations.ts`), jouées par l'appareil (`db.ts`)
+  et par un fichier de sauvegarde (`backup/migrate.ts`). Une étape peut
+  écarter une ligne (`null`) ; `NEW_TABLES` fournit `documentFolders` vide à
+  un fichier v13 ou v14.
+- Les sauvegardes n'exportent pas les octets : les lignes `documents` d'un
+  ancien fichier étaient déjà des coquilles vides à la restauration.
 - `seed.ts` ne crée plus `Controle_oeil.pdf` ni `samplePdf()`.
 - `documentFolders` rejoint `RECORD_TABLES` et donc les sauvegardes.
 
-À vérifier avant livraison : l'export réel v13 se restaure en v14, cheval
-identique (prénom/nom), 138 posts identiques, 0 document.
+Vérifié contre l'export réel v13, pour un appareil en v13, un appareil en v14
+et une restauration : cheval identique (prénom/nom), 138 posts identiques,
+0 document.
 
 ### 6.5 Synchronisation
 
@@ -373,7 +375,7 @@ une `<canvas>` par page, pages hors écran rendues paresseusement.
 ## 9. Lots
 
 0. **Spikes** — fait les 27 et 28 sept., voir §9.1.
-1. **Schéma v14 complété** : `documentFolders`, `folderId`, index,
+1. **Schéma v15** : `documentFolders`, `folderId`, index,
    suppression du document d'exemple, migration des sauvegardes, seed. Vérifié
    contre l'export réel. Taille `1,2 mo` (D2).
 2. **Worker** : routes auth, migration D1, tests (comme `reminders.test.ts`).
@@ -409,7 +411,7 @@ praticien), à confirmer avec elle.
 
 ## 10. Critères d'acceptation
 
-- L'export réel v13 se restaure en v14 : cheval identique (prénom/nom), 138
+- L'export réel v13 se restaure en v15 : cheval identique (prénom/nom), 138
   posts identiques, 0 document.
 - Connexion faite une fois ; toujours connectée après 8 jours sans ouvrir
   l'app.

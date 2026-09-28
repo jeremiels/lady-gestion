@@ -992,7 +992,7 @@ message }` for `fieldMessages()` and `describedBy()`.
   `THEME_KEYS` / `isThemeKey`) is the palette source of truth. An event type's
   own `{ label, icon, theme }` is a **row** since schema v6, read through
   `listResolved` / `resolveCatalogue` rather than a compile-time table.
-  Document folders are rows too (schema v14), named by the user in her Drive,
+  Document folders are rows too (schema v15), named by the user in her Drive,
   with no theme of their own. **`app-icon` and `app-tag` are domain-free and
   resolve nothing themselves** — they read two custom properties, and the call
   site composes them with `iconStyle(...)` / `tagStyle(...)` over a

@@ -41,13 +41,20 @@ const V13_STORES = {
   categories: "id, key, order, updatedAt",
 };
 
+/**
+ * The stores v14 declared, as published on 27 Sep 2026: v13's, with the horse
+ * indexed by `firstName`. Frozen like `V13_STORES`.
+ */
+const V14_STORES = { ...V13_STORES, horses: "id, firstName, updatedAt" };
+
 /** A horse as v13 stored it: one `name`, split into two columns at v14. */
 const { firstName: _firstName, lastName: _lastName, ...v14Horse } = makeHorse();
 const V13_HORSE = { ...v14Horse, name: "Ladympala Coupe Chêne" };
 
 /**
- * A document as v13 stored it — the first-run demo PDF, the only document any
- * v13 install holds — filed by `category`, which v14 replaces with folders.
+ * A document as v13 and v14 stored it — the first-run demo PDF, the only
+ * document any install holds — filed by `category`, which v15 replaces with
+ * folders.
  */
 const {
   folderId: _folderId,
@@ -56,8 +63,8 @@ const {
 } = makeDocument({ id: "doc-1", postId: "post-1" });
 const V13_DOCUMENT = { ...v14Document, category: "compte-rendu" };
 
-/** The stores v14 adds to a v13 device. */
-const V14_NEW_STORES = ["documentFolders"];
+/** The stores v15 adds to a v13 or v14 device. */
+const V15_NEW_STORES = ["documentFolders"];
 
 const rows = {
   horses: [V13_HORSE],
@@ -69,11 +76,21 @@ const rows = {
 };
 
 /** Writes a database exactly as a v13 device holds it, then closes it. */
-const writeV13Database = async () => {
+const writeV13Database = () => writeDatabase(13, V13_STORES, rows);
+
+/** The same data on a device that took the published v14. */
+const writeV14Database = () =>
+  writeDatabase(14, V14_STORES, { ...rows, horses: [makeHorse()] });
+
+const writeDatabase = async (
+  version: number,
+  stores: Record<string, string>,
+  tables: Record<string, unknown[]>,
+) => {
   const device = new Dexie(DB_NAME);
-  device.version(13).stores(V13_STORES);
+  device.version(version).stores(stores);
   await device.open();
-  for (const [table, values] of Object.entries(rows)) {
+  for (const [table, values] of Object.entries(tables)) {
     await device.table(table).bulkAdd(values);
   }
   await device
@@ -101,7 +118,7 @@ describe("opening a database a v13 device already holds", () => {
     await db.open();
 
     expect([...db.backendDB().objectStoreNames].sort()).toEqual(
-      [...Object.keys(V13_STORES), ...V14_NEW_STORES].sort(),
+      [...Object.keys(V13_STORES), ...V15_NEW_STORES].sort(),
     );
     expect(await db.horses.toArray()).toEqual([
       makeHorse({ firstName: "Ladympala", lastName: "Coupe Chêne" }),
@@ -181,13 +198,33 @@ describe("opening a database a v13 device already holds", () => {
   });
 });
 
+describe("opening a database a v14 device already holds", () => {
+  it("drops the demo document and its bytes, and keeps every other row", async () => {
+    await writeV14Database();
+
+    await db.open();
+
+    expect(db.verno).toBe(SCHEMA_VERSION);
+    expect([...db.backendDB().objectStoreNames].sort()).toEqual(
+      [...Object.keys(V14_STORES), ...V15_NEW_STORES].sort(),
+    );
+    expect(await db.horses.toArray()).toEqual([makeHorse()]);
+    expect(await db.posts.toArray()).toEqual(rows.posts);
+    expect(await db.rationItems.toArray()).toEqual(rows.rationItems);
+    expect(await db.categories.toArray()).toEqual(rows.categories);
+    expect(await db.meta.toArray()).toEqual(rows.meta);
+    expect(await db.documents.count()).toBe(0);
+    expect(await db.documentBlobs.count()).toBe(0);
+  });
+});
+
 describe("a fresh install", () => {
   it("opens at the version the backup envelope advertises", async () => {
     await db.open();
 
     expect(db.verno).toBe(SCHEMA_VERSION);
     expect([...db.backendDB().objectStoreNames].sort()).toEqual(
-      [...Object.keys(V13_STORES), ...V14_NEW_STORES].sort(),
+      [...Object.keys(V13_STORES), ...V15_NEW_STORES].sort(),
     );
   });
 });
