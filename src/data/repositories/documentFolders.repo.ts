@@ -1,5 +1,5 @@
 import { db } from "../db.ts";
-import { liveOnly } from "../record.ts";
+import { crud, liveOnly } from "../record.ts";
 import type { DocumentFolder } from "../types.ts";
 
 /**
@@ -14,3 +14,5 @@ export const list = async (): Promise<DocumentFolder[]> => {
   const folders = await db.documentFolders.toArray();
   return liveOnly(folders).sort((a, b) => a.name.localeCompare(b.name, "fr"));
 };
+
+export const { get } = crud<DocumentFolder>(db.documentFolders);

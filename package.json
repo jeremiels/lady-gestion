@@ -21,7 +21,8 @@
   "dependencies": {
     "d3-shape": "^3.2.0",
     "dexie": "^4.4.5",
-    "lit": "^3.3.3"
+    "lit": "^3.3.3",
+    "pdfjs-dist": "^6.3.289"
   },
   "devDependencies": {
     "@types/d3-shape": "^3.2.0",

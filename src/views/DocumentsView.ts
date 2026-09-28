@@ -1,16 +1,23 @@
 import { html, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { LightElement } from "../commons/base-element.ts";
+import { appHref } from "../commons/base-path.ts";
 import {
   LiveQuery,
   activeHorseQuery,
   documentFoldersRepo,
   documentsRepo,
+  postCategoriesOf,
+  type ResolvedCategory,
 } from "../data/index.ts";
-import type { DocumentFolder } from "../data/types.ts";
+import type { DocumentFolder, StoredDocument } from "../data/types.ts";
 import { DriveConnection } from "../drive/connection.ts";
+import { syncDrive } from "../drive/sync.ts";
+import { folderPath } from "./DocumentFolderView.ts";
 
 import "../components/app-folder/app-folder.ts";
+import "../components/document-list/document-list.ts";
+import "../components/document-viewer/document-viewer.ts";
 import "../components/drive-folder-sheet/drive-folder-sheet.ts";
 
 @customElement("documents-view")
@@ -28,9 +35,24 @@ export class DocumentsView extends LightElement {
     {},
   );
 
+  /** Files put straight in the general folder, under the tiles. */
+  #files = new LiveQuery<{
+    documents: StoredDocument[];
+    categories: Record<string, ResolvedCategory>;
+  }>(this, async () => {
+    const documents = await documentsRepo.listByFolder(null);
+    return { documents, categories: await postCategoriesOf(documents) };
+  });
+
   #drive = new DriveConnection(this);
 
   @state() private folderSheetOpen = false;
+  @state() private viewing: StoredDocument | null = null;
+
+  connectedCallback() {
+    super.connectedCallback();
+    void syncDrive();
+  }
 
   render() {
     const folders = this.#folders.value ?? [];
@@ -47,17 +69,42 @@ export class DocumentsView extends LightElement {
           ${folders.map(
             (folder) => html`
               <li>
-                <app-folder
-                  icon="folder"
-                  name=${folder.name}
-                  .number=${counts[folder.id] ?? 0}
-                ></app-folder>
+                <a
+                  class="documents-list__link"
+                  href=${appHref(folderPath(folder.id))}
+                >
+                  <app-folder
+                    icon="folder"
+                    name=${folder.name}
+                    .number=${counts[folder.id] ?? 0}
+                  ></app-folder>
+                </a>
               </li>
             `,
           )}
         </ul>
+        ${this.#renderFiles()}
       </section>
+      <document-viewer
+        .open=${this.viewing !== null}
+        .doc=${this.viewing}
+        @viewer-close=${() => {
+          this.viewing = null;
+        }}
+      ></document-viewer>
     `;
+  }
+
+  #renderFiles() {
+    const files = this.#files.value;
+    if (!files || files.documents.length === 0) return nothing;
+    return html`<document-list
+      .documents=${files.documents}
+      .categories=${files.categories}
+      @document-open=${(event: CustomEvent<{ document: StoredDocument }>) => {
+        this.viewing = event.detail.document;
+      }}
+    ></document-list>`;
   }
 
   /**

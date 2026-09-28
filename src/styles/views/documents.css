@@ -44,6 +44,19 @@
     list-style: none;
   }
 
+  /* The whole tile is the way into the folder. */
+  .documents-list__link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    border-radius: var(--radius-12);
+  }
+
+  .documents-list__link:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+
   /* `both` fill so the tile is already at `opacity: 0` through its delay
      rather than flashing at full opacity first. The tiles stay clickable the
      whole time — a stagger is decoration and must never gate interaction.
@@ -64,5 +77,70 @@
     .documents-list > li {
       animation: none;
     }
+  }
+
+  /* A folder's own page (maquette « Factures »): the event detail page's
+     header, the documents grid for its subfolders, then its files. */
+  .document-folder {
+    display: grid;
+    gap: var(--spacing-24);
+  }
+
+  .document-folder__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-12);
+  }
+
+  .document-folder__back {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-12);
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+    cursor: pointer;
+  }
+
+  .document-folder__back:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* Size the glyph, not the host: app-icon carries its own padding. */
+  .document-folder__back app-icon {
+    --icon-size: 1.25rem;
+    padding: 0;
+  }
+
+  .document-folder__title {
+    margin: 0;
+    font-size: 1.125rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    color: var(--color-brown-middle);
+    /* A long folder name wraps rather than pushing the back button off. */
+    min-width: 0;
+  }
+
+  .document-folder__empty {
+    margin: 0;
+    color: var(--color-brown-light);
+  }
+
+  .document-folder__back-link {
+    justify-self: start;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12) var(--spacing-20);
+    font-weight: 600;
+    background-color: var(--color-brown-dark);
+    color: var(--color-white);
+    text-decoration: none;
   }
 }

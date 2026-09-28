@@ -20,6 +20,7 @@ import { BackupActions } from "./commons/backup-actions.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { initDriveAuth } from "./drive/auth.ts";
+import { initDriveSync } from "./drive/sync.ts";
 import { appHref } from "./commons/base-path.ts";
 import {
   customizeRouteOf,
@@ -63,6 +64,7 @@ type Route = {
 
 /** `/posts/<id>`. Also how the view's id is sliced back off the path. */
 const POST_DETAIL_PREFIX = "/posts/";
+const DOCUMENT_FOLDER_PREFIX = "/documents/";
 
 /**
  * Where the `+` sits in the bar — between Activités and Budget.
@@ -154,6 +156,21 @@ const ROUTES: Route[] = [
     title: "Documents",
     load: () => import("./views/DocumentsView.ts"),
     render: () => html`<documents-view></documents-view>`,
+  },
+  {
+    // `/documents/<folder id>`. Keyed for the reason the post detail is: one
+    // folder straight to another must build a fresh element and queries.
+    match: (path) => path.startsWith(DOCUMENT_FOLDER_PREFIX),
+    title: "Documents",
+    load: () => import("./views/DocumentFolderView.ts"),
+    render: (path) => html`
+      ${keyed(
+        path,
+        html`<document-folder-view
+          .folderId=${path.slice(DOCUMENT_FOLDER_PREFIX.length)}
+        ></document-folder-view>`,
+      )}
+    `,
   },
   {
     match: (path) => path === "/profile",
@@ -333,6 +350,7 @@ export class AppRoot extends LightElement {
         if (this.databaseNotice === "blocked") this.databaseNotice = null;
         // Reads and writes `meta`, so only once the database is open.
         initDriveAuth();
+        initDriveSync();
       })
       .catch((error: unknown) => {
         console.error(

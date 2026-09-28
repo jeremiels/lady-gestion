@@ -98,6 +98,7 @@ export default defineConfig({
             "lit/directives/style-map.js",
             "dexie",
             "d3-shape",
+            "pdfjs-dist",
           ],
         },
 

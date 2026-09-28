@@ -6,6 +6,7 @@ import { Today } from "../commons/controllers/today.ts";
 import { appHref } from "../commons/base-path.ts";
 import {
   activeHorseQuery,
+  documentFoldersRepo,
   COURSE_CATEGORY_KEYS,
   LiveQuery,
   endOfMonth,
@@ -31,15 +32,6 @@ import "../components/app-avatar/app-avatar.ts";
 /** The dashboard shows the next few appointments, not the whole agenda. */
 const UPCOMING_LIMIT = 3;
 
-/**
- * Hardcoded until the drive is wired up.
- *
- * Deliberately not `DOCUMENT_CATEGORIES.length`: those six are the vault's
- * fixed filing structure, and what this card will end up counting is the
- * drive's own folders.
- */
-const DOCUMENT_FOLDERS = 5;
-
 @customElement("home-view")
 export class HomeView extends LightElement {
   // `#upcoming` and `#monthSpend` read the date inside their queries, which
@@ -50,6 +42,14 @@ export class HomeView extends LightElement {
   });
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
+  /** The folders at the top of the general Drive folder, as the Documents page shows them. */
+  #documentFolders = new LiveQuery(
+    this,
+    async () =>
+      (await documentFoldersRepo.list()).filter(
+        (folder) => folder.parentId === null,
+      ).length,
+  );
   #profile = new LiveQuery(this, () => profileRepo.get());
 
   #categories = new LiveQuery<ResolvedCategory[]>(this, () =>
@@ -195,7 +195,9 @@ export class HomeView extends LightElement {
               .totalCents=${this.#monthSpend.value ?? 0}
               .month=${today}
             ></budget-card>
-            <documents-card .folderCount=${DOCUMENT_FOLDERS}></documents-card>
+            <documents-card
+              .folderCount=${this.#documentFolders.value ?? 0}
+            ></documents-card>
           </div>
         </div>
       </section>

@@ -52,6 +52,14 @@ export * as metaRepo from "./repositories/meta.repo.ts";
 export * as postsService from "./services/posts.service.ts";
 export * as horsesService from "./services/horses.service.ts";
 export * as rationsService from "./services/rations.service.ts";
+export * as driveMirrorService from "./services/driveMirror.service.ts";
+export { postCategoriesOf } from "./document-views.ts";
+export {
+  watchDriveSetup,
+  type DriveSetup,
+  type RemoteFile,
+  type RemoteFolder,
+} from "./drive-mirror.ts";
 
 export * from "./live.ts";
 export * from "./active-horse.ts";

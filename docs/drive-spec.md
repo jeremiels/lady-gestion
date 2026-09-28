@@ -223,23 +223,31 @@ et une restauration : cheval identique (prénom/nom), 138 posts identiques,
 
 ### 6.5 Synchronisation
 
-Un passage de `src/drive/sync.ts`, déclenché à l'ouverture de l'app, au retour
-au premier plan, au retour du réseau, en tirant la page Documents, et après
-chaque modification locale :
+Un passage de `src/drive/sync.ts`, déclenché à l'ouverture de l'app, à chaque
+changement de connexion ou de dossier général, au retour au premier plan (au
+plus toutes les 30 s), au retour du réseau, à l'ouverture de la page Documents
+ou d'un dossier, et (lot 5) après chaque modification locale :
 
 1. **Envoyer** ce qui est en attente localement : dossiers et fichiers créés
    (`driveFolderId` / `driveFileId` nuls), renommages, déplacements,
    suppressions (`updatedAt > driveSyncedAt`).
-2. **Lire** le Drive : premier passage = parcours de l'arborescence sous le
-   dossier général (`files.list`, `'<id>' in parents and trashed = false`,
-   dossier par dossier) ; ensuite, **`changes.list`** avec un `pageToken`
-   rangé dans `meta`, filtré sur ce qui est sous le dossier général.
-3. **Appliquer** au miroir, par `driveFileId` / `driveFolderId` :
+2. **Lire** le Drive : parcours complet de l'arborescence sous le dossier
+   général à chaque passage (`files.list`, `'<id>' in parents and trashed =
+false`, un niveau à la fois). **Écart assumé au lot 4** : pas de
+   `changes.list`. Son dossier tient en quelques requêtes (0,3 à 0,6 s
+   chacune au lot 0), et un parcours complet ne peut pas manquer un
+   changement ni garder un jeton à gérer. À reconsidérer si le dossier
+   grossit au point de rendre la synchro lente.
+3. **Appliquer** au miroir, par `driveFileId` / `driveFolderId`
+   (`planMirror`, `src/data/drive-mirror.ts`, en une transaction) :
    - nouveau dans le Drive → nouvelle ligne ;
    - renommé / déplacé / modifié → ligne mise à jour ; si `modifiedTime` a
      changé, les octets en cache sont jetés ;
    - disparu ou à la corbeille → ligne soft-supprimée et octets jetés. Un lien
      vers un post disparaît avec le fichier : c'est elle qui l'a supprimé.
+     Sorti de la corbeille → la même ligne revit, lien compris.
+   - raccourcis Google Drive ignorés ; Google Docs/Sheets listés, ouverts
+     par export PDF.
    - conflit (modifié des deux côtés entre deux synchros) : le Drive gagne,
      sauf pour `postId` qui n'existe que localement.
 
@@ -343,15 +351,20 @@ le dossier choisi.
 ### 7.4 Visionneuse
 
 L'`<iframe>` actuel n'affiche qu'une page non défilable sur iOS (D5). Pour les
-PDF, **pdf.js** (`pdfjs-dist`), chargé à la demande dans `document-viewer`,
-une `<canvas>` par page, pages hors écran rendues paresseusement.
+PDF, **pdf.js** (`pdfjs-dist` 6.3, la version du lot 0), chargé à la demande
+dans `document-viewer`, une `<canvas>` par page, rendues l'une après l'autre
+à la largeur de l'écran, densité plafonnée à 2× (mémoire des canvas sur iOS).
+Fait au lot 4 ; le rendu à la demande des seules pages visibles est laissé de
+côté tant que ses documents font quelques pages.
 
 - Octets depuis `documentBlobs` ; sinon téléchargés (`files/{id}?alt=media`,
   ou `files/{id}/export?mimeType=application/pdf` pour un Google Doc) et mis
   en cache.
-- `isEvalSupported: false` (CSP). À vérifier : les scans en JPX/JBIG2 passent
-  par du WebAssembly dans pdf.js v5, ce qui peut exiger `'wasm-unsafe-eval'`.
-- Le chunk (~1 Mo) est précaché par le service worker.
+- CSP inchangée (pas de WebAssembly). **Limite connue** : les images JPX et
+  JBIG2, qu'on trouve dans certains scans, passent par le WebAssembly de
+  pdf.js ; elles s'afficheront vides. Les scans JPEG (téléphone, la plupart
+  des scanners) ne sont pas concernés. À traiter si un vrai scan le montre.
+- Le chunk (~1,7 Mo avec le worker) est précaché par le service worker.
 - Cache : pas de limite en V1. Si elle ouvre des centaines de fichiers, on
   ajoutera une éviction des moins récemment ouverts.
 
@@ -369,7 +382,7 @@ une `<canvas>` par page, pages hors écran rendues paresseusement.
 
 ## 9. Lots
 
-0. **Spikes** — fait les 27 et 28 sept., voir §9.1.
+0. **Spikes** — fait les 27 et 28 sept., voir §9.1. Lots 1 à 3 faits le 28.
 1. **Schéma v15** : `documentFolders`, `folderId`, index,
    suppression du document d'exemple, migration des sauvegardes, seed. Vérifié
    contre l'export réel. Taille `1,2 mo` (D2).

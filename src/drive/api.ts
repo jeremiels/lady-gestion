@@ -6,7 +6,10 @@ import { DRIVE_API_URL } from "./drive-config.ts";
  * token, so a caller never handles one.
  */
 
-const FOLDER = "application/vnd.google-apps.folder";
+export const FOLDER = "application/vnd.google-apps.folder";
+
+/** Google's own formats — Docs, Sheets — which only download as an export. */
+const GOOGLE_APPS = "application/vnd.google-apps.";
 
 /** Drive's alias for the top of "Mon Drive". */
 export const MY_DRIVE = "root";
@@ -27,10 +30,10 @@ export class DriveRequestError extends Error {
   }
 }
 
-const drive = async (
+const request = async (
   path: string,
   init: RequestInit = {},
-): Promise<unknown> => {
+): Promise<Response> => {
   const token = await accessToken();
   let response: Response;
   try {
@@ -42,8 +45,11 @@ const drive = async (
     throw new DriveRequestError(0);
   }
   if (!response.ok) throw new DriveRequestError(response.status);
-  return response.json();
+  return response;
 };
+
+const drive = async (path: string, init: RequestInit = {}): Promise<unknown> =>
+  (await request(path, init)).json();
 
 /**
  * The folders directly inside `parentId`, alphabetical — every page of them,
@@ -80,3 +86,52 @@ export const createFolder = async (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, mimeType: FOLDER, parents: [parentId] }),
   })) as DriveFolder;
+
+/** Anything in a folder, as Drive lists it. `size` is absent for Google Docs. */
+export type DriveItem = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: string;
+  modifiedTime: string;
+};
+
+/** Everything directly inside `parentId`, folders and files, not trashed. */
+export const listChildren = async (parentId: string): Promise<DriveItem[]> => {
+  const items: DriveItem[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      q: `'${parentId}' in parents and trashed = false`,
+      fields: "nextPageToken, files(id, name, mimeType, size, modifiedTime)",
+      pageSize: "1000",
+      ...(pageToken ? { pageToken } : {}),
+    });
+    const page = (await drive(`/files?${params}`)) as {
+      files: DriveItem[];
+      nextPageToken?: string;
+    };
+    items.push(...page.files);
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+  return items;
+};
+
+/**
+ * A file's bytes. A Google Doc or Sheet has none of its own, so it comes as
+ * the PDF Drive exports it to — which is also all the viewer can show.
+ */
+export const downloadFile = async (
+  id: string,
+  mimeType: string,
+): Promise<Blob> => {
+  const exported = mimeType.startsWith(GOOGLE_APPS);
+  const response = await request(
+    exported
+      ? `/files/${id}/export?mimeType=application/pdf`
+      : `/files/${id}?alt=media`,
+  );
+  return new Blob([await response.blob()], {
+    type: exported ? "application/pdf" : mimeType,
+  });
+};

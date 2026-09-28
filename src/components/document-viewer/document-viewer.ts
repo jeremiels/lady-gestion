@@ -1,19 +1,47 @@
 import { css, html, nothing, type PropertyValues } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 import { BaseElement } from "../../commons/base-element.ts";
-import { documentsRepo, isImage, isPdf } from "../../data/index.ts";
+import { isImage, isPdf } from "../../data/index.ts";
 import type { StoredDocument } from "../../data/types.ts";
+import { DriveRequestError } from "../../drive/api.ts";
+import { DriveSignedOutError } from "../../drive/auth.ts";
+import { documentBytes } from "../../drive/sync.ts";
 
 import "../app-modal/app-modal.ts";
 
 /**
- * Full-screen viewer for a stored document.
+ * pdf.js, loaded the first time a PDF is opened: the library and its worker
+ * are the largest thing the app ships, and most sessions never open a file.
+ */
+const loadPdfjs = async () => {
+  const [pdfjs, worker] = await Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+  ]);
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  return pdfjs;
+};
+
+/**
+ * Past 2× device pixels a page costs memory for no visible gain, and iOS caps
+ * the canvas memory a page may hold — a multi-page scan at 3× is how a viewer
+ * goes blank on an iPhone.
+ */
+const MAX_PIXEL_RATIO = 2;
+
+/**
+ * Full-screen viewer for a stored document, inside the app.
  *
- * Exists as a component rather than markup in a view because of the object
- * URL: `documentsRepo.getObjectUrl` hands over a URL the caller owns and must
- * revoke, and a missed revoke pins the whole file in memory for the rest of
- * the session. Keeping the create/revoke pair inside one element's lifecycle
- * is the only way that contract stays honoured wherever the viewer is used.
+ * A PDF is drawn page by page with pdf.js rather than handed to an
+ * `<iframe>`: iOS shows only the first page of a PDF in a frame, and leaving
+ * the app to read page 2 is what `docs/drive-spec.md` sets out to end (D5).
+ * An image is an `<img>`.
+ *
+ * The bytes come from the device, or from the Drive the first time
+ * (`documentBytes`), and are then kept for offline.
+ *
+ * Owns the object URL an image needs, so the create/revoke pair stays in one
+ * element's lifecycle: a missed revoke pins the file in memory.
  *
  * The property is `doc`, not `document`: that name shadows the DOM global, the
  * same trap `Post` exists to avoid for `Event`.
@@ -25,23 +53,36 @@ export class DocumentViewer extends BaseElement {
   @property({ type: Boolean, reflect: true }) open = false;
   @property({ attribute: false }) doc: StoredDocument | null = null;
 
+  @state() private bytes: Blob | null = null;
   @state() private url = "";
   @state() private error = "";
+
+  @query(".viewer__pages") private pagesEl?: HTMLElement;
+
+  /** Bumped on every load and release: an answer for an older one is dropped. */
+  #generation = 0;
 
   static componentStyles = css`
     :host {
       display: contents;
     }
 
-    /* Fades in when the object URL resolves, rather than replacing the
-       "Ouverture…" placeholder at full opacity. The modal has just scaled in
-       over \`--duration-medium\`; slamming its contents in a beat later undoes
-       that. \`--duration-fast\` and not the modal's own duration: this is the
-       tail of an entrance already in progress, not a second one. */
-    .viewer__frame {
-      width: 100%;
+    .viewer__pages {
+      display: grid;
+      gap: var(--spacing-8);
       height: 100%;
-      border: none;
+      overflow-y: auto;
+      padding: var(--spacing-8) 0;
+      box-sizing: border-box;
+    }
+
+    /* Fades in when drawn, rather than replacing "Ouverture…" at full opacity:
+       the modal has just scaled in, and slamming its contents in a beat later
+       undoes that. */
+    .viewer__pages canvas {
+      display: block;
+      width: 100%;
+      height: auto;
       background-color: var(--color-white);
       transition: opacity var(--duration-fast) var(--easing-out);
     }
@@ -55,7 +96,7 @@ export class DocumentViewer extends BaseElement {
     }
 
     @starting-style {
-      .viewer__frame,
+      .viewer__pages canvas,
       .viewer__image {
         opacity: 0;
       }
@@ -72,26 +113,19 @@ export class DocumentViewer extends BaseElement {
       text-align: center;
       color: var(--color-white);
     }
-
-    .viewer__open {
-      display: block;
-      padding: var(--spacing-12) var(--spacing-20);
-      color: var(--color-white);
-      font-size: var(--font-size-sm);
-      font-weight: 600;
-      text-align: center;
-    }
   `;
 
-  protected updated(changed: PropertyValues<this>) {
-    if (!changed.has("open") && !changed.has("doc")) return;
-
-    // Swapping documents while open must not keep showing the previous bytes,
-    // and must not strand the previous URL — `#load` bails when one is held.
-    if (changed.has("doc")) this.#release();
-
-    if (this.open && this.doc) void this.#load(this.doc.id);
-    else this.#release();
+  // Untyped: `bytes` is private state, which `PropertyValues<this>` cannot name.
+  protected updated(changed: PropertyValues) {
+    if (changed.has("open") || changed.has("doc")) {
+      // Swapping documents while open must not keep showing the previous one.
+      if (changed.has("doc")) this.#release();
+      if (this.open && this.doc) void this.#load(this.doc);
+      else this.#release();
+    }
+    if (changed.has("bytes") && this.bytes && isPdf(this.bytes.type)) {
+      void this.#drawPdf(this.bytes, this.#generation);
+    }
   }
 
   disconnectedCallback() {
@@ -100,33 +134,73 @@ export class DocumentViewer extends BaseElement {
     this.#release();
   }
 
-  async #load(id: string) {
-    // Already showing this document: re-minting would leak the URL we hold.
-    if (this.url) return;
+  async #load(doc: StoredDocument) {
+    // Already showing this document.
+    if (this.bytes || this.error) return;
+    const generation = ++this.#generation;
 
     try {
-      const url = await documentsRepo.getObjectUrl(id);
-      if (!url) {
+      const bytes = await documentBytes(doc);
+      if (generation !== this.#generation) return;
+      if (!bytes) {
         this.error = "Ce fichier est introuvable.";
         return;
       }
-      // `open` may have gone false while the read was in flight. Nothing would
-      // ever revoke a URL created after the last release, so do it here.
-      if (!this.open) {
-        URL.revokeObjectURL(url);
-        return;
+      if (isImage(bytes.type)) this.url = URL.createObjectURL(bytes);
+      this.bytes = bytes;
+    } catch (error: unknown) {
+      if (generation !== this.#generation) return;
+      this.error = explain(error);
+    }
+  }
+
+  async #drawPdf(bytes: Blob, generation: number) {
+    try {
+      const pdfjs = await loadPdfjs();
+      const task = pdfjs.getDocument({
+        data: new Uint8Array(await bytes.arrayBuffer()),
+      });
+      const pdf = await task.promise;
+
+      try {
+        for (let number = 1; number <= pdf.numPages; number += 1) {
+          const container = this.pagesEl;
+          if (generation !== this.#generation || !container) return;
+
+          const page = await pdf.getPage(number);
+          const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+          const width = container.clientWidth || window.innerWidth;
+          const viewport = page.getViewport({
+            scale: (width / page.getViewport({ scale: 1 }).width) * ratio,
+          });
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
+          canvas.setAttribute(
+            "aria-label",
+            `Page ${number} sur ${pdf.numPages}`,
+          );
+          canvas.setAttribute("role", "img");
+          container.append(canvas);
+          await page.render({ canvas, viewport }).promise;
+        }
+      } finally {
+        void task.destroy();
       }
-      this.url = url;
-      this.error = "";
     } catch {
-      this.error = "Ce fichier n’a pas pu être ouvert.";
+      if (generation === this.#generation) {
+        this.error = "Ce fichier n’a pas pu être ouvert.";
+      }
     }
   }
 
   #release() {
+    this.#generation += 1;
     if (this.url) URL.revokeObjectURL(this.url);
     this.url = "";
+    this.bytes = null;
     this.error = "";
+    this.pagesEl?.replaceChildren();
   }
 
   #close = () => {
@@ -145,62 +219,43 @@ export class DocumentViewer extends BaseElement {
         @modal-close=${this.#close}
       >
         ${this.#renderContent()}
-        ${
-          this.url
-            ? html`
-                <!-- iOS Safari renders a PDF in an iframe as a single page that
-                   will not scroll, so on the device this app is built for this
-                   link is the only way to reach page 2. Always offered rather
-                   than sniffed for: guessing wrong means an unreadable file. -->
-                <a
-                  slot="footer"
-                  class="viewer__open pressable"
-                  href=${this.url}
-                  target="_blank"
-                  rel="noopener"
-                >
-                  Ouvrir dans un nouvel onglet
-                </a>
-              `
-            : nothing
-        }
       </app-modal>
     `;
   }
 
   #renderContent() {
-    const doc = this.doc;
-    if (!doc) return nothing;
-
+    if (!this.doc) return nothing;
     if (this.error) return html`<p class="viewer__message">${this.error}</p>`;
-    if (!this.url) return html`<p class="viewer__message">Ouverture…</p>`;
+    if (!this.bytes) return html`<p class="viewer__message">Ouverture…</p>`;
 
-    if (isPdf(doc.mimeType)) {
-      return html`<iframe
-        class="viewer__frame"
-        src=${this.url}
-        title=${doc.name}
-      ></iframe>`;
+    if (isPdf(this.bytes.type)) {
+      return html`<div class="viewer__pages"></div>`;
     }
-
-    if (isImage(doc.mimeType)) {
+    if (isImage(this.bytes.type)) {
       return html`<img
         class="viewer__image"
         src=${this.url}
-        alt=${doc.name}
+        alt=${this.doc.name}
       />`;
     }
-
-    // Anything else — a .docx, a .heic Safari won't decode. The footer link is
-    // still there, and handing the file to the OS beats a broken frame.
     return html`
       <p class="viewer__message">
-        Ce type de fichier ne peut pas être affiché ici. Ouvrez-le dans un
-        nouvel onglet.
+        Ce type de fichier ne peut pas être affiché ici.
       </p>
     `;
   }
 }
+
+/** Why the bytes could not be had, in words she can act on. */
+const explain = (error: unknown): string => {
+  if (error instanceof DriveSignedOutError) {
+    return "Reconnectez Google Drive pour ouvrir ce fichier.";
+  }
+  if (error instanceof DriveRequestError && error.status === 0) {
+    return "Ce fichier s’ouvrira une fois en ligne.";
+  }
+  return "Ce fichier n’a pas pu être ouvert.";
+};
 
 declare global {
   interface HTMLElementTagNameMap {

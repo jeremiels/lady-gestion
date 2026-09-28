@@ -25,6 +25,18 @@ export const listByPost = async (postId: string): Promise<StoredDocument[]> => {
   return sortByIssueDate(liveOnly(documents));
 };
 
+/** The documents filed in one folder, newest first; `null` for the general folder itself. */
+export const listByFolder = async (
+  folderId: string | null,
+): Promise<StoredDocument[]> => {
+  // `null` is not an IndexedDB key, so the general folder's are found in memory.
+  const documents =
+    folderId === null
+      ? (await db.documents.toArray()).filter((row) => row.folderId === null)
+      : await db.documents.where("folderId").equals(folderId).toArray();
+  return sortByIssueDate(liveOnly(documents));
+};
+
 /**
  * Document counts per folder id, for the folder tiles on the documents view.
  * Documents filed directly in the general folder (`folderId: null`) are not
@@ -75,6 +87,11 @@ export const create = async (
 
 export const getBlob = async (id: string): Promise<Blob | undefined> =>
   (await db.documentBlobs.get(id))?.blob;
+
+/** Caches bytes fetched from the Drive, so the file opens offline next time. */
+export const putBlob = async (id: string, blob: Blob): Promise<void> => {
+  await db.documentBlobs.put({ documentId: id, blob });
+};
 
 /**
  * An object URL for rendering the document. Callers own the URL and must
