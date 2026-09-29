@@ -1,10 +1,16 @@
 import { html } from "lit";
-import { beforeEach, describe, expect, it } from "vitest";
-import { documentsRepo } from "../../data/index.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeDocument, resetDb } from "../../data/__tests__/factories.ts";
+import { documentBytes } from "../../drive/sync.ts";
 import { fixture, waitFor } from "../__tests__/fixture.ts";
 import "./document-viewer.ts";
 import type { DocumentViewer } from "./document-viewer.ts";
+
+// The bytes are handed over directly: where they come from — the device or
+// the Drive — is `sync.test.ts`'s business, and WebKit's test sessions cannot
+// store a Blob in IndexedDB anyway (see `__tests__/blob-storage.ts`). What
+// this suite is for is drawing them, in the iPhone's engine too.
+vi.mock("../../drive/sync.ts", () => ({ documentBytes: vi.fn() }));
 
 /** A minimal, valid PDF with `pages` pages. ASCII only: offsets are char counts. */
 const pdfOf = (pages: number): Blob => {
@@ -56,12 +62,15 @@ const until = async (predicate: () => boolean, timeoutMs = 10_000) => {
   }
 };
 
-beforeEach(resetDb);
+beforeEach(async () => {
+  await resetDb();
+  vi.mocked(documentBytes).mockReset();
+});
 
 describe("document-viewer", () => {
   it("draws every page of a PDF inside the app", async () => {
     const doc = makeDocument({ id: "pdf", mimeType: "application/pdf" });
-    await documentsRepo.putBlob(doc.id, pdfOf(3));
+    vi.mocked(documentBytes).mockResolvedValue(pdfOf(3));
 
     const el = await mount(doc);
 
@@ -77,8 +86,7 @@ describe("document-viewer", () => {
       mimeType: "image/png",
       name: "carnet.png",
     });
-    await documentsRepo.putBlob(
-      doc.id,
+    vi.mocked(documentBytes).mockResolvedValue(
       new Blob([new Uint8Array(8)], { type: "image/png" }),
     );
 
@@ -94,6 +102,7 @@ describe("document-viewer", () => {
   });
 
   it("says so when the file is neither here nor in the Drive", async () => {
+    vi.mocked(documentBytes).mockResolvedValue(undefined);
     const el = await mount(makeDocument({ id: "nowhere", driveFileId: null }));
 
     await waitFor(el, () => root(el).textContent!.includes("introuvable"));

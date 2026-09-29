@@ -10,6 +10,7 @@ import {
   resetDb,
 } from "../../data/__tests__/factories.ts";
 import * as activitiesRepo from "../../data/repositories/activities.repo.ts";
+import { indexedDbStoresBlobs } from "../__tests__/blob-storage.ts";
 import { fixture, settled, waitFor } from "../__tests__/fixture.ts";
 import type { AppCombobox } from "../app-combobox/app-combobox.ts";
 import type { AppInput } from "../app-input/app-input.ts";
@@ -881,6 +882,8 @@ describe("post-sheet — closing", () => {
   });
 });
 
+const BLOBS = await indexedDbStoresBlobs();
+
 describe("post-sheet — Ajouter un fichier", () => {
   const attachButton = (el: PostSheet) =>
     el.renderRoot.querySelector<HTMLLabelElement>(".post-form__attach");
@@ -909,30 +912,34 @@ describe("post-sheet — Ajouter un fichier", () => {
     expect(attachButton(el)).toBeNull();
   });
 
-  it("lists what was picked, lets one go, and saves the rest with the post", async () => {
-    const el = await openSheet();
-    await pick(el, "type", "cures");
-    await fill(el, "title", "Uvemix");
+  // Saving writes the file's bytes to IndexedDB — see `indexedDbStoresBlobs`.
+  it.skipIf(!BLOBS)(
+    "lists what was picked, lets one go, and saves the rest with the post",
+    async () => {
+      const el = await openSheet();
+      await pick(el, "type", "cures");
+      await fill(el, "title", "Uvemix");
 
-    await chooseFiles(el, "ordonnance.pdf", "erreur.pdf");
-    const files = () =>
-      [...el.renderRoot.querySelectorAll(".post-form__file")].map(
-        (row) => row.querySelector(".post-form__file-name")!.textContent,
-      );
-    expect(files()).toEqual(["ordonnance.pdf", "erreur.pdf"]);
+      await chooseFiles(el, "ordonnance.pdf", "erreur.pdf");
+      const files = () =>
+        [...el.renderRoot.querySelectorAll(".post-form__file")].map(
+          (row) => row.querySelector(".post-form__file-name")!.textContent,
+        );
+      expect(files()).toEqual(["ordonnance.pdf", "erreur.pdf"]);
 
-    el.renderRoot
-      .querySelector<HTMLButtonElement>('[aria-label="Retirer erreur.pdf"]')!
-      .click();
-    await settled(el);
-    expect(files()).toEqual(["ordonnance.pdf"]);
+      el.renderRoot
+        .querySelector<HTMLButtonElement>('[aria-label="Retirer erreur.pdf"]')!
+        .click();
+      await settled(el);
+      expect(files()).toEqual(["ordonnance.pdf"]);
 
-    await submit(el);
+      await submit(el);
 
-    const post = await savedPost();
-    const documents = await db.documents.toArray();
-    expect(documents.map((doc) => [doc.name, doc.postId])).toEqual([
-      ["ordonnance.pdf", post!.id],
-    ]);
-  });
+      const post = await savedPost();
+      const documents = await db.documents.toArray();
+      expect(documents.map((doc) => [doc.name, doc.postId])).toEqual([
+        ["ordonnance.pdf", post!.id],
+      ]);
+    },
+  );
 });
