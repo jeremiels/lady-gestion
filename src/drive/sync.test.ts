@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
-import { documentsRepo, metaRepo } from "../data/index.ts";
+import { documentsRepo, documentsService, metaRepo } from "../data/index.ts";
 import {
   makeDocument,
   makeHorse,
@@ -10,6 +10,7 @@ import { FOLDER } from "./api.ts";
 import { documentBytes, syncFolder, walkFolder } from "./sync.ts";
 
 const T1 = "2026-09-01T10:00:00.000Z";
+const T2 = "2026-09-25T10:00:00.000Z";
 
 type Item = {
   id: string;
@@ -19,8 +20,8 @@ type Item = {
   modifiedTime: string;
 };
 
-/** A pretend Drive: folder id -> what is directly inside it. */
-const DRIVE: Record<string, Item[]> = {
+/** A pretend Drive: folder id -> what is directly inside it. Cloned per test. */
+const TEMPLATE: Record<string, Item[]> = {
   root: [
     { id: "osteo", name: "Ostéopathe", mimeType: FOLDER, modifiedTime: T1 },
     {
@@ -56,7 +57,20 @@ const DRIVE: Record<string, Item[]> = {
   ],
 };
 
+let DRIVE: Record<string, Item[]>;
 let fetchMock: ReturnType<typeof vi.fn>;
+let patches: { id: string; url: URL; body: Record<string, unknown> }[] = [];
+/** Runs while a PATCH is on its way — an edit made meanwhile. */
+let duringPatch: (() => Promise<void>) | null = null;
+
+/** Where `id` sits in the pretend Drive. */
+const locate = (id: string) => {
+  for (const [parent, items] of Object.entries(DRIVE)) {
+    const index = items.findIndex((item) => item.id === id);
+    if (index >= 0) return { parent, items, index, item: items[index]! };
+  }
+  return null;
+};
 let uploads: RequestInit[] = [];
 
 beforeEach(async () => {
@@ -68,6 +82,9 @@ beforeEach(async () => {
     scope: "openid https://www.googleapis.com/auth/drive",
   });
   uploads = [];
+  patches = [];
+  duringPatch = null;
+  DRIVE = structuredClone(TEMPLATE);
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     if (url.pathname.endsWith("/drive/token")) {
@@ -87,6 +104,39 @@ beforeEach(async () => {
         modifiedTime: T1,
       });
       return Response.json({ id, modifiedTime: T1 });
+    }
+    const fileId = /\/files\/([^/]+)$/.exec(url.pathname)?.[1];
+    if (fileId && init?.method === "PATCH") {
+      const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+      patches.push({ id: fileId, url, body });
+      await duringPatch?.();
+      const found = locate(fileId)!;
+      if (typeof body.name === "string") found.item.name = body.name;
+      found.item.modifiedTime = T2;
+      if (body.trashed === true || url.searchParams.get("addParents")) {
+        found.items.splice(found.index, 1);
+      }
+      const to = url.searchParams.get("addParents");
+      if (to && body.trashed !== true) (DRIVE[to] ??= []).push(found.item);
+      return Response.json({ modifiedTime: T2 });
+    }
+    if (fileId && url.searchParams.get("fields") === "parents") {
+      return Response.json({ parents: [locate(fileId)!.parent] });
+    }
+    if (url.pathname.endsWith("/files") && init?.method === "POST") {
+      const { name, parents } = JSON.parse(String(init.body)) as {
+        name: string;
+        parents: string[];
+      };
+      const created = {
+        id: `new-${name}`,
+        name,
+        mimeType: FOLDER,
+        modifiedTime: T1,
+      };
+      (DRIVE[parents[0]!] ??= []).push(created);
+      DRIVE[created.id] = [];
+      return Response.json(created);
     }
     const q = url.searchParams.get("q");
     if (q) {
@@ -194,5 +244,112 @@ describe("syncFolder", () => {
       driveFileId: "up-1",
       deletedAt: null,
     });
+  });
+});
+
+describe("syncFolder — changes made in the app", () => {
+  /** The pretend Drive, mirrored once: the state the app starts from. */
+  const mirrored = async () => {
+    await syncFolder("root");
+    // Timestamps are to the millisecond: an edit in the same one as the sync
+    // would read as already sent. Nobody edits that fast; a test does.
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    return db.documents.toArray();
+  };
+
+  it("sends a rename, a move and a post link, and the walk keeps them", async () => {
+    const facture = (await mirrored()).find(
+      (doc) => doc.driveFileId === "facture",
+    )!;
+
+    await documentsService.renameDocument(facture.id, "Facture ostéo.pdf");
+    await documentsService.moveDocument(facture.id, null);
+    await documentsService.linkDocument(facture.id, "post-1");
+    await syncFolder("root");
+
+    expect(patches).toHaveLength(1);
+    expect(patches[0]!.body).toMatchObject({
+      name: "Facture ostéo.pdf",
+      appProperties: { ladyPostId: "post-1" },
+    });
+    expect(patches[0]!.url.searchParams.get("addParents")).toBe("root");
+    expect(patches[0]!.url.searchParams.get("removeParents")).toBe("osteo");
+    expect(await db.documents.get(facture.id)).toMatchObject({
+      name: "Facture ostéo.pdf",
+      folderId: null,
+      postId: "post-1",
+      driveModifiedAt: T2,
+    });
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+
+  it("sends a deletion to the trash, and the walk does not bring it back", async () => {
+    const carnet = (await mirrored()).find(
+      (doc) => doc.driveFileId === "carnet",
+    )!;
+
+    await documentsService.deleteDocument(carnet.id);
+    await syncFolder("root");
+
+    expect(patches[0]).toMatchObject({ id: "carnet", body: { trashed: true } });
+    expect((await db.documents.get(carnet.id))!.deletedAt).not.toBeNull();
+  });
+
+  it("creates a folder made in the app, inside its parent, then files into it", async () => {
+    await mirrored();
+    const [osteo] = (await db.documentFolders.toArray()).filter(
+      (folder) => folder.driveFolderId === "osteo",
+    );
+    const folder = await documentsService.createFolder("2025", osteo!.id);
+
+    await syncFolder("root");
+
+    const created = await db.documentFolders.get(folder.id);
+    expect(created!.driveFolderId).toBe("new-2025");
+    expect(DRIVE.osteo!.some((item) => item.id === "new-2025")).toBe(true);
+    // The walk found it by its Drive id, not as a second folder.
+    expect(
+      (await db.documentFolders.toArray()).filter((row) => row.name === "2025"),
+    ).toHaveLength(1);
+  });
+
+  it("leaves a change unsent while offline, and the walk does not undo it", async () => {
+    const facture = (await mirrored()).find(
+      (doc) => doc.driveFileId === "facture",
+    )!;
+    await documentsService.renameDocument(
+      facture.id,
+      "Renommée hors ligne.pdf",
+    );
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(syncFolder("root")).rejects.toThrow();
+
+    expect((await db.documents.get(facture.id))!.name).toBe(
+      "Renommée hors ligne.pdf",
+    );
+    expect(await documentsRepo.listPendingChanges()).toHaveLength(1);
+  });
+
+  it("keeps an edit made while the previous one was being sent", async () => {
+    const facture = (await mirrored()).find(
+      (doc) => doc.driveFileId === "facture",
+    )!;
+    await documentsService.renameDocument(facture.id, "Premier.pdf");
+    duringPatch = async () => {
+      duringPatch = null;
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      await documentsService.renameDocument(facture.id, "Second.pdf");
+    };
+
+    await syncFolder("root");
+    expect(await documentsRepo.listPendingChanges()).toHaveLength(1);
+    await syncFolder("root");
+
+    expect(patches.map((patch) => patch.body.name)).toEqual([
+      "Premier.pdf",
+      "Second.pdf",
+    ]);
+    expect((await db.documents.get(facture.id))!.name).toBe("Second.pdf");
   });
 });

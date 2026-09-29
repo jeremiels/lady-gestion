@@ -81,12 +81,12 @@ export const listFolders = async (parentId: string): Promise<DriveFolder[]> => {
 export const createFolder = async (
   name: string,
   parentId: string,
-): Promise<DriveFolder> =>
-  (await drive("/files?fields=id,name", {
+): Promise<DriveFolder & { modifiedTime: string }> =>
+  (await drive("/files?fields=id,name,modifiedTime", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, mimeType: FOLDER, parents: [parentId] }),
-  })) as DriveFolder;
+  })) as DriveFolder & { modifiedTime: string };
 
 /** Anything in a folder, as Drive lists it. `size` is absent for Google Docs. */
 export type DriveItem = {
@@ -167,4 +167,39 @@ export const uploadFile = async (
     DRIVE_UPLOAD_URL,
   );
   return (await response.json()) as { id: string; modifiedTime: string };
+};
+
+/** The folders a file sits in — one, in practice. */
+export const parentsOf = async (id: string): Promise<string[]> =>
+  ((await drive(`/files/${id}?fields=parents`)) as { parents?: string[] })
+    .parents ?? [];
+
+/**
+ * Changes a file or folder: its name, the folder it sits in, its
+ * `appProperties` (a `null` value removes one), or sends it to the trash —
+ * never deleted outright (`docs/drive-spec.md` §6.6). Resolves the Drive's new
+ * `modifiedTime`.
+ */
+export const updateFile = async (
+  id: string,
+  change: {
+    name?: string;
+    appProperties?: Record<string, string | null>;
+    trashed?: boolean;
+    move?: { from: string[]; to: string };
+  },
+): Promise<string> => {
+  const { move, ...metadata } = change;
+  const params = new URLSearchParams({ fields: "modifiedTime" });
+  if (move) {
+    params.set("addParents", move.to);
+    const from = move.from.filter((parent) => parent !== move.to);
+    if (from.length > 0) params.set("removeParents", from.join(","));
+  }
+  const updated = (await drive(`/files/${id}?${params}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(metadata),
+  })) as { modifiedTime: string };
+  return updated.modifiedTime;
 };

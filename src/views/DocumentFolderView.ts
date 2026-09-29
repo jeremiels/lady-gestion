@@ -16,8 +16,10 @@ import { syncDrive } from "../drive/sync.ts";
 
 import "../components/app-folder/app-folder.ts";
 import "../components/app-icon/app-icon.ts";
+import "../components/document-actions-sheet/document-actions-sheet.ts";
 import "../components/document-list/document-list.ts";
 import "../components/document-viewer/document-viewer.ts";
+import "../components/folder-sheet/folder-sheet.ts";
 
 /** The address of a folder's page; `/documents` is the general folder's. */
 export const folderPath = (folderId: string | null): string =>
@@ -35,6 +37,10 @@ export class DocumentFolderView extends LightElement {
   @property({ attribute: false }) folderId = "";
 
   @state() private viewing: StoredDocument | null = null;
+  /** The file whose edit button was tapped. */
+  @state() private acting: StoredDocument | null = null;
+  /** "edit" for this folder's own sheet, "new" for a folder inside it. */
+  @state() private folderSheet: "edit" | "new" | null = null;
 
   #folder = new LiveQuery<DocumentFolder | undefined>(this, () =>
     documentFoldersRepo.get(this.folderId),
@@ -66,6 +72,18 @@ export class DocumentFolderView extends LightElement {
   }
 
   #goBack = () => goBack(folderPath(this.#folder.value?.parentId ?? null));
+
+  #closeFolderSheet = (event: Event) => {
+    this.folderSheet = null;
+    // A deleted folder has no page left to show.
+    if ((event as CustomEvent<{ deleted?: boolean }>).detail?.deleted) {
+      this.#goBack();
+    }
+  };
+
+  #closeActions = () => {
+    this.acting = null;
+  };
 
   render() {
     const folder = this.#folder.value;
@@ -100,6 +118,16 @@ export class DocumentFolderView extends LightElement {
           <h1 class="document-folder__title" tabindex="-1">
             ${folder?.name ?? ""}
           </h1>
+          <button
+            class="document-folder__edit pressable pressable--small"
+            type="button"
+            aria-label="Modifier le dossier"
+            @click=${() => {
+              this.folderSheet = "edit";
+            }}
+          >
+            <app-icon icon="edit"></app-icon>
+          </button>
         </header>
 
         ${
@@ -134,6 +162,11 @@ export class DocumentFolderView extends LightElement {
                 ) => {
                   this.viewing = event.detail.document;
                 }}
+                @document-more=${(
+                  event: CustomEvent<{ document: StoredDocument }>,
+                ) => {
+                  this.acting = event.detail.document;
+                }}
               ></document-list>`
             : nothing
         }
@@ -142,7 +175,29 @@ export class DocumentFolderView extends LightElement {
             ? html`<p class="document-folder__empty">Ce dossier est vide.</p>`
             : nothing
         }
+        <button
+          class="documents-new-folder pressable"
+          type="button"
+          @click=${() => {
+            this.folderSheet = "new";
+          }}
+        >
+          Nouveau dossier
+        </button>
       </section>
+      <folder-sheet
+        .open=${this.folderSheet !== null}
+        .folder=${this.folderSheet === "edit" ? (folder ?? null) : null}
+        .parentId=${this.folderId}
+        @folder-sheet-done=${this.#closeFolderSheet}
+        @sheet-close=${this.#closeFolderSheet}
+      ></folder-sheet>
+      <document-actions-sheet
+        .open=${this.acting !== null}
+        .doc=${this.acting}
+        @document-actions-done=${this.#closeActions}
+        @sheet-close=${this.#closeActions}
+      ></document-actions-sheet>
       <document-viewer
         .open=${this.viewing !== null}
         .doc=${this.viewing}

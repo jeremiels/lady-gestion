@@ -53,8 +53,10 @@ export * as postsService from "./services/posts.service.ts";
 export * as horsesService from "./services/horses.service.ts";
 export * as rationsService from "./services/rations.service.ts";
 export * as driveMirrorService from "./services/driveMirror.service.ts";
-export { postCategoriesOf } from "./document-views.ts";
+export * as documentsService from "./services/documents.service.ts";
+export { folderOptions, postCategoriesOf } from "./document-views.ts";
 export {
+  pending as pendingDriveChange,
   watchDriveSetup,
   type DriveSetup,
   type RemoteFile,

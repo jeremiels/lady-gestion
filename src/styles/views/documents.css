@@ -129,6 +129,43 @@
     min-width: 0;
   }
 
+  /* Pushed to the far end of the header, away from the back button. */
+  .document-folder__edit {
+    appearance: none;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-left: auto;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-12);
+    background: none;
+    color: var(--color-brown-light);
+    cursor: pointer;
+  }
+
+  .document-folder__edit:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* The same dashed full-width button that ends the Cures and Traitement
+     forms ("Ajouter un fichier"). */
+  .documents-new-folder {
+    appearance: none;
+    width: 100%;
+    padding: var(--spacing-16);
+    border: 1.5px dashed var(--color-brown-light);
+    border-radius: var(--radius-16);
+    background: none;
+    color: var(--color-brown-light);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
   .document-folder__empty {
     margin: 0;
     color: var(--color-brown-light);

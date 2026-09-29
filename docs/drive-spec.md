@@ -394,9 +394,11 @@ côté tant que ses documents font quelques pages.
 4. **Synchro en lecture** : parcours initial, `changes.list`, miroir, pages
    Documents et dossier, visionneuse pdf.js + photos + export Google Docs.
    **C'est ici qu'elle voit ses fichiers.**
-5. **Écritures** : pièces jointes dans `post-sheet` et envoi (fait le 28,
-   Cures et Traitement) ; restent nouveau dossier, renommer / déplacer /
-   supprimer, « Lier à un post ».
+5. **Écritures** : pièces jointes dans `post-sheet` et envoi (Cures et
+   Traitement) ; nouveau dossier, renommer / supprimer un dossier (vide
+   seulement) ; renommer / déplacer / lier / supprimer un fichier. Fait le 28.
+   Une modification pas encore envoyée n'est jamais écrasée par la lecture du
+   Drive (`pending`, `drive-mirror.ts`).
 
 Chaque lot est livrable seul, dans l'ordre. Après le lot 4, elle consulte déjà
 tout son Drive dans l'app ; le lot 5 ajoute l'écriture.

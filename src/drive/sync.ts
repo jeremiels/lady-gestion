@@ -17,13 +17,22 @@ import {
   documentFoldersRepo,
   documentsRepo,
   driveMirrorService,
+  pendingDriveChange as pending,
   watchDriveSetup,
   type DriveSetup,
   type RemoteFile,
   type RemoteFolder,
 } from "../data/index.ts";
 import type { StoredDocument } from "../data/types.ts";
-import { downloadFile, FOLDER, listChildren, uploadFile } from "./api.ts";
+import {
+  createFolder,
+  downloadFile,
+  FOLDER,
+  listChildren,
+  parentsOf,
+  updateFile,
+  uploadFile,
+} from "./api.ts";
 
 /** Google Drive shortcuts point at a file elsewhere; there is nothing to show. */
 const SHORTCUT = "application/vnd.google-apps.shortcut";
@@ -86,7 +95,7 @@ export const walkFolder = async (
  * does not, then read the whole tree back into the mirror.
  */
 export const syncFolder = async (rootId: string): Promise<void> => {
-  await uploadPending(rootId);
+  await pushPending(rootId);
   const tree = await walkFolder(rootId);
   await driveMirrorService.mirrorDrive({ rootDriveId: rootId, ...tree });
 };
@@ -128,25 +137,119 @@ export const syncDrive = (force = false): Promise<void> => {
 };
 
 /**
- * Sends what was joined in the app and is not in the Drive yet, before the
- * walk — so the walk finds each file already known by its Drive id, rather
- * than as a stranger it would add a second row for.
+ * Sends everything done in the app and not in the Drive yet, before the walk
+ * — so the walk finds each row already as the Drive has it, rather than a
+ * stranger to add a second row for, or a stale name to write back.
  *
- * One at a time, oldest first; the first failure stops the run and leaves the
- * rest for the next sync. A file whose bytes are gone from the device cannot
- * be sent and is skipped.
+ * Folders are created first, since files may be filed in them. One change at
+ * a time; the first failure stops the run and leaves the rest pending for the
+ * next sync — the walk does not run either, so nothing is written back over
+ * them meanwhile.
+ */
+const pushPending = async (rootId: string): Promise<void> => {
+  await createPendingFolders(rootId);
+  await pushFolderChanges();
+  await uploadPending(rootId);
+  await pushDocumentChanges(rootId);
+};
+
+/** Where a mirrored folder is in the Drive; the general folder for `null`. */
+const driveIdOf = async (
+  folderId: string | null,
+  rootId: string,
+): Promise<string> => {
+  if (folderId === null) return rootId;
+  const folder = (await documentFoldersRepo.listAll()).find(
+    ({ id }) => id === folderId,
+  );
+  return folder?.driveFolderId ?? rootId;
+};
+
+/**
+ * Folders made in the app, parents before children: a child waits for the
+ * pass that gives its parent a Drive id.
+ */
+const createPendingFolders = async (rootId: string): Promise<void> => {
+  for (;;) {
+    const folders = await documentFoldersRepo.listAll();
+    const known = new Map(folders.map((folder) => [folder.id, folder]));
+    const ready = folders.filter(
+      (folder) =>
+        folder.deletedAt === null &&
+        folder.driveFolderId === null &&
+        (folder.parentId === null ||
+          known.get(folder.parentId)?.driveFolderId != null),
+    );
+    if (ready.length === 0) return;
+    for (const folder of ready) {
+      const parent =
+        folder.parentId === null
+          ? rootId
+          : known.get(folder.parentId)!.driveFolderId!;
+      const created = await createFolder(folder.name, parent);
+      await documentFoldersRepo.markSynced(
+        folder.id,
+        { driveFolderId: created.id, driveModifiedAt: created.modifiedTime },
+        folder.updatedAt,
+      );
+    }
+  }
+};
+
+/** Renamed or deleted in the app: the name, or to the trash. */
+const pushFolderChanges = async (): Promise<void> => {
+  for (const folder of await documentFoldersRepo.listAll()) {
+    if (folder.driveFolderId === null || !pending(folder)) continue;
+    const modifiedTime = await updateFile(
+      folder.driveFolderId,
+      folder.deletedAt !== null ? { trashed: true } : { name: folder.name },
+    );
+    await documentFoldersRepo.markSynced(
+      folder.id,
+      { driveModifiedAt: modifiedTime },
+      folder.updatedAt,
+    );
+  }
+};
+
+/**
+ * Renamed, moved, linked or deleted in the app. A move reads the file's
+ * current parents first: the Drive moves a file by adding the new folder and
+ * removing the old.
+ */
+const pushDocumentChanges = async (rootId: string): Promise<void> => {
+  for (const doc of await documentsRepo.listPendingChanges()) {
+    const driveId = doc.driveFileId!;
+    let modifiedTime: string;
+    if (doc.deletedAt !== null) {
+      modifiedTime = await updateFile(driveId, { trashed: true });
+    } else {
+      const target = await driveIdOf(doc.folderId, rootId);
+      const parents = await parentsOf(driveId);
+      modifiedTime = await updateFile(driveId, {
+        name: doc.name,
+        appProperties: { ladyPostId: doc.postId },
+        ...(parents.includes(target) && parents.length === 1
+          ? {}
+          : { move: { from: parents, to: target } }),
+      });
+    }
+    await documentsRepo.markSynced(doc.id, modifiedTime, doc.updatedAt);
+  }
+};
+
+/**
+ * Files joined in the app, oldest first. One whose bytes are gone from the
+ * device cannot be sent and is skipped.
  */
 const uploadPending = async (rootId: string): Promise<void> => {
   for (const doc of await documentsRepo.listPendingUpload()) {
     const blob = await documentsRepo.getBlob(doc.id);
     if (!blob) continue;
-    const folder = doc.folderId
-      ? await documentFoldersRepo.get(doc.folderId)
-      : undefined;
     const uploaded = await uploadFile(
       doc.name,
       blob,
-      folder?.driveFolderId ?? rootId,
+      await driveIdOf(doc.folderId, rootId),
       doc.postId ? { ladyPostId: doc.postId } : {},
     );
     await documentsRepo.markUploaded(doc.id, {

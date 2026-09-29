@@ -16,6 +16,7 @@ import {
   activitiesRepo,
   documentFoldersRepo,
   documentsRepo,
+  folderOptions,
   formatFileSize,
   metaRepo,
   activityChoices,
@@ -77,24 +78,6 @@ const PUSH_REFUSALS: Record<PushRefusal, string> = {
     "Installez l’application sur l’écran d’accueil pour recevoir des notifications.",
   denied: "Les notifications sont refusées dans les réglages de l’appareil.",
   unavailable: "Les notifications sont indisponibles pour le moment.",
-};
-
-/**
- * The Dossier select: the general folder, then every mirrored folder by its
- * path, so two "2025" under different parents read apart.
- */
-const folderOptions = (folders: DocumentFolder[]): AppSelectOption[] => {
-  const byId = new Map(folders.map((folder) => [folder.id, folder]));
-  const path = (folder: DocumentFolder): string => {
-    const parent = folder.parentId ? byId.get(folder.parentId) : undefined;
-    return parent ? `${path(parent)} / ${folder.name}` : folder.name;
-  };
-  return [
-    { value: "", label: "Dossier général" },
-    ...folders
-      .map((folder) => ({ value: folder.id, label: path(folder) }))
-      .sort((a, b) => a.label.localeCompare(b.label, "fr")),
-  ];
 };
 
 @customElement("post-sheet")

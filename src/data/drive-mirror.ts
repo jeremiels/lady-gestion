@@ -11,7 +11,8 @@ import type { DocumentFolder, DriveMeta, StoredDocument } from "./types.ts";
  * The Drive is the reference for documents: what she adds, renames, moves or
  * trashes there — from the Google Drive app as much as from this one — is what
  * the mirror shows. The mirror keeps what the Drive cannot hold: which post a
- * document belongs to, and rows not uploaded yet.
+ * document belongs to, rows not uploaded yet, and changes made in the app and
+ * not sent yet (`pending`).
  *
  * Pure but for the ids and timestamps `record.ts` stamps: the caller reads the
  * local rows and writes the plan back, in one transaction.
@@ -104,6 +105,7 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       continue;
     }
     const existing = localFolderByDrive.get(remote.driveId)!;
+    if (pending(existing)) continue;
     if (
       existing.deletedAt !== null ||
       existing.name !== wanted.name ||
@@ -122,6 +124,7 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
     if (
       folder.deletedAt === null &&
       folder.driveFolderId !== null &&
+      !pending(folder) &&
       !remoteFolderIds.has(folder.driveFolderId)
     ) {
       plan.folders.push(softDelete(folder));
@@ -158,6 +161,7 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       );
       continue;
     }
+    if (pending(existing)) continue;
     if (existing.driveModifiedAt !== remote.modifiedTime) {
       plan.staleBlobs.push(existing.id);
     }
@@ -180,6 +184,7 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
     if (
       document.deletedAt === null &&
       document.driveFileId !== null &&
+      !pending(document) &&
       !remoteFileIds.has(document.driveFileId)
     ) {
       plan.documents.push(softDelete(document));
@@ -189,6 +194,14 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
 
   return plan;
 };
+
+/**
+ * Changed in the app since its last sync — renamed, moved, linked, deleted —
+ * and not sent yet. The Drive does not know yet, so what it says about the
+ * row is out of date: the walk leaves it for the next push to settle.
+ */
+export const pending = (row: DocumentFolder | StoredDocument): boolean =>
+  row.driveSyncedAt !== null && row.updatedAt > row.driveSyncedAt;
 
 /** Stamped as in step with the Drive as of its own write. */
 const synced = <T extends DocumentFolder | StoredDocument>(row: T): T => ({

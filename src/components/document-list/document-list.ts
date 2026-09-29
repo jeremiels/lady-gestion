@@ -23,6 +23,8 @@ import "../app-tag/app-tag.ts";
  * categories, and opens the viewer on `document-open`.
  *
  * @fires document-open - `{ document }`, the row tapped.
+ * @fires document-more - `{ document }`, its edit button: rename, move, link,
+ * delete.
  */
 @customElement("document-list")
 export class DocumentList extends BaseElement {
@@ -44,6 +46,36 @@ export class DocumentList extends BaseElement {
       list-style: none;
     }
 
+    /* The card holds two targets side by side — open the file, or edit it —
+       since one button cannot sit inside another. */
+    .card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      border-radius: var(--radius-16);
+      background: var(--color-white);
+    }
+
+    .more {
+      appearance: none;
+      display: grid;
+      place-items: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      margin-right: var(--spacing-8);
+      padding: 0;
+      border: none;
+      border-radius: var(--radius-12);
+      background: none;
+      color: var(--color-brown-light);
+      cursor: pointer;
+    }
+
+    .more:focus-visible {
+      outline: var(--focus-ring);
+      outline-offset: var(--focus-ring-offset);
+    }
+
     .row {
       appearance: none;
       display: grid;
@@ -58,7 +90,7 @@ export class DocumentList extends BaseElement {
       padding: var(--spacing-16);
       border: none;
       border-radius: var(--radius-16);
-      background: var(--color-white);
+      background: none;
       font: inherit;
       text-align: left;
       cursor: pointer;
@@ -100,9 +132,9 @@ export class DocumentList extends BaseElement {
     }
   `;
 
-  #open(document: StoredDocument) {
+  #emit(type: "document-open" | "document-more", document: StoredDocument) {
     this.dispatchEvent(
-      new CustomEvent("document-open", {
+      new CustomEvent(type, {
         detail: { document },
         bubbles: true,
         composed: true,
@@ -119,11 +151,11 @@ export class DocumentList extends BaseElement {
           (doc) => {
             const category = this.categories[doc.id];
             return html`
-              <li>
+              <li class="card">
                 <button
                   class="row pressable"
                   type="button"
-                  @click=${() => this.#open(doc)}
+                  @click=${() => this.#emit("document-open", doc)}
                 >
                   <app-icon class="icon" icon="file"></app-icon>
                   <span class="name">${doc.name}</span>
@@ -136,6 +168,14 @@ export class DocumentList extends BaseElement {
                         ></app-tag>`
                       : nothing
                   }
+                </button>
+                <button
+                  class="more pressable"
+                  type="button"
+                  aria-label=${`Modifier ${doc.name}`}
+                  @click=${() => this.#emit("document-more", doc)}
+                >
+                  <app-icon icon="edit"></app-icon>
                 </button>
               </li>
             `;

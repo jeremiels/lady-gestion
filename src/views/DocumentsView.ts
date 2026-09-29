@@ -17,8 +17,10 @@ import { folderPath } from "./DocumentFolderView.ts";
 
 import "../components/app-folder/app-folder.ts";
 import "../components/document-list/document-list.ts";
+import "../components/document-actions-sheet/document-actions-sheet.ts";
 import "../components/document-viewer/document-viewer.ts";
 import "../components/drive-folder-sheet/drive-folder-sheet.ts";
+import "../components/folder-sheet/folder-sheet.ts";
 
 @customElement("documents-view")
 export class DocumentsView extends LightElement {
@@ -48,6 +50,9 @@ export class DocumentsView extends LightElement {
 
   @state() private folderSheetOpen = false;
   @state() private viewing: StoredDocument | null = null;
+  /** The file whose edit button was tapped. */
+  @state() private acting: StoredDocument | null = null;
+  @state() private creatingFolder = false;
 
   connectedCallback() {
     super.connectedCallback();
@@ -84,7 +89,32 @@ export class DocumentsView extends LightElement {
           )}
         </ul>
         ${this.#renderFiles()}
+        ${
+          this.#drive.folder
+            ? html`<button
+                class="documents-new-folder pressable"
+                type="button"
+                @click=${() => {
+                  this.creatingFolder = true;
+                }}
+              >
+                Nouveau dossier
+              </button>`
+            : nothing
+        }
       </section>
+      <folder-sheet
+        .open=${this.creatingFolder}
+        .parentId=${null}
+        @folder-sheet-done=${this.#closeFolderEditor}
+        @sheet-close=${this.#closeFolderEditor}
+      ></folder-sheet>
+      <document-actions-sheet
+        .open=${this.acting !== null}
+        .doc=${this.acting}
+        @document-actions-done=${this.#closeActions}
+        @sheet-close=${this.#closeActions}
+      ></document-actions-sheet>
       <document-viewer
         .open=${this.viewing !== null}
         .doc=${this.viewing}
@@ -104,8 +134,19 @@ export class DocumentsView extends LightElement {
       @document-open=${(event: CustomEvent<{ document: StoredDocument }>) => {
         this.viewing = event.detail.document;
       }}
+      @document-more=${(event: CustomEvent<{ document: StoredDocument }>) => {
+        this.acting = event.detail.document;
+      }}
     ></document-list>`;
   }
+
+  #closeActions = () => {
+    this.acting = null;
+  };
+
+  #closeFolderEditor = () => {
+    this.creatingFolder = false;
+  };
 
   /**
    * The two steps before any folder can show: sign in, then pick the general

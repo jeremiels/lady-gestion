@@ -1,5 +1,6 @@
 import { db } from "../db.ts";
 import { createRecord, crud, liveOnly, softDelete, touch } from "../record.ts";
+import { pending } from "../drive-mirror.ts";
 import type { NewRecord, StoredDocument } from "../types.ts";
 
 /**
@@ -106,6 +107,33 @@ export const markUploaded = async (
   if (!existing) return;
   const uploaded = touch(existing, drive);
   await db.documents.put({ ...uploaded, driveSyncedAt: uploaded.updatedAt });
+};
+
+/**
+ * Documents already in the Drive and changed in the app since — renamed,
+ * moved, linked or deleted — tombstones included: a deletion has to reach
+ * the Drive too.
+ */
+export const listPendingChanges = async (): Promise<StoredDocument[]> =>
+  (await db.documents.toArray()).filter(
+    (document) => document.driveFileId !== null && pending(document),
+  );
+
+/**
+ * Records that the Drive now matches the row as it stood at `asOf` — the
+ * `updatedAt` of the version that was sent. An edit made while it was on its
+ * way is newer than that, so the row stays pending for the next push rather
+ * than being taken as sent. `updatedAt` is not restamped, which would make
+ * the row look changed again.
+ */
+export const markSynced = async (
+  id: string,
+  driveModifiedAt: string,
+  asOf: string,
+): Promise<void> => {
+  const existing = await db.documents.get(id);
+  if (!existing) return;
+  await db.documents.put({ ...existing, driveModifiedAt, driveSyncedAt: asOf });
 };
 
 /** Caches bytes fetched from the Drive, so the file opens offline next time. */

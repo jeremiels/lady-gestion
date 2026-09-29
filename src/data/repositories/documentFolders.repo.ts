@@ -1,5 +1,5 @@
 import { db } from "../db.ts";
-import { crud, liveOnly } from "../record.ts";
+import { createRecord, crud, liveOnly } from "../record.ts";
 import type { DocumentFolder } from "../types.ts";
 
 /**
@@ -15,4 +15,39 @@ export const list = async (): Promise<DocumentFolder[]> => {
   return liveOnly(folders).sort((a, b) => a.name.localeCompare(b.name, "fr"));
 };
 
-export const { get } = crud<DocumentFolder>(db.documentFolders);
+export const { get, update, remove } = crud<DocumentFolder>(db.documentFolders);
+
+/** A folder made in the app: created in the Drive by the next sync. */
+export const create = async (
+  name: string,
+  parentId: string | null,
+): Promise<DocumentFolder> => {
+  const folder = createRecord<DocumentFolder>({
+    name,
+    parentId,
+    driveFolderId: null,
+    driveModifiedAt: null,
+    driveSyncedAt: null,
+  });
+  await db.documentFolders.add(folder);
+  return folder;
+};
+
+/** Every row, tombstones included — what the sync pushes from. */
+export const listAll = (): Promise<DocumentFolder[]> =>
+  db.documentFolders.toArray();
+
+/**
+ * Records that the Drive now matches the row as it stood at `asOf` — see
+ * `documentsRepo.markSynced` — and its folder id, when the sync just created
+ * it there.
+ */
+export const markSynced = async (
+  id: string,
+  drive: { driveFolderId?: string; driveModifiedAt: string },
+  asOf: string,
+): Promise<void> => {
+  const existing = await db.documentFolders.get(id);
+  if (!existing) return;
+  await db.documentFolders.put({ ...existing, ...drive, driveSyncedAt: asOf });
+};

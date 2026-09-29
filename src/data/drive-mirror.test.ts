@@ -268,3 +268,50 @@ describe("mirrorDrive", () => {
     expect(await db.documentBlobs.count()).toBe(0);
   });
 });
+
+describe("planMirror — changes made in the app, not sent yet", () => {
+  const STAMP = "2026-09-10T10:00:00.000Z";
+  const LATER = "2026-09-11T10:00:00.000Z";
+
+  it("keeps a local rename and a local delete over what the Drive still says", () => {
+    const renamed = makeDocument({
+      id: "renamed",
+      name: "Nouveau nom.pdf",
+      folderId: null,
+      driveFileId: "d-facture",
+      driveModifiedAt: T1,
+      driveSyncedAt: STAMP,
+      updatedAt: LATER,
+    });
+    const deleted = makeDocument({
+      id: "deleted",
+      driveFileId: "d-deleted",
+      driveModifiedAt: T1,
+      driveSyncedAt: STAMP,
+      updatedAt: LATER,
+      deletedAt: LATER,
+    });
+
+    const plan = planMirror(
+      input({
+        files: [
+          remoteFile({ parentDriveId: ROOT }),
+          remoteFile({ driveId: "d-deleted", parentDriveId: ROOT }),
+        ],
+        localDocuments: [renamed, deleted],
+      }),
+    );
+
+    expect(plan).toEqual({ folders: [], documents: [], staleBlobs: [] });
+  });
+
+  it("does not delete a folder renamed in the app that the walk missed", () => {
+    const folder = makeDocumentFolder({
+      driveFolderId: "d-osteo",
+      driveSyncedAt: STAMP,
+      updatedAt: LATER,
+    });
+
+    expect(planMirror(input({ localFolders: [folder] })).folders).toEqual([]);
+  });
+});
