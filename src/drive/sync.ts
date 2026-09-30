@@ -29,6 +29,7 @@ import {
   createFolder,
   downloadFile,
   DriveRequestError,
+  findByAppProperty,
   FOLDER,
   listChildren,
   parentsOf,
@@ -198,6 +199,24 @@ const assertStillGeneral = async (rootId: string): Promise<void> => {
   }
 };
 
+/**
+ * The Drive's copy of a row an earlier sync created there, found by the row
+ * id it was tagged with, `undefined` when there is none.
+ *
+ * A creation whose answer is lost — iOS suspends the app mid-upload, the
+ * network drops — has happened in the Drive all the same, and sending it
+ * again would leave two copies there and two rows here. A lookup the Drive
+ * refuses for good only costs that protection, not the creation itself.
+ */
+const alreadySent = (
+  key: "ladyDocId" | "ladyFolderId",
+  id: string,
+): Promise<{ id: string; modifiedTime: string } | undefined> =>
+  findByAppProperty(key, id).catch((error: unknown) => {
+    giveUpOn(error);
+    return undefined;
+  });
+
 /** A 404 for a file filed in `parent`, other than the general folder: that folder is gone. */
 const parentGone = (error: unknown, parent: string, rootId: string): boolean =>
   error instanceof DriveRequestError &&
@@ -229,9 +248,13 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
           ? rootId
           : known.get(folder.parentId)!.driveFolderId!;
       await assertStillGeneral(rootId);
-      let created: Awaited<ReturnType<typeof createFolder>>;
+      let created: { id: string; modifiedTime: string };
       try {
-        created = await createFolder(folder.name, parent);
+        created =
+          (await alreadySent("ladyFolderId", folder.id)) ??
+          (await createFolder(folder.name, parent, {
+            ladyFolderId: folder.id,
+          }));
       } catch (error: unknown) {
         if (parentGone(error, parent, rootId)) {
           await documentFoldersRepo.update(folder.id, { parentId: null });
@@ -342,14 +365,17 @@ const uploadPending = async (rootId: string): Promise<void> => {
   for (const doc of await documentsRepo.listPendingUpload()) {
     const blob = await documentsRepo.getBlob(doc.id);
     if (!blob) continue;
-    const appProperties: Record<string, string> = doc.postId
-      ? { ladyPostId: doc.postId }
-      : {};
+    const appProperties: Record<string, string> = {
+      ladyDocId: doc.id,
+      ...(doc.postId ? { ladyPostId: doc.postId } : {}),
+    };
     const parent = await driveIdOf(doc.folderId, rootId);
     await assertStillGeneral(rootId);
-    let uploaded: Awaited<ReturnType<typeof uploadFile>>;
+    let uploaded: { id: string; modifiedTime: string };
     try {
-      uploaded = await uploadFile(doc.name, blob, parent, appProperties);
+      uploaded =
+        (await alreadySent("ladyDocId", doc.id)) ??
+        (await uploadFile(doc.name, blob, parent, appProperties));
     } catch (error: unknown) {
       if (!parentGone(error, parent, rootId)) {
         giveUpOn(error);

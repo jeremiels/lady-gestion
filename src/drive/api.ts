@@ -77,16 +77,42 @@ export const listFolders = async (parentId: string): Promise<DriveFolder[]> => {
   return folders;
 };
 
-/** Creates a folder named `name` inside `parentId`. */
+/** Creates a folder named `name` inside `parentId`, with `appProperties` on it. */
 export const createFolder = async (
   name: string,
   parentId: string,
+  appProperties: Record<string, string> = {},
 ): Promise<DriveFolder & { modifiedTime: string }> =>
   (await drive("/files?fields=id,name,modifiedTime", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, mimeType: FOLDER, parents: [parentId] }),
+    body: JSON.stringify({
+      name,
+      mimeType: FOLDER,
+      parents: [parentId],
+      appProperties,
+    }),
   })) as DriveFolder & { modifiedTime: string };
+
+/**
+ * The file or folder, not in the trash, whose `appProperties` hold `key`
+ * set to `value` — how the sync recognises one it created whose answer never
+ * reached the phone.
+ */
+export const findByAppProperty = async (
+  key: string,
+  value: string,
+): Promise<{ id: string; modifiedTime: string } | undefined> => {
+  const params = new URLSearchParams({
+    q: `appProperties has { key='${key}' and value='${value}' } and trashed = false`,
+    fields: "files(id, modifiedTime)",
+    pageSize: "1",
+  });
+  const page = (await drive(`/files?${params}`)) as {
+    files: { id: string; modifiedTime: string }[];
+  };
+  return page.files[0];
+};
 
 /** Anything in a folder, as Drive lists it. `size` is absent for Google Docs. */
 export type DriveItem = {

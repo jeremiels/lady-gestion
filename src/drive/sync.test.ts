@@ -23,6 +23,7 @@ type Item = {
   mimeType: string;
   size?: string;
   modifiedTime: string;
+  appProperties?: Record<string, string>;
 };
 
 /** A pretend Drive: folder id -> what is directly inside it. Cloned per test. */
@@ -79,6 +80,15 @@ const locate = (id: string) => {
 let uploads: RequestInit[] = [];
 /** Runs before the pretend Drive answers — something done meanwhile. */
 let onRequest: ((url: URL, init?: RequestInit) => Promise<void>) | null = null;
+/** The next creation happens in the Drive, and its answer never arrives. */
+let loseNextAnswer = false;
+
+/** What a creation answers, unless `loseNextAnswer` drops it on the way. */
+const answer = (body: unknown): Response => {
+  if (!loseNextAnswer) return Response.json(body);
+  loseNextAnswer = false;
+  throw new TypeError("Load failed");
+};
 
 beforeEach(async () => {
   await resetDb();
@@ -91,6 +101,7 @@ beforeEach(async () => {
   await metaRepo.set("driveFolder", { id: "root", name: "Lady" });
   uploads = [];
   onRequest = null;
+  loseNextAnswer = false;
   patches = [];
   duringPatch = null;
   DRIVE = structuredClone(TEMPLATE);
@@ -109,7 +120,11 @@ beforeEach(async () => {
       const text = await new Response(init!.body).text();
       const metadata = JSON.parse(
         text.split("\r\n\r\n")[1]!.split("\r\n")[0]!,
-      ) as { name: string; parents: string[] };
+      ) as {
+        name: string;
+        parents: string[];
+        appProperties: Record<string, string>;
+      };
       const parent = metadata.parents[0]!;
       if (!DRIVE[parent]) return new Response(null, { status: 404 });
       uploads.push(init!);
@@ -120,8 +135,9 @@ beforeEach(async () => {
         mimeType: "application/pdf",
         size: "8",
         modifiedTime: T1,
+        appProperties: metadata.appProperties,
       });
-      return Response.json({ id, modifiedTime: T1 });
+      return answer({ id, modifiedTime: T1 });
     }
     const fileId = /\/files\/([^/]+)$/.exec(url.pathname)?.[1];
     // Gone from the Drive for good: emptied from the trash.
@@ -144,9 +160,12 @@ beforeEach(async () => {
       return Response.json({ parents: [locate(fileId)!.parent] });
     }
     if (url.pathname.endsWith("/files") && init?.method === "POST") {
-      const { name, parents } = JSON.parse(String(init.body)) as {
+      const { name, parents, appProperties } = JSON.parse(
+        String(init.body),
+      ) as {
         name: string;
         parents: string[];
+        appProperties: Record<string, string>;
       };
       if (!DRIVE[parents[0]!]) return new Response(null, { status: 404 });
       const created = {
@@ -154,12 +173,22 @@ beforeEach(async () => {
         name,
         mimeType: FOLDER,
         modifiedTime: T1,
+        appProperties,
       };
       (DRIVE[parents[0]!] ??= []).push(created);
       DRIVE[created.id] = [];
-      return Response.json(created);
+      return answer(created);
     }
     const q = url.searchParams.get("q");
+    const tagged =
+      /appProperties has \{ key='(\w+)' and value='([^']+)' \}/.exec(q ?? "");
+    if (tagged) {
+      const [, key, value] = tagged;
+      const files = Object.values(DRIVE)
+        .flat()
+        .filter((item) => item.appProperties?.[key!] === value);
+      return Response.json({ files });
+    }
     if (q) {
       const parent = /'([^']+)' in parents/.exec(q)![1]!;
       return Response.json({ files: DRIVE[parent] ?? [] });
@@ -600,5 +629,41 @@ describe("syncFolder — another general folder picked meanwhile", () => {
 
     await syncFolder("elsewhere");
     expect(DRIVE.elsewhere.map((item) => item.name)).toEqual(["joint.pdf"]);
+  });
+});
+
+describe("syncFolder — an answer lost on the way", () => {
+  it("does not upload a file twice when the first upload's answer was lost", async () => {
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", driveFileId: null }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    loseNextAnswer = true;
+
+    await expect(syncFolder("root")).rejects.toThrow();
+    await syncFolder("root");
+
+    expect(uploads).toHaveLength(1);
+    const rows = (await db.documents.toArray()).filter(
+      (doc) => doc.name === "joint.pdf",
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: "joint", driveFileId: "up-1" });
+  });
+
+  it("does not create a folder twice when the first answer was lost", async () => {
+    const folder = await documentsService.createFolder("2025", null);
+    loseNextAnswer = true;
+
+    await expect(syncFolder("root")).rejects.toThrow();
+    await syncFolder("root");
+
+    expect(DRIVE.root!.filter((item) => item.name === "2025")).toHaveLength(1);
+    expect(
+      (await db.documentFolders.toArray()).filter((row) => row.name === "2025"),
+    ).toHaveLength(1);
+    expect((await db.documentFolders.get(folder.id))!.driveFolderId).toBe(
+      "new-2025",
+    );
   });
 });
