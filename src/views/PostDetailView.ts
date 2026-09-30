@@ -258,8 +258,8 @@ export class PostDetailView extends LightElement {
       ${this.#renderAction({
         icon: "download",
         label: "Télécharger",
-        // Deliberately inert: the file lives only in IndexedDB until Drive sync
-        // exists, so there is nothing to download *from the drive* yet.
+        // Deliberately inert, a mock (see AGENTS.md); once wired,
+        // `documentBytes` gives the file's bytes, from the device or the Drive.
         hint: "Bientôt disponible",
         disabled: true,
       })}

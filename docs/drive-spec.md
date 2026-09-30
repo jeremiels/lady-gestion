@@ -1,9 +1,9 @@
 # Spec — Documents sur Google Drive
 
 Statut : **v3, décisions du 27 sept. 2026 intégrées** (voie B : l'app voit son
-Drive). Rien n'est implémenté. Rédigé à partir du code sur `main` (98dc4fb),
-des deux maquettes (grille « Documents », liste « Factures ») et de ses exports
-réels dans `backup/`.
+Drive). Lots 0 à 5 livrés fin septembre 2026. Rédigé à partir du code sur
+`main` (98dc4fb), des deux maquettes (grille « Documents », liste
+« Factures ») et de ses exports réels dans `backup/`.
 
 ## 1. Objectif
 
@@ -345,7 +345,13 @@ en sont dérivées par HKDF). Variable : `GOOGLE_CLIENT_ID`. `corsHeaders` :
 
 Chaque fichier lié reçoit des `appProperties` `{ ladyPostId }`, y compris
 ses fichiers existants (vérifié au lot 0) : le lien survit à la perte de
-l'appareil et se relit à la synchro.
+l'appareil et se relit à la synchro. Un fichier encore inconnu de l'appareil
+reprend ce lien si le post y est ; une ligne déjà là garde le sien.
+
+Ce que la synchro crée porte aussi l'id de sa ligne (`ladyDocId` pour un
+fichier, `ladyFolderId` pour un dossier). Avant de créer, elle cherche cet
+id dans le Drive : une création dont la réponse s'est perdue (app suspendue
+pendant l'envoi) est reprise au lieu d'être envoyée une seconde fois.
 
 Envoi des pièces jointes : `uploadType=multipart` (quelques Mo au plus) dans
 le dossier choisi.
@@ -391,8 +397,9 @@ côté tant que ses documents font quelques pages.
 2. **Worker** : routes auth, migration D1, tests (comme `reminders.test.ts`).
 3. **Connexion + choix du dossier** : `src/drive/auth.ts`, navigateur de
    dossiers, déconnexion dans Profil.
-4. **Synchro en lecture** : parcours initial, `changes.list`, miroir, pages
-   Documents et dossier, visionneuse pdf.js + photos + export Google Docs.
+4. **Synchro en lecture** : parcours complet (§6.5, sans `changes.list`),
+   miroir, pages Documents et dossier, visionneuse pdf.js + photos + export
+   Google Docs.
    **C'est ici qu'elle voit ses fichiers.**
 5. **Écritures** : pièces jointes dans `post-sheet` et envoi (Cures et
    Traitement) ; nouveau dossier, renommer / supprimer un dossier (vide

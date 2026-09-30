@@ -198,10 +198,10 @@ Three consequences worth stating out loud:
   restore deletes. Its xref offsets are computed, and that only works because
   the content is pure ASCII: **keep accents out of the PDF text**.
 - **`Télécharger` on the event detail page is a deliberate mock**, like
-  `ProfileView`'s account block: it means "download from the Drive", and Drive
-  sync does not exist. The bytes _are_ local, so if it should instead save the
-  file from IndexedDB, `downloadFile` in `backup/file.ts` is the existing
-  anchor-plus-`download` pattern to copy.
+  `ProfileView`'s account block: it means "download from the Drive", and is
+  still inert. If it should save the file, `documentBytes` (`src/drive/sync.ts`)
+  gives its bytes — from the device, else the Drive — and `downloadFile` in
+  `backup/file.ts` is the existing anchor-plus-`download` pattern to copy.
 - **Every form goes through `readForm()` (`src/data/forms.ts`).** It takes a
   schema of field parsers (`text`, `decimal`, `cents`, `bool`, `oneOf`,
   `isoDate`) and returns `{ ok, value } | { ok: false, errors }`, with
@@ -570,9 +570,10 @@ What's already in place:
   the stamps say, since a fresh install's seed would otherwise outvote every
   choice in the backup; `reconcileCategories` then reapplies this build's
   definitions. A comment there says it's meant to become
-  the payload pushed to Google Drive's hidden appDataFolder. `meta`'s
-  `googleAccount`/`driveFolderId` and `StoredDocument`'s
-  `driveFileId`/`driveSyncedAt` are unused placeholders for that path.
+  the payload pushed to Google Drive's hidden appDataFolder. Documents do not
+  wait on it: `StoredDocument`'s `driveFileId`/`driveModifiedAt`/
+  `driveSyncedAt` and `meta`'s `googleAccount`/`driveFolder` belong to the
+  mirror of her own Drive folder (`src/drive/`, `docs/drive-spec.md`).
 - **Reads and writes already flow through a narrow set of seams**: reads via
   `LiveQuery`/`activeHorseQuery` (`live.ts`, `active-horse.ts`), multi-table
   writes via `*.service.ts` rather than raw repo calls. Presentational leaf
