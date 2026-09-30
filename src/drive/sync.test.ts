@@ -11,7 +11,7 @@ import {
   makeHorse,
   resetDb,
 } from "../data/__tests__/factories.ts";
-import { FOLDER } from "./api.ts";
+import { DriveRequestError, FOLDER } from "./api.ts";
 import { documentBytes, syncFolder, walkFolder } from "./sync.ts";
 
 const T1 = "2026-09-01T10:00:00.000Z";
@@ -245,6 +245,16 @@ describe("documentBytes", () => {
     expect(blob!.type).toBe("application/pdf");
     expect(await blob!.text()).toContain("/files/facture?alt=media");
     expect(await documentsRepo.getBlob(doc.id)).toBeDefined();
+  });
+
+  it("reads as no connection when offline before an access token is had", async () => {
+    const doc = makeDocument({ driveFileId: "facture" });
+    fetchMock.mockRejectedValue(new TypeError("Load failed"));
+
+    await expect(documentBytes(doc)).rejects.toMatchObject({
+      constructor: DriveRequestError,
+      status: 0,
+    });
   });
 
   it("gets a Google Doc as the PDF Drive exports it to", async () => {

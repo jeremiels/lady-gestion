@@ -35,7 +35,16 @@ const request = async (
   init: RequestInit = {},
   base = DRIVE_API_URL,
 ): Promise<Response> => {
-  const token = await accessToken();
+  let token: string;
+  try {
+    token = await accessToken();
+  } catch (error: unknown) {
+    // Offline or the Worker unreachable, before Drive is even asked: the
+    // same "no connection" as a Drive request that never landed, so the
+    // viewer says the file opens once online rather than that it cannot.
+    if (error instanceof TypeError) throw new DriveRequestError(0);
+    throw error;
+  }
   let response: Response;
   try {
     response = await fetch(`${base}${path}`, {
