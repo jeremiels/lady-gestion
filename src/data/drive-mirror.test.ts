@@ -8,12 +8,13 @@ import {
   resetDb,
 } from "./__tests__/factories.ts";
 import {
+  planFolderChange,
   planMirror,
   type MirrorInput,
   type RemoteFile,
   type RemoteFolder,
 } from "./drive-mirror.ts";
-import { mirrorDrive } from "./services/driveMirror.service.ts";
+import { chooseFolder, mirrorDrive } from "./services/driveMirror.service.ts";
 
 const ROOT = "drive-root";
 const T1 = "2026-09-01T10:00:00.000Z";
@@ -317,5 +318,98 @@ describe("planMirror — changes made in the app, not sent yet", () => {
     });
 
     expect(planMirror(input({ localFolders: [folder] })).folders).toEqual([]);
+  });
+});
+
+describe("planFolderChange", () => {
+  const STAMP = "2026-09-10T10:00:00.000Z";
+  const LATER = "2026-09-11T10:00:00.000Z";
+
+  it("lets go of the previous folder here only, a change not sent yet included", () => {
+    const plan = planFolderChange(
+      [makeDocumentFolder({ id: "osteo", driveFolderId: "d-osteo" })],
+      [
+        makeDocument({
+          id: "renamed",
+          driveFileId: "d-facture",
+          driveModifiedAt: T1,
+          driveSyncedAt: STAMP,
+          updatedAt: LATER,
+        }),
+        makeDocument({
+          id: "deleted",
+          driveFileId: "d-deleted",
+          driveModifiedAt: T1,
+          driveSyncedAt: STAMP,
+          updatedAt: LATER,
+          deletedAt: LATER,
+        }),
+      ],
+    );
+
+    for (const row of [...plan.folders, ...plan.documents]) {
+      expect(row.deletedAt).not.toBeNull();
+      expect(row.driveSyncedAt).toBe(row.updatedAt);
+    }
+    expect(plan.folders.map(({ id }) => id)).toEqual(["osteo"]);
+    expect(plan.documents.map(({ id }) => id)).toEqual(["renamed", "deleted"]);
+    expect(plan.staleBlobs).toEqual(["renamed"]);
+  });
+
+  it("keeps what is not in the Drive yet, moved to the top level", () => {
+    const plan = planFolderChange(
+      [
+        makeDocumentFolder({ id: "osteo", driveFolderId: "d-osteo" }),
+        makeDocumentFolder({ id: "new", parentId: "osteo" }),
+      ],
+      [makeDocument({ id: "joined", folderId: "osteo" })],
+    );
+
+    const kept = [...plan.folders, ...plan.documents].filter(
+      (row) => row.deletedAt === null,
+    );
+    expect(kept.map(({ id }) => id)).toEqual(["new", "joined"]);
+    expect(plan.folders.find(({ id }) => id === "new")!.parentId).toBeNull();
+    expect(plan.documents[0]!.folderId).toBeNull();
+    expect(plan.staleBlobs).toEqual([]);
+  });
+
+  it("writes nothing for a row already let go of", () => {
+    const plan = planFolderChange(
+      [],
+      [
+        makeDocument({
+          driveFileId: "d-gone",
+          driveSyncedAt: STAMP,
+          updatedAt: STAMP,
+          deletedAt: STAMP,
+        }),
+      ],
+    );
+
+    expect(plan.documents).toEqual([]);
+  });
+});
+
+describe("chooseFolder", () => {
+  it("lets go of the mirror only when the folder is another one", async () => {
+    await db.documents.add(
+      makeDocument({ driveFileId: "d-facture", driveSyncedAt: T1 }),
+    );
+
+    await db.meta.put({
+      key: "driveFolder",
+      value: { id: "d-root", name: "Lady" },
+    });
+
+    await chooseFolder({ id: "d-root", name: "Lady" });
+    expect((await db.documents.toArray())[0]!.deletedAt).toBeNull();
+
+    await chooseFolder({ id: "d-other", name: "Autre" });
+    expect((await db.documents.toArray())[0]!.deletedAt).not.toBeNull();
+    expect((await db.meta.get("driveFolder"))!.value).toEqual({
+      id: "d-other",
+      name: "Autre",
+    });
   });
 });

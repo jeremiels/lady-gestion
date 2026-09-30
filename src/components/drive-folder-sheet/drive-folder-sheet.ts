@@ -8,7 +8,8 @@ import {
   listFolders,
   type DriveFolder,
 } from "../../drive/api.ts";
-import { chooseFolder, DriveSignedOutError } from "../../drive/auth.ts";
+import { driveMirrorService } from "../../data/index.ts";
+import { DriveSignedOutError } from "../../drive/auth.ts";
 
 import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-icon/app-icon.ts";
@@ -24,7 +25,8 @@ const SUGGESTED_NAME = "ladympala";
  * The top of "Mon Drive" itself cannot be picked — that would be the whole
  * Drive, which is exactly what D8 rules out.
  *
- * Saves the choice itself (`chooseFolder`); the owner only closes it.
+ * Saves the choice itself (`driveMirrorService.chooseFolder`); the owner only
+ * closes it.
  *
  * @fires drive-folder-chosen - `{ id, name }`, once saved. The owner clears
  * `open`.
@@ -207,7 +209,7 @@ export class DriveFolderSheet extends BaseElement {
     if (this.#atTop || this.busy) return;
     this.busy = true;
     try {
-      await chooseFolder(this.#current);
+      await driveMirrorService.chooseFolder(this.#current);
       this.dispatchEvent(
         new CustomEvent<DriveFolder>("drive-folder-chosen", {
           detail: this.#current,

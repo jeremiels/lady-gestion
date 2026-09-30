@@ -1,10 +1,14 @@
 import { db } from "../db.ts";
 import {
+  planFolderChange,
   planMirror,
+  type MirrorPlan,
   type RemoteFile,
   type RemoteFolder,
 } from "../drive-mirror.ts";
 import * as horsesRepo from "../repositories/horses.repo.ts";
+import * as metaRepo from "../repositories/meta.repo.ts";
+import type { DriveMeta } from "../types.ts";
 
 /**
  * Writing what the Drive holds into the mirror (`drive-mirror.ts`).
@@ -39,9 +43,36 @@ export const mirrorDrive = (tree: DriveTree): Promise<number> =>
         localDocuments: await db.documents.toArray(),
         horseId: horse.id,
       });
-      await db.documentFolders.bulkPut(plan.folders);
-      await db.documents.bulkPut(plan.documents);
-      await db.documentBlobs.bulkDelete(plan.staleBlobs);
+      await write(plan);
       return plan.folders.length + plan.documents.length;
     },
   );
+
+/**
+ * Makes `folder` the general folder and lets go of what the mirror held of
+ * the previous one (`planFolderChange`), in one transaction: no sync reads
+ * the old rows against the new folder.
+ */
+export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
+  db.transaction(
+    "rw",
+    [db.documents, db.documentFolders, db.documentBlobs, db.meta],
+    async () => {
+      const previous =
+        await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
+      await metaRepo.set("driveFolder", { id: folder.id, name: folder.name });
+      if (previous?.id === folder.id) return;
+      await write(
+        planFolderChange(
+          await db.documentFolders.toArray(),
+          await db.documents.toArray(),
+        ),
+      );
+    },
+  );
+
+const write = async (plan: MirrorPlan): Promise<void> => {
+  await db.documentFolders.bulkPut(plan.folders);
+  await db.documents.bulkPut(plan.documents);
+  await db.documentBlobs.bulkDelete(plan.staleBlobs);
+};

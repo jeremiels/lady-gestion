@@ -201,6 +201,61 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
 };
 
 /**
+ * What the mirror keeps when she picks another general folder. The previous
+ * folder's rows have no reason to be here any more: soft-deleted on this
+ * device only and stamped synced — a change made there and not sent yet
+ * included — so no sync writes to a folder the app no longer shows (§6.6).
+ * The Drive keeps all of it; picking that folder again brings the rows back,
+ * post links included.
+ *
+ * What is not in the Drive yet stays, moved to the top level when its folder
+ * goes: this device holds its only copy, and the next sync sends it into the
+ * new folder.
+ */
+export const planFolderChange = (
+  localFolders: DocumentFolder[],
+  localDocuments: StoredDocument[],
+): MirrorPlan => {
+  const plan: MirrorPlan = { folders: [], documents: [], staleBlobs: [] };
+  const gone = new Set(
+    localFolders
+      .filter((folder) => folder.driveFolderId !== null)
+      .map((folder) => folder.id),
+  );
+  const letGo = <T extends DocumentFolder | StoredDocument>(row: T): T[] =>
+    row.deletedAt === null
+      ? [synced(softDelete(row))]
+      : pending(row)
+        ? [synced(row)]
+        : [];
+
+  for (const folder of localFolders) {
+    if (folder.driveFolderId !== null) {
+      plan.folders.push(...letGo(folder));
+    } else if (
+      folder.deletedAt === null &&
+      folder.parentId !== null &&
+      gone.has(folder.parentId)
+    ) {
+      plan.folders.push(touch(folder, { parentId: null }));
+    }
+  }
+  for (const document of localDocuments) {
+    if (document.driveFileId !== null) {
+      plan.documents.push(...letGo(document));
+      if (document.deletedAt === null) plan.staleBlobs.push(document.id);
+    } else if (
+      document.deletedAt === null &&
+      document.folderId !== null &&
+      gone.has(document.folderId)
+    ) {
+      plan.documents.push(touch(document, { folderId: null }));
+    }
+  }
+  return plan;
+};
+
+/**
  * Changed in the app since its last sync — renamed, moved, linked, deleted —
  * and not sent yet. The Drive does not know yet, so what it says about the
  * row is out of date: the walk leaves it for the next push to settle.

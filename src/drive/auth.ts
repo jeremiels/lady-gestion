@@ -103,10 +103,6 @@ export const markSignInStarted = async (now = Date.now()): Promise<void> => {
 export const getFolder = (): Promise<DriveMeta["driveFolder"] | undefined> =>
   metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
 
-/** Makes `folder` the general folder: the app shows nothing above it. */
-export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
-  metaRepo.set("driveFolder", { id: folder.id, name: folder.name });
-
 let claiming: Promise<boolean> | null = null;
 
 /**

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
-import { documentsRepo, documentsService, metaRepo } from "../data/index.ts";
+import {
+  documentsRepo,
+  documentsService,
+  driveMirrorService,
+  metaRepo,
+} from "../data/index.ts";
 import {
   makeDocument,
   makeHorse,
@@ -369,6 +374,22 @@ describe("syncFolder — changes made in the app", () => {
     expect(await documentsRepo.listPendingChanges()).toEqual([]);
   });
 
+  it("sends nothing to the previous folder when changed with edits not sent yet", async () => {
+    const rows = await mirrored();
+    for (const driveId of ["carnet", "facture"]) {
+      const row = rows.find((doc) => doc.driveFileId === driveId)!;
+      await documentsService.renameDocument(row.id, `${driveId} renommé.pdf`);
+    }
+    DRIVE.elsewhere = [];
+
+    await driveMirrorService.chooseFolder({ id: "elsewhere", name: "Autre" });
+    await syncFolder("elsewhere");
+
+    expect(patches).toEqual([]);
+    expect({ root: DRIVE.root, osteo: DRIVE.osteo }).toEqual(TEMPLATE);
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+
   it("brings the previous folder's rows back when it is picked again", async () => {
     await mirrored();
     await syncFolder("osteo");
@@ -381,5 +402,4 @@ describe("syncFolder — changes made in the app", () => {
     expect(carnet.deletedAt).toBeNull();
     expect(patches).toEqual([]);
   });
-
 });
