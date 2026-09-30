@@ -31,6 +31,7 @@ import {
   DriveRequestError,
   findByAppProperty,
   FOLDER,
+  isVisible,
   listChildren,
   parentsOf,
   updateFile,
@@ -97,8 +98,17 @@ export const walkFolder = async (
 /**
  * One pass over the general folder: send what the app holds that the Drive
  * does not, then read the whole tree back into the mirror.
+ *
+ * First, whether the account signed in can see the folder at all. One of
+ * another Google account — she signed out and in again with a different one
+ * — or deleted for good is forgotten, and she is asked to pick one again;
+ * walked regardless, it would read as empty and every row would go.
  */
 export const syncFolder = async (rootId: string): Promise<void> => {
+  if (!(await isVisible(rootId))) {
+    await driveMirrorService.forgetFolder(rootId);
+    return;
+  }
   await pushPending(rootId);
   const tree = await walkFolder(rootId);
   await driveMirrorService.mirrorDrive({ rootDriveId: rootId, ...tree });

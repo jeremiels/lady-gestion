@@ -329,6 +329,13 @@ redirection, et l'app « réclame » la session ensuite.
 Refresh token révoqué (`invalid_grant`) → 401 → l'app efface `googleAccount`
 et réaffiche « Connecter Google Drive ». Rien d'autre ne change.
 
+Reconnectée avec un autre compte Google : chaque synchro vérifie d'abord que
+le compte voit le dossier général. S'il ne le voit pas (404, ou dossier
+supprimé définitivement), l'app l'oublie, libère son miroir comme au
+changement de dossier et redemande de choisir ; ce qui n'était pas encore
+envoyé part dans le nouveau dossier. Une session inutilisée depuis 180 jours
+(la limite de Google pour un refresh token) est effacée par le cron.
+
 D1, migration `0002_drive.sql` :
 
 `drive_claims` (`claim_hash`, `refresh_token` chiffré, `email`, `scope`,

@@ -90,6 +90,33 @@ export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
     },
   );
 
+/**
+ * Forgets the general folder, and lets go of its rows as `chooseFolder` does,
+ * when the account signed in cannot see it: she signed in with another Google
+ * account, or the folder was deleted for good. The app then asks her to pick
+ * one again. What is not in the Drive yet stays, for the folder she picks.
+ *
+ * Only while `folderId` is still the general folder: one picked meanwhile is
+ * not this sync's to forget.
+ */
+export const forgetFolder = (folderId: string): Promise<void> =>
+  db.transaction(
+    "rw",
+    [db.documents, db.documentFolders, db.documentBlobs, db.meta],
+    async () => {
+      const general =
+        await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
+      if (general?.id !== folderId) return;
+      await metaRepo.remove("driveFolder");
+      await write(
+        planFolderChange(
+          await db.documentFolders.toArray(),
+          await db.documents.toArray(),
+        ),
+      );
+    },
+  );
+
 const write = async (plan: MirrorPlan): Promise<void> => {
   await db.documentFolders.bulkPut(plan.folders);
   await db.documents.bulkPut(plan.documents);

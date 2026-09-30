@@ -209,6 +209,21 @@ export const uploadFile = async (
   return (await response.json()) as { id: string; modifiedTime: string };
 };
 
+/**
+ * Whether the signed-in account can see `id`: `false` for a file or folder of
+ * another Google account, or one deleted for good.
+ */
+export const isVisible = async (id: string): Promise<boolean> => {
+  try {
+    await drive(`/files/${id}?fields=id`);
+    return true;
+  } catch (error: unknown) {
+    if (error instanceof DriveRequestError && error.status === 404)
+      return false;
+    throw error;
+  }
+};
+
 /** The folders a file sits in — one, in practice. */
 export const parentsOf = async (id: string): Promise<string[]> =>
   ((await drive(`/files/${id}?fields=parents`)) as { parents?: string[] })

@@ -14,7 +14,11 @@ import {
   type RemoteFile,
   type RemoteFolder,
 } from "./drive-mirror.ts";
-import { chooseFolder, mirrorDrive } from "./services/driveMirror.service.ts";
+import {
+  chooseFolder,
+  forgetFolder,
+  mirrorDrive,
+} from "./services/driveMirror.service.ts";
 
 const ROOT = "drive-root";
 const T1 = "2026-09-01T10:00:00.000Z";
@@ -531,5 +535,25 @@ describe("chooseFolder", () => {
       id: "d-other",
       name: "Autre",
     });
+  });
+});
+
+describe("forgetFolder", () => {
+  it("forgets the general folder and lets go of its rows, unless another was picked meanwhile", async () => {
+    await db.documents.add(
+      makeDocument({ driveFileId: "d-facture", driveSyncedAt: T1 }),
+    );
+    await db.meta.put({
+      key: "driveFolder",
+      value: { id: "d-new", name: "Neuf" },
+    });
+
+    await forgetFolder("d-old");
+    expect(await db.meta.get("driveFolder")).toBeDefined();
+    expect((await db.documents.toArray())[0]!.deletedAt).toBeNull();
+
+    await forgetFolder("d-new");
+    expect(await db.meta.get("driveFolder")).toBeUndefined();
+    expect((await db.documents.toArray())[0]!.deletedAt).not.toBeNull();
   });
 });

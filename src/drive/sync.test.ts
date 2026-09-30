@@ -142,7 +142,12 @@ beforeEach(async () => {
     }
     const fileId = /\/files\/([^/]+)$/.exec(url.pathname)?.[1];
     // Gone from the Drive for good: emptied from the trash.
-    if (fileId && !locate(fileId)) return new Response(null, { status: 404 });
+    if (fileId && !locate(fileId) && !DRIVE[fileId]) {
+      return new Response(null, { status: 404 });
+    }
+    if (fileId && url.searchParams.get("fields") === "id") {
+      return Response.json({ id: fileId });
+    }
     if (fileId && init?.method === "PATCH") {
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
       patches.push({ id: fileId, url, body });
@@ -681,5 +686,44 @@ describe("syncFolder — an answer lost on the way", () => {
     expect((await db.documentFolders.get(folder.id))!.driveFolderId).toBe(
       "new-2025",
     );
+  });
+});
+
+describe("syncFolder — signed in with another Google account", () => {
+  it("forgets a general folder the account cannot see, and keeps what is not sent yet", async () => {
+    await syncFolder("root");
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", driveFileId: null }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    // The new account's Drive: the previous general folder is not in it.
+    const theirs = DRIVE;
+    DRIVE = { mine: [] };
+
+    await syncFolder("root");
+
+    expect(await metaRepo.get("driveFolder")).toBeUndefined();
+    const rows = await db.documents.toArray();
+    expect(
+      rows.filter((doc) => doc.deletedAt === null).map((doc) => doc.id),
+    ).toEqual(["joint"]);
+    expect(uploads).toEqual([]);
+    expect(patches).toEqual([]);
+    expect(theirs).toEqual(TEMPLATE);
+
+    // She picks a folder of the new account: what was waiting goes there.
+    await driveMirrorService.chooseFolder({ id: "mine", name: "Lady" });
+    await syncFolder("mine");
+    expect(DRIVE.mine!.map((item) => item.name)).toEqual(["joint.pdf"]);
+  });
+
+  it("keeps a general folder the account can see", async () => {
+    await syncFolder("root");
+
+    expect(await metaRepo.get("driveFolder")).toEqual({
+      id: "root",
+      name: "Lady",
+    });
+    expect((await db.documents.toArray()).length).toBeGreaterThan(0);
   });
 });
