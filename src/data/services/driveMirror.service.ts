@@ -27,6 +27,11 @@ export type DriveTree = {
  * transaction, so a view never shows a folder without its files, and a sync
  * that fails halfway leaves the previous mirror whole.
  *
+ * A walk of a folder that is no longer the general one — she picked another
+ * while it ran — writes nothing: it would bring back every row
+ * `chooseFolder` just let go of. Read in the same transaction, so the two
+ * cannot interleave.
+ *
  * Resolves how many rows it wrote — 0 when nothing had changed.
  */
 export const mirrorDrive = (tree: DriveTree): Promise<number> =>
@@ -34,6 +39,9 @@ export const mirrorDrive = (tree: DriveTree): Promise<number> =>
     "rw",
     [db.documents, db.documentFolders, db.documentBlobs, db.horses, db.meta],
     async () => {
+      const general =
+        await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
+      if (general?.id !== tree.rootDriveId) return 0;
       const horse = await horsesRepo.getActive();
       if (!horse) return 0;
 

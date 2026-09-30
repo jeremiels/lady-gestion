@@ -77,6 +77,8 @@ const locate = (id: string) => {
   return null;
 };
 let uploads: RequestInit[] = [];
+/** Runs before the pretend Drive answers — something done meanwhile. */
+let onRequest: ((url: URL, init?: RequestInit) => Promise<void>) | null = null;
 
 beforeEach(async () => {
   await resetDb();
@@ -86,12 +88,15 @@ beforeEach(async () => {
     sessionToken: `session-${Math.random()}`,
     scope: "openid https://www.googleapis.com/auth/drive",
   });
+  await metaRepo.set("driveFolder", { id: "root", name: "Lady" });
   uploads = [];
+  onRequest = null;
   patches = [];
   duringPatch = null;
   DRIVE = structuredClone(TEMPLATE);
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
+    await onRequest?.(url, init);
     if (url.pathname.endsWith("/drive/token")) {
       return Response.json({
         accessToken: "ya29.a",
@@ -373,6 +378,7 @@ describe("syncFolder — changes made in the app", () => {
     await mirrored();
 
     // She picks "Ostéopathe" as the new general folder.
+    await driveMirrorService.chooseFolder({ id: "osteo", name: "Ostéopathe" });
     await syncFolder("osteo");
     await syncFolder("osteo");
 
@@ -403,8 +409,10 @@ describe("syncFolder — changes made in the app", () => {
 
   it("brings the previous folder's rows back when it is picked again", async () => {
     await mirrored();
+    await driveMirrorService.chooseFolder({ id: "osteo", name: "Ostéopathe" });
     await syncFolder("osteo");
 
+    await driveMirrorService.chooseFolder({ id: "root", name: "Lady" });
     await syncFolder("root");
 
     const carnet = (await db.documents.toArray()).find(
@@ -552,5 +560,45 @@ describe("syncFolder — deleting a folder", () => {
       ["vide", true],
     ]);
     expect((await db.documentFolders.get(vide.id))!.deletedAt).not.toBeNull();
+  });
+});
+
+describe("syncFolder — another general folder picked meanwhile", () => {
+  it("writes nothing from the previous folder's walk", async () => {
+    onRequest = async (url) => {
+      if (url.searchParams.get("q")?.includes("'osteo' in parents")) {
+        onRequest = null;
+        await driveMirrorService.chooseFolder({ id: "osteo", name: "Ostéo" });
+      }
+    };
+
+    await syncFolder("root");
+
+    expect(await db.documents.count()).toBe(0);
+    expect(await db.documentFolders.count()).toBe(0);
+  });
+
+  it("stops before uploading into the previous folder", async () => {
+    await documentsService.createFolder("2025", null);
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", driveFileId: null }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    DRIVE.elsewhere = [];
+    onRequest = async (url, init) => {
+      if (url.pathname.endsWith("/files") && init?.method === "POST") {
+        onRequest = null;
+        await driveMirrorService.chooseFolder({
+          id: "elsewhere",
+          name: "Autre",
+        });
+      }
+    };
+
+    await expect(syncFolder("root")).rejects.toThrow();
+    expect(uploads).toEqual([]);
+
+    await syncFolder("elsewhere");
+    expect(DRIVE.elsewhere.map((item) => item.name)).toEqual(["joint.pdf"]);
   });
 });

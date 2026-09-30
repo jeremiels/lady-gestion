@@ -24,6 +24,7 @@ import {
   type RemoteFolder,
 } from "../data/index.ts";
 import type { DocumentFolder, StoredDocument } from "../data/types.ts";
+import { getFolder } from "./auth.ts";
 import {
   createFolder,
   downloadFile,
@@ -186,6 +187,17 @@ const giveUpOn = (error: unknown): void => {
   console.warn("[drive] Refusé par le Drive, abandonné :", error);
 };
 
+/**
+ * Stops the run once she has picked another general folder: what it was about
+ * to create belongs in the new one, which the sync that change started sends
+ * it to.
+ */
+const assertStillGeneral = async (rootId: string): Promise<void> => {
+  if ((await getFolder())?.id !== rootId) {
+    throw new Error("Le dossier général a changé pendant la synchronisation.");
+  }
+};
+
 /** A 404 for a file filed in `parent`, other than the general folder: that folder is gone. */
 const parentGone = (error: unknown, parent: string, rootId: string): boolean =>
   error instanceof DriveRequestError &&
@@ -216,6 +228,7 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
         folder.parentId === null
           ? rootId
           : known.get(folder.parentId)!.driveFolderId!;
+      await assertStillGeneral(rootId);
       let created: Awaited<ReturnType<typeof createFolder>>;
       try {
         created = await createFolder(folder.name, parent);
@@ -333,6 +346,7 @@ const uploadPending = async (rootId: string): Promise<void> => {
       ? { ladyPostId: doc.postId }
       : {};
     const parent = await driveIdOf(doc.folderId, rootId);
+    await assertStillGeneral(rootId);
     let uploaded: Awaited<ReturnType<typeof uploadFile>>;
     try {
       uploaded = await uploadFile(doc.name, blob, parent, appProperties);

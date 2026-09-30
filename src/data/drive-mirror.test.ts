@@ -235,6 +235,26 @@ describe("planMirror", () => {
 describe("mirrorDrive", () => {
   beforeEach(async () => {
     await db.horses.add(makeHorse());
+    await db.meta.put({
+      key: "driveFolder",
+      value: { id: ROOT, name: "Lady" },
+    });
+  });
+
+  it("writes nothing from a walk of a folder no longer the general one", async () => {
+    await db.meta.put({
+      key: "driveFolder",
+      value: { id: "d-other", name: "Autre" },
+    });
+
+    expect(
+      await mirrorDrive({
+        rootDriveId: ROOT,
+        folders: [remoteFolder()],
+        files: [remoteFile()],
+      }),
+    ).toBe(0);
+    expect(await db.documents.count()).toBe(0);
   });
 
   it("writes the plan in one go, and reports nothing to do the second time", async () => {
