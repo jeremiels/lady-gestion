@@ -201,6 +201,10 @@ describe("planMirror", () => {
       plan.folders.map((folder) => [folder.id, folder.deletedAt !== null]),
     ).toEqual([["old", true]]);
     expect(plan.staleBlobs).toEqual(["gone"]);
+    // Only what the Drive already says: nothing for the next push to send.
+    for (const row of [...plan.documents, ...plan.folders]) {
+      expect(row.driveSyncedAt).toBe(row.updatedAt);
+    }
   });
 
   it("brings a file back from the trash onto its old row, post link included", () => {

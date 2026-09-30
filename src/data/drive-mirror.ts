@@ -127,7 +127,11 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       !pending(folder) &&
       !remoteFolderIds.has(folder.driveFolderId)
     ) {
-      plan.folders.push(softDelete(folder));
+      // Stamped as synced: this only records what the Drive already says. Left
+      // pending, the next push would read it as deleted in the app and send
+      // the folder to the Drive's trash — a folder merely outside the general
+      // one, after a change of general folder, or moved away in the Drive.
+      plan.folders.push(synced(softDelete(folder)));
     }
   }
 
@@ -187,7 +191,8 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       !pending(document) &&
       !remoteFileIds.has(document.driveFileId)
     ) {
-      plan.documents.push(softDelete(document));
+      // Synced, like a folder above: gone from the Drive, not deleted here.
+      plan.documents.push(synced(softDelete(document)));
       plan.staleBlobs.push(document.id);
     }
   }

@@ -352,4 +352,34 @@ describe("syncFolder — changes made in the app", () => {
     ]);
     expect((await db.documents.get(facture.id))!.name).toBe("Second.pdf");
   });
+
+  it("lets go of the previous general folder without touching it in the Drive", async () => {
+    await mirrored();
+
+    // She picks "Ostéopathe" as the new general folder.
+    await syncFolder("osteo");
+    await syncFolder("osteo");
+
+    expect(patches).toEqual([]);
+    expect(DRIVE).toEqual(TEMPLATE);
+    const carnet = (await db.documents.toArray()).find(
+      (doc) => doc.driveFileId === "carnet",
+    )!;
+    expect(carnet.deletedAt).not.toBeNull();
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+
+  it("brings the previous folder's rows back when it is picked again", async () => {
+    await mirrored();
+    await syncFolder("osteo");
+
+    await syncFolder("root");
+
+    const carnet = (await db.documents.toArray()).find(
+      (doc) => doc.driveFileId === "carnet",
+    )!;
+    expect(carnet.deletedAt).toBeNull();
+    expect(patches).toEqual([]);
+  });
+
 });
