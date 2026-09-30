@@ -23,7 +23,7 @@ import {
   type RemoteFile,
   type RemoteFolder,
 } from "../data/index.ts";
-import type { StoredDocument } from "../data/types.ts";
+import type { DocumentFolder, StoredDocument } from "../data/types.ts";
 import {
   createFolder,
   downloadFile,
@@ -241,14 +241,37 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
  * Renamed or deleted in the app: the name, or to the trash. A change the
  * Drive refuses for good is marked sent all the same, so the walk that
  * follows writes the Drive's version over it.
+ *
+ * A folder is deleted in the app only when empty, but empty on this device
+ * is as of the last walk: a file put in it from the Google Drive app since
+ * would go to the trash with it, unseen. So the Drive is asked first, and a
+ * folder with anything in it there is kept — the walk then shows what is in
+ * it. Children go first, so a parent emptied of them reads as empty.
  */
 const pushFolderChanges = async (): Promise<void> => {
-  for (const folder of await documentFoldersRepo.listAll()) {
-    if (folder.driveFolderId === null || !pending(folder)) continue;
+  const folders = await documentFoldersRepo.listAll();
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const depth = (folder: DocumentFolder): number => {
+    const parent =
+      folder.parentId === null ? undefined : byId.get(folder.parentId);
+    return parent ? depth(parent) + 1 : 0;
+  };
+  const changed = folders
+    .filter((folder) => folder.driveFolderId !== null && pending(folder))
+    .sort((a, b) => depth(b) - depth(a));
+
+  for (const folder of changed) {
     let modifiedTime: string | null;
     try {
+      if (
+        folder.deletedAt !== null &&
+        (await listChildren(folder.driveFolderId!)).length > 0
+      ) {
+        await documentFoldersRepo.markRestored(folder.id, folder.updatedAt);
+        continue;
+      }
       modifiedTime = await updateFile(
-        folder.driveFolderId,
+        folder.driveFolderId!,
         folder.deletedAt !== null ? { trashed: true } : { name: folder.name },
       );
     } catch (error: unknown) {

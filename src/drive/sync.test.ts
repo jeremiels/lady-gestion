@@ -495,3 +495,62 @@ describe("syncFolder — what the Drive refuses for good", () => {
     });
   });
 });
+
+describe("syncFolder — deleting a folder", () => {
+  /** "Vide" in the general folder, and "Sous" inside it: both empty. */
+  const mirroredWithEmptyFolders = async () => {
+    DRIVE.root!.push({
+      id: "vide",
+      name: "Vide",
+      mimeType: FOLDER,
+      modifiedTime: T1,
+    });
+    DRIVE.vide = [
+      { id: "sous", name: "Sous", mimeType: FOLDER, modifiedTime: T1 },
+    ];
+    DRIVE.sous = [];
+    await syncFolder("root");
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const rows = await db.documentFolders.toArray();
+    return {
+      vide: rows.find((row) => row.driveFolderId === "vide")!,
+      sous: rows.find((row) => row.driveFolderId === "sous")!,
+    };
+  };
+
+  it("keeps a folder that is empty here but not in the Drive", async () => {
+    const { sous } = await mirroredWithEmptyFolders();
+    // Put in it from the Google Drive app since the last walk.
+    DRIVE.sous!.push({
+      id: "ordonnance",
+      name: "Ordonnance.pdf",
+      mimeType: "application/pdf",
+      size: "10",
+      modifiedTime: T2,
+    });
+    await documentsService.deleteFolder(sous.id);
+
+    await syncFolder("root");
+
+    expect(patches).toEqual([]);
+    expect((await db.documentFolders.get(sous.id))!.deletedAt).toBeNull();
+    const ordonnance = (await db.documents.toArray()).find(
+      (doc) => doc.driveFileId === "ordonnance",
+    );
+    expect(ordonnance).toMatchObject({ folderId: sous.id, deletedAt: null });
+  });
+
+  it("trashes a child before its parent, so the parent reads as empty", async () => {
+    const { vide, sous } = await mirroredWithEmptyFolders();
+    await documentsService.deleteFolder(sous.id);
+    await documentsService.deleteFolder(vide.id);
+
+    await syncFolder("root");
+
+    expect(patches.map((patch) => [patch.id, patch.body.trashed])).toEqual([
+      ["sous", true],
+      ["vide", true],
+    ]);
+    expect((await db.documentFolders.get(vide.id))!.deletedAt).not.toBeNull();
+  });
+});

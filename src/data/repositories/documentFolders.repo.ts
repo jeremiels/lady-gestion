@@ -51,3 +51,17 @@ export const markSynced = async (
   if (!existing) return;
   await db.documentFolders.put({ ...existing, ...drive, driveSyncedAt: asOf });
 };
+
+/**
+ * Takes back a deletion the sync did not send — the folder is not empty in
+ * the Drive — and records the row as in step with it as of `asOf`.
+ */
+export const markRestored = async (id: string, asOf: string): Promise<void> => {
+  const existing = await db.documentFolders.get(id);
+  if (!existing) return;
+  await db.documentFolders.put({
+    ...existing,
+    deletedAt: null,
+    driveSyncedAt: asOf,
+  });
+};
