@@ -128,7 +128,7 @@ export const listPendingChanges = async (): Promise<StoredDocument[]> =>
  */
 export const markSynced = async (
   id: string,
-  driveModifiedAt: string,
+  driveModifiedAt: string | null,
   asOf: string,
 ): Promise<void> => {
   const existing = await db.documents.get(id);

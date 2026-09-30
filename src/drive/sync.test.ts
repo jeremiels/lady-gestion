@@ -99,11 +99,19 @@ beforeEach(async () => {
       });
     }
     if (url.pathname.startsWith("/upload/")) {
+      // The metadata part of the multipart body: its JSON is the first line
+      // after the part's headers.
+      const text = await new Response(init!.body).text();
+      const metadata = JSON.parse(
+        text.split("\r\n\r\n")[1]!.split("\r\n")[0]!,
+      ) as { name: string; parents: string[] };
+      const parent = metadata.parents[0]!;
+      if (!DRIVE[parent]) return new Response(null, { status: 404 });
       uploads.push(init!);
       const id = `up-${uploads.length}`;
-      DRIVE.root!.push({
+      DRIVE[parent].push({
         id,
-        name: "joint.pdf",
+        name: metadata.name,
         mimeType: "application/pdf",
         size: "8",
         modifiedTime: T1,
@@ -111,6 +119,8 @@ beforeEach(async () => {
       return Response.json({ id, modifiedTime: T1 });
     }
     const fileId = /\/files\/([^/]+)$/.exec(url.pathname)?.[1];
+    // Gone from the Drive for good: emptied from the trash.
+    if (fileId && !locate(fileId)) return new Response(null, { status: 404 });
     if (fileId && init?.method === "PATCH") {
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
       patches.push({ id: fileId, url, body });
@@ -133,6 +143,7 @@ beforeEach(async () => {
         name: string;
         parents: string[];
       };
+      if (!DRIVE[parents[0]!]) return new Response(null, { status: 404 });
       const created = {
         id: `new-${name}`,
         name,
@@ -401,5 +412,86 @@ describe("syncFolder — changes made in the app", () => {
     )!;
     expect(carnet.deletedAt).toBeNull();
     expect(patches).toEqual([]);
+  });
+});
+
+describe("syncFolder — what the Drive refuses for good", () => {
+  const mirrored = async () => {
+    await syncFolder("root");
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    return db.documents.toArray();
+  };
+
+  /** Emptied from the Drive's trash: gone, listing and all. */
+  const deleteForGood = (id: string) => {
+    const found = locate(id)!;
+    found.items.splice(found.index, 1);
+    delete DRIVE[id];
+  };
+
+  it("gives up on a change to a file gone from the Drive, and still reads the rest", async () => {
+    const facture = (await mirrored()).find(
+      (doc) => doc.driveFileId === "facture",
+    )!;
+    await documentsService.renameDocument(facture.id, "Renommée.pdf");
+    deleteForGood("facture");
+    DRIVE.root!.push({
+      id: "nouveau",
+      name: "Nouveau.pdf",
+      mimeType: "application/pdf",
+      size: "10",
+      modifiedTime: T2,
+    });
+
+    await syncFolder("root");
+
+    expect((await db.documents.get(facture.id))!.deletedAt).not.toBeNull();
+    const rows = await db.documents.toArray();
+    expect(rows.some((doc) => doc.driveFileId === "nouveau")).toBe(true);
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+
+  it("files an upload in the general folder when its folder is gone from the Drive", async () => {
+    await mirrored();
+    const osteo = (await db.documentFolders.toArray()).find(
+      (folder) => folder.driveFolderId === "osteo",
+    )!;
+    await db.documents.add(
+      makeDocument({
+        id: "joint",
+        name: "joint.pdf",
+        folderId: osteo.id,
+        driveFileId: null,
+      }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    deleteForGood("osteo");
+
+    await syncFolder("root");
+
+    expect(DRIVE.root!.some((item) => item.name === "joint.pdf")).toBe(true);
+    expect(await db.documents.get("joint")).toMatchObject({
+      folderId: null,
+      driveFileId: "up-1",
+      deletedAt: null,
+    });
+  });
+
+  it("makes a folder at the top level when its parent is gone from the Drive", async () => {
+    await mirrored();
+    const osteo = (await db.documentFolders.toArray()).find(
+      (folder) => folder.driveFolderId === "osteo",
+    )!;
+    const folder = await documentsService.createFolder("2025", osteo.id);
+    deleteForGood("osteo");
+
+    await syncFolder("root");
+
+    expect(DRIVE.root!.some((item) => item.id === "new-2025")).toBe(true);
+    expect(await db.documentFolders.get(folder.id)).toMatchObject({
+      parentId: null,
+      driveFolderId: "new-2025",
+      deletedAt: null,
+    });
   });
 });

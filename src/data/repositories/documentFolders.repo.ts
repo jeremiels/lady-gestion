@@ -44,7 +44,7 @@ export const listAll = (): Promise<DocumentFolder[]> =>
  */
 export const markSynced = async (
   id: string,
-  drive: { driveFolderId?: string; driveModifiedAt: string },
+  drive: { driveFolderId?: string; driveModifiedAt: string | null },
   asOf: string,
 ): Promise<void> => {
   const existing = await db.documentFolders.get(id);
