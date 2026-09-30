@@ -19,6 +19,7 @@ import {
   type ResolvedCategory,
 } from "../data/index.ts";
 import type { DocumentFolder, Post, StoredDocument } from "../data/types.ts";
+import { documentBytes } from "../drive/sync.ts";
 import { THEME_META } from "../theme/theme.ts";
 import type { IconName } from "../components/app-icon/icons.ts";
 
@@ -57,8 +58,23 @@ export class PostDetailView extends LightElement {
     documentFoldersRepo.list(),
   );
 
+  /** The document whose bytes were last fetched ahead of "Partager". */
+  #fetchedAhead: string | null = null;
+
   /** Back to the calendar or the list, whichever this was opened from. */
   #goBack = () => goBack(POSTS_LIST);
+
+  protected updated() {
+    // "Partager" hands over the first file. Its bytes are fetched as soon as
+    // it is known, so the tap finds them on the device: a download awaited
+    // inside the tap can outlast the user activation iOS requires for
+    // `navigator.share`. Offline or signed out, the share falls back to text.
+    const doc = this.#documents.value?.[0];
+    if (doc && doc.id !== this.#fetchedAhead) {
+      this.#fetchedAhead = doc.id;
+      void documentBytes(doc).catch(() => {});
+    }
+  }
 
   render() {
     if (this.#event.loading) {
@@ -399,9 +415,14 @@ export class PostDetailView extends LightElement {
     }
   }
 
+  /**
+   * The file as the share sheet takes it — from the Drive when not on the
+   * device yet. Typed by its bytes rather than its row: a Google Doc arrives
+   * as the PDF Drive exports it to.
+   */
   async #toFile(doc: StoredDocument): Promise<File | null> {
-    const blob = await documentsRepo.getBlob(doc.id);
-    return blob ? new File([blob], doc.name, { type: doc.mimeType }) : null;
+    const blob = await documentBytes(doc).catch(() => undefined);
+    return blob ? new File([blob], doc.name, { type: blob.type }) : null;
   }
 
   #confirmDelete = async () => {

@@ -206,6 +206,75 @@ describe("post-detail-view", () => {
   });
 });
 
+describe("post-detail-view — Partager", () => {
+  let shared: ShareData[];
+
+  beforeEach(async () => {
+    shared = [];
+    await db.meta.put({
+      key: "googleAccount",
+      value: {
+        email: "lea@example.com",
+        sessionToken: `session-${Math.random()}`,
+        scope: "openid https://www.googleapis.com/auth/drive",
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith("/drive/token")
+          ? Response.json({
+              accessToken: "ya29.a",
+              expiresAt: Date.now() + 3_600_000,
+            })
+          : new Response("%PDF-1.7"),
+      ),
+    );
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async (data: ShareData) => {
+        shared.push(data);
+      },
+    });
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete (navigator as { share?: unknown }).share;
+    delete (navigator as { canShare?: unknown }).canShare;
+  });
+
+  it("hands over a Drive file never opened here, as the PDF a Google Doc exports to", async () => {
+    await db.posts.add(makePost({ id: "care-1", categoryKey: "veto" }));
+    await db.documents.add(
+      makeDocument({
+        id: "bilan",
+        postId: "care-1",
+        name: "Bilan",
+        mimeType: "application/vnd.google-apps.document",
+        driveFileId: "d-bilan",
+      }),
+    );
+
+    const el = await mount("care-1");
+    await waitFor(el, () => el.querySelector(".post-detail__file") !== null);
+    actionLabeled(el, "Partager").click();
+    for (let i = 0; i < 20 && shared.length === 0; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const [file] = shared[0]!.files!;
+    expect(file!.type).toBe("application/pdf");
+    expect(await file!.text()).toBe("%PDF-1.7");
+    // Fetched ahead and kept, so the next tap needs no network.
+    expect(await db.documentBlobs.get("bilan")).toBeDefined();
+  });
+});
+
 describe("post-detail-view — a failed read", () => {
   it("says the event could not be read, not that it may have been deleted", async () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
