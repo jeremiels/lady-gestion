@@ -49,6 +49,13 @@ export const grantsDrive = (scope: string | undefined): boolean =>
 export const CLAIM_TTL_MS = 10 * 60 * 1000;
 /** How long the consent screen may stay open. */
 const STATE_TTL_MS = 30 * 60 * 1000;
+/**
+ * How long a session may go unused before it is dropped: Google's own limit
+ * for a refresh token nobody uses, past which it answers `invalid_grant`
+ * anyway. A lost phone's session goes then, refresh token and all, rather
+ * than sitting here encrypted for ever.
+ */
+export const SESSION_IDLE_MS = 180 * 24 * 60 * 60 * 1000;
 
 const json = (body: unknown, status: number, headers: HeadersInit): Response =>
   new Response(JSON.stringify(body), {
@@ -337,6 +344,16 @@ const revoke = async (refreshToken: string): Promise<void> => {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ token: refreshToken }),
   }).catch(() => null);
+};
+
+/** Sessions unused for `SESSION_IDLE_MS`, dropped by the cron with their refresh token. */
+export const dropIdleSessions = async (
+  env: DriveEnv,
+  now: number,
+): Promise<void> => {
+  await env.DB.prepare("DELETE FROM drive_sessions WHERE last_used_at <= ?1")
+    .bind(now - SESSION_IDLE_MS)
+    .run();
 };
 
 /** Claims nobody came back for, dropped by the cron with their refresh token. */

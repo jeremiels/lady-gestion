@@ -215,5 +215,6 @@ export default {
     const now = Date.now();
     await sendDue(env, now);
     await driveAuth.dropExpiredClaims(env, now);
+    await driveAuth.dropIdleSessions(env, now);
   },
 } satisfies ExportedHandler<Env>;
