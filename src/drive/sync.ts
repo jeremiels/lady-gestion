@@ -84,6 +84,7 @@ export const walkFolder = async (
             size: Number(item.size ?? 0),
             parentDriveId,
             modifiedTime: item.modifiedTime,
+            postId: item.appProperties?.ladyPostId ?? null,
           });
         }
       }

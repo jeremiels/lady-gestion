@@ -35,6 +35,7 @@ const remoteFile = (over: Partial<RemoteFile> = {}): RemoteFile => ({
   size: 64_700,
   parentDriveId: "d-osteo",
   modifiedTime: T1,
+  postId: null,
   ...over,
 });
 
@@ -45,6 +46,7 @@ const input = (over: Partial<MirrorInput> = {}): MirrorInput => ({
   localFolders: [],
   localDocuments: [],
   horseId: HORSE_ID,
+  postIds: new Set(),
   ...over,
 });
 
@@ -229,6 +231,104 @@ describe("planMirror", () => {
       postId: "post-1",
       deletedAt: null,
     });
+  });
+});
+
+describe("planMirror — a new device", () => {
+  it("links a file first seen here to the post its Drive tag names, if that post is here", () => {
+    const plan = planMirror(
+      input({
+        files: [
+          remoteFile({
+            driveId: "d-lie",
+            parentDriveId: ROOT,
+            postId: "post-1",
+          }),
+          remoteFile({
+            driveId: "d-perdu",
+            parentDriveId: ROOT,
+            postId: "post-x",
+          }),
+        ],
+        postIds: new Set(["post-1"]),
+      }),
+    );
+
+    expect(plan.documents.map((doc) => [doc.driveFileId, doc.postId])).toEqual([
+      ["d-lie", "post-1"],
+      ["d-perdu", null],
+    ]);
+  });
+
+  it("keeps the local link over the Drive's tag on a row it already has", () => {
+    const plan = planMirror(
+      input({
+        files: [
+          remoteFile({
+            parentDriveId: ROOT,
+            postId: "post-2",
+            modifiedTime: T2,
+          }),
+        ],
+        localDocuments: [
+          makeDocument({
+            postId: "post-1",
+            driveFileId: "d-facture",
+            driveModifiedAt: T1,
+          }),
+        ],
+        postIds: new Set(["post-1", "post-2"]),
+      }),
+    );
+
+    expect(plan.documents[0]!.postId).toBe("post-1");
+  });
+
+  it("keeps one row per Drive id when a backup brings back rows a sync already made", () => {
+    // The backup's rows: older, and the file linked to a post.
+    const backupFolder = makeDocumentFolder({
+      id: "backup-osteo",
+      name: "Ostéopathe",
+      driveFolderId: "d-osteo",
+      driveModifiedAt: T1,
+      createdAt: T1,
+    });
+    const backupFile = makeDocument({
+      id: "backup-facture",
+      name: "Facture 04/08/2026.pdf",
+      size: 64_700,
+      postId: "post-1",
+      folderId: "backup-osteo",
+      driveFileId: "d-facture",
+      driveModifiedAt: T1,
+      createdAt: T1,
+    });
+    // The first sync's rows on the new phone, made before the restore.
+    const syncFolder = { ...backupFolder, id: "sync-osteo", createdAt: T2 };
+    const syncFile = {
+      ...backupFile,
+      id: "sync-facture",
+      postId: null,
+      folderId: "sync-osteo",
+      createdAt: T2,
+    };
+
+    const plan = planMirror(
+      input({
+        folders: [remoteFolder()],
+        files: [remoteFile()],
+        localFolders: [syncFolder, backupFolder],
+        localDocuments: [syncFile, backupFile],
+      }),
+    );
+
+    expect(plan.folders.map((row) => [row.id, row.deletedAt !== null])).toEqual(
+      [["sync-osteo", true]],
+    );
+    expect(
+      plan.documents.map((row) => [row.id, row.deletedAt !== null]),
+    ).toEqual([["sync-facture", true]]);
+    expect(plan.staleBlobs).toEqual(["sync-facture"]);
   });
 });
 

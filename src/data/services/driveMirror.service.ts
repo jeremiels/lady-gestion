@@ -6,6 +6,7 @@ import {
   type RemoteFile,
   type RemoteFolder,
 } from "../drive-mirror.ts";
+import { liveOnly } from "../record.ts";
 import * as horsesRepo from "../repositories/horses.repo.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
 import type { DriveMeta } from "../types.ts";
@@ -37,7 +38,14 @@ export type DriveTree = {
 export const mirrorDrive = (tree: DriveTree): Promise<number> =>
   db.transaction(
     "rw",
-    [db.documents, db.documentFolders, db.documentBlobs, db.horses, db.meta],
+    [
+      db.documents,
+      db.documentFolders,
+      db.documentBlobs,
+      db.horses,
+      db.meta,
+      db.posts,
+    ],
     async () => {
       const general =
         await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
@@ -50,6 +58,9 @@ export const mirrorDrive = (tree: DriveTree): Promise<number> =>
         localFolders: await db.documentFolders.toArray(),
         localDocuments: await db.documents.toArray(),
         horseId: horse.id,
+        postIds: new Set(
+          liveOnly(await db.posts.toArray()).map(({ id }) => id),
+        ),
       });
       await write(plan);
       return plan.folders.length + plan.documents.length;

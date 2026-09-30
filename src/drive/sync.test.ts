@@ -51,6 +51,7 @@ const TEMPLATE: Record<string, Item[]> = {
       mimeType: "application/pdf",
       size: "64700",
       modifiedTime: T1,
+      appProperties: { ladyPostId: "post-1" },
     },
     {
       id: "bilan",
@@ -213,11 +214,16 @@ describe("walkFolder", () => {
       },
     ]);
     expect(
-      tree.files.map((file) => [file.driveId, file.parentDriveId, file.size]),
+      tree.files.map((file) => [
+        file.driveId,
+        file.parentDriveId,
+        file.size,
+        file.postId,
+      ]),
     ).toEqual([
-      ["carnet", "root", 2048],
-      ["facture", "osteo", 64_700],
-      ["bilan", "osteo", 0],
+      ["carnet", "root", 2048, null],
+      ["facture", "osteo", 64_700, "post-1"],
+      ["bilan", "osteo", 0, null],
     ]);
   });
 });

@@ -36,6 +36,11 @@ export type RemoteFile = {
   size: number;
   parentDriveId: string;
   modifiedTime: string;
+  /**
+   * The post its `appProperties.ladyPostId` names: the link, as the Drive
+   * keeps it for a device that has not seen the file yet (spec §7.3).
+   */
+  postId: string | null;
 };
 
 export type MirrorInput = {
@@ -48,6 +53,8 @@ export type MirrorInput = {
   localDocuments: StoredDocument[];
   /** Given to documents first seen in the Drive: the app has one horse. */
   horseId: string;
+  /** The live posts: a file's Drive link counts only to one of them. */
+  postIds: ReadonlySet<string>;
 };
 
 export type MirrorPlan = {
@@ -63,11 +70,17 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
 
   // Folders first: every remote folder gets its local id before any parent
   // or document is resolved, so the order Drive lists them in does not matter.
-  const localFolderByDrive = new Map(
-    input.localFolders
-      .filter((folder) => folder.driveFolderId !== null)
-      .map((folder) => [folder.driveFolderId!, folder]),
+  const folderRows = oneRowPer(
+    input.localFolders,
+    (folder) => folder.driveFolderId,
+    liveThenOldest,
   );
+  const localFolderByDrive = folderRows.kept;
+  for (const folder of folderRows.dropped) {
+    if (folder.deletedAt === null) {
+      plan.folders.push(synced(softDelete(folder)));
+    }
+  }
   const created = new Map<string, DocumentFolder>();
   for (const remote of input.folders) {
     if (!localFolderByDrive.has(remote.driveId)) {
@@ -118,14 +131,13 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       );
     }
   }
-  for (const folder of input.localFolders) {
-    // A folder not in the Drive yet (`driveFolderId: null`) is the app's to
-    // upload, not the Drive's to delete.
+  // Only rows with a Drive id, one per id: a folder not in the Drive yet is
+  // the app's to upload, not the Drive's to delete.
+  for (const [driveId, folder] of localFolderByDrive) {
     if (
       folder.deletedAt === null &&
-      folder.driveFolderId !== null &&
       !pending(folder) &&
-      !remoteFolderIds.has(folder.driveFolderId)
+      !remoteFolderIds.has(driveId)
     ) {
       // Stamped as synced: this only records what the Drive already says. Left
       // pending, the next push would read it as deleted in the app and send
@@ -135,11 +147,23 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
     }
   }
 
-  const localDocumentByDrive = new Map(
-    input.localDocuments
-      .filter((document) => document.driveFileId !== null)
-      .map((document) => [document.driveFileId!, document]),
+  const documentRows = oneRowPer(
+    input.localDocuments,
+    (document) => document.driveFileId,
+    // As for folders, but one linked to a post before one that is not: the
+    // link is the one thing the Drive cannot give back.
+    (a, b) =>
+      Number(a.deletedAt !== null) - Number(b.deletedAt !== null) ||
+      Number(a.postId === null) - Number(b.postId === null) ||
+      a.createdAt.localeCompare(b.createdAt),
   );
+  const localDocumentByDrive = documentRows.kept;
+  for (const document of documentRows.dropped) {
+    if (document.deletedAt === null) {
+      plan.documents.push(synced(softDelete(document)));
+      plan.staleBlobs.push(document.id);
+    }
+  }
   const remoteFileIds = new Set(input.files.map((file) => file.driveId));
   for (const remote of input.files) {
     const wanted = {
@@ -156,7 +180,10 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
           createRecord<StoredDocument>({
             ...wanted,
             horseId: input.horseId,
-            postId: null,
+            postId:
+              remote.postId !== null && input.postIds.has(remote.postId)
+                ? remote.postId
+                : null,
             issuedAt: null,
             driveFileId: remote.driveId,
             driveSyncedAt: null,
@@ -184,12 +211,11 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       );
     }
   }
-  for (const document of input.localDocuments) {
+  for (const [driveId, document] of localDocumentByDrive) {
     if (
       document.deletedAt === null &&
-      document.driveFileId !== null &&
       !pending(document) &&
-      !remoteFileIds.has(document.driveFileId)
+      !remoteFileIds.has(driveId)
     ) {
       // Synced, like a folder above: gone from the Drive, not deleted here.
       plan.documents.push(synced(softDelete(document)));
@@ -199,6 +225,45 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
 
   return plan;
 };
+
+/**
+ * One row per Drive id, keyed by it, and the rows beyond that.
+ *
+ * Two live rows share one when a backup is restored after a sync already
+ * mirrored the same files under new ids: the file's rows and the sync's.
+ * Left in place, both would show, and the walk would only ever keep one of
+ * them up to date. The first by `order` is kept; the others are for the
+ * caller to let go of, on this device only.
+ */
+const oneRowPer = <T extends DocumentFolder | StoredDocument>(
+  rows: T[],
+  driveIdOf: (row: T) => string | null,
+  order: (a: T, b: T) => number,
+): { kept: Map<string, T>; dropped: T[] } => {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const driveId = driveIdOf(row);
+    if (driveId !== null) {
+      groups.set(driveId, [...(groups.get(driveId) ?? []), row]);
+    }
+  }
+  const kept = new Map<string, T>();
+  const dropped: T[] = [];
+  for (const [driveId, group] of groups) {
+    const [first, ...rest] = group.sort(order);
+    kept.set(driveId, first!);
+    dropped.push(...rest);
+  }
+  return { kept, dropped };
+};
+
+/** A live row before a deleted one, then the oldest: a restored backup's. */
+const liveThenOldest = (
+  a: DocumentFolder | StoredDocument,
+  b: DocumentFolder | StoredDocument,
+): number =>
+  Number(a.deletedAt !== null) - Number(b.deletedAt !== null) ||
+  a.createdAt.localeCompare(b.createdAt);
 
 /**
  * What the mirror keeps when she picks another general folder. The previous

@@ -123,13 +123,17 @@ export const findByAppProperty = async (
   return page.files[0];
 };
 
-/** Anything in a folder, as Drive lists it. `size` is absent for Google Docs. */
+/**
+ * Anything in a folder, as Drive lists it. `size` is absent for Google Docs;
+ * `appProperties` for anything the app never wrote to.
+ */
 export type DriveItem = {
   id: string;
   name: string;
   mimeType: string;
   size?: string;
   modifiedTime: string;
+  appProperties?: Record<string, string>;
 };
 
 /** Everything directly inside `parentId`, folders and files, not trashed. */
@@ -139,7 +143,8 @@ export const listChildren = async (parentId: string): Promise<DriveItem[]> => {
   do {
     const params = new URLSearchParams({
       q: `'${parentId}' in parents and trashed = false`,
-      fields: "nextPageToken, files(id, name, mimeType, size, modifiedTime)",
+      fields:
+        "nextPageToken, files(id, name, mimeType, size, modifiedTime, appProperties)",
       pageSize: "1000",
       ...(pageToken ? { pageToken } : {}),
     });
