@@ -202,10 +202,25 @@ const mirroredDriveId = async (
 /**
  * Whether something can be filed in `driveId` now. Asked of the Drive rather
  * than the mirror, which is as of the last walk: a folder she has put in the
- * trash since would take whatever is filed into it along.
+ * trash since would take whatever is filed into it along, and one she has
+ * moved out of the general folder would take it out of the app's sight.
  */
 const canFileIn = async (driveId: string, rootId: string): Promise<boolean> =>
-  driveId === rootId || (await visibility(driveId)) === "visible";
+  driveId === rootId ||
+  ((await visibility(driveId)) === "visible" &&
+    (await inGeneralFolder(driveId, rootId)));
+
+/**
+ * Whether `driveId` still sits in the general folder, asked of the Drive: one
+ * level up, against the folders the mirror knows (`generalFolderIds`).
+ */
+const inGeneralFolder = async (
+  driveId: string,
+  rootId: string,
+): Promise<boolean> => {
+  const general = await generalFolderIds(rootId);
+  return (await parentsOf(driveId)).some((parent) => general.has(parent));
+};
 
 /**
  * The Drive ids that make up the general folder as the mirror knows it: the
@@ -359,7 +374,9 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
 /**
  * Renamed or deleted in the app: the name, or to the trash. A change the
  * Drive refuses for good is marked sent all the same, so the walk that
- * follows writes the Drive's version over it.
+ * follows writes the Drive's version over it — and so is one to a folder she
+ * has moved out of the general folder in the Drive, which is no longer the
+ * app's to write to: the walk lets it go.
  *
  * A folder is deleted in the app only when empty, but empty on this device
  * is as of the last walk: a file put in it from the Google Drive app since
@@ -381,22 +398,23 @@ const pushFolderChanges = async (rootId: string): Promise<void> => {
 
   for (const folder of changed) {
     await assertStillGeneral(rootId);
-    let modifiedTime: string | null;
+    let modifiedTime = folder.driveModifiedAt;
     try {
-      if (
-        folder.deletedAt !== null &&
-        (await listChildren(folder.driveFolderId!)).length > 0
-      ) {
-        await documentFoldersRepo.markRestored(folder.id, folder.updatedAt);
-        continue;
+      if (await inGeneralFolder(folder.driveFolderId!, rootId)) {
+        if (
+          folder.deletedAt !== null &&
+          (await listChildren(folder.driveFolderId!)).length > 0
+        ) {
+          await documentFoldersRepo.markRestored(folder.id, folder.updatedAt);
+          continue;
+        }
+        modifiedTime = await updateFile(
+          folder.driveFolderId!,
+          folder.deletedAt !== null ? { trashed: true } : { name: folder.name },
+        );
       }
-      modifiedTime = await updateFile(
-        folder.driveFolderId!,
-        folder.deletedAt !== null ? { trashed: true } : { name: folder.name },
-      );
     } catch (error: unknown) {
       giveUpOn(error);
-      modifiedTime = folder.driveModifiedAt;
     }
     await documentFoldersRepo.markSynced(
       folder.id,
@@ -435,8 +453,8 @@ const pushDocumentChanges = async (rootId: string): Promise<void> => {
  * A move reads the file's parents first: the Drive moves a file by adding the
  * new folder and removing the old. Only a folder of the general one is ever
  * removed — a file also filed elsewhere in her Drive stays filed there — and
- * nothing is moved into a folder she has put in the trash since the last
- * walk, which would take the file there with it.
+ * nothing is moved into a folder she has put in the trash, or moved out of
+ * the general folder, since the last walk (`canFileIn`).
  */
 const changeToSend = async (
   doc: StoredDocument,

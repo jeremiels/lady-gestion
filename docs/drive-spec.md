@@ -257,8 +257,9 @@ false`, un niveau à la fois). **Écart assumé au lot 4** : pas de
      par export PDF.
    - conflit (modifié des deux côtés entre deux synchros) : l'app n'envoie
      que les champs qu'elle a changés (`driveChanges` : nom, dossier, lien) ;
-     les autres suivent le Drive. Un fichier sorti du dossier général dans le
-     Drive n'est plus écrit par l'app, suppression comprise.
+     les autres suivent le Drive. Un fichier ou un dossier sorti du dossier
+     général dans le Drive n'est plus écrit par l'app, suppression comprise,
+     et rien n'est plus rangé dans un tel dossier.
    - dossier général mis à la corbeille : aucune synchro (ni envoi, ni
      lecture) tant qu'il y est ; le miroir garde son dernier état.
    - changement de dossier général : rien n'est écrit dans l'ancien ni dans

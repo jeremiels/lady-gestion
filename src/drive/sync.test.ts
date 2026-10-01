@@ -986,6 +986,77 @@ describe("syncFolder — changed on both sides", () => {
   });
 });
 
+describe("syncFolder — a folder she moved out of the general one", () => {
+  /** Mirrored once, then "Ostéopathe" moved elsewhere in her Drive. */
+  const mirroredThenMovedOut = async () => {
+    await syncFolder("root");
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    const osteo = (await db.documentFolders.toArray()).find(
+      (row) => row.driveFolderId === "osteo",
+    )!;
+    // From the Google Drive app, before the next walk.
+    for (const items of Object.values(DRIVE)) {
+      const index = items.findIndex((item) => item.id === "osteo");
+      if (index >= 0) items.splice(index, 1);
+    }
+    DRIVE.archive = [
+      { id: "osteo", name: "Ostéopathe", mimeType: FOLDER, modifiedTime: T1 },
+    ];
+    return osteo;
+  };
+
+  it("does not rename it", async () => {
+    const osteo = await mirroredThenMovedOut();
+    await documentsService.renameFolder(osteo.id, "Ostéo");
+
+    await syncFolder("root");
+
+    expect(patches).toEqual([]);
+    expect((await db.documentFolders.get(osteo.id))!.deletedAt).not.toBeNull();
+  });
+
+  it("does not send it to the trash", async () => {
+    const osteo = await mirroredThenMovedOut();
+    // Empty here and in the Drive: only where it sits now keeps it.
+    await db.documents.clear();
+    DRIVE.osteo = [];
+    await documentsService.deleteFolder(osteo.id);
+
+    await syncFolder("root");
+
+    expect(patches).toEqual([]);
+    expect(TRASHED.size).toBe(0);
+  });
+
+  it("moves no file into it", async () => {
+    const osteo = await mirroredThenMovedOut();
+    const carnet = (await db.documents.toArray()).find(
+      (doc) => doc.driveFileId === "carnet",
+    )!;
+    await documentsService.moveDocument(carnet.id, osteo.id);
+
+    await syncFolder("root");
+
+    expect(
+      patches.some((patch) => patch.url.searchParams.has("addParents")),
+    ).toBe(false);
+    expect(DRIVE.root!.map((item) => item.id)).toContain("carnet");
+  });
+
+  it("uploads a file filed in it into the general folder instead", async () => {
+    const osteo = await mirroredThenMovedOut();
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", folderId: osteo.id }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+
+    await syncFolder("root");
+
+    expect(DRIVE.root!.map((item) => item.name)).toContain("joint.pdf");
+    expect(DRIVE.archive!.map((item) => item.name)).toEqual(["Ostéopathe"]);
+  });
+});
+
 describe("syncFolder — a file in more than one folder", () => {
   it("moves it without taking it out of a folder outside the general one", async () => {
     EXTRA_PARENTS.facture = ["ailleurs"];
