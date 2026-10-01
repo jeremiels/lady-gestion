@@ -382,6 +382,26 @@ export const sendsTo = (
 };
 
 /**
+ * Why a file joined in the app is not in the Drive yet, for its row:
+ * `waiting` for the next sync, `held` back for a general folder she has left,
+ * kept on this phone (`local`), or `refused` by the Drive.
+ */
+export type UploadState = "waiting" | "held" | "local" | "refused";
+
+/** `undefined` for a file in the Drive; `rootId` is the general folder now. */
+export const uploadStateOf = (
+  doc: StoredDocument,
+  folders: ReadonlyMap<string, DocumentFolder>,
+  rootId: string | undefined,
+): UploadState | undefined => {
+  if (doc.driveFileId !== null) return undefined;
+  const destination = destinationOf(doc, folders);
+  if (destination === null) return "local";
+  if (destination !== undefined && destination !== rootId) return "held";
+  return doc.uploadRefused === doc.updatedAt ? "refused" : "waiting";
+};
+
+/**
  * Rows held back for a general folder other than `rootId`: made in the app
  * for one she has left, waiting for her to send them to `rootId` or keep them
  * here. Only those holding the choice themselves — what sits in a held

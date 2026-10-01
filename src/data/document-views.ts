@@ -1,7 +1,10 @@
 import { findCategory, type ResolvedCategory } from "./categories.ts";
+import { uploadStateOf, type UploadState } from "./drive-mirror.ts";
 import * as categoriesRepo from "./repositories/categories.repo.ts";
+import * as documentFoldersRepo from "./repositories/documentFolders.repo.ts";
+import * as metaRepo from "./repositories/meta.repo.ts";
 import * as postsRepo from "./repositories/posts.repo.ts";
-import type { DocumentFolder, StoredDocument } from "./types.ts";
+import type { DocumentFolder, DriveMeta, StoredDocument } from "./types.ts";
 
 /**
  * The category of the post each document belongs to — the tag a document's
@@ -23,6 +26,25 @@ export const postCategoriesOf = async (
     }),
   );
   return Object.fromEntries(entries.filter((entry) => entry !== null));
+};
+
+/**
+ * Why each file joined in the app is not in the Drive yet (`UploadState`),
+ * keyed by document id — the note its row wears. A file in the Drive has none.
+ */
+export const uploadStatesOf = async (
+  documents: StoredDocument[],
+): Promise<Record<string, UploadState>> => {
+  const notSent = documents.filter((doc) => doc.driveFileId === null);
+  if (notSent.length === 0) return {};
+
+  const folders = new Map(
+    (await documentFoldersRepo.listAll()).map((folder) => [folder.id, folder]),
+  );
+  const general = await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
+  return Object.fromEntries(
+    notSent.map((doc) => [doc.id, uploadStateOf(doc, folders, general?.id)!]),
+  );
 };
 
 /**

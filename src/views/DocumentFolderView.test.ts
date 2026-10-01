@@ -63,6 +63,42 @@ describe("document-folder-view", () => {
     );
   });
 
+  it("says which files are not in the Drive yet, and why", async () => {
+    await db.documents.bulkAdd([
+      makeDocument({
+        id: "sent",
+        name: "sent",
+        folderId: "osteo",
+        driveFileId: "d-sent",
+      }),
+      makeDocument({ id: "waiting", name: "waiting", folderId: "osteo" }),
+      makeDocument({
+        id: "kept",
+        name: "kept",
+        folderId: "osteo",
+        driveRootId: null,
+      }),
+    ]);
+    const refused = makeDocument({
+      id: "refused",
+      name: "refused",
+      folderId: "osteo",
+    });
+    await db.documents.add({ ...refused, uploadRefused: refused.updatedAt });
+
+    const el = await mount("osteo");
+    await waitFor(el, () => rows(el).length === 4);
+
+    const note = (id: string) =>
+      rows(el)
+        .find((row) => row.textContent!.includes(id))!
+        .querySelector(".meta")!.textContent;
+    expect(note("sent")).toBe("PDF • 1 ko");
+    expect(note("waiting")).toContain("Pas encore envoyé");
+    expect(note("kept")).toContain("Sur ce téléphone seulement");
+    expect(note("refused")).toContain("Refusé par Google Drive");
+  });
+
   it("says when a folder is empty", async () => {
     const el = await mount("vide");
 

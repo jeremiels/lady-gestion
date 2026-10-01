@@ -196,6 +196,21 @@ export class DocumentActionsSheet extends BaseElement {
                 Lier à un évènement
               </button>
             </li>
+            ${
+              doc.driveFileId === null && doc.uploadRefused === doc.updatedAt
+                ? html`<li>
+                    <button
+                      class="action pressable"
+                      type="button"
+                      ?disabled=${this.busy}
+                      @click=${() =>
+                        this.#save(() => documentsService.retryUpload(doc.id))}
+                    >
+                      Réessayer l’envoi
+                    </button>
+                  </li>`
+                : nothing
+            }
             <li>
               <button
                 class="action action--danger pressable"

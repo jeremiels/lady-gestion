@@ -7,6 +7,7 @@ import {
   formatFileKind,
   formatFileSize,
   type ResolvedCategory,
+  type UploadState,
 } from "../../data/index.ts";
 import type { StoredDocument } from "../../data/types.ts";
 import { THEME_META } from "../../theme/theme.ts";
@@ -15,9 +16,17 @@ import { tagStyle } from "../app-tag/app-tag.ts";
 import "../app-icon/app-icon.ts";
 import "../app-tag/app-tag.ts";
 
+/** What a row says of a file joined in the app and not in the Drive yet. */
+const UPLOAD_NOTES: Record<UploadState, string> = {
+  waiting: "Pas encore envoyé",
+  held: "En attente de votre choix",
+  local: "Sur ce téléphone seulement",
+  refused: "Refusé par Google Drive",
+};
+
 /**
- * A folder's files, one card each: what it is, how big, and the category of
- * the post it belongs to.
+ * A folder's files, one card each: what it is, how big, the category of the
+ * post it belongs to, and — for one not in the Drive yet — why.
  *
  * Presentational — the owning view reads the documents and their posts'
  * categories, and opens the viewer on `document-open`.
@@ -32,6 +41,8 @@ export class DocumentList extends BaseElement {
   /** By document id; a document on no post has no entry. */
   @property({ attribute: false }) categories: Record<string, ResolvedCategory> =
     {};
+  /** By document id; a document in the Drive has no entry. */
+  @property({ attribute: false }) uploads: Record<string, UploadState> = {};
 
   static componentStyles = css`
     :host {
@@ -185,10 +196,17 @@ export class DocumentList extends BaseElement {
     `;
   }
 
-  /** `PDF • 1,2 mo`; a Google Doc has no size of its own, so just its kind. */
+  /**
+   * `PDF • 1,2 mo`; a Google Doc has no size of its own, so just its kind.
+   * Then why it is not in the Drive yet, if it is not.
+   */
   #meta(doc: StoredDocument): string {
-    const kind = formatFileKind(doc.mimeType);
-    return doc.size > 0 ? `${kind} • ${formatFileSize(doc.size)}` : kind;
+    const upload = this.uploads[doc.id];
+    return [
+      formatFileKind(doc.mimeType),
+      ...(doc.size > 0 ? [formatFileSize(doc.size)] : []),
+      ...(upload ? [UPLOAD_NOTES[upload]] : []),
+    ].join(" • ");
   }
 }
 

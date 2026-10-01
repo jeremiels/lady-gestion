@@ -10,7 +10,9 @@ import {
   driveMirrorService,
   errorMessage,
   postCategoriesOf,
+  uploadStatesOf,
   type ResolvedCategory,
+  type UploadState,
 } from "../data/index.ts";
 import type { DocumentFolder, StoredDocument } from "../data/types.ts";
 import { DriveConnection } from "../drive/connection.ts";
@@ -43,9 +45,14 @@ export class DocumentsView extends LightElement {
   #files = new LiveQuery<{
     documents: StoredDocument[];
     categories: Record<string, ResolvedCategory>;
+    uploads: Record<string, UploadState>;
   }>(this, async () => {
     const documents = await documentsRepo.listByFolder(null);
-    return { documents, categories: await postCategoriesOf(documents) };
+    return {
+      documents,
+      categories: await postCategoriesOf(documents),
+      uploads: await uploadStatesOf(documents),
+    };
   });
 
   #drive = new DriveConnection(this);
@@ -140,6 +147,7 @@ export class DocumentsView extends LightElement {
     return html`<document-list
       .documents=${files.documents}
       .categories=${files.categories}
+      .uploads=${files.uploads}
       @document-open=${(event: CustomEvent<{ document: StoredDocument }>) => {
         this.viewing = event.detail.document;
       }}

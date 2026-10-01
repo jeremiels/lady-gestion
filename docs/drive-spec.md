@@ -281,11 +281,16 @@ l'ajout.
 
 ### 6.7 États d'un document
 
-| Situation                            | Affichage                                             |
-| ------------------------------------ | ----------------------------------------------------- |
-| Ajouté dans l'app, pas encore envoyé | normal ; envoi en attente (discret)                   |
-| Dans le Drive, déjà ouvert ici       | normal, lisible hors ligne                            |
-| Dans le Drive, jamais ouvert ici     | lisible en ligne ; hors ligne « Disponible en ligne » |
+| Situation                                          | Affichage                                                                                                |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Ajouté dans l'app, pas encore envoyé               | « Pas encore envoyé » après la taille                                                                    |
+| Retenu après un changement de dossier              | « En attente de votre choix »                                                                            |
+| Gardé sur ce téléphone                             | « Sur ce téléphone seulement »                                                                           |
+| Refusé pour de bon par le Drive (plein, trop gros) | « Refusé par Google Drive » ; plus renvoyé tant qu'il ne change pas, « Réessayer l'envoi » dans son menu |
+| Dans le Drive, déjà ouvert ici                     | normal, lisible hors ligne                                                                               |
+| Dans le Drive, jamais ouvert ici                   | lisible en ligne ; hors ligne « Disponible en ligne »                                                    |
+
+Ces libellés sont provisoires, en attendant la maquette.
 
 ## 7. Architecture
 

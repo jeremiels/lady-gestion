@@ -265,6 +265,17 @@ const stopsTheRun = (error: unknown): boolean =>
   isRateLimited(error);
 
 /**
+ * Whether the Drive will refuse an upload every time it is sent: her Drive is
+ * full (403 `storageQuotaExceeded`), the file too large (413), not hers to
+ * write into (403), or a request it will not take (400). Sent again on every
+ * sync, it would cost the whole file each time, for nothing.
+ */
+const refusesUpload = (error: unknown): boolean =>
+  error instanceof DriveRequestError &&
+  [400, 403, 413].includes(error.status) &&
+  !isRateLimited(error);
+
+/**
  * Stops the run once she has picked another general folder: what it was about
  * to send belongs in the new one, or — a change to the previous folder's
  * files — nowhere, which the sync that change started settles.
@@ -457,10 +468,12 @@ const changeToSend = async (
 
 /**
  * Files joined in the app, oldest first. One whose bytes are gone from the
- * device cannot be sent and is skipped; so is one the Drive refuses, which
- * stays on the device and is tried again next time, and one held back for
- * another general folder or kept on this phone (`sendsTo`). One whose folder
- * is gone from the Drive, or in its trash, goes to the general folder instead.
+ * device cannot be sent and is skipped; so is one held back for another
+ * general folder or kept on this phone (`sendsTo`). One the Drive refuses
+ * stays on the device: tried again next time when the refusal may pass, not
+ * until it changes or she retries when it will not (`uploadRefused`). One
+ * whose folder is gone from the Drive, or in its trash, goes to the general
+ * folder instead.
  */
 const uploadPending = async (rootId: string): Promise<void> => {
   const folders = new Map(
@@ -468,6 +481,7 @@ const uploadPending = async (rootId: string): Promise<void> => {
   );
   for (const doc of await documentsRepo.listPendingUpload()) {
     if (!sendsTo(doc, folders, rootId)) continue;
+    if (doc.uploadRefused === doc.updatedAt) continue;
     const blob = await documentsRepo.getBlob(doc.id);
     if (!blob) continue;
     await assertStillGeneral(rootId);
@@ -488,7 +502,12 @@ const uploadPending = async (rootId: string): Promise<void> => {
       }
     } catch (error: unknown) {
       if (stopsTheRun(error)) throw error;
-      console.warn("[drive] Envoi refusé, réessayé plus tard :", error);
+      if (refusesUpload(error)) {
+        console.warn("[drive] Envoi refusé par le Drive :", error);
+        await documentsRepo.markRefused(doc.id, row.updatedAt);
+      } else {
+        console.warn("[drive] Envoi refusé, réessayé plus tard :", error);
+      }
       continue;
     }
     await documentsRepo.markUploaded(

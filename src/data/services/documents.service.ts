@@ -99,6 +99,10 @@ export const linkDocument = async (
   await documentsRepo.edit(id, { postId });
 };
 
+/** Sends a file the Drive refused once more, at the next sync. */
+export const retryUpload = (id: string): Promise<void> =>
+  documentsRepo.retryUpload(id);
+
 /** To the Drive's trash at the next sync; the bytes leave the device now. */
 export const deleteDocument = (id: string): Promise<void> =>
   documentsRepo.remove(id);

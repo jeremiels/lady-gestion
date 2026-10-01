@@ -395,6 +395,13 @@ export type StoredDocument = BaseRecord & {
   driveChanges?: DocumentDriveChange[];
   /** Where a file joined in the app goes — see `DriveDestination`. */
   driveRootId?: DriveDestination;
+  /**
+   * The `updatedAt` of the version of a file joined in the app that the Drive
+   * refused for good — her Drive is full, the file too large. Not sent again
+   * while the row is that version: a change to it, or "Réessayer l'envoi",
+   * tries once more.
+   */
+  uploadRefused?: string;
 };
 
 /** A document field the app can change and the Drive holds too. */

@@ -113,3 +113,20 @@ describe("document-actions-sheet", () => {
     expect((await db.documents.get("doc"))!.deletedAt).not.toBeNull();
   });
 });
+
+describe("document-actions-sheet — an upload the Drive refused", () => {
+  it("offers to send it again only then", async () => {
+    const { el } = await mount();
+    expect(button(el, "Réessayer")).toBeUndefined();
+
+    const refused = { ...DOC, uploadRefused: DOC.updatedAt };
+    await db.documents.put(refused);
+    el.doc = refused;
+    await settled(el);
+    button(el, "Réessayer").click();
+
+    await vi.waitFor(async () =>
+      expect((await db.documents.get("doc"))!.uploadRefused).toBeUndefined(),
+    );
+  });
+});

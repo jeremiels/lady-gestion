@@ -147,6 +147,25 @@ export const markUploaded = async (
 };
 
 /**
+ * Records that the Drive refused the upload of the row as it stood at `asOf`
+ * for good (`uploadRefused`). A row changed since is left alone: the newer
+ * version may well go through.
+ */
+export const markRefused = async (id: string, asOf: string): Promise<void> => {
+  const existing = await db.documents.get(id);
+  if (!existing || existing.updatedAt !== asOf) return;
+  await db.documents.put({ ...existing, uploadRefused: asOf });
+};
+
+/** Lets the next sync try a refused upload again. */
+export const retryUpload = async (id: string): Promise<void> => {
+  const existing = await db.documents.get(id);
+  if (!existing) return;
+  const { uploadRefused: _, ...row } = existing;
+  await db.documents.put(row);
+};
+
+/**
  * Documents already in the Drive and changed in the app since — renamed,
  * moved, linked or deleted — tombstones included: a deletion has to reach
  * the Drive too.

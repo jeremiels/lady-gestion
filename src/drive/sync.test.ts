@@ -1058,6 +1058,41 @@ describe("syncFolder — refusals that pass", () => {
     ).toBe(true);
   });
 
+  it("does not send again a file the Drive refuses for good, until she retries", async () => {
+    await db.documents.add(makeDocument({ id: "gros", name: "gros.pdf" }));
+    await documentsRepo.putBlob("gros", new Blob(["%PDF"]));
+    let tries = 0;
+    respond = async (url) => {
+      if (!url.pathname.startsWith("/upload/")) return undefined;
+      tries += 1;
+      return refusal(403, "storageQuotaExceeded");
+    };
+
+    await syncFolder("root");
+    await syncFolder("root");
+    expect(tries).toBe(1);
+
+    respond = null;
+    await documentsService.retryUpload("gros");
+    await syncFolder("root");
+    expect(DRIVE.root!.map((item) => item.name)).toContain("gros.pdf");
+  });
+
+  it("sends again a file the Drive could not take for now", async () => {
+    await db.documents.add(makeDocument({ id: "gros", name: "gros.pdf" }));
+    await documentsRepo.putBlob("gros", new Blob(["%PDF"]));
+    respond = async (url) =>
+      url.pathname.startsWith("/upload/")
+        ? new Response(null, { status: 503 })
+        : undefined;
+
+    await syncFolder("root");
+    respond = null;
+    await syncFolder("root");
+
+    expect(DRIVE.root!.map((item) => item.name)).toContain("gros.pdf");
+  });
+
   it("gives up on a request that never answers, as no connection", async () => {
     const controller = new AbortController();
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);

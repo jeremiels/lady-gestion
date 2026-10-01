@@ -9,7 +9,9 @@ import {
   documentFoldersRepo,
   documentsRepo,
   postCategoriesOf,
+  uploadStatesOf,
   type ResolvedCategory,
+  type UploadState,
 } from "../data/index.ts";
 import type { DocumentFolder, StoredDocument } from "../data/types.ts";
 import { syncDrive } from "../drive/sync.ts";
@@ -55,9 +57,14 @@ export class DocumentFolderView extends LightElement {
   #files = new LiveQuery<{
     documents: StoredDocument[];
     categories: Record<string, ResolvedCategory>;
+    uploads: Record<string, UploadState>;
   }>(this, async () => {
     const documents = await documentsRepo.listByFolder(this.folderId);
-    return { documents, categories: await postCategoriesOf(documents) };
+    return {
+      documents,
+      categories: await postCategoriesOf(documents),
+      uploads: await uploadStatesOf(documents),
+    };
   });
 
   #counts = activeHorseQuery<Record<string, number>>(
@@ -157,6 +164,7 @@ export class DocumentFolderView extends LightElement {
             ? html`<document-list
                 .documents=${files.documents}
                 .categories=${files.categories}
+                .uploads=${files.uploads}
                 @document-open=${(
                   event: CustomEvent<{ document: StoredDocument }>,
                 ) => {
