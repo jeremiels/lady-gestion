@@ -355,7 +355,17 @@ export type DocumentFolder = BaseRecord & {
   driveModifiedAt: string | null;
   /** ISO timestamp of the last successful sync; compare against `updatedAt`. */
   driveSyncedAt: string | null;
+  /** Where a folder made in the app goes — see `DriveDestination`. */
+  driveRootId?: DriveDestination;
 };
+
+/**
+ * The general folder a row not in the Drive yet is to be sent to. Absent: the
+ * current one, whichever it is. Another one: held back — it was made for a
+ * general folder she has left since, and goes into the new one only once she
+ * says so. `null`: she chose to keep it on this phone; it is never sent.
+ */
+export type DriveDestination = string | null;
 
 export type StoredDocument = BaseRecord & {
   horseId: string;
@@ -370,13 +380,7 @@ export type StoredDocument = BaseRecord & {
   size: number;
   /** The date printed on the document itself, `YYYY-MM-DD`. */
   issuedAt: string | null;
-  /**
-   * Google Drive file id once uploaded.
-   *
-   * **Not wired yet:** written `null` by `documents.repo.ts` and never read
-   * until Drive sync lands (`docs/drive-spec.md`, lots 4 and 5), like the two
-   * fields below.
-   */
+  /** Google Drive file id; `null` until a file joined in the app is uploaded. */
   driveFileId: string | null;
   /** The Drive's `modifiedTime` as of the last sync. */
   driveModifiedAt: string | null;
@@ -389,6 +393,8 @@ export type StoredDocument = BaseRecord & {
    * then sends all three.
    */
   driveChanges?: DocumentDriveChange[];
+  /** Where a file joined in the app goes — see `DriveDestination`. */
+  driveRootId?: DriveDestination;
 };
 
 /** A document field the app can change and the Drive holds too. */

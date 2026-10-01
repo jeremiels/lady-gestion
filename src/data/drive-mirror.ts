@@ -2,7 +2,13 @@ import { liveQuery } from "./db.ts";
 import { dataReady } from "./ready.ts";
 import { createRecord, softDelete, touch } from "./record.ts";
 import * as metaRepo from "./repositories/meta.repo.ts";
-import type { DocumentFolder, DriveMeta, StoredDocument } from "./types.ts";
+import type {
+  DocumentFolder,
+  DriveDestination,
+  DriveMeta,
+  RecordPatch,
+  StoredDocument,
+} from "./types.ts";
 
 /**
  * How the user's Drive folder becomes rows on this device
@@ -274,12 +280,15 @@ const liveThenOldest = (
  * post links included.
  *
  * What is not in the Drive yet stays, moved to the top level when its folder
- * goes: this device holds its only copy, and the next sync sends it into the
- * new folder.
+ * goes: this device holds its only copy. It is held for `previousRootId`, the
+ * folder it was made for — changing folder must not write to the new one on
+ * its own — until she sends it there or keeps it on this phone (`heldBack`).
+ * Without a previous folder — the first one picked — there is nothing to hold.
  */
 export const planFolderChange = (
   localFolders: DocumentFolder[],
   localDocuments: StoredDocument[],
+  previousRootId: string | undefined,
 ): MirrorPlan => {
   const plan: MirrorPlan = { folders: [], documents: [], staleBlobs: [] };
   const gone = new Set(
@@ -293,32 +302,102 @@ export const planFolderChange = (
       : pending(row)
         ? [synced(row)]
         : [];
+  /** A row not in the Drive yet, out of a folder that goes and held back. */
+  const keep = <T extends DocumentFolder | StoredDocument>(
+    row: T,
+    out: RecordPatch<T>,
+  ): T[] => {
+    if (row.deletedAt !== null) return [];
+    const hold = row.driveRootId === undefined && previousRootId !== undefined;
+    if (!hold && Object.keys(out).length === 0) return [];
+    return [
+      touch(
+        row,
+        hold
+          ? ({ ...out, driveRootId: previousRootId } as RecordPatch<T>)
+          : out,
+      ),
+    ];
+  };
 
   for (const folder of localFolders) {
     if (folder.driveFolderId !== null) {
       plan.folders.push(...letGo(folder));
-    } else if (
-      folder.deletedAt === null &&
-      folder.parentId !== null &&
-      gone.has(folder.parentId)
-    ) {
-      plan.folders.push(touch(folder, { parentId: null }));
+    } else {
+      plan.folders.push(
+        ...keep(
+          folder,
+          folder.parentId !== null && gone.has(folder.parentId)
+            ? { parentId: null }
+            : {},
+        ),
+      );
     }
   }
   for (const document of localDocuments) {
     if (document.driveFileId !== null) {
       plan.documents.push(...letGo(document));
       if (document.deletedAt === null) plan.staleBlobs.push(document.id);
-    } else if (
-      document.deletedAt === null &&
-      document.folderId !== null &&
-      gone.has(document.folderId)
-    ) {
-      plan.documents.push(touch(document, { folderId: null }));
+    } else {
+      plan.documents.push(
+        ...keep(
+          document,
+          document.folderId !== null && gone.has(document.folderId)
+            ? { folderId: null }
+            : {},
+        ),
+      );
     }
   }
   return plan;
 };
+
+/**
+ * Where a row not in the Drive yet is to be sent (`DriveDestination`): its
+ * own `driveRootId`, or else its folder's when that folder is not in the
+ * Drive either — a file filed in a folder held back is held back with it, one
+ * filed in a folder kept on this phone stays there too. `undefined` for the
+ * current general folder.
+ */
+export const destinationOf = (
+  row: DocumentFolder | StoredDocument,
+  folders: ReadonlyMap<string, DocumentFolder>,
+): DriveDestination | undefined => {
+  if (row.driveRootId !== undefined) return row.driveRootId;
+  const parentId = "folderId" in row ? row.folderId : row.parentId;
+  const parent = parentId === null ? undefined : folders.get(parentId);
+  return parent?.deletedAt === null && parent.driveFolderId === null
+    ? destinationOf(parent, folders)
+    : undefined;
+};
+
+/** Whether a row not in the Drive yet may be sent into `rootId`, the general folder now. */
+export const sendsTo = (
+  row: DocumentFolder | StoredDocument,
+  folders: ReadonlyMap<string, DocumentFolder>,
+  rootId: string,
+): boolean => {
+  const destination = destinationOf(row, folders);
+  return destination === undefined || destination === rootId;
+};
+
+/**
+ * Rows held back for a general folder other than `rootId`: made in the app
+ * for one she has left, waiting for her to send them to `rootId` or keep them
+ * here. Only those holding the choice themselves — what sits in a held
+ * folder follows it.
+ */
+export const heldBack = <T extends DocumentFolder | StoredDocument>(
+  rows: T[],
+  rootId: string,
+): T[] =>
+  rows.filter(
+    (row) =>
+      row.deletedAt === null &&
+      ("driveFileId" in row ? row.driveFileId : row.driveFolderId) === null &&
+      typeof row.driveRootId === "string" &&
+      row.driveRootId !== rootId,
+  );
 
 /**
  * Changed in the app since its last sync — renamed, moved, linked, deleted —

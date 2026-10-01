@@ -7,6 +7,8 @@ import {
   activeHorseQuery,
   documentFoldersRepo,
   documentsRepo,
+  driveMirrorService,
+  errorMessage,
   postCategoriesOf,
   type ResolvedCategory,
 } from "../data/index.ts";
@@ -48,11 +50,18 @@ export class DocumentsView extends LightElement {
 
   #drive = new DriveConnection(this);
 
+  /** Made in the app for a general folder she has left: hers to send or keep. */
+  #heldBack = new LiveQuery<number>(this, () =>
+    driveMirrorService.countHeldBack(),
+  );
+
   @state() private folderSheetOpen = false;
   @state() private viewing: StoredDocument | null = null;
   /** The file whose edit button was tapped. */
   @state() private acting: StoredDocument | null = null;
   @state() private creatingFolder = false;
+  @state() private settlingHeldBack = false;
+  @state() private heldBackError = "";
 
   connectedCallback() {
     super.connectedCallback();
@@ -69,7 +78,7 @@ export class DocumentsView extends LightElement {
           <h1 class="page-title" tabindex="-1">Documents</h1>
           <p class="section-subtitle">Coffre-fort de tous les fichiers</p>
         </hgroup>
-        ${this.#renderDriveSetup()}
+        ${this.#renderDriveSetup()} ${this.#renderHeldBack()}
         <ul class="documents-list">
           ${folders.map(
             (folder) => html`
@@ -197,6 +206,66 @@ export class DocumentsView extends LightElement {
         @sheet-close=${this.#closeFolderSheet}
       ></drive-folder-sheet>
     `;
+  }
+
+  /**
+   * What was made in the app for the previous general folder and is not in
+   * the Drive yet: changing folder sends nothing to the new one on its own,
+   * so she says whether it goes there or stays on this phone.
+   */
+  #renderHeldBack() {
+    const count = this.#heldBack.value ?? 0;
+    if (count === 0 || !this.#drive.account || !this.#drive.folder) {
+      return nothing;
+    }
+    return html`
+      <div class="container documents-drive">
+        <p class="documents-drive__text">
+          ${
+            count === 1
+              ? "Un élément ajouté pour votre ancien dossier n’est pas encore dans votre Drive."
+              : `${count} éléments ajoutés pour votre ancien dossier ne sont pas encore dans votre Drive.`
+          }
+        </p>
+        <button
+          class="documents-drive__button pressable"
+          type="button"
+          ?disabled=${this.settlingHeldBack}
+          @click=${() => this.#settleHeldBack(true)}
+        >
+          Les envoyer dans « ${this.#drive.folder.name} »
+        </button>
+        <button
+          class="documents-drive__button pressable"
+          type="button"
+          ?disabled=${this.settlingHeldBack}
+          @click=${() => this.#settleHeldBack(false)}
+        >
+          Les garder sur ce téléphone
+        </button>
+        ${
+          this.heldBackError
+            ? html`<p class="documents-drive__text" role="alert">
+                ${this.heldBackError}
+              </p>`
+            : nothing
+        }
+      </div>
+    `;
+  }
+
+  async #settleHeldBack(send: boolean) {
+    if (this.settlingHeldBack) return;
+    this.settlingHeldBack = true;
+    this.heldBackError = "";
+    try {
+      await driveMirrorService.settleHeldBack(send);
+      if (send) void syncDrive(true);
+    } catch (error: unknown) {
+      this.heldBackError = errorMessage(error, "Modification impossible.");
+    } finally {
+      this.settlingHeldBack = false;
+    }
   }
 
   #closeFolderSheet = () => {

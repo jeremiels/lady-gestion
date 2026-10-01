@@ -57,6 +57,7 @@ export * as documentsService from "./services/documents.service.ts";
 export { folderOptions, postCategoriesOf } from "./document-views.ts";
 export {
   pending as pendingDriveChange,
+  sendsTo,
   watchDriveSetup,
   type DriveSetup,
   type RemoteFile,

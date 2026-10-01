@@ -8,6 +8,7 @@ import {
   resetDb,
 } from "./__tests__/factories.ts";
 import {
+  destinationOf,
   planFolderChange,
   planMirror,
   type MirrorInput,
@@ -16,8 +17,10 @@ import {
 } from "./drive-mirror.ts";
 import {
   chooseFolder,
+  countHeldBack,
   forgetFolder,
   mirrorDrive,
+  settleHeldBack,
 } from "./services/driveMirror.service.ts";
 
 const ROOT = "drive-root";
@@ -469,6 +472,7 @@ describe("planFolderChange", () => {
           deletedAt: LATER,
         }),
       ],
+      ROOT,
     );
 
     for (const row of [...plan.folders, ...plan.documents]) {
@@ -480,22 +484,43 @@ describe("planFolderChange", () => {
     expect(plan.staleBlobs).toEqual(["renamed"]);
   });
 
-  it("keeps what is not in the Drive yet, moved to the top level", () => {
+  it("keeps what is not in the Drive yet, moved to the top level and held for the previous folder", () => {
     const plan = planFolderChange(
       [
         makeDocumentFolder({ id: "osteo", driveFolderId: "d-osteo" }),
         makeDocumentFolder({ id: "new", parentId: "osteo" }),
       ],
-      [makeDocument({ id: "joined", folderId: "osteo" })],
+      [
+        makeDocument({ id: "joined", folderId: "osteo" }),
+        makeDocument({ id: "kept", driveRootId: null }),
+      ],
+      ROOT,
     );
 
     const kept = [...plan.folders, ...plan.documents].filter(
       (row) => row.deletedAt === null,
     );
     expect(kept.map(({ id }) => id)).toEqual(["new", "joined"]);
+    expect(kept.map(({ driveRootId }) => driveRootId)).toEqual([ROOT, ROOT]);
     expect(plan.folders.find(({ id }) => id === "new")!.parentId).toBeNull();
     expect(plan.documents[0]!.folderId).toBeNull();
     expect(plan.staleBlobs).toEqual([]);
+  });
+
+  it("holds nothing back when there was no previous folder, nor one already held", () => {
+    const plan = planFolderChange(
+      [],
+      [makeDocument({ id: "held", driveRootId: "d-older" })],
+      undefined,
+    );
+    expect(plan.documents).toEqual([]);
+
+    const again = planFolderChange(
+      [],
+      [makeDocument({ id: "held", driveRootId: "d-older" })],
+      ROOT,
+    );
+    expect(again.documents).toEqual([]);
   });
 
   it("writes nothing for a row already let go of", () => {
@@ -509,6 +534,7 @@ describe("planFolderChange", () => {
           deletedAt: STAMP,
         }),
       ],
+      ROOT,
     );
 
     expect(plan.documents).toEqual([]);
@@ -555,5 +581,77 @@ describe("forgetFolder", () => {
     await forgetFolder("d-new");
     expect(await db.meta.get("driveFolder")).toBeUndefined();
     expect((await db.documents.toArray())[0]!.deletedAt).not.toBeNull();
+  });
+});
+
+describe("destinationOf", () => {
+  const folders = (...rows: ReturnType<typeof makeDocumentFolder>[]) =>
+    new Map(rows.map((row) => [row.id, row]));
+
+  it("follows a folder not in the Drive yet, and stops at one that is", () => {
+    const held = makeDocumentFolder({ id: "held", driveRootId: "d-old" });
+    const local = makeDocumentFolder({ id: "local", driveRootId: null });
+    const inDrive = makeDocumentFolder({ id: "in", driveFolderId: "d-in" });
+    const all = folders(held, local, inDrive);
+
+    expect(destinationOf(makeDocument({ folderId: "held" }), all)).toBe(
+      "d-old",
+    );
+    expect(destinationOf(makeDocument({ folderId: "local" }), all)).toBeNull();
+    expect(
+      destinationOf(makeDocument({ folderId: "in" }), all),
+    ).toBeUndefined();
+    expect(
+      destinationOf(makeDocument({ folderId: null }), all),
+    ).toBeUndefined();
+    expect(
+      destinationOf(makeDocument({ folderId: "held", driveRootId: ROOT }), all),
+    ).toBe(ROOT);
+  });
+});
+
+describe("settleHeldBack", () => {
+  beforeEach(async () => {
+    await db.meta.put({
+      key: "driveFolder",
+      value: { id: "d-new", name: "Neuf" },
+    });
+    await db.documentFolders.add(
+      makeDocumentFolder({ id: "held-folder", driveRootId: "d-old" }),
+    );
+    await db.documents.bulkAdd([
+      makeDocument({ id: "held", driveRootId: "d-old" }),
+      makeDocument({ id: "inside", folderId: "held-folder" }),
+      makeDocument({ id: "new", driveRootId: "d-new" }),
+      makeDocument({ id: "sent", driveFileId: "d-x", driveRootId: "d-old" }),
+    ]);
+  });
+
+  it("counts what is held back for the general folder now", async () => {
+    expect(await countHeldBack()).toBe(2);
+  });
+
+  it("sends it into the general folder now", async () => {
+    await settleHeldBack(true);
+
+    expect(await countHeldBack()).toBe(0);
+    expect((await db.documents.get("held"))!.driveRootId).toBe("d-new");
+    expect((await db.documentFolders.get("held-folder"))!.driveRootId).toBe(
+      "d-new",
+    );
+  });
+
+  it("or keeps it on this phone for good", async () => {
+    await settleHeldBack(false);
+
+    expect(await countHeldBack()).toBe(0);
+    expect((await db.documents.get("held"))!.driveRootId).toBeNull();
+    // What sits in a kept folder stays with it.
+    const folders = new Map(
+      (await db.documentFolders.toArray()).map((row) => [row.id, row]),
+    );
+    expect(
+      destinationOf((await db.documents.get("inside"))!, folders),
+    ).toBeNull();
   });
 });

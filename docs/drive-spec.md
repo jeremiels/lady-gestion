@@ -261,6 +261,11 @@ false`, un niveau à la fois). **Écart assumé au lot 4** : pas de
      Drive n'est plus écrit par l'app, suppression comprise.
    - dossier général mis à la corbeille : aucune synchro (ni envoi, ni
      lecture) tant qu'il y est ; le miroir garde son dernier état.
+   - changement de dossier général : rien n'est écrit dans l'ancien ni dans
+     le nouveau. Ce qui avait été ajouté dans l'app pour l'ancien et n'est pas
+     encore envoyé (`driveRootId`) est **retenu** ; la page Documents lui
+     demande de l'envoyer dans le nouveau dossier ou de le garder sur ce
+     téléphone, pour de bon. Revenir à l'ancien dossier l'y envoie.
 
 Les octets ne sont **pas** téléchargés à la synchro, seulement à l'ouverture,
 puis gardés dans `documentBlobs`. Les fichiers joints depuis l'app y sont dès
@@ -342,7 +347,7 @@ Reconnectée avec un autre compte Google : chaque synchro vérifie d'abord que
 le compte voit le dossier général. S'il ne le voit pas (404, ou dossier
 supprimé définitivement), l'app l'oublie, libère son miroir comme au
 changement de dossier et redemande de choisir ; ce qui n'était pas encore
-envoyé part dans le nouveau dossier. Une session inutilisée depuis 180 jours
+envoyé est retenu comme au changement de dossier (§6.5). Une session inutilisée depuis 180 jours
 (la limite de Google pour un refresh token) est effacée par le cron.
 
 D1, migration `0002_drive.sql` :

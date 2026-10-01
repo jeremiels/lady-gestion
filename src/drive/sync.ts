@@ -18,6 +18,7 @@ import {
   documentsRepo,
   driveMirrorService,
   pendingDriveChange as pending,
+  sendsTo,
   watchDriveSetup,
   type DriveSetup,
   type RemoteFile,
@@ -296,6 +297,8 @@ const alreadySent = (
  * Folders made in the app, parents before children: a child waits for the
  * pass that gives its parent a Drive id. One whose parent is gone from the
  * Drive, or in its trash, is made at the top level instead, on the next pass.
+ * One held back for another general folder, or kept on this phone, is not
+ * made (`sendsTo`).
  */
 const createPendingFolders = async (rootId: string): Promise<void> => {
   const refused = new Set<string>();
@@ -307,6 +310,7 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
         folder.deletedAt === null &&
         folder.driveFolderId === null &&
         !refused.has(folder.id) &&
+        sendsTo(folder, known, rootId) &&
         (folder.parentId === null ||
           known.get(folder.parentId)?.driveFolderId != null),
     );
@@ -454,11 +458,16 @@ const changeToSend = async (
 /**
  * Files joined in the app, oldest first. One whose bytes are gone from the
  * device cannot be sent and is skipped; so is one the Drive refuses, which
- * stays on the device and is tried again next time. One whose folder is gone
- * from the Drive, or in its trash, goes to the general folder instead.
+ * stays on the device and is tried again next time, and one held back for
+ * another general folder or kept on this phone (`sendsTo`). One whose folder
+ * is gone from the Drive, or in its trash, goes to the general folder instead.
  */
 const uploadPending = async (rootId: string): Promise<void> => {
+  const folders = new Map(
+    (await documentFoldersRepo.listAll()).map((folder) => [folder.id, folder]),
+  );
   for (const doc of await documentsRepo.listPendingUpload()) {
+    if (!sendsTo(doc, folders, rootId)) continue;
     const blob = await documentsRepo.getBlob(doc.id);
     if (!blob) continue;
     await assertStillGeneral(rootId);

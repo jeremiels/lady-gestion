@@ -1,12 +1,13 @@
 import { db } from "../db.ts";
 import {
+  heldBack,
   planFolderChange,
   planMirror,
   type MirrorPlan,
   type RemoteFile,
   type RemoteFolder,
 } from "../drive-mirror.ts";
-import { liveOnly } from "../record.ts";
+import { liveOnly, touch } from "../record.ts";
 import * as horsesRepo from "../repositories/horses.repo.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
 import type { DriveMeta } from "../types.ts";
@@ -85,6 +86,7 @@ export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
         planFolderChange(
           await db.documentFolders.toArray(),
           await db.documents.toArray(),
+          previous?.id,
         ),
       );
     },
@@ -94,7 +96,8 @@ export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
  * Forgets the general folder, and lets go of its rows as `chooseFolder` does,
  * when the account signed in cannot see it: she signed in with another Google
  * account, or the folder was deleted for good. The app then asks her to pick
- * one again. What is not in the Drive yet stays, for the folder she picks.
+ * one again. What is not in the Drive yet stays, held back as on a change of
+ * folder.
  *
  * Only while `folderId` is still the general folder: one picked meanwhile is
  * not this sync's to forget.
@@ -112,6 +115,46 @@ export const forgetFolder = (folderId: string): Promise<void> =>
         planFolderChange(
           await db.documentFolders.toArray(),
           await db.documents.toArray(),
+          folderId,
+        ),
+      );
+    },
+  );
+
+/**
+ * How many folders and files made in the app are held back from the general
+ * folder now (`heldBack`); 0 without one.
+ */
+export const countHeldBack = async (): Promise<number> => {
+  const general = await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
+  if (!general) return 0;
+  return (
+    heldBack(await db.documentFolders.toArray(), general.id).length +
+    heldBack(await db.documents.toArray(), general.id).length
+  );
+};
+
+/**
+ * Settles what is held back: `send` files it for the general folder now, for
+ * the next sync to upload; otherwise it is kept on this phone, for good.
+ */
+export const settleHeldBack = (send: boolean): Promise<void> =>
+  db.transaction(
+    "rw",
+    [db.documents, db.documentFolders, db.meta],
+    async () => {
+      const general =
+        await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
+      if (!general) return;
+      const driveRootId = send ? general.id : null;
+      await db.documentFolders.bulkPut(
+        heldBack(await db.documentFolders.toArray(), general.id).map((row) =>
+          touch(row, { driveRootId }),
+        ),
+      );
+      await db.documents.bulkPut(
+        heldBack(await db.documents.toArray(), general.id).map((row) =>
+          touch(row, { driveRootId }),
         ),
       );
     },

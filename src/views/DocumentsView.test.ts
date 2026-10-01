@@ -104,3 +104,35 @@ describe("documents-view — Google Drive setup", () => {
     expect(prompt(el)).toBeNull();
   });
 });
+
+describe("documents-view — made for the previous general folder", () => {
+  const heldPrompt = (el: DocumentsView) =>
+    [...el.querySelectorAll(".documents-drive")].find((prompt) =>
+      prompt.textContent!.includes("ancien dossier"),
+    );
+
+  beforeEach(async () => {
+    await metaRepo.set("googleAccount", {
+      email: "lea@example.com",
+      sessionToken: "t",
+      scope: "openid https://www.googleapis.com/auth/drive",
+    });
+    await metaRepo.set("driveFolder", { id: "f2", name: "Neuf" });
+    await db.documents.add(makeDocument({ id: "joint", driveRootId: "f1" }));
+  });
+
+  it("asks whether it goes into the new folder or stays on this phone", async () => {
+    const el = await mount();
+    await waitFor(el, () => heldPrompt(el) !== undefined);
+
+    const buttons = [...heldPrompt(el)!.querySelectorAll("button")];
+    expect(buttons.map((button) => button.textContent!.trim())).toEqual([
+      "Les envoyer dans « Neuf »",
+      "Les garder sur ce téléphone",
+    ]);
+
+    buttons[1]!.click();
+    await waitFor(el, () => heldPrompt(el) === undefined);
+    expect((await db.documents.get("joint"))!.driveRootId).toBeNull();
+  });
+});

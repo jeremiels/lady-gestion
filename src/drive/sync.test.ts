@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
 import type { StoredDocument } from "../data/types.ts";
 import {
+  documentFoldersRepo,
   documentsRepo,
   documentsService,
   driveMirrorService,
@@ -703,6 +704,10 @@ describe("syncFolder — another general folder picked meanwhile", () => {
     await expect(syncFolder("root")).rejects.toThrow();
     expect(uploads).toEqual([]);
 
+    // Held back for the folder it was made for, until she sends it on.
+    await syncFolder("elsewhere");
+    expect(DRIVE.elsewhere).toEqual([]);
+    await driveMirrorService.settleHeldBack(true);
     await syncFolder("elsewhere");
     expect(DRIVE.elsewhere.map((item) => item.name)).toEqual(["joint.pdf"]);
   });
@@ -744,6 +749,62 @@ describe("syncFolder — an answer lost on the way", () => {
   });
 });
 
+describe("syncFolder — what was made for the previous general folder", () => {
+  beforeEach(async () => {
+    await documentsService.createFolder("2026", null);
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", driveFileId: null }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    DRIVE.elsewhere = [];
+    await driveMirrorService.chooseFolder({ id: "elsewhere", name: "Autre" });
+  });
+
+  it("sends nothing into the new one on its own, nor back to the old one", async () => {
+    await syncFolder("elsewhere");
+    await syncFolder("elsewhere");
+
+    expect(uploads).toEqual([]);
+    expect(DRIVE.elsewhere).toEqual([]);
+    expect({ root: DRIVE.root, osteo: DRIVE.osteo }).toEqual(TEMPLATE);
+    expect(await driveMirrorService.countHeldBack()).toBe(2);
+  });
+
+  it("sends it into the new one once she says so, with what was filed in it since", async () => {
+    const [made] = await documentFoldersRepo.list();
+    await documentsService.moveDocument("joint", made!.id);
+
+    await driveMirrorService.settleHeldBack(true);
+    await syncFolder("elsewhere");
+
+    expect(DRIVE.elsewhere!.map((item) => item.name)).toEqual(["2026"]);
+    expect(DRIVE["new-2026"]!.map((item) => item.name)).toEqual(["joint.pdf"]);
+  });
+
+  it("keeps it on this phone for good when she says so", async () => {
+    await driveMirrorService.settleHeldBack(false);
+    await syncFolder("elsewhere");
+    // Even once back in the folder it was made for.
+    await driveMirrorService.chooseFolder({ id: "root", name: "Lady" });
+    await syncFolder("root");
+
+    expect(uploads).toEqual([]);
+    expect(DRIVE.elsewhere).toEqual([]);
+    expect(DRIVE.root!.map((item) => item.name)).toEqual(
+      TEMPLATE.root!.map((item) => item.name),
+    );
+    expect((await db.documents.get("joint"))!.deletedAt).toBeNull();
+  });
+
+  it("sends it on its own once she picks the folder it was made for again", async () => {
+    await driveMirrorService.chooseFolder({ id: "root", name: "Lady" });
+    await syncFolder("root");
+
+    expect(DRIVE.root!.map((item) => item.name)).toContain("joint.pdf");
+    expect(DRIVE.root!.map((item) => item.name)).toContain("2026");
+  });
+});
+
 describe("syncFolder — signed in with another Google account", () => {
   it("forgets a general folder the account cannot see, and keeps what is not sent yet", async () => {
     await syncFolder("root");
@@ -766,8 +827,13 @@ describe("syncFolder — signed in with another Google account", () => {
     expect(patches).toEqual([]);
     expect(theirs).toEqual(TEMPLATE);
 
-    // She picks a folder of the new account: what was waiting goes there.
+    // She picks a folder of the new account: what was waiting is held back
+    // until she sends it there.
     await driveMirrorService.chooseFolder({ id: "mine", name: "Lady" });
+    await syncFolder("mine");
+    expect(DRIVE.mine).toEqual([]);
+
+    await driveMirrorService.settleHeldBack(true);
     await syncFolder("mine");
     expect(DRIVE.mine!.map((item) => item.name)).toEqual(["joint.pdf"]);
   });
