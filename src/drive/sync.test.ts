@@ -567,6 +567,22 @@ describe("syncFolder — what the Drive refuses for good", () => {
     expect(await documentsRepo.listPendingChanges()).toEqual([]);
   });
 
+  it("gives up on a change to a file that is hers to read but not to change", async () => {
+    const carnet = (await mirrored()).find(
+      (doc) => doc.driveFileId === "carnet",
+    )!;
+    await documentsService.renameDocument(carnet.id, "Renommé.jpg");
+    respond = async (_url, init) =>
+      init?.method === "PATCH"
+        ? refusal(403, "insufficientFilePermissions")
+        : undefined;
+
+    await syncFolder("root");
+
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+    expect((await db.documents.get(carnet.id))!.name).toBe("carnet.jpg");
+  });
+
   it("files an upload in the general folder when its folder is gone from the Drive", async () => {
     await mirrored();
     const osteo = (await db.documentFolders.toArray()).find(
@@ -722,14 +738,17 @@ describe("syncFolder — an answer lost on the way", () => {
     );
     await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
     loseNextAnswer = true;
+    const sent = async () =>
+      (await db.documents.toArray()).filter((doc) => doc.name === "joint.pdf");
 
-    await expect(syncFolder("root")).rejects.toThrow();
+    // The walk that follows finds the file there, and leaves it to the row.
+    await syncFolder("root");
+    expect(await sent()).toMatchObject([{ id: "joint", driveFileId: null }]);
+
     await syncFolder("root");
 
     expect(uploads).toHaveLength(1);
-    const rows = (await db.documents.toArray()).filter(
-      (doc) => doc.name === "joint.pdf",
-    );
+    const rows = await sent();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: "joint", driveFileId: "up-1" });
   });
@@ -936,6 +955,31 @@ describe("syncFolder — a folder in the Drive's trash", () => {
       deletedAt: null,
     });
     expect(await documentsRepo.getBlob("joint")).toBeDefined();
+  });
+
+  it("brings out a file the Drive refused, so it can still be reached", async () => {
+    await mirroredOnce();
+    const osteo = (await db.documentFolders.toArray()).find(
+      (folder) => folder.driveFolderId === "osteo",
+    )!;
+    await db.documents.add(
+      makeDocument({ id: "gros", name: "gros.pdf", folderId: osteo.id }),
+    );
+    await documentsRepo.putBlob("gros", new Blob(["%PDF"]));
+    respond = async (url) =>
+      url.pathname.startsWith("/upload/")
+        ? refusal(403, "storageQuotaExceeded")
+        : undefined;
+    await syncFolder("root");
+    TRASHED.add("osteo");
+
+    await syncFolder("root");
+
+    expect(await documentFoldersRepo.get(osteo.id)).toBeUndefined();
+    expect(
+      (await documentsRepo.listByFolder(null)).map((doc) => doc.name),
+    ).toContain("gros.pdf");
+    expect(await documentsRepo.getBlob("gros")).toBeDefined();
   });
 
   it("does not move a file into it", async () => {
@@ -1163,18 +1207,46 @@ describe("syncFolder — a file in more than one folder", () => {
 });
 
 describe("syncFolder — refusals that pass", () => {
-  it("keeps a change pending when the Drive says too many requests", async () => {
+  it.each(["userRateLimitExceeded", "dailyLimitExceeded"])(
+    "keeps a change pending when the Drive says too many requests (%s)",
+    async (reason) => {
+      const facture = rowOf(await mirroredOnce(), "facture");
+      await documentsService.renameDocument(facture.id, "Renommée.pdf");
+      respond = async (_url, init) =>
+        init?.method === "PATCH" ? refusal(403, reason) : undefined;
+
+      await expect(syncFolder("root")).rejects.toThrow();
+
+      expect(await documentsRepo.listPendingChanges()).toHaveLength(1);
+      expect((await db.documents.get(facture.id))!.name).toBe("Renommée.pdf");
+    },
+  );
+
+  it("keeps a change the Drive refuses without a lasting reason, and still reads the Drive", async () => {
     const facture = rowOf(await mirroredOnce(), "facture");
     await documentsService.renameDocument(facture.id, "Renommée.pdf");
+    DRIVE.root!.push({
+      id: "nouveau",
+      name: "Nouveau.pdf",
+      mimeType: "application/pdf",
+      size: "10",
+      modifiedTime: T2,
+    });
     respond = async (_url, init) =>
       init?.method === "PATCH"
-        ? refusal(403, "userRateLimitExceeded")
+        ? refusal(403, "accessNotConfigured")
         : undefined;
 
-    await expect(syncFolder("root")).rejects.toThrow();
+    await syncFolder("root");
 
+    // Hers still, and sent again next time: not written over by the walk.
     expect(await documentsRepo.listPendingChanges()).toHaveLength(1);
     expect((await db.documents.get(facture.id))!.name).toBe("Renommée.pdf");
+    expect(
+      (await db.documents.toArray()).some(
+        (doc) => doc.driveFileId === "nouveau",
+      ),
+    ).toBe(true);
   });
 
   it("goes on with the other uploads and the walk when the Drive keeps refusing one file", async () => {
@@ -1220,19 +1292,52 @@ describe("syncFolder — refusals that pass", () => {
     expect(DRIVE.root!.map((item) => item.name)).toContain("gros.pdf");
   });
 
-  it("sends again a file the Drive could not take for now", async () => {
-    await db.documents.add(makeDocument({ id: "gros", name: "gros.pdf" }));
-    await documentsRepo.putBlob("gros", new Blob(["%PDF"]));
-    respond = async (url) =>
-      url.pathname.startsWith("/upload/")
-        ? new Response(null, { status: 503 })
-        : undefined;
+  it.each([
+    ["a 503", () => new Response(null, { status: 503 })],
+    ["a 403 without a lasting reason", () => refusal(403, "domainPolicy")],
+  ])(
+    "sends again a file the Drive could not take for now (%s)",
+    async (_name, refuse) => {
+      await db.documents.add(makeDocument({ id: "gros", name: "gros.pdf" }));
+      await documentsRepo.putBlob("gros", new Blob(["%PDF"]));
+      respond = async (url) =>
+        url.pathname.startsWith("/upload/") ? refuse() : undefined;
+
+      await syncFolder("root");
+      respond = null;
+      await syncFolder("root");
+
+      expect(DRIVE.root!.map((item) => item.name)).toContain("gros.pdf");
+    },
+  );
+
+  it("still reads the Drive when a file's bytes do not get through, and sends no other then", async () => {
+    for (const name of ["gros.pdf", "petit.pdf"]) {
+      await db.documents.add(makeDocument({ id: name, name }));
+      await documentsRepo.putBlob(name, new Blob(["%PDF"]));
+    }
+    let tries = 0;
+    respond = async (url) => {
+      if (!url.pathname.startsWith("/upload/")) return undefined;
+      tries += 1;
+      throw new TypeError("Load failed");
+    };
 
     await syncFolder("root");
+
+    expect(tries).toBe(1);
+    expect((await db.documents.get("petit.pdf"))!.driveFileId).toBeNull();
+    expect(
+      (await db.documents.toArray()).some(
+        (doc) => doc.driveFileId === "carnet",
+      ),
+    ).toBe(true);
+
     respond = null;
     await syncFolder("root");
-
-    expect(DRIVE.root!.map((item) => item.name)).toContain("gros.pdf");
+    expect(DRIVE.root!.map((item) => item.name)).toEqual(
+      expect.arrayContaining(["gros.pdf", "petit.pdf"]),
+    );
   });
 
   it("gives up on a request that never answers, as no connection", async () => {

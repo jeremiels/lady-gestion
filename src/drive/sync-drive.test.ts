@@ -14,6 +14,10 @@ import { initDriveSync, syncDrive } from "./sync.ts";
 let walks = 0;
 /** Holds the walk until released — a sync still running. */
 let gate: Promise<void> | null = null;
+/** Whether the general folder is in the pretend Drive's trash. */
+let trashed = false;
+/** Answers the general folder's listing in the pretend Drive's place. */
+let listing: (() => Response) | null = null;
 
 beforeAll(async () => {
   // `initDriveSync` listens on both; this project runs in Node.
@@ -33,11 +37,12 @@ beforeAll(async () => {
         });
       }
       if (url.searchParams.get("fields") === "id,trashed") {
-        return Response.json({ id: "root", trashed: false });
+        return Response.json({ id: "root", trashed });
       }
       if (url.searchParams.get("q")?.includes("'root' in parents")) {
         walks += 1;
         await gate;
+        if (listing) return listing();
       }
       return Response.json({ files: [] });
     }),
@@ -81,5 +86,39 @@ describe("syncDrive", () => {
     await syncDrive();
 
     expect(walks).toBe(3);
+  });
+});
+
+describe("syncDrive — what stood in the way", () => {
+  const problem = () => metaRepo.get("driveSyncProblem");
+
+  it("says the general folder is in the trash, until it is out of it", async () => {
+    trashed = true;
+    await syncDrive(true);
+    expect(await problem()).toBe("trashed");
+
+    trashed = false;
+    await syncDrive(true);
+    expect(await problem()).toBeUndefined();
+  });
+
+  it("says a sync the Drive refused did not go through, not one that found no connection", async () => {
+    listing = () => {
+      throw new TypeError("Failed to fetch");
+    };
+    await syncDrive(true);
+    expect(await problem()).toBeUndefined();
+
+    listing = () =>
+      Response.json(
+        { error: { errors: [{ reason: "accessNotConfigured" }] } },
+        { status: 403 },
+      );
+    await syncDrive(true);
+    expect(await problem()).toBe("failed");
+
+    listing = null;
+    await syncDrive(true);
+    expect(await problem()).toBeUndefined();
   });
 });

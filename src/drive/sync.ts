@@ -17,6 +17,7 @@ import {
   documentFoldersRepo,
   documentsRepo,
   driveMirrorService,
+  metaRepo,
   pendingDriveChange as pending,
   sendsTo,
   watchDriveSetup,
@@ -27,9 +28,10 @@ import {
 import type {
   DocumentDriveChange,
   DocumentFolder,
+  DriveMeta,
   StoredDocument,
 } from "../data/types.ts";
-import { getFolder } from "./auth.ts";
+import { DriveSignedOutError, getFolder } from "./auth.ts";
 import {
   createFolder,
   downloadFile,
@@ -92,6 +94,7 @@ export const walkFolder = async (
             parentDriveId,
             modifiedTime: item.modifiedTime,
             postId: item.appProperties?.ladyPostId ?? null,
+            docId: item.appProperties?.ladyDocId ?? null,
           });
         }
       }
@@ -111,21 +114,58 @@ export const walkFolder = async (
  * walked regardless, it would read as empty and every row would go. One in
  * the Drive's trash is left alone until she takes it out: walked, it would
  * read as empty too, and anything sent into it would go to the trash with it.
+ * That is the one way a pass ends without having synced and without an
+ * error, so it resolves `trashed` then, and nothing otherwise.
  */
-export const syncFolder = async (rootId: string): Promise<void> => {
+export const syncFolder = async (
+  rootId: string,
+): Promise<"trashed" | undefined> => {
   const root = await visibility(rootId);
   if (root === "gone") {
     await driveMirrorService.forgetFolder(rootId);
-    return;
+    return undefined;
   }
   if (root === "trashed") {
     console.warn("[drive] Le dossier général est dans la corbeille du Drive.");
-    return;
+    return "trashed";
   }
   await pushPending(rootId);
   const tree = await walkFolder(rootId);
   await driveMirrorService.mirrorDrive({ rootDriveId: rootId, ...tree });
+  return undefined;
 };
+
+/**
+ * Keeps what stood in the way of the last sync (`driveSyncProblem`) for the
+ * Documents page to say; `undefined` once one went through. Written only when
+ * it changes, and never a reason for a sync to fail in its turn.
+ */
+const recordProblem = async (
+  problem: DriveMeta["driveSyncProblem"] | undefined,
+): Promise<void> => {
+  try {
+    const known =
+      await metaRepo.get<DriveMeta["driveSyncProblem"]>("driveSyncProblem");
+    if (known === problem) return;
+    if (problem) await metaRepo.set("driveSyncProblem", problem);
+    else await metaRepo.remove("driveSyncProblem");
+  } catch (error: unknown) {
+    console.warn("[drive] État de la synchronisation non enregistré :", error);
+  }
+};
+
+/**
+ * Whether a failed sync is one to tell her about. Not when it will pass on
+ * its own or is already on screen: no connection, signed out — "Connecter
+ * Google Drive" is back — or another general folder picked while it ran,
+ * which the sync that change started settles.
+ */
+const standsInTheWay = (error: unknown): boolean =>
+  !(
+    error instanceof DriveSignedOutError ||
+    error instanceof GeneralFolderChanged ||
+    (error instanceof DriveRequestError && error.status === 0)
+  );
 
 /**
  * One sync, unless one is running — then that one's result. `force` skips the
@@ -145,13 +185,15 @@ export const syncDrive = (force = false): Promise<void> => {
 
   const rootId = setup.folder.id;
   running = syncFolder(rootId)
-    .then(() => {
+    .then((problem) => {
       lastRun = Date.now();
+      return recordProblem(problem);
     })
     .catch((error: unknown) => {
       // Offline, Worker down, signed out meanwhile: the mirror stays as it
       // was, and the next foreground return tries again.
       console.warn("[drive] Synchronisation impossible :", error);
+      if (standsInTheWay(error)) return recordProblem("failed");
     })
     .finally(() => {
       running = null;
@@ -174,7 +216,8 @@ export const syncDrive = (force = false): Promise<void> => {
  * stops the run and leaves the rest pending for the next sync, walk included.
  * One the Drive will give every time (`isPermanent`) is given up on instead:
  * left to block, it would stop every sync after it for good, and the app
- * would never see the Drive again.
+ * would never see the Drive again. A refusal that is neither leaves its one
+ * change pending and the run going (`givesUpOn`).
  */
 const pushPending = async (rootId: string): Promise<void> => {
   await createPendingFolders(rootId);
@@ -229,29 +272,62 @@ const inGeneralFolder = async (
 };
 
 /**
- * Drive's words for a request refused only for now: too many, too fast. It
- * says so with a 403, the status it also uses for a refusal that holds.
+ * Drive's words for a request refused only for now: too many, too fast, or
+ * the day's allowance spent. It says so with a 403, the status it also uses
+ * for a refusal that holds.
  */
-const RATE_LIMITED = new Set(["rateLimitExceeded", "userRateLimitExceeded"]);
+const RATE_LIMITED = new Set([
+  "rateLimitExceeded",
+  "userRateLimitExceeded",
+  "dailyLimitExceeded",
+]);
 
 const isRateLimited = (error: DriveRequestError): boolean =>
   error.status === 429 ||
   (error.status === 403 && RATE_LIMITED.has(error.reason ?? ""));
 
 /**
+ * Drive's words for a 403 that holds: the file or folder is hers to read but
+ * not to change. Any other 403 is about the app or the account as a whole —
+ * the API switched off, a policy — and says nothing lasting about the file.
+ */
+const NOT_HERS_TO_CHANGE = new Set([
+  "insufficientFilePermissions",
+  "appNotAuthorizedToFile",
+]);
+
+/**
  * A refusal the Drive will repeat on every try: the file is gone (404), hers
- * to read but not to change (403), or the request is one it will not take
- * (400). Offline, the Worker down, a rate limit: those pass, and are not.
+ * to read but not to change (403, `NOT_HERS_TO_CHANGE`), or the request is
+ * one it will not take (400). Offline, the Worker down, a rate limit: those
+ * pass, and are not.
  */
 const isPermanent = (error: unknown): boolean =>
   error instanceof DriveRequestError &&
-  [400, 403, 404].includes(error.status) &&
-  !isRateLimited(error);
+  (error.status === 400 ||
+    error.status === 404 ||
+    (error.status === 403 && NOT_HERS_TO_CHANGE.has(error.reason ?? "")));
 
-/** Rethrows `error` unless it is permanent; logs it and lets the run go on otherwise. */
-const giveUpOn = (error: unknown): void => {
-  if (!isPermanent(error)) throw error;
-  console.warn("[drive] Refusé par le Drive, abandonné :", error);
+/**
+ * Whether to give up on a change the Drive refused: `true` for a refusal it
+ * will repeat every time (`isPermanent`), `false` for a 403 it gives no
+ * lasting reason for — the change then stays pending, hers rather than thrown
+ * away, and the run goes on. Rethrows anything else: nothing gets through now.
+ */
+const givesUpOn = (error: unknown): boolean => {
+  if (isPermanent(error)) {
+    console.warn("[drive] Refusé par le Drive, abandonné :", error);
+    return true;
+  }
+  if (
+    error instanceof DriveRequestError &&
+    error.status === 403 &&
+    !isRateLimited(error)
+  ) {
+    console.warn("[drive] Refusé par le Drive, réessayé plus tard :", error);
+    return false;
+  }
+  throw error;
 };
 
 /**
@@ -268,14 +344,18 @@ const stopsTheRun = (error: unknown): boolean =>
 
 /**
  * Whether the Drive will refuse an upload every time it is sent: her Drive is
- * full (403 `storageQuotaExceeded`), the file too large (413), not hers to
- * write into (403), or a request it will not take (400). Sent again on every
- * sync, it would cost the whole file each time, for nothing.
+ * full (403 `storageQuotaExceeded`), the file too large (413), the folder not
+ * hers to write into (403, `NOT_HERS_TO_CHANGE`), or a request it will not
+ * take (400). Sent again on every sync, it would cost the whole file each
+ * time, for nothing.
  */
 const refusesUpload = (error: unknown): boolean =>
   error instanceof DriveRequestError &&
-  [400, 403, 413].includes(error.status) &&
-  !isRateLimited(error);
+  (error.status === 400 ||
+    error.status === 413 ||
+    (error.status === 403 &&
+      (error.reason === "storageQuotaExceeded" ||
+        NOT_HERS_TO_CHANGE.has(error.reason ?? ""))));
 
 /**
  * Stops the run once she has picked another general folder: what it was about
@@ -283,10 +363,14 @@ const refusesUpload = (error: unknown): boolean =>
  * files — nowhere, which the sync that change started settles.
  */
 const assertStillGeneral = async (rootId: string): Promise<void> => {
-  if ((await getFolder())?.id !== rootId) {
-    throw new Error("Le dossier général a changé pendant la synchronisation.");
-  }
+  if ((await getFolder())?.id !== rootId) throw new GeneralFolderChanged();
 };
+
+class GeneralFolderChanged extends Error {
+  constructor() {
+    super("Le dossier général a changé pendant la synchronisation.");
+  }
+}
 
 /**
  * The Drive's copy of a row an earlier sync created there, found by the row
@@ -302,7 +386,8 @@ const alreadySent = (
   id: string,
 ): Promise<{ id: string; modifiedTime: string } | undefined> =>
   findByAppProperty(key, id).catch((error: unknown) => {
-    giveUpOn(error);
+    if (!isPermanent(error)) throw error;
+    console.warn("[drive] Recherche refusée par le Drive :", error);
     return undefined;
   });
 
@@ -345,7 +430,8 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
           ladyFolderId: folder.id,
         });
       } catch (error: unknown) {
-        giveUpOn(error);
+        // Refused for good or only for now, it is not made in this run.
+        givesUpOn(error);
         refused.add(folder.id);
         continue;
       }
@@ -401,7 +487,7 @@ const pushFolderChanges = async (rootId: string): Promise<void> => {
         );
       }
     } catch (error: unknown) {
-      giveUpOn(error);
+      if (!givesUpOn(error)) continue;
     }
     await documentFoldersRepo.markSynced(
       folder.id,
@@ -424,7 +510,7 @@ const pushDocumentChanges = async (rootId: string): Promise<void> => {
       const change = await changeToSend(doc, rootId);
       if (change) modifiedTime = await updateFile(doc.driveFileId!, change);
     } catch (error: unknown) {
-      giveUpOn(error);
+      if (!givesUpOn(error)) continue;
     }
     await documentsRepo.markSynced(doc.id, modifiedTime, doc.updatedAt);
   }
@@ -484,6 +570,13 @@ const changeToSend = async (
  * changes or she retries when it will not (`uploadRefused`). One whose folder
  * is gone from the Drive, or in its trash, goes to the general folder
  * instead.
+ *
+ * Bytes that do not get through — the connection too weak for them, or gone
+ * as they went — end the uploads, not the run: the requests that follow are
+ * small, and a photo that cannot be sent from where she stands must not keep
+ * the app from reading the Drive. Truly offline, the next request stops the
+ * run. The file may have reached the Drive all the same, its answer lost: the
+ * walk leaves it for the next sync to take up (`planMirror`).
  */
 const uploadPending = async (rootId: string): Promise<void> => {
   const folders = new Map(
@@ -496,6 +589,7 @@ const uploadPending = async (rootId: string): Promise<void> => {
     await assertStillGeneral(rootId);
     let row = doc;
     let uploaded: { id: string; modifiedTime: string } | undefined;
+    let sendingBytes = false;
     try {
       uploaded = await alreadySent("ladyDocId", doc.id);
       if (!uploaded) {
@@ -505,12 +599,21 @@ const uploadPending = async (rootId: string): Promise<void> => {
           row = (await documentsRepo.update(doc.id, { folderId: null })) ?? row;
           parent = rootId;
         }
+        sendingBytes = true;
         uploaded = await uploadFile(row.name, blob, parent, {
           ladyDocId: row.id,
           ...(row.postId ? { ladyPostId: row.postId } : {}),
         });
       }
     } catch (error: unknown) {
+      if (
+        sendingBytes &&
+        error instanceof DriveRequestError &&
+        error.status === 0
+      ) {
+        console.warn("[drive] Envoi interrompu, repris plus tard :", error);
+        return;
+      }
       if (stopsTheRun(error)) throw error;
       if (refusesUpload(error)) {
         console.warn("[drive] Envoi refusé par le Drive :", error);

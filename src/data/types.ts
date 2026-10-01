@@ -477,6 +477,13 @@ export type DriveMeta = {
   driveClaim: { claim: string; createdAt: number };
   /** The general folder she picked; the app shows nothing above it. */
   driveFolder: { id: string; name: string };
+  /**
+   * What stood in the way of the last sync of that folder, absent when it
+   * went through: the folder is in the Drive's trash (`trashed`), or the
+   * Drive or the Worker refused (`failed`). Being offline is not one — the
+   * mirror is then simply as of the last sync.
+   */
+  driveSyncProblem: "trashed" | "failed";
 };
 
 export type MetaKey =
@@ -487,6 +494,7 @@ export type MetaKey =
   | "googleAccount"
   | "driveClaim"
   | "driveFolder"
+  | "driveSyncProblem"
   /** The folder her last attachment went to (`null`: the general folder). */
   | "attachmentFolderId"
   /** Written by the profile switch; off, `listReminders` sends no reminder. */

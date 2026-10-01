@@ -105,6 +105,41 @@ describe("documents-view — Google Drive setup", () => {
   });
 });
 
+describe("documents-view — a sync that did not go through", () => {
+  const notice = (el: DocumentsView) =>
+    el.querySelector(".documents-drive [role=status]");
+
+  beforeEach(async () => {
+    await metaRepo.set("googleAccount", {
+      email: "lea@example.com",
+      sessionToken: "t",
+      scope: "openid https://www.googleapis.com/auth/drive",
+    });
+    await metaRepo.set("driveFolder", { id: "f1", name: "PONEY" });
+  });
+
+  it("says the general folder is in the Drive's trash, by name", async () => {
+    await metaRepo.set("driveSyncProblem", "trashed");
+
+    const el = await mount();
+    await waitFor(el, () => notice(el) !== null);
+
+    expect(notice(el)!.textContent).toContain("« PONEY »");
+    expect(notice(el)!.textContent).toContain("corbeille");
+  });
+
+  it("says the last sync did not go through, until one does", async () => {
+    await metaRepo.set("driveSyncProblem", "failed");
+
+    const el = await mount();
+    await waitFor(el, () => notice(el) !== null);
+    expect(notice(el)!.textContent).toContain("n’a pas abouti");
+
+    await metaRepo.remove("driveSyncProblem");
+    await waitFor(el, () => notice(el) === null);
+  });
+});
+
 describe("documents-view — made for the previous general folder", () => {
   const heldPrompt = (el: DocumentsView) =>
     [...el.querySelectorAll(".documents-drive")].find((prompt) =>

@@ -9,12 +9,17 @@ import {
   documentsRepo,
   driveMirrorService,
   errorMessage,
+  metaRepo,
   postCategoriesOf,
   uploadStatesOf,
   type ResolvedCategory,
   type UploadState,
 } from "../data/index.ts";
-import type { DocumentFolder, StoredDocument } from "../data/types.ts";
+import type {
+  DocumentFolder,
+  DriveMeta,
+  StoredDocument,
+} from "../data/types.ts";
 import { DriveConnection } from "../drive/connection.ts";
 import { syncDrive } from "../drive/sync.ts";
 import { folderPath } from "./DocumentFolderView.ts";
@@ -57,6 +62,12 @@ export class DocumentsView extends LightElement {
 
   #drive = new DriveConnection(this);
 
+  /** What stood in the way of the last sync, if anything (`syncDrive`). */
+  #syncProblem = new LiveQuery<DriveMeta["driveSyncProblem"] | undefined>(
+    this,
+    () => metaRepo.get<DriveMeta["driveSyncProblem"]>("driveSyncProblem"),
+  );
+
   /** Made in the app for a general folder she has left: hers to send or keep. */
   #heldBack = new LiveQuery<number>(this, () =>
     driveMirrorService.countHeldBack(),
@@ -85,7 +96,8 @@ export class DocumentsView extends LightElement {
           <h1 class="page-title" tabindex="-1">Documents</h1>
           <p class="section-subtitle">Coffre-fort de tous les fichiers</p>
         </hgroup>
-        ${this.#renderDriveSetup()} ${this.#renderHeldBack()}
+        ${this.#renderDriveSetup()} ${this.#renderSyncProblem()}
+        ${this.#renderHeldBack()}
         <ul class="documents-list">
           ${folders.map(
             (folder) => html`
@@ -213,6 +225,26 @@ export class DocumentsView extends LightElement {
         @drive-folder-chosen=${this.#closeFolderSheet}
         @sheet-close=${this.#closeFolderSheet}
       ></drive-folder-sheet>
+    `;
+  }
+
+  /**
+   * Why the page may not be what her Drive holds now: the last sync did not
+   * go through, for a reason that will not pass on its own. Nothing while
+   * offline — the page is then as of the last sync, as it always is.
+   */
+  #renderSyncProblem() {
+    const problem = this.#syncProblem.value;
+    const folder = this.#drive.folder;
+    if (!problem || !this.#drive.account || !folder) return nothing;
+    const text =
+      problem === "trashed"
+        ? `Le dossier « ${folder.name} » est dans la corbeille de votre Google Drive. Sortez-le de la corbeille pour retrouver vos documents à jour.`
+        : "La synchronisation avec Google Drive n’a pas abouti. Vos documents sont ceux de la dernière synchronisation réussie.";
+    return html`
+      <div class="container documents-drive">
+        <p class="documents-drive__text" role="status">${text}</p>
+      </div>
     `;
   }
 

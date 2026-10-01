@@ -203,6 +203,9 @@ updatedAt"` (on retire `category` et `[horseId+category]`).
 ouverte, pas encore réclamée) et `driveFolder` (`{ id, name }`, dossier
 général), typés par `DriveMeta` dans `types.ts` (lot 3). Au lot 4 :
 `driveSyncedAt` (dernière synchro réussie, pour « mis à jour il y a … »).
+`driveSyncProblem` (`trashed` ou `failed`) : ce qui a empêché la dernière
+synchro, affiché sur la page Documents ; absent quand elle a abouti, et hors
+ligne.
 
 ### 6.4 Montée v13 / v14 → v15
 
@@ -252,7 +255,9 @@ false`, un niveau à la fois). **Écart assumé au lot 4** : pas de
      changé, les octets en cache sont jetés ;
    - disparu ou à la corbeille → ligne soft-supprimée et octets jetés. Un lien
      vers un post disparaît avec le fichier : c'est elle qui l'a supprimé.
-     Sorti de la corbeille → la même ligne revit, lien compris.
+     Sorti de la corbeille → la même ligne revit, lien compris. Ce qui était
+     rangé dans un dossier disparu sans être encore dans le Drive remonte
+     dans le dossier général : son seul exemplaire est sur le téléphone.
    - raccourcis Google Drive ignorés ; Google Docs/Sheets listés, ouverts
      par export PDF.
    - conflit (modifié des deux côtés entre deux synchros) : l'app n'envoie

@@ -47,6 +47,11 @@ export type RemoteFile = {
    * keeps it for a device that has not seen the file yet (spec §7.3).
    */
   postId: string | null;
+  /**
+   * The row its `appProperties.ladyDocId` names: the file is one a sync of
+   * the app sent, tagged with the id of the row it was sent for.
+   */
+  docId: string | null;
 };
 
 export type MirrorInput = {
@@ -171,6 +176,11 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
     }
   }
   const remoteFileIds = new Set(input.files.map((file) => file.driveId));
+  const notSentYet = new Set(
+    input.localDocuments
+      .filter((doc) => doc.driveFileId === null && doc.deletedAt === null)
+      .map((doc) => doc.id),
+  );
   for (const remote of input.files) {
     const wanted = {
       name: remote.name,
@@ -181,6 +191,11 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
     };
     const existing = localDocumentByDrive.get(remote.driveId);
     if (!existing) {
+      // Sent for a row that never had the answer — the upload got through as
+      // the connection gave out. The row is here already: the next sync takes
+      // this file up for it (`alreadySent`, `src/drive/sync.ts`), where a row
+      // added now would be a second one for the same file.
+      if (remote.docId !== null && notSentYet.has(remote.docId)) continue;
       plan.documents.push(
         synced(
           createRecord<StoredDocument>({
@@ -226,6 +241,39 @@ export const planMirror = (input: MirrorInput): MirrorPlan => {
       // Synced, like a folder above: gone from the Drive, not deleted here.
       plan.documents.push(synced(softDelete(document)));
       plan.staleBlobs.push(document.id);
+    }
+  }
+
+  // What is not in the Drive is on this device alone, and no walk files it.
+  // Left in a folder that has gone, no page would list it: it moves to the
+  // top level, as on a change of general folder (`planFolderChange`).
+  const liveFolders = new Set(
+    input.localFolders
+      .filter((folder) => folder.deletedAt === null)
+      .map((folder) => folder.id),
+  );
+  for (const folder of plan.folders) {
+    if (folder.deletedAt === null) liveFolders.add(folder.id);
+    else liveFolders.delete(folder.id);
+  }
+  for (const folder of input.localFolders) {
+    if (
+      folder.driveFolderId === null &&
+      folder.deletedAt === null &&
+      folder.parentId !== null &&
+      !liveFolders.has(folder.parentId)
+    ) {
+      plan.folders.push(touch(folder, { parentId: null }));
+    }
+  }
+  for (const document of input.localDocuments) {
+    if (
+      document.driveFileId === null &&
+      document.deletedAt === null &&
+      document.folderId !== null &&
+      !liveFolders.has(document.folderId)
+    ) {
+      plan.documents.push(touch(document, { folderId: null }));
     }
   }
 

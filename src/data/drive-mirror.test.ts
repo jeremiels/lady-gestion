@@ -43,6 +43,7 @@ const remoteFile = (over: Partial<RemoteFile> = {}): RemoteFile => ({
   parentDriveId: "d-osteo",
   modifiedTime: T1,
   postId: null,
+  docId: null,
   ...over,
 });
 
@@ -448,6 +449,89 @@ describe("planMirror — changes made in the app, not sent yet", () => {
   });
 });
 
+describe("planMirror — what is not in the Drive yet", () => {
+  it("moves it to the top level when its folder is gone from the Drive", () => {
+    const leaving = makeDocumentFolder({
+      id: "leaving",
+      driveFolderId: "d-old",
+      driveSyncedAt: T1,
+    });
+    // Let go of by an earlier walk: a row left in it is brought out too.
+    const left = makeDocumentFolder({
+      id: "left",
+      driveFolderId: "d-older",
+      driveSyncedAt: T1,
+      deletedAt: T1,
+    });
+    const staying = makeDocumentFolder({
+      id: "staying",
+      driveFolderId: "d-osteo",
+      driveModifiedAt: T1,
+      driveSyncedAt: T1,
+    });
+    const made = makeDocumentFolder({ id: "made", parentId: "leaving" });
+    const kept = makeDocument({
+      id: "kept",
+      folderId: "leaving",
+      driveRootId: null,
+    });
+    const stranded = makeDocument({ id: "stranded", folderId: "left" });
+    const inMade = makeDocument({ id: "in-made", folderId: "made" });
+    const inStaying = makeDocument({ id: "in-staying", folderId: "staying" });
+
+    const plan = planMirror(
+      input({
+        folders: [remoteFolder({ driveId: "d-osteo", name: "Factures" })],
+        localFolders: [leaving, left, staying, made],
+        localDocuments: [kept, stranded, inMade, inStaying],
+      }),
+    );
+
+    expect(
+      plan.folders.map((row) => [row.id, row.parentId, row.deletedAt !== null]),
+    ).toEqual([
+      ["leaving", null, true],
+      ["made", null, false],
+    ]);
+    expect(plan.documents.map((row) => [row.id, row.folderId])).toEqual([
+      ["kept", null],
+      ["stranded", null],
+    ]);
+    // Still this device's alone: nothing here says the Drive has them.
+    for (const row of plan.documents) {
+      expect(row).toMatchObject({ driveFileId: null, driveSyncedAt: null });
+    }
+    expect(plan.documents[0]!.driveRootId).toBeNull();
+    expect(plan.staleBlobs).toEqual([]);
+  });
+
+  it("adds no second row for a file sent for a row that never had the answer", () => {
+    const sent = makeDocument({ id: "sent", folderId: null });
+    const file = remoteFile({
+      driveId: "d-sent",
+      parentDriveId: ROOT,
+      docId: "sent",
+    });
+
+    expect(
+      planMirror(input({ files: [file], localDocuments: [sent] })),
+    ).toEqual({ folders: [], documents: [], staleBlobs: [] });
+
+    // Once the row has taken the file up, it follows the Drive like any other.
+    const plan = planMirror(
+      input({
+        files: [{ ...file, name: "Renommé.pdf" }],
+        localDocuments: [
+          { ...sent, driveFileId: "d-sent", driveSyncedAt: sent.updatedAt },
+        ],
+      }),
+    );
+    expect(plan.documents.map((row) => [row.id, row.name])).toEqual([
+      ["sent", "Renommé.pdf"],
+    ]);
+  });
+});
+
 describe("planFolderChange", () => {
   const STAMP = "2026-09-10T10:00:00.000Z";
   const LATER = "2026-09-11T10:00:00.000Z";
@@ -552,11 +636,16 @@ describe("chooseFolder", () => {
       value: { id: "d-root", name: "Lady" },
     });
 
+    // What stood in the way of this folder's sync says nothing of another's.
+    await db.meta.put({ key: "driveSyncProblem", value: "trashed" });
+
     await chooseFolder({ id: "d-root", name: "Lady" });
     expect((await db.documents.toArray())[0]!.deletedAt).toBeNull();
+    expect(await db.meta.get("driveSyncProblem")).toBeDefined();
 
     await chooseFolder({ id: "d-other", name: "Autre" });
     expect((await db.documents.toArray())[0]!.deletedAt).not.toBeNull();
+    expect(await db.meta.get("driveSyncProblem")).toBeUndefined();
     expect((await db.meta.get("driveFolder"))!.value).toEqual({
       id: "d-other",
       name: "Autre",

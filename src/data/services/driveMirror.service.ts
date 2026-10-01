@@ -71,7 +71,8 @@ export const mirrorDrive = (tree: DriveTree): Promise<number> =>
 /**
  * Makes `folder` the general folder and lets go of what the mirror held of
  * the previous one (`planFolderChange`), in one transaction: no sync reads
- * the old rows against the new folder.
+ * the old rows against the new folder. What stood in the way of the previous
+ * folder's sync says nothing of this one, and goes with it.
  */
 export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
   db.transaction(
@@ -82,6 +83,7 @@ export const chooseFolder = (folder: DriveMeta["driveFolder"]): Promise<void> =>
         await metaRepo.get<DriveMeta["driveFolder"]>("driveFolder");
       await metaRepo.set("driveFolder", { id: folder.id, name: folder.name });
       if (previous?.id === folder.id) return;
+      await metaRepo.remove("driveSyncProblem");
       await write(
         planFolderChange(
           await db.documentFolders.toArray(),
