@@ -211,34 +211,21 @@ const canFileIn = async (driveId: string, rootId: string): Promise<boolean> =>
     (await inGeneralFolder(driveId, rootId)));
 
 /**
- * Whether `driveId` still sits in the general folder, asked of the Drive: one
- * level up, against the folders the mirror knows (`generalFolderIds`).
+ * Whether `driveId` is the general folder or sits under it, asked of the
+ * Drive: up through its parents, as many levels as there are. Not of the
+ * mirror, which is as of the last walk — a folder she has moved out of the
+ * general folder since still reads there as part of it, and so does
+ * everything in it.
  */
 const inGeneralFolder = async (
   driveId: string,
   rootId: string,
 ): Promise<boolean> => {
-  const general = await generalFolderIds(rootId);
-  return (await parentsOf(driveId)).some((parent) => general.has(parent));
-};
-
-/**
- * The Drive ids that make up the general folder as the mirror knows it: the
- * folder itself, and every folder under it that is still there or deleted in
- * the app and not sent yet. A file whose folders are none of these has left
- * the general folder in the Drive.
- */
-const generalFolderIds = async (rootId: string): Promise<Set<string>> => {
-  const ids = new Set([rootId]);
-  for (const folder of await documentFoldersRepo.listAll()) {
-    if (
-      folder.driveFolderId !== null &&
-      (folder.deletedAt === null || pending(folder))
-    ) {
-      ids.add(folder.driveFolderId);
-    }
+  if (driveId === rootId) return true;
+  for (const parent of await parentsOf(driveId)) {
+    if (await inGeneralFolder(parent, rootId)) return true;
   }
-  return ids;
+  return false;
 };
 
 /**
@@ -448,7 +435,8 @@ const pushDocumentChanges = async (rootId: string): Promise<void> => {
  * the app changed (`driveChanges`), so whatever she did in the Drive
  * meanwhile to the others stands. `null` when there is nothing to send — or
  * nothing the app may send: a file she moved out of the general folder in the
- * Drive is no longer the app's to write to, and the walk lets it go.
+ * Drive, itself or with a folder above it, is no longer the app's to write
+ * to, and the walk lets it go.
  *
  * A move reads the file's parents first: the Drive moves a file by adding the
  * new folder and removing the old. Only a folder of the general one is ever
@@ -461,8 +449,10 @@ const changeToSend = async (
   rootId: string,
 ): Promise<Parameters<typeof updateFile>[1] | null> => {
   const parents = await parentsOf(doc.driveFileId!);
-  const general = await generalFolderIds(rootId);
-  const inGeneral = parents.filter((parent) => general.has(parent));
+  const inGeneral: string[] = [];
+  for (const parent of parents) {
+    if (await inGeneralFolder(parent, rootId)) inGeneral.push(parent);
+  }
   if (inGeneral.length === 0) return null;
   if (doc.deletedAt !== null) return { trashed: true };
 
@@ -486,12 +476,14 @@ const changeToSend = async (
 
 /**
  * Files joined in the app, oldest first. One whose bytes are gone from the
- * device cannot be sent and is skipped; so is one held back for another
- * general folder or kept on this phone (`sendsTo`). One the Drive refuses
- * stays on the device: tried again next time when the refusal may pass, not
- * until it changes or she retries when it will not (`uploadRefused`). One
- * whose folder is gone from the Drive, or in its trash, goes to the general
- * folder instead.
+ * device — a backup restored on a new phone carries none — cannot be sent: it
+ * takes up the copy an earlier sync left in the Drive (`alreadySent`), and is
+ * skipped when there is none. So is one held back for another general folder
+ * or kept on this phone (`sendsTo`). One the Drive refuses stays on the
+ * device: tried again next time when the refusal may pass, not until it
+ * changes or she retries when it will not (`uploadRefused`). One whose folder
+ * is gone from the Drive, or in its trash, goes to the general folder
+ * instead.
  */
 const uploadPending = async (rootId: string): Promise<void> => {
   const folders = new Map(
@@ -501,13 +493,13 @@ const uploadPending = async (rootId: string): Promise<void> => {
     if (!sendsTo(doc, folders, rootId)) continue;
     if (doc.uploadRefused === doc.updatedAt) continue;
     const blob = await documentsRepo.getBlob(doc.id);
-    if (!blob) continue;
     await assertStillGeneral(rootId);
     let row = doc;
     let uploaded: { id: string; modifiedTime: string } | undefined;
     try {
       uploaded = await alreadySent("ladyDocId", doc.id);
       if (!uploaded) {
+        if (!blob) continue;
         let parent = (await mirroredDriveId(doc.folderId, rootId)) ?? rootId;
         if (!(await canFileIn(parent, rootId))) {
           row = (await documentsRepo.update(doc.id, { folderId: null })) ?? row;

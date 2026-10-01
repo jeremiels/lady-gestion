@@ -23,6 +23,15 @@ import "../app-select/app-select.ts";
 type Mode = "menu" | "rename" | "move" | "link" | "delete";
 
 /**
+ * What deleting does to the file. One in the Drive goes to its trash; one not
+ * there yet has its only copy on this phone, and that goes for good.
+ */
+const deletionNotice = (doc: StoredDocument): string =>
+  doc.driveFileId === null
+    ? `« ${doc.name} » n’est pas dans votre Google Drive : il sera supprimé de ce téléphone, sans pouvoir être récupéré.`
+    : `« ${doc.name} » partira dans la corbeille de votre Google Drive, où il reste récupérable 30 jours.`;
+
+/**
  * What can be done to one file from the app: rename it, move it to another
  * folder, attach it to a post, delete it. Each is written on the device at
  * once and sent to the Drive by the sync (`documentsService`, `syncDrive`).
@@ -302,10 +311,7 @@ export class DocumentActionsSheet extends BaseElement {
       case "delete":
         return html`
           <div class="step">
-            <p>
-              « ${doc.name} » partira dans la corbeille de votre Google Drive,
-              où il reste récupérable 30 jours.
-            </p>
+            <p>${deletionNotice(doc)}</p>
             ${this.#renderError()}
             <button
               class="confirm confirm--danger pressable"

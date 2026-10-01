@@ -195,8 +195,10 @@ beforeEach(async () => {
       return Response.json({ modifiedTime: T2 });
     }
     if (fileId && url.searchParams.get("fields") === "parents") {
+      // A folder listed in none stands at the top of her Drive: no parent.
+      const found = locate(fileId);
       return Response.json({
-        parents: [locate(fileId)!.parent, ...(EXTRA_PARENTS[fileId] ?? [])],
+        parents: found ? [found.parent, ...(EXTRA_PARENTS[fileId] ?? [])] : [],
       });
     }
     if (url.pathname.endsWith("/files") && init?.method === "POST") {
@@ -747,6 +749,34 @@ describe("syncFolder — an answer lost on the way", () => {
       "new-2025",
     );
   });
+
+  it("takes up the Drive's copy of a file whose bytes are gone from the device", async () => {
+    // A backup restored on a new phone: the row comes back without its bytes.
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", postId: "post-9" }),
+    );
+    DRIVE.root!.push({
+      id: "envoye",
+      name: "joint.pdf",
+      mimeType: "application/pdf",
+      size: "8",
+      modifiedTime: T1,
+      appProperties: { ladyDocId: "joint", ladyPostId: "post-9" },
+    });
+
+    await syncFolder("root");
+
+    expect(uploads).toEqual([]);
+    const rows = (await db.documents.toArray()).filter(
+      (doc) => doc.name === "joint.pdf",
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: "joint",
+      driveFileId: "envoye",
+      postId: "post-9",
+    });
+  });
 });
 
 describe("syncFolder — what was made for the previous general folder", () => {
@@ -1055,11 +1085,51 @@ describe("syncFolder — a folder she moved out of the general one", () => {
     expect(DRIVE.root!.map((item) => item.name)).toContain("joint.pdf");
     expect(DRIVE.archive!.map((item) => item.name)).toEqual(["Ostéopathe"]);
   });
+
+  it("writes nothing to a file inside it", async () => {
+    await mirroredThenMovedOut();
+    const rows = await db.documents.toArray();
+    await documentsService.renameDocument(
+      rowOf(rows, "facture").id,
+      "Renommée.pdf",
+    );
+    await documentsService.deleteDocument(rowOf(rows, "bilan").id);
+
+    await syncFolder("root");
+
+    expect(patches).toEqual([]);
+    expect(TRASHED.size).toBe(0);
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+
+  it("uploads a file filed in a folder under it into the general folder instead", async () => {
+    DRIVE.osteo!.push({
+      id: "annee",
+      name: "2025",
+      mimeType: FOLDER,
+      modifiedTime: T1,
+    });
+    DRIVE.annee = [];
+    await mirroredThenMovedOut();
+    const annee = (await db.documentFolders.toArray()).find(
+      (row) => row.driveFolderId === "annee",
+    )!;
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", folderId: annee.id }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+
+    await syncFolder("root");
+
+    expect(DRIVE.root!.map((item) => item.name)).toContain("joint.pdf");
+    expect(DRIVE.annee).toEqual([]);
+  });
 });
 
 describe("syncFolder — a file in more than one folder", () => {
   it("moves it without taking it out of a folder outside the general one", async () => {
     EXTRA_PARENTS.facture = ["ailleurs"];
+    DRIVE.ailleurs = [];
     const facture = rowOf(await mirroredOnce(), "facture");
     await documentsService.moveDocument(facture.id, null);
 
@@ -1071,6 +1141,7 @@ describe("syncFolder — a file in more than one folder", () => {
 
   it("renames it without moving it", async () => {
     EXTRA_PARENTS.facture = ["ailleurs"];
+    DRIVE.ailleurs = [];
     const facture = rowOf(await mirroredOnce(), "facture");
     await documentsService.renameDocument(facture.id, "Renommée.pdf");
 

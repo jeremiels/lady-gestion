@@ -95,4 +95,15 @@ describe("folder-sheet", () => {
     await waitFor(el, () => done.mock.calls.length > 0);
     expect(done.mock.calls[0]![0].detail).toEqual({ deleted: true });
   });
+
+  it("promises the Drive's trash only to a folder that is in the Drive", async () => {
+    const { el } = await mount(OSTEO);
+    button(el, "Supprimer le dossier").click();
+    await settled(el);
+    expect(root(el).textContent).not.toContain("corbeille");
+
+    el.folder = { ...OSTEO, driveFolderId: "drive-osteo" };
+    await settled(el);
+    expect(root(el).textContent).toContain("corbeille");
+  });
 });

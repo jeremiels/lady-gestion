@@ -16,11 +16,11 @@ import type { DocumentActionsSheet } from "./document-actions-sheet.ts";
 
 const DOC = makeDocument({ id: "doc", name: "scan.pdf", folderId: null });
 
-const mount = async () => {
+const mount = async (doc = DOC) => {
   const el = await fixture<DocumentActionsSheet>(
     html`<document-actions-sheet
       .open=${true}
-      .doc=${DOC}
+      .doc=${doc}
     ></document-actions-sheet>`,
   );
   const done = vi.fn();
@@ -101,7 +101,9 @@ describe("document-actions-sheet", () => {
   });
 
   it("deletes it only once confirmed", async () => {
-    const { el, done } = await mount();
+    const sent = { ...DOC, driveFileId: "drive-1" };
+    await db.documents.put(sent);
+    const { el, done } = await mount(sent);
     button(el, "Supprimer").click();
     await settled(el);
     expect(root(el).textContent).toContain("corbeille");
@@ -111,6 +113,15 @@ describe("document-actions-sheet", () => {
 
     await waitFor(el, () => done.mock.calls.length > 0);
     expect((await db.documents.get("doc"))!.deletedAt).not.toBeNull();
+  });
+
+  it("says a file not in the Drive yet is deleted for good", async () => {
+    const { el } = await mount();
+    button(el, "Supprimer").click();
+    await settled(el);
+
+    expect(root(el).textContent).toContain("sans pouvoir être récupéré");
+    expect(root(el).textContent).not.toContain("corbeille");
   });
 });
 

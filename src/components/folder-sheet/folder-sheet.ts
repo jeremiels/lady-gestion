@@ -10,6 +10,15 @@ import "../app-bottom-sheet/app-bottom-sheet.ts";
 import "../app-input/app-input.ts";
 
 /**
+ * What deleting does to the folder: to the Drive's trash, or — for one made in
+ * the app and not in the Drive yet — off this phone, the only place it is.
+ */
+const deletionNotice = (folder: DocumentFolder): string =>
+  folder.driveFolderId === null
+    ? `« ${folder.name} » n’est pas dans votre Google Drive : il sera supprimé de ce téléphone.`
+    : `« ${folder.name} » partira dans la corbeille de votre Google Drive, où il reste récupérable 30 jours.`;
+
+/**
  * A folder of her Drive, from the app: a new one inside `parentId`, or — with
  * `folder` set — renaming or deleting that one. Written on the device first
  * and sent to the Drive by the sync (`documentsService`, `syncDrive`).
@@ -144,10 +153,7 @@ export class FolderSheet extends BaseElement {
     if (this.confirmingDelete) {
       return html`
         <div class="step">
-          <p>
-            « ${folder.name} » partira dans la corbeille de votre Google Drive,
-            où il reste récupérable 30 jours.
-          </p>
+          <p>${deletionNotice(folder)}</p>
           ${this.#renderError()}
           <button
             class="button button--danger pressable"
