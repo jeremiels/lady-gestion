@@ -3,7 +3,7 @@ import { customElement, property, query, state } from "lit/decorators.js";
 import { BaseElement } from "../../commons/base-element.ts";
 import { isImage, isPdf } from "../../data/index.ts";
 import type { StoredDocument } from "../../data/types.ts";
-import { DriveRequestError } from "../../drive/api.ts";
+import { DriveRequestError, exportsAsPdf } from "../../drive/api.ts";
 import { DriveSignedOutError } from "../../drive/auth.ts";
 import { documentBytes } from "../../drive/sync.ts";
 
@@ -28,6 +28,16 @@ const loadPdfjs = async () => {
  * goes blank on an iPhone.
  */
 const MAX_PIXEL_RATIO = 2;
+
+const UNSUPPORTED = "Ce type de fichier ne peut pas être affiché ici.";
+
+/**
+ * Whether the viewer can draw a file of this type: a PDF, a photo, or a
+ * Google Doc, which arrives as the PDF Drive exports it to. Anything else is
+ * not downloaded just to say so.
+ */
+const showsInApp = (mimeType: string): boolean =>
+  isPdf(mimeType) || isImage(mimeType) || exportsAsPdf(mimeType);
 
 /**
  * Full-screen viewer for a stored document, inside the app.
@@ -137,6 +147,10 @@ export class DocumentViewer extends BaseElement {
   async #load(doc: StoredDocument) {
     // Already showing this document.
     if (this.bytes || this.error) return;
+    if (!showsInApp(doc.mimeType)) {
+      this.error = UNSUPPORTED;
+      return;
+    }
     const generation = ++this.#generation;
 
     try {
@@ -238,11 +252,7 @@ export class DocumentViewer extends BaseElement {
         alt=${this.doc.name}
       />`;
     }
-    return html`
-      <p class="viewer__message">
-        Ce type de fichier ne peut pas être affiché ici.
-      </p>
-    `;
+    return html`<p class="viewer__message">${UNSUPPORTED}</p>`;
   }
 }
 

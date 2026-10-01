@@ -60,7 +60,7 @@ export const deriveKeys = async (secret: string): Promise<DriveKeys> => {
     hmac: await derive(
       "lady-gestion drive hmac",
       { name: "HMAC", hash: "SHA-256" },
-      ["sign"],
+      ["sign", "verify"],
     ),
   };
 };
@@ -129,14 +129,29 @@ export const packState = async (
   return `${body}.${await sign(keys, body)}`;
 };
 
-/** `null` for a state this Worker did not sign, or one past its expiry. */
+/**
+ * `null` for a state this Worker did not sign, or one past its expiry. The
+ * signature is checked by `verify`, in constant time: comparing strings
+ * would tell a forger, by how long the refusal took, how much of it was right.
+ */
 export const unpackState = async (
   keys: DriveKeys,
   packed: string,
   now: number,
 ): Promise<AuthState | null> => {
   const [body = "", mac = ""] = packed.split(".");
-  if (!body || (await sign(keys, body)) !== mac) return null;
+  if (!body) return null;
+  try {
+    const signed = await crypto.subtle.verify(
+      "HMAC",
+      keys.hmac,
+      fromBase64url(mac),
+      encoder.encode(body),
+    );
+    if (!signed) return null;
+  } catch {
+    return null;
+  }
   try {
     const state = JSON.parse(decoder.decode(fromBase64url(body))) as AuthState;
     return state.expiresAt > now ? state : null;

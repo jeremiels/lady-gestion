@@ -1,4 +1,4 @@
-import { accessToken } from "./auth.ts";
+import { accessToken, forgetAccessToken } from "./auth.ts";
 import { DRIVE_API_URL, DRIVE_UPLOAD_URL } from "./drive-config.ts";
 
 /**
@@ -11,29 +11,56 @@ export const FOLDER = "application/vnd.google-apps.folder";
 /** Google's own formats — Docs, Sheets — which only download as an export. */
 const GOOGLE_APPS = "application/vnd.google-apps.";
 
+/** Whether a file of this type downloads as the PDF Drive exports it to. */
+export const exportsAsPdf = (mimeType: string): boolean =>
+  mimeType.startsWith(GOOGLE_APPS);
+
 /** Drive's alias for the top of "Mon Drive". */
 export const MY_DRIVE = "root";
 
+/**
+ * How long a request may take before it counts as no connection. Without a
+ * limit, one that never answers — a socket iOS left half-open while the app
+ * was suspended — would hold the sync that awaits it, and every sync after.
+ */
+export const REQUEST_TIMEOUT_MS = 20_000;
+
+/** A download or an upload: the metadata limit, plus a slow line's pace for the bytes. */
+const transferTimeout = (bytes: number): number =>
+  REQUEST_TIMEOUT_MS * 3 + Math.ceil(bytes / 25);
+
 export type DriveFolder = { id: string; name: string };
 
-/** A Drive answer other than 2xx; `status` 0 when the request never landed. */
+/**
+ * A Drive answer other than 2xx; `status` 0 when the request never landed.
+ * `reason` is Drive's own word for it — `userRateLimitExceeded` is a 403
+ * that passes, where most 403s do not.
+ */
 export class DriveRequestError extends Error {
   readonly status: number;
+  readonly reason: string | undefined;
 
-  constructor(status: number) {
+  constructor(status: number, reason?: string) {
     super(
       status === 0
         ? "Pas de connexion à Google Drive."
-        : `Google Drive a répondu ${status}.`,
+        : `Google Drive a répondu ${status}${reason ? ` (${reason})` : ""}.`,
     );
     this.status = status;
+    this.reason = reason;
   }
 }
+
+/** A request that never landed: offline, the host unreachable, or past its time. */
+export const isNoConnection = (error: unknown): boolean =>
+  error instanceof TypeError ||
+  (error instanceof DOMException && error.name === "TimeoutError");
 
 const request = async (
   path: string,
   init: RequestInit = {},
   base = DRIVE_API_URL,
+  timeout = REQUEST_TIMEOUT_MS,
 ): Promise<Response> => {
   let token: string;
   try {
@@ -42,7 +69,7 @@ const request = async (
     // Offline or the Worker unreachable, before Drive is even asked: the
     // same "no connection" as a Drive request that never landed, so the
     // viewer says the file opens once online rather than that it cannot.
-    if (error instanceof TypeError) throw new DriveRequestError(0);
+    if (isNoConnection(error)) throw new DriveRequestError(0);
     throw error;
   }
   let response: Response;
@@ -50,11 +77,24 @@ const request = async (
     response = await fetch(`${base}${path}`, {
       ...init,
       headers: { ...init.headers, Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(timeout),
     });
   } catch {
     throw new DriveRequestError(0);
   }
-  if (!response.ok) throw new DriveRequestError(response.status);
+  if (!response.ok) {
+    // Revoked at Google before its hour was up: the next call asks the
+    // Worker, which answers 401 in turn if the grant is gone for good.
+    if (response.status === 401) forgetAccessToken();
+    const reason = await response
+      .json()
+      .then(
+        (body: { error?: { errors?: { reason?: string }[] } }) =>
+          body.error?.errors?.[0]?.reason,
+      )
+      .catch(() => undefined);
+    throw new DriveRequestError(response.status, reason);
+  }
   return response;
 };
 
@@ -165,12 +205,16 @@ export const listChildren = async (parentId: string): Promise<DriveItem[]> => {
 export const downloadFile = async (
   id: string,
   mimeType: string,
+  size: number,
 ): Promise<Blob> => {
-  const exported = mimeType.startsWith(GOOGLE_APPS);
+  const exported = exportsAsPdf(mimeType);
   const response = await request(
     exported
       ? `/files/${id}/export?mimeType=application/pdf`
       : `/files/${id}?alt=media`,
+    {},
+    DRIVE_API_URL,
+    transferTimeout(size),
   );
   return new Blob([await response.blob()], {
     type: exported ? "application/pdf" : mimeType,
@@ -205,21 +249,28 @@ export const uploadFile = async (
       body,
     },
     DRIVE_UPLOAD_URL,
+    transferTimeout(blob.size),
   );
   return (await response.json()) as { id: string; modifiedTime: string };
 };
 
 /**
- * Whether the signed-in account can see `id`: `false` for a file or folder of
- * another Google account, or one deleted for good.
+ * What the signed-in account sees of `id`: `gone` for a file or folder of
+ * another Google account, or one deleted for good; `trashed` for one in the
+ * trash, itself or through a folder above it — which hides everything in it
+ * from a listing, and takes anything filed into it to the trash as well.
  */
-export const isVisible = async (id: string): Promise<boolean> => {
+export const visibility = async (
+  id: string,
+): Promise<"visible" | "trashed" | "gone"> => {
   try {
-    await drive(`/files/${id}?fields=id`);
-    return true;
+    const file = (await drive(`/files/${id}?fields=id,trashed`)) as {
+      trashed?: boolean;
+    };
+    return file.trashed ? "trashed" : "visible";
   } catch (error: unknown) {
     if (error instanceof DriveRequestError && error.status === 404)
-      return false;
+      return "gone";
     throw error;
   }
 };

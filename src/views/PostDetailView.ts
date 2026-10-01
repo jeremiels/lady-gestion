@@ -32,6 +32,14 @@ import "../components/post-sheet/post-sheet.ts";
 /** Where back falls to, and where a delete lands. */
 const POSTS_LIST = "/posts";
 
+/**
+ * Past this, the first file's bytes are not fetched ahead on opening the
+ * post: a large scan or a video would cost her data and storage on every
+ * visit, for a share she may never make. "Partager" then fetches it in the
+ * tap, which iOS may not wait for.
+ */
+const PREFETCH_MAX_BYTES = 10 * 1024 * 1024;
+
 /** One row of the Informations card. `null` values are dropped, not shown blank. */
 type InfoRow = { label: string; value: TemplateResult | string };
 
@@ -68,9 +76,14 @@ export class PostDetailView extends LightElement {
     // "Partager" hands over the first file. Its bytes are fetched as soon as
     // it is known, so the tap finds them on the device: a download awaited
     // inside the tap can outlast the user activation iOS requires for
-    // `navigator.share`. Offline or signed out, the share falls back to text.
+    // `navigator.share`. Offline or signed out, the share falls back to
+    // text; past `PREFETCH_MAX_BYTES`, the file is left to the tap.
     const doc = this.#documents.value?.[0];
-    if (doc && doc.id !== this.#fetchedAhead) {
+    if (
+      doc &&
+      doc.id !== this.#fetchedAhead &&
+      doc.size <= PREFETCH_MAX_BYTES
+    ) {
       this.#fetchedAhead = doc.id;
       void documentBytes(doc).catch(() => {});
     }

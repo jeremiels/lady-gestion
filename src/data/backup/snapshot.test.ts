@@ -11,6 +11,8 @@ import { migrateTables, type MigratingTables } from "./migrate.ts";
 import { exportBackup } from "./export.ts";
 import { downloadBackup } from "./file.ts";
 import { importBackup, type BackupSnapshot } from "./snapshot.ts";
+import { makeDocument, makeDocumentFolder } from "../__tests__/factories.ts";
+import { pending } from "../drive-mirror.ts";
 import {
   categoryRows,
   horse,
@@ -93,6 +95,45 @@ describe("importBackup — merge semantics", () => {
     expect(result).toEqual({ imported: 1, skipped: 0 });
     expect(await db.horses.get("horse-1")).toMatchObject({
       firstName: "Nouveau nom",
+    });
+  });
+
+  it("restores Drive rows in step with the Drive: a change not sent yet is not replayed", async () => {
+    const sent = "2026-06-01T00:00:00.000Z";
+    const renamed = "2026-06-02T00:00:00.000Z";
+    await importBackup(
+      snapshot({
+        tables: {
+          documents: [
+            makeDocument({
+              id: "renamed",
+              driveFileId: "drive-renamed",
+              driveSyncedAt: sent,
+              updatedAt: renamed,
+              driveChanges: ["name"],
+            }),
+            makeDocument({
+              id: "deleted",
+              driveFileId: "drive-deleted",
+              driveSyncedAt: sent,
+              updatedAt: renamed,
+              deletedAt: renamed,
+            }),
+          ],
+          documentFolders: [
+            makeDocumentFolder({ id: "made-here", updatedAt: renamed }),
+          ],
+        },
+      }),
+    );
+
+    for (const id of ["renamed", "deleted"]) {
+      expect(pending((await db.documents.get(id))!)).toBe(false);
+    }
+    // Never in the Drive: still the sync's to create there.
+    expect(await db.documentFolders.get("made-here")).toMatchObject({
+      driveFolderId: null,
+      driveSyncedAt: null,
     });
   });
 

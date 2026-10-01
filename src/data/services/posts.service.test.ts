@@ -812,10 +812,11 @@ describe("attachments", () => {
     });
     const [doc] = await documentsRepo.listByPost(saved!.id);
 
-    await documentsRepo.markUploaded(doc!.id, {
-      driveFileId: "d-1",
-      driveModifiedAt: "2026-09-28T10:00:00.000Z",
-    });
+    await documentsRepo.markUploaded(
+      doc!.id,
+      { driveFileId: "d-1", driveModifiedAt: "2026-09-28T10:00:00.000Z" },
+      doc!.updatedAt,
+    );
 
     expect(await documentsRepo.listPendingUpload()).toEqual([]);
     const uploaded = await documentsRepo.get(doc!.id);

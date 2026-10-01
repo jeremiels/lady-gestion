@@ -67,6 +67,11 @@ suppression définitive (corbeille uniquement, §6.6).
   refresh token chiffré, jamais journalisé, session révocable depuis l'app.
 - Ouvrir l'app à d'autres plus tard = audit, ou retour à `drive.file` + Picker
   (voie A : accès fichier par fichier, import par cases à cocher).
+- La connexion n'est pas liée à l'appareil qui l'a lancée : qui lui ferait
+  ouvrir un lien `/auth/google/start` portant son propre `claim_hash`, puis
+  accepter l'écran Google, réclamerait la session. Limite du flux du §7.2
+  (la feuille Safari ne partage rien avec l'app) ; le compte connecté
+  s'affiche dans Profil.
 
 ## 4. Contraintes qui cadrent tout
 
@@ -250,8 +255,12 @@ false`, un niveau à la fois). **Écart assumé au lot 4** : pas de
      Sorti de la corbeille → la même ligne revit, lien compris.
    - raccourcis Google Drive ignorés ; Google Docs/Sheets listés, ouverts
      par export PDF.
-   - conflit (modifié des deux côtés entre deux synchros) : le Drive gagne,
-     sauf pour `postId` qui n'existe que localement.
+   - conflit (modifié des deux côtés entre deux synchros) : l'app n'envoie
+     que les champs qu'elle a changés (`driveChanges` : nom, dossier, lien) ;
+     les autres suivent le Drive. Un fichier sorti du dossier général dans le
+     Drive n'est plus écrit par l'app, suppression comprise.
+   - dossier général mis à la corbeille : aucune synchro (ni envoi, ni
+     lecture) tant qu'il y est ; le miroir garde son dernier état.
 
 Les octets ne sont **pas** téléchargés à la synchro, seulement à l'ouverture,
 puis gardés dans `documentBlobs`. Les fichiers joints depuis l'app y sont dès

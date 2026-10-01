@@ -149,6 +149,26 @@ describe("accessToken", () => {
     });
   });
 
+  it("asks the Worker once for calls that overlap", async () => {
+    // Its own session: an earlier test left a token in the in-memory cache.
+    await metaRepo.set("googleAccount", {
+      ...ACCOUNT,
+      sessionToken: "overlap",
+    });
+    fetchMock.mockResolvedValue(
+      respond(200, { accessToken: "ya29.b", expiresAt: NOW + 60 * MINUTE }),
+    );
+
+    const tokens = await Promise.all([
+      accessToken(NOW),
+      accessToken(NOW),
+      accessToken(NOW),
+    ]);
+
+    expect(tokens).toEqual(["ya29.b", "ya29.b", "ya29.b"]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("signs out when the Worker no longer knows the session", async () => {
     // Its own session: the one above left a token in the in-memory cache.
     await metaRepo.set("googleAccount", {

@@ -80,7 +80,7 @@ export const renameDocument = async (
 ): Promise<void> => {
   const trimmed = name.trim();
   if (!trimmed) throw new UserFacingError("Donnez un nom au fichier.");
-  await documentsRepo.update(id, { name: trimmed });
+  await documentsRepo.edit(id, { name: trimmed });
 };
 
 /** Files it in `folderId`; `null` for the general folder itself. */
@@ -88,7 +88,7 @@ export const moveDocument = async (
   id: string,
   folderId: string | null,
 ): Promise<void> => {
-  await documentsRepo.update(id, { folderId });
+  await documentsRepo.edit(id, { folderId });
 };
 
 /** Attaches it to a post, or detaches it (`null`). */
@@ -96,7 +96,7 @@ export const linkDocument = async (
   id: string,
   postId: string | null,
 ): Promise<void> => {
-  await documentsRepo.update(id, { postId });
+  await documentsRepo.edit(id, { postId });
 };
 
 /** To the Drive's trash at the next sync; the bytes leave the device now. */

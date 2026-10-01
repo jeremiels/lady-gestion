@@ -101,6 +101,22 @@ describe("document-viewer", () => {
     );
   });
 
+  it("does not download a file it cannot show, and says so", async () => {
+    const el = await mount(
+      makeDocument({
+        id: "word",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        driveFileId: "word",
+      }),
+    );
+
+    await waitFor(el, () =>
+      root(el).textContent!.includes("ne peut pas être affiché"),
+    );
+    expect(documentBytes).not.toHaveBeenCalled();
+  });
+
   it("says so when the file is neither here nor in the Drive", async () => {
     vi.mocked(documentBytes).mockResolvedValue(undefined);
     const el = await mount(makeDocument({ id: "nowhere", driveFileId: null }));

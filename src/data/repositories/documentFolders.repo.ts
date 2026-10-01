@@ -1,4 +1,5 @@
 import { db } from "../db.ts";
+import { syncedAsOf } from "../drive-mirror.ts";
 import { createRecord, crud, liveOnly } from "../record.ts";
 import type { DocumentFolder } from "../types.ts";
 
@@ -49,16 +50,21 @@ export const markSynced = async (
 ): Promise<void> => {
   const existing = await db.documentFolders.get(id);
   if (!existing) return;
-  await db.documentFolders.put({ ...existing, ...drive, driveSyncedAt: asOf });
+  await db.documentFolders.put({
+    ...existing,
+    ...drive,
+    driveSyncedAt: syncedAsOf(existing, asOf),
+  });
 };
 
 /**
  * Takes back a deletion the sync did not send — the folder is not empty in
- * the Drive — and records the row as in step with it as of `asOf`.
+ * the Drive — and records the row as in step with it as of `asOf`. A row
+ * changed since `asOf` is left alone: that change is newer than the deletion.
  */
 export const markRestored = async (id: string, asOf: string): Promise<void> => {
   const existing = await db.documentFolders.get(id);
-  if (!existing) return;
+  if (!existing || existing.updatedAt !== asOf) return;
   await db.documentFolders.put({
     ...existing,
     deletedAt: null,

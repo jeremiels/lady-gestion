@@ -12,7 +12,12 @@ import { setOwnerId } from "../owner.ts";
 import { clearUntouchedSeedData, reconcileCategories } from "../seed.ts";
 import { migrateTables, type MigratingTables } from "./migrate.ts";
 import { assertRows, assertSnapshot } from "./validate.ts";
-import type { BaseRecord, Category } from "../types.ts";
+import type {
+  BaseRecord,
+  Category,
+  DocumentFolder,
+  StoredDocument,
+} from "../types.ts";
 
 /**
  * Whole-database snapshot, used today for manual file export/import and
@@ -81,6 +86,30 @@ const YIELDS_TO_FILE: Partial<
 };
 
 /**
+ * A document or folder of her Drive as a restore writes it: in step with the
+ * Drive. A change the exporting device had not sent yet — a rename, a
+ * deletion — is not replayed: a restore never writes to her Drive, and the
+ * next walk shows what the Drive says now. A row never sent at all keeps its
+ * state, and a folder she made in the app is still created there.
+ */
+const inStepWithDrive = (row: BaseRecord): BaseRecord => {
+  const drive = row as DocumentFolder | StoredDocument;
+  if (drive.driveSyncedAt === null) return row;
+  const restored: DocumentFolder | StoredDocument = {
+    ...drive,
+    driveSyncedAt: drive.updatedAt,
+  };
+  return restored;
+};
+
+const AS_RESTORED: Partial<
+  Record<RecordTableName, (row: BaseRecord) => BaseRecord>
+> = {
+  documents: inStepWithDrive,
+  documentFolders: inStepWithDrive,
+};
+
+/**
  * Merges a snapshot into the local database, last-write-wins per record.
  *
  * Restoring a three-week-old backup must not throw away edits made since, so
@@ -144,13 +173,14 @@ export const importBackup = async (
         },
         rows: T[],
         yields?: (local: T, incoming: T) => boolean,
+        asRestored: (row: T) => T = (row) => row,
       ) => {
         for (const row of rows) {
           const existing = await table.get(row.id);
           const local =
             existing && yields?.(existing, row) ? undefined : existing;
           if (newerOf(local, row) === row) {
-            await table.put(row);
+            await table.put(asRestored(row));
             imported += 1;
           } else {
             skipped += 1;
@@ -163,6 +193,7 @@ export const importBackup = async (
           RECORD_TABLES[name],
           backup.tables[name],
           YIELDS_TO_FILE[name],
+          AS_RESTORED[name],
         );
       }
 

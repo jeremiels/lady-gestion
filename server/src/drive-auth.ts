@@ -258,6 +258,12 @@ export const claim = async (
   return json({ sessionToken, email: row.email, scope: row.scope }, 200, cors);
 };
 
+/**
+ * The session a request's bearer token names, `null` when there is none. One
+ * whose refresh token no longer opens — `DRIVE_SECRET` was changed — is
+ * dropped and reads as none: the app is then asked to connect again, where
+ * an error would leave it failing on every sync with nothing to act on.
+ */
 const sessionOf = async (request: Request, env: DriveEnv) => {
   const token =
     request.headers.get("Authorization")?.replace(/^Bearer /, "") ?? "";
@@ -270,7 +276,14 @@ const sessionOf = async (request: Request, env: DriveEnv) => {
     .first<{ refresh_token: string }>();
   if (!row) return null;
   const keys = await deriveKeys(env.DRIVE_SECRET);
-  return { id, refreshToken: await decrypt(keys, row.refresh_token) };
+  try {
+    return { id, refreshToken: await decrypt(keys, row.refresh_token) };
+  } catch {
+    await env.DB.prepare("DELETE FROM drive_sessions WHERE id = ?1")
+      .bind(id)
+      .run();
+    return null;
+  }
 };
 
 /**

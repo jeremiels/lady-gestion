@@ -382,7 +382,17 @@ export type StoredDocument = BaseRecord & {
   driveModifiedAt: string | null;
   /** ISO timestamp of the last successful upload; compare against `updatedAt`. */
   driveSyncedAt: string | null;
+  /**
+   * What the app changed since the last sync, and all the sync sends: a link
+   * made here does not write the name back over a rename made in the Drive
+   * meanwhile. Absent on a row last edited before this was kept — the sync
+   * then sends all three.
+   */
+  driveChanges?: DocumentDriveChange[];
 };
+
+/** A document field the app can change and the Drive holds too. */
+export type DocumentDriveChange = "name" | "folderId" | "postId";
 
 /**
  * File bytes, kept in their own table and keyed by document id.

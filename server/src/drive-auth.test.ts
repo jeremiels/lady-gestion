@@ -314,6 +314,20 @@ test("forgets a session Google has revoked, and answers 401", async () => {
   assert.equal(count("drive_sessions"), 0);
 });
 
+test("drops a session its secret no longer opens, and answers 401", async () => {
+  const sessionToken = await session();
+  env.DRIVE_SECRET = "rotated-secret";
+
+  const response = await token(
+    post("/drive/token", { session: sessionToken }),
+    env,
+    {},
+  );
+
+  assert.equal(response.status, 401);
+  assert.equal(count("drive_sessions"), 0);
+});
+
 test("keeps the session through a Google hiccup, answering 502", async () => {
   const sessionToken = await session();
   google.refresh_token = { error: "temporarily_unavailable" };

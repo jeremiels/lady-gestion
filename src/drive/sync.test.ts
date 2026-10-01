@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
+import type { StoredDocument } from "../data/types.ts";
 import {
   documentsRepo,
   documentsService,
@@ -65,6 +66,18 @@ const TEMPLATE: Record<string, Item[]> = {
 };
 
 let DRIVE: Record<string, Item[]>;
+/**
+ * Ids put in the trash. As in the real Drive, what is inside a trashed folder
+ * is in the trash too — hidden from a listing, still answered by id — and a
+ * file created in one lands there with it.
+ */
+let TRASHED: Set<string>;
+/** Folders a file also sits in besides the one listing it: elsewhere in her Drive. */
+let EXTRA_PARENTS: Record<string, string[]>;
+/** Answers in the pretend Drive's place when it returns a response: a refusal. */
+let respond:
+  | ((url: URL, init?: RequestInit) => Promise<Response | undefined>)
+  | null = null;
 let fetchMock: ReturnType<typeof vi.fn>;
 let patches: { id: string; url: URL; body: Record<string, unknown> }[] = [];
 /** Runs while a PATCH is on its way — an edit made meanwhile. */
@@ -78,6 +91,17 @@ const locate = (id: string) => {
   }
   return null;
 };
+
+const isTrashed = (id: string): boolean => {
+  if (TRASHED.has(id)) return true;
+  const parent = locate(id)?.parent;
+  return parent !== undefined && isTrashed(parent);
+};
+
+/** Drive's refusal, as its JSON error body carries it. */
+const refusal = (status: number, reason: string) =>
+  Response.json({ error: { errors: [{ reason }] } }, { status });
+
 let uploads: RequestInit[] = [];
 /** Runs before the pretend Drive answers — something done meanwhile. */
 let onRequest: ((url: URL, init?: RequestInit) => Promise<void>) | null = null;
@@ -105,10 +129,15 @@ beforeEach(async () => {
   loseNextAnswer = false;
   patches = [];
   duringPatch = null;
+  respond = null;
+  TRASHED = new Set();
+  EXTRA_PARENTS = {};
   DRIVE = structuredClone(TEMPLATE);
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     await onRequest?.(url, init);
+    const refused = await respond?.(url, init);
+    if (refused) return refused;
     if (url.pathname.endsWith("/drive/token")) {
       return Response.json({
         accessToken: "ya29.a",
@@ -145,8 +174,8 @@ beforeEach(async () => {
     if (fileId && !locate(fileId) && !DRIVE[fileId]) {
       return new Response(null, { status: 404 });
     }
-    if (fileId && url.searchParams.get("fields") === "id") {
-      return Response.json({ id: fileId });
+    if (fileId && url.searchParams.get("fields") === "id,trashed") {
+      return Response.json({ id: fileId, trashed: isTrashed(fileId) });
     }
     if (fileId && init?.method === "PATCH") {
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
@@ -155,15 +184,19 @@ beforeEach(async () => {
       const found = locate(fileId)!;
       if (typeof body.name === "string") found.item.name = body.name;
       found.item.modifiedTime = T2;
-      if (body.trashed === true || url.searchParams.get("addParents")) {
-        found.items.splice(found.index, 1);
-      }
+      if (body.trashed === true) TRASHED.add(fileId);
       const to = url.searchParams.get("addParents");
-      if (to && body.trashed !== true) (DRIVE[to] ??= []).push(found.item);
+      const from = url.searchParams.get("removeParents")?.split(",") ?? [];
+      if (to) {
+        if (from.includes(found.parent)) found.items.splice(found.index, 1);
+        (DRIVE[to] ??= []).push(found.item);
+      }
       return Response.json({ modifiedTime: T2 });
     }
     if (fileId && url.searchParams.get("fields") === "parents") {
-      return Response.json({ parents: [locate(fileId)!.parent] });
+      return Response.json({
+        parents: [locate(fileId)!.parent, ...(EXTRA_PARENTS[fileId] ?? [])],
+      });
     }
     if (url.pathname.endsWith("/files") && init?.method === "POST") {
       const { name, parents, appProperties } = JSON.parse(
@@ -197,14 +230,19 @@ beforeEach(async () => {
     }
     if (q) {
       const parent = /'([^']+)' in parents/.exec(q)![1]!;
-      return Response.json({ files: DRIVE[parent] ?? [] });
+      return Response.json({
+        files: (DRIVE[parent] ?? []).filter((item) => !isTrashed(item.id)),
+      });
     }
     return new Response(`bytes of ${url.pathname}${url.search}`);
   });
   vi.stubGlobal("fetch", fetchMock);
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("walkFolder", () => {
   it("lists every folder and file under the general folder, once, without shortcuts", async () => {
@@ -266,6 +304,23 @@ describe("documentBytes", () => {
       constructor: DriveRequestError,
       status: 0,
     });
+  });
+
+  it("asks the Worker for a new token once Drive refuses the one it had", async () => {
+    const doc = makeDocument({ driveFileId: "facture" });
+    respond = async (url) =>
+      url.pathname.startsWith("/drive/v3/files/facture")
+        ? new Response(null, { status: 401 })
+        : undefined;
+    await expect(documentBytes(doc)).rejects.toMatchObject({ status: 401 });
+
+    respond = null;
+    await documentBytes(doc);
+
+    const tokenRequests = fetchMock.mock.calls.filter(([input]) =>
+      String(input).endsWith("/drive/token"),
+    );
+    expect(tokenRequests).toHaveLength(2);
   });
 
   it("gets a Google Doc as the PDF Drive exports it to", async () => {
@@ -725,5 +780,317 @@ describe("syncFolder — signed in with another Google account", () => {
       name: "Lady",
     });
     expect((await db.documents.toArray()).length).toBeGreaterThan(0);
+  });
+});
+
+/** The pretend Drive, mirrored once, with a beat after: an edit then reads as newer. */
+const mirroredOnce = async () => {
+  await syncFolder("root");
+  await new Promise((resolve) => setTimeout(resolve, 2));
+  return db.documents.toArray();
+};
+
+const rowOf = (rows: StoredDocument[], driveId: string) =>
+  rows.find((doc) => doc.driveFileId === driveId)!;
+
+describe("syncFolder — another general folder picked while edits are sent", () => {
+  it("trashes nothing in the previous folder", async () => {
+    const rows = await mirroredOnce();
+    for (const driveId of ["carnet", "facture"]) {
+      await documentsService.renameDocument(
+        rowOf(rows, driveId).id,
+        `${driveId} renommé.pdf`,
+      );
+    }
+    DRIVE.elsewhere = [];
+    duringPatch = async () => {
+      duringPatch = null;
+      await driveMirrorService.chooseFolder({ id: "elsewhere", name: "Autre" });
+    };
+
+    await expect(syncFolder("root")).rejects.toThrow();
+    await syncFolder("elsewhere");
+
+    // The rename on its way when she changed folder, and nothing after it.
+    expect(patches).toHaveLength(1);
+    expect(patches[0]!.body.trashed).toBeUndefined();
+    expect([...TRASHED]).toEqual([]);
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+});
+
+describe("syncFolder — a folder in the Drive's trash", () => {
+  it("files an upload in the general folder, and keeps its bytes", async () => {
+    await mirroredOnce();
+    const osteo = (await db.documentFolders.toArray()).find(
+      (folder) => folder.driveFolderId === "osteo",
+    )!;
+    await db.documents.add(
+      makeDocument({ id: "joint", name: "joint.pdf", folderId: osteo.id }),
+    );
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    TRASHED.add("osteo");
+
+    await syncFolder("root");
+
+    expect(DRIVE.root!.some((item) => item.name === "joint.pdf")).toBe(true);
+    expect(await db.documents.get("joint")).toMatchObject({
+      folderId: null,
+      driveFileId: "up-1",
+      deletedAt: null,
+    });
+    expect(await documentsRepo.getBlob("joint")).toBeDefined();
+  });
+
+  it("does not move a file into it", async () => {
+    const rows = await mirroredOnce();
+    const osteo = (await db.documentFolders.toArray()).find(
+      (folder) => folder.driveFolderId === "osteo",
+    )!;
+    const carnet = rowOf(rows, "carnet");
+    await documentsService.moveDocument(carnet.id, osteo.id);
+    TRASHED.add("osteo");
+
+    await syncFolder("root");
+
+    expect(patches).toEqual([]);
+    expect(await db.documents.get(carnet.id)).toMatchObject({
+      folderId: null,
+      deletedAt: null,
+    });
+  });
+
+  it("leaves a general folder in the trash alone: nothing sent, the mirror kept", async () => {
+    const rows = await mirroredOnce();
+    await db.documents.add(makeDocument({ id: "joint", name: "joint.pdf" }));
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+    TRASHED.add("root");
+
+    await syncFolder("root");
+
+    expect(uploads).toEqual([]);
+    const live = (await db.documents.toArray()).filter(
+      (doc) => doc.deletedAt === null,
+    );
+    expect(live).toHaveLength(rows.length + 1);
+    expect(await metaRepo.get("driveFolder")).toEqual({
+      id: "root",
+      name: "Lady",
+    });
+  });
+});
+
+describe("syncFolder — changed on both sides", () => {
+  it("sends only what the app changed: a rename made in the Drive meanwhile stands", async () => {
+    const facture = rowOf(await mirroredOnce(), "facture");
+    await documentsService.linkDocument(facture.id, "post-9");
+    locate("facture")!.item.name = "Renommée dans le Drive.pdf";
+
+    await syncFolder("root");
+
+    expect(patches).toHaveLength(1);
+    expect(patches[0]!.body).toEqual({
+      appProperties: { ladyPostId: "post-9" },
+    });
+    expect(patches[0]!.url.searchParams.get("addParents")).toBeNull();
+    expect(await db.documents.get(facture.id)).toMatchObject({
+      name: "Renommée dans le Drive.pdf",
+      postId: "post-9",
+    });
+  });
+
+  it("writes nothing to a file she moved out of the general folder in the Drive", async () => {
+    const facture = rowOf(await mirroredOnce(), "facture");
+    await documentsService.linkDocument(facture.id, "post-9");
+    await documentsService.deleteDocument(
+      rowOf(await db.documents.toArray(), "carnet").id,
+    );
+    for (const id of ["facture", "carnet"]) {
+      const found = locate(id)!;
+      found.items.splice(found.index, 1);
+      (DRIVE.ailleurs ??= []).push(found.item);
+    }
+
+    await syncFolder("root");
+
+    expect(patches).toEqual([]);
+    expect([...TRASHED]).toEqual([]);
+    expect((await db.documents.get(facture.id))!.deletedAt).not.toBeNull();
+    expect(await documentsRepo.listPendingChanges()).toEqual([]);
+  });
+});
+
+describe("syncFolder — a file in more than one folder", () => {
+  it("moves it without taking it out of a folder outside the general one", async () => {
+    EXTRA_PARENTS.facture = ["ailleurs"];
+    const facture = rowOf(await mirroredOnce(), "facture");
+    await documentsService.moveDocument(facture.id, null);
+
+    await syncFolder("root");
+
+    expect(patches[0]!.url.searchParams.get("addParents")).toBe("root");
+    expect(patches[0]!.url.searchParams.get("removeParents")).toBe("osteo");
+  });
+
+  it("renames it without moving it", async () => {
+    EXTRA_PARENTS.facture = ["ailleurs"];
+    const facture = rowOf(await mirroredOnce(), "facture");
+    await documentsService.renameDocument(facture.id, "Renommée.pdf");
+
+    await syncFolder("root");
+
+    expect(patches[0]!.body).toEqual({ name: "Renommée.pdf" });
+    expect(patches[0]!.url.searchParams.get("addParents")).toBeNull();
+    expect(patches[0]!.url.searchParams.get("removeParents")).toBeNull();
+  });
+
+  it("keeps one row for one filed twice in the general folder, and settles", async () => {
+    DRIVE.root!.push(structuredClone(DRIVE.osteo![0]!));
+    const rows = await mirroredOnce();
+
+    expect(rows.filter((doc) => doc.driveFileId === "facture")).toHaveLength(1);
+    await syncFolder("root");
+    expect(await db.documents.toArray()).toEqual(rows);
+  });
+});
+
+describe("syncFolder — refusals that pass", () => {
+  it("keeps a change pending when the Drive says too many requests", async () => {
+    const facture = rowOf(await mirroredOnce(), "facture");
+    await documentsService.renameDocument(facture.id, "Renommée.pdf");
+    respond = async (_url, init) =>
+      init?.method === "PATCH"
+        ? refusal(403, "userRateLimitExceeded")
+        : undefined;
+
+    await expect(syncFolder("root")).rejects.toThrow();
+
+    expect(await documentsRepo.listPendingChanges()).toHaveLength(1);
+    expect((await db.documents.get(facture.id))!.name).toBe("Renommée.pdf");
+  });
+
+  it("goes on with the other uploads and the walk when the Drive keeps refusing one file", async () => {
+    for (const name of ["gros.pdf", "petit.pdf"]) {
+      await db.documents.add(makeDocument({ id: name, name }));
+      await documentsRepo.putBlob(name, new Blob(["%PDF"]));
+    }
+    respond = async (url, init) =>
+      url.pathname.startsWith("/upload/") &&
+      (await new Response(init!.body).text()).includes("gros.pdf")
+        ? new Response(null, { status: 413 })
+        : undefined;
+
+    await syncFolder("root");
+
+    expect(DRIVE.root!.map((item) => item.name)).toContain("petit.pdf");
+    expect((await db.documents.get("gros.pdf"))!.driveFileId).toBeNull();
+    // The walk ran: the Drive's own files are mirrored.
+    expect(
+      (await db.documents.toArray()).some(
+        (doc) => doc.driveFileId === "carnet",
+      ),
+    ).toBe(true);
+  });
+
+  it("gives up on a request that never answers, as no connection", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    fetchMock.mockImplementation(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        String(input).endsWith("/drive/token")
+          ? Promise.resolve(
+              Response.json({
+                accessToken: "ya29.a",
+                expiresAt: Date.now() + 3_600_000,
+              }),
+            )
+          : new Promise((_resolve, reject) => {
+              // No signal: a request with no limit hangs, as the real one would.
+              const signal = init?.signal;
+              if (!signal) return;
+              if (signal.aborted) reject(signal.reason);
+              signal.addEventListener("abort", () => reject(signal.reason));
+            }),
+    );
+
+    const sync = syncFolder("root");
+    controller.abort(new DOMException("Délai dépassé", "TimeoutError"));
+
+    await expect(sync).rejects.toMatchObject({
+      constructor: DriveRequestError,
+      status: 0,
+    });
+  });
+});
+
+describe("syncFolder — edited while being uploaded", () => {
+  const joined = async () => {
+    await db.documents.add(makeDocument({ id: "joint", name: "joint.pdf" }));
+    await documentsRepo.putBlob("joint", new Blob(["%PDF"]));
+  };
+  const meanwhile = (edit: () => Promise<void>) => {
+    onRequest = async (url) => {
+      if (!url.pathname.startsWith("/upload/")) return;
+      onRequest = null;
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      await edit();
+    };
+  };
+
+  it("sends a rename made while the bytes were on their way", async () => {
+    await joined();
+    meanwhile(() => documentsService.renameDocument("joint", "Renommé.pdf"));
+
+    await syncFolder("root");
+
+    expect(patches.map((patch) => patch.body.name)).toEqual(["Renommé.pdf"]);
+    expect((await db.documents.get("joint"))!.name).toBe("Renommé.pdf");
+  });
+
+  it("sends the file to the trash when deleted while it was on its way", async () => {
+    await joined();
+    meanwhile(() => documentsService.deleteDocument("joint"));
+
+    await syncFolder("root");
+
+    expect(patches).toMatchObject([{ id: "up-1", body: { trashed: true } }]);
+    const rows = await db.documents.toArray();
+    expect(
+      rows.filter(
+        (doc) => doc.driveFileId === "up-1" && doc.deletedAt === null,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("syncFolder — a folder emptied then deleted", () => {
+  it("trashes it once the files moved out of it have gone", async () => {
+    DRIVE.root!.push({
+      id: "vide",
+      name: "Vide",
+      mimeType: FOLDER,
+      modifiedTime: T1,
+    });
+    DRIVE.vide = [
+      {
+        id: "ordonnance",
+        name: "Ordonnance.pdf",
+        mimeType: "application/pdf",
+        size: "10",
+        modifiedTime: T1,
+      },
+    ];
+    const rows = await mirroredOnce();
+    const vide = (await db.documentFolders.toArray()).find(
+      (folder) => folder.driveFolderId === "vide",
+    )!;
+    await documentsService.moveDocument(rowOf(rows, "ordonnance").id, null);
+    await documentsService.deleteFolder(vide.id);
+
+    await syncFolder("root");
+
+    expect(patches.map((patch) => patch.id)).toEqual(["ordonnance", "vide"]);
+    expect(TRASHED.has("vide")).toBe(true);
+    expect((await db.documentFolders.get(vide.id))!.deletedAt).not.toBeNull();
   });
 });

@@ -328,6 +328,21 @@ export const planFolderChange = (
 export const pending = (row: DocumentFolder | StoredDocument): boolean =>
   row.driveSyncedAt !== null && row.updatedAt > row.driveSyncedAt;
 
+/**
+ * The `driveSyncedAt` a sync that sent the row as it stood at `asOf` leaves:
+ * `asOf`, or later if the row was stamped later meanwhile — let go of by
+ * `chooseFolder` while the change was on its way. Never earlier: a row let go
+ * of would read as changed in the app again, and the next sync would send it,
+ * a deletion included, to the folder she just left.
+ */
+export const syncedAsOf = (
+  row: DocumentFolder | StoredDocument,
+  asOf: string,
+): string =>
+  row.driveSyncedAt !== null && row.driveSyncedAt > asOf
+    ? row.driveSyncedAt
+    : asOf;
+
 /** Stamped as in step with the Drive as of its own write. */
 const synced = <T extends DocumentFolder | StoredDocument>(row: T): T => ({
   ...row,

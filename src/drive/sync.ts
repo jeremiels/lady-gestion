@@ -23,7 +23,11 @@ import {
   type RemoteFile,
   type RemoteFolder,
 } from "../data/index.ts";
-import type { DocumentFolder, StoredDocument } from "../data/types.ts";
+import type {
+  DocumentDriveChange,
+  DocumentFolder,
+  StoredDocument,
+} from "../data/types.ts";
 import { getFolder } from "./auth.ts";
 import {
   createFolder,
@@ -31,11 +35,11 @@ import {
   DriveRequestError,
   findByAppProperty,
   FOLDER,
-  isVisible,
   listChildren,
   parentsOf,
   updateFile,
   uploadFile,
+  visibility,
 } from "./api.ts";
 
 /** Google Drive shortcuts point at a file elsewhere; there is nothing to show. */
@@ -51,7 +55,8 @@ let lastRun = 0;
 
 /**
  * Walks the tree under `rootId`, breadth first, a level's folders at once.
- * A folder reached twice — Drive allows more than one parent — is read once.
+ * Anything reached twice — Drive allows more than one parent — is read once,
+ * filed where it was first found.
  */
 export const walkFolder = async (
   rootId: string,
@@ -67,9 +72,9 @@ export const walkFolder = async (
     listings.forEach((items, index) => {
       const parentDriveId = level[index]!;
       for (const item of items) {
+        if (item.mimeType === SHORTCUT || seen.has(item.id)) continue;
+        seen.add(item.id);
         if (item.mimeType === FOLDER) {
-          if (seen.has(item.id)) continue;
-          seen.add(item.id);
           next.push(item.id);
           folders.push({
             driveId: item.id,
@@ -77,7 +82,7 @@ export const walkFolder = async (
             parentDriveId,
             modifiedTime: item.modifiedTime,
           });
-        } else if (item.mimeType !== SHORTCUT) {
+        } else {
           files.push({
             driveId: item.id,
             name: item.name,
@@ -102,11 +107,18 @@ export const walkFolder = async (
  * First, whether the account signed in can see the folder at all. One of
  * another Google account — she signed out and in again with a different one
  * — or deleted for good is forgotten, and she is asked to pick one again;
- * walked regardless, it would read as empty and every row would go.
+ * walked regardless, it would read as empty and every row would go. One in
+ * the Drive's trash is left alone until she takes it out: walked, it would
+ * read as empty too, and anything sent into it would go to the trash with it.
  */
 export const syncFolder = async (rootId: string): Promise<void> => {
-  if (!(await isVisible(rootId))) {
+  const root = await visibility(rootId);
+  if (root === "gone") {
     await driveMirrorService.forgetFolder(rootId);
+    return;
+  }
+  if (root === "trashed") {
+    console.warn("[drive] Le dossier général est dans la corbeille du Drive.");
     return;
   }
   await pushPending(rootId);
@@ -155,35 +167,73 @@ export const syncDrive = (force = false): Promise<void> => {
  * — so the walk finds each row already as the Drive has it, rather than a
  * stranger to add a second row for, or a stale name to write back.
  *
- * Folders are created first, since files may be filed in them. One change at
- * a time. A failure that may pass — offline, the Worker down — stops the run
- * and leaves the rest pending for the next sync, walk included. One the Drive
- * will give every time (`isPermanent`) is given up on instead: left to block,
- * it would stop every sync after it for good, and the app would never see the
- * Drive again.
+ * Folders are created first, since files may be filed in them; folders are
+ * deleted last, once the files moved or deleted out of them have gone. One
+ * change at a time. A failure that may pass — offline, the Worker down —
+ * stops the run and leaves the rest pending for the next sync, walk included.
+ * One the Drive will give every time (`isPermanent`) is given up on instead:
+ * left to block, it would stop every sync after it for good, and the app
+ * would never see the Drive again.
  */
 const pushPending = async (rootId: string): Promise<void> => {
   await createPendingFolders(rootId);
-  await pushFolderChanges();
   await uploadPending(rootId);
   await pushDocumentChanges(rootId);
+  await pushFolderChanges(rootId);
 };
 
 /**
- * Where a mirrored folder is in the Drive; the general folder for `null`, and
- * for a folder the walk found gone from the Drive — filing into it would put
- * the file in the Drive's trash with it.
+ * Where a mirrored folder is in the Drive: the general folder for `null`,
+ * `undefined` for one not there — never created, or gone from the Drive as of
+ * the last walk.
  */
-const driveIdOf = async (
+const mirroredDriveId = async (
   folderId: string | null,
   rootId: string,
-): Promise<string> => {
+): Promise<string | undefined> => {
   if (folderId === null) return rootId;
   const folder = (await documentFoldersRepo.listAll()).find(
     ({ id }) => id === folderId,
   );
-  return (folder?.deletedAt === null && folder.driveFolderId) || rootId;
+  return (folder?.deletedAt === null && folder.driveFolderId) || undefined;
 };
+
+/**
+ * Whether something can be filed in `driveId` now. Asked of the Drive rather
+ * than the mirror, which is as of the last walk: a folder she has put in the
+ * trash since would take whatever is filed into it along.
+ */
+const canFileIn = async (driveId: string, rootId: string): Promise<boolean> =>
+  driveId === rootId || (await visibility(driveId)) === "visible";
+
+/**
+ * The Drive ids that make up the general folder as the mirror knows it: the
+ * folder itself, and every folder under it that is still there or deleted in
+ * the app and not sent yet. A file whose folders are none of these has left
+ * the general folder in the Drive.
+ */
+const generalFolderIds = async (rootId: string): Promise<Set<string>> => {
+  const ids = new Set([rootId]);
+  for (const folder of await documentFoldersRepo.listAll()) {
+    if (
+      folder.driveFolderId !== null &&
+      (folder.deletedAt === null || pending(folder))
+    ) {
+      ids.add(folder.driveFolderId);
+    }
+  }
+  return ids;
+};
+
+/**
+ * Drive's words for a request refused only for now: too many, too fast. It
+ * says so with a 403, the status it also uses for a refusal that holds.
+ */
+const RATE_LIMITED = new Set(["rateLimitExceeded", "userRateLimitExceeded"]);
+
+const isRateLimited = (error: DriveRequestError): boolean =>
+  error.status === 429 ||
+  (error.status === 403 && RATE_LIMITED.has(error.reason ?? ""));
 
 /**
  * A refusal the Drive will repeat on every try: the file is gone (404), hers
@@ -191,7 +241,9 @@ const driveIdOf = async (
  * (400). Offline, the Worker down, a rate limit: those pass, and are not.
  */
 const isPermanent = (error: unknown): boolean =>
-  error instanceof DriveRequestError && [400, 403, 404].includes(error.status);
+  error instanceof DriveRequestError &&
+  [400, 403, 404].includes(error.status) &&
+  !isRateLimited(error);
 
 /** Rethrows `error` unless it is permanent; logs it and lets the run go on otherwise. */
 const giveUpOn = (error: unknown): void => {
@@ -200,9 +252,21 @@ const giveUpOn = (error: unknown): void => {
 };
 
 /**
+ * Whether a failed upload stops the run: nothing will get through now —
+ * offline, signed out, the Worker down, a rate limit. Anything else is this
+ * file's alone, and one file the Drive keeps refusing must not keep the walk,
+ * and every other upload, from ever running again.
+ */
+const stopsTheRun = (error: unknown): boolean =>
+  !(error instanceof DriveRequestError) ||
+  error.status === 0 ||
+  error.status === 401 ||
+  isRateLimited(error);
+
+/**
  * Stops the run once she has picked another general folder: what it was about
- * to create belongs in the new one, which the sync that change started sends
- * it to.
+ * to send belongs in the new one, or — a change to the previous folder's
+ * files — nowhere, which the sync that change started settles.
  */
 const assertStillGeneral = async (rootId: string): Promise<void> => {
   if ((await getFolder())?.id !== rootId) {
@@ -228,16 +292,10 @@ const alreadySent = (
     return undefined;
   });
 
-/** A 404 for a file filed in `parent`, other than the general folder: that folder is gone. */
-const parentGone = (error: unknown, parent: string, rootId: string): boolean =>
-  error instanceof DriveRequestError &&
-  error.status === 404 &&
-  parent !== rootId;
-
 /**
  * Folders made in the app, parents before children: a child waits for the
  * pass that gives its parent a Drive id. One whose parent is gone from the
- * Drive is made at the top level instead, on the next pass.
+ * Drive, or in its trash, is made at the top level instead, on the next pass.
  */
 const createPendingFolders = async (rootId: string): Promise<void> => {
   const refused = new Set<string>();
@@ -259,20 +317,19 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
           ? rootId
           : known.get(folder.parentId)!.driveFolderId!;
       await assertStillGeneral(rootId);
-      let created: { id: string; modifiedTime: string };
+      let created: { id: string; modifiedTime: string } | undefined;
       try {
-        created =
-          (await alreadySent("ladyFolderId", folder.id)) ??
-          (await createFolder(folder.name, parent, {
-            ladyFolderId: folder.id,
-          }));
-      } catch (error: unknown) {
-        if (parentGone(error, parent, rootId)) {
+        created = await alreadySent("ladyFolderId", folder.id);
+        if (!created && !(await canFileIn(parent, rootId))) {
           await documentFoldersRepo.update(folder.id, { parentId: null });
-        } else {
-          giveUpOn(error);
-          refused.add(folder.id);
+          continue;
         }
+        created ??= await createFolder(folder.name, parent, {
+          ladyFolderId: folder.id,
+        });
+      } catch (error: unknown) {
+        giveUpOn(error);
+        refused.add(folder.id);
         continue;
       }
       await documentFoldersRepo.markSynced(
@@ -295,7 +352,7 @@ const createPendingFolders = async (rootId: string): Promise<void> => {
  * folder with anything in it there is kept — the walk then shows what is in
  * it. Children go first, so a parent emptied of them reads as empty.
  */
-const pushFolderChanges = async (): Promise<void> => {
+const pushFolderChanges = async (rootId: string): Promise<void> => {
   const folders = await documentFoldersRepo.listAll();
   const byId = new Map(folders.map((folder) => [folder.id, folder]));
   const depth = (folder: DocumentFolder): number => {
@@ -308,6 +365,7 @@ const pushFolderChanges = async (): Promise<void> => {
     .sort((a, b) => depth(b) - depth(a));
 
   for (const folder of changed) {
+    await assertStillGeneral(rootId);
     let modifiedTime: string | null;
     try {
       if (
@@ -334,71 +392,101 @@ const pushFolderChanges = async (): Promise<void> => {
 };
 
 /**
- * Renamed, moved, linked or deleted in the app. A move reads the file's
- * current parents first: the Drive moves a file by adding the new folder and
- * removing the old. A change the Drive refuses for good is marked sent, like
- * a folder's above: the walk then shows the file as the Drive has it, or
- * drops it if it is gone.
+ * Renamed, moved, linked or deleted in the app. A change the Drive refuses
+ * for good is marked sent, like a folder's above: the walk then shows the
+ * file as the Drive has it, or drops it if it is gone.
  */
 const pushDocumentChanges = async (rootId: string): Promise<void> => {
   for (const doc of await documentsRepo.listPendingChanges()) {
-    const driveId = doc.driveFileId!;
-    let modifiedTime: string | null;
+    await assertStillGeneral(rootId);
+    let modifiedTime = doc.driveModifiedAt;
     try {
-      if (doc.deletedAt !== null) {
-        modifiedTime = await updateFile(driveId, { trashed: true });
-      } else {
-        const target = await driveIdOf(doc.folderId, rootId);
-        const parents = await parentsOf(driveId);
-        modifiedTime = await updateFile(driveId, {
-          name: doc.name,
-          appProperties: { ladyPostId: doc.postId },
-          ...(parents.includes(target) && parents.length === 1
-            ? {}
-            : { move: { from: parents, to: target } }),
-        });
-      }
+      const change = await changeToSend(doc, rootId);
+      if (change) modifiedTime = await updateFile(doc.driveFileId!, change);
     } catch (error: unknown) {
       giveUpOn(error);
-      modifiedTime = doc.driveModifiedAt;
     }
     await documentsRepo.markSynced(doc.id, modifiedTime, doc.updatedAt);
   }
 };
 
 /**
+ * What to send the Drive for a document changed in the app: only the fields
+ * the app changed (`driveChanges`), so whatever she did in the Drive
+ * meanwhile to the others stands. `null` when there is nothing to send — or
+ * nothing the app may send: a file she moved out of the general folder in the
+ * Drive is no longer the app's to write to, and the walk lets it go.
+ *
+ * A move reads the file's parents first: the Drive moves a file by adding the
+ * new folder and removing the old. Only a folder of the general one is ever
+ * removed — a file also filed elsewhere in her Drive stays filed there — and
+ * nothing is moved into a folder she has put in the trash since the last
+ * walk, which would take the file there with it.
+ */
+const changeToSend = async (
+  doc: StoredDocument,
+  rootId: string,
+): Promise<Parameters<typeof updateFile>[1] | null> => {
+  const parents = await parentsOf(doc.driveFileId!);
+  const general = await generalFolderIds(rootId);
+  const inGeneral = parents.filter((parent) => general.has(parent));
+  if (inGeneral.length === 0) return null;
+  if (doc.deletedAt !== null) return { trashed: true };
+
+  const sends = (field: DocumentDriveChange): boolean =>
+    doc.driveChanges?.includes(field) ?? true;
+  const change: Parameters<typeof updateFile>[1] = {};
+  if (sends("name")) change.name = doc.name;
+  if (sends("postId")) change.appProperties = { ladyPostId: doc.postId };
+  if (sends("folderId")) {
+    const target = await mirroredDriveId(doc.folderId, rootId);
+    if (
+      target !== undefined &&
+      !parents.includes(target) &&
+      (await canFileIn(target, rootId))
+    ) {
+      change.move = { from: inGeneral, to: target };
+    }
+  }
+  return Object.keys(change).length > 0 ? change : null;
+};
+
+/**
  * Files joined in the app, oldest first. One whose bytes are gone from the
- * device cannot be sent and is skipped; so is one the Drive refuses for good,
- * which stays on the device and is tried again next time. One whose folder is
- * gone from the Drive goes to the general folder instead.
+ * device cannot be sent and is skipped; so is one the Drive refuses, which
+ * stays on the device and is tried again next time. One whose folder is gone
+ * from the Drive, or in its trash, goes to the general folder instead.
  */
 const uploadPending = async (rootId: string): Promise<void> => {
   for (const doc of await documentsRepo.listPendingUpload()) {
     const blob = await documentsRepo.getBlob(doc.id);
     if (!blob) continue;
-    const appProperties: Record<string, string> = {
-      ladyDocId: doc.id,
-      ...(doc.postId ? { ladyPostId: doc.postId } : {}),
-    };
-    const parent = await driveIdOf(doc.folderId, rootId);
     await assertStillGeneral(rootId);
-    let uploaded: { id: string; modifiedTime: string };
+    let row = doc;
+    let uploaded: { id: string; modifiedTime: string } | undefined;
     try {
-      uploaded =
-        (await alreadySent("ladyDocId", doc.id)) ??
-        (await uploadFile(doc.name, blob, parent, appProperties));
-    } catch (error: unknown) {
-      if (!parentGone(error, parent, rootId)) {
-        giveUpOn(error);
-        continue;
+      uploaded = await alreadySent("ladyDocId", doc.id);
+      if (!uploaded) {
+        let parent = (await mirroredDriveId(doc.folderId, rootId)) ?? rootId;
+        if (!(await canFileIn(parent, rootId))) {
+          row = (await documentsRepo.update(doc.id, { folderId: null })) ?? row;
+          parent = rootId;
+        }
+        uploaded = await uploadFile(row.name, blob, parent, {
+          ladyDocId: row.id,
+          ...(row.postId ? { ladyPostId: row.postId } : {}),
+        });
       }
-      await documentsRepo.update(doc.id, { folderId: null });
-      uploaded = await uploadFile(doc.name, blob, rootId, appProperties);
+    } catch (error: unknown) {
+      if (stopsTheRun(error)) throw error;
+      console.warn("[drive] Envoi refusé, réessayé plus tard :", error);
+      continue;
     }
-    await documentsRepo.markUploaded(doc.id, {
-      driveFileId: uploaded.id,
-      driveModifiedAt: uploaded.modifiedTime,
-    });
+    await documentsRepo.markUploaded(
+      doc.id,
+      { driveFileId: uploaded.id, driveModifiedAt: uploaded.modifiedTime },
+      row.updatedAt,
+    );
   }
 };
 
@@ -414,7 +502,7 @@ export const documentBytes = async (
   if (cached) return cached;
   if (!doc.driveFileId) return undefined;
 
-  const blob = await downloadFile(doc.driveFileId, doc.mimeType);
+  const blob = await downloadFile(doc.driveFileId, doc.mimeType, doc.size);
   await documentsRepo.putBlob(doc.id, blob);
   return blob;
 };

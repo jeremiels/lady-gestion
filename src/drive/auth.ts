@@ -27,6 +27,12 @@ type PendingClaim = DriveMeta["driveClaim"];
  */
 const CLAIM_LIFETIME_MS = 40 * 60 * 1000;
 
+/**
+ * How long a call to the Worker may take before it counts as no connection:
+ * one that never answers would otherwise hold whatever awaits it.
+ */
+const WORKER_TIMEOUT_MS = 20_000;
+
 /** Thrown when Drive is not, or no longer, connected. */
 export class DriveSignedOutError extends Error {
   constructor() {
@@ -135,6 +141,7 @@ const claim = async (now: number): Promise<boolean> => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ claim: pending.claim }),
+      signal: AbortSignal.timeout(WORKER_TIMEOUT_MS),
     });
   } catch {
     return false;
@@ -161,10 +168,13 @@ const claim = async (now: number): Promise<boolean> => {
 
 let cached: { sessionToken: string; token: string; expiresAt: number } | null =
   null;
+/** The Worker call under way, shared: a walk asks for a token once per folder, at once. */
+let refreshing: { sessionToken: string; token: Promise<string> } | null = null;
 
 /**
  * An access token for Drive's API, from memory while it has more than a
- * minute left, from the Worker otherwise.
+ * minute left, from the Worker otherwise — one request for every caller
+ * waiting on it.
  *
  * A 401 from the Worker is a sign-out that happened elsewhere — the grant was
  * revoked from the Google account page, or the session is gone — so this
@@ -179,10 +189,23 @@ export const accessToken = async (now = Date.now()): Promise<string> => {
   ) {
     return cached.token;
   }
+  if (refreshing?.sessionToken !== account.sessionToken) {
+    const current = {
+      sessionToken: account.sessionToken,
+      token: refresh(account.sessionToken).finally(() => {
+        if (refreshing === current) refreshing = null;
+      }),
+    };
+    refreshing = current;
+  }
+  return refreshing.token;
+};
 
+const refresh = async (sessionToken: string): Promise<string> => {
   const response = await fetch(`${DRIVE_AUTH_URL}/drive/token`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${account.sessionToken}` },
+    headers: { Authorization: `Bearer ${sessionToken}` },
+    signal: AbortSignal.timeout(WORKER_TIMEOUT_MS),
   });
   if (response.status === 401) {
     cached = null;
@@ -195,8 +218,13 @@ export const accessToken = async (now = Date.now()): Promise<string> => {
     accessToken: string;
     expiresAt: number;
   };
-  cached = { sessionToken: account.sessionToken, token, expiresAt };
+  cached = { sessionToken, token, expiresAt };
   return token;
+};
+
+/** Drops the token in memory: Drive refused it, so the next call asks the Worker. */
+export const forgetAccessToken = (): void => {
+  cached = null;
 };
 
 /**
@@ -212,6 +240,7 @@ export const signOut = async (): Promise<void> => {
   await fetch(`${DRIVE_AUTH_URL}/auth/logout`, {
     method: "POST",
     headers: { Authorization: `Bearer ${account.sessionToken}` },
+    signal: AbortSignal.timeout(WORKER_TIMEOUT_MS),
   }).catch(() => null);
 };
 

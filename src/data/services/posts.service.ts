@@ -211,7 +211,7 @@ export const deletePost = (id: string): Promise<void> =>
   db.transaction("rw", [db.posts, db.documents], async () => {
     await postsRepo.remove(id);
     for (const doc of await documentsRepo.listByPost(id)) {
-      await documentsRepo.update(doc.id, { postId: null });
+      await documentsRepo.edit(doc.id, { postId: null });
     }
   });
 

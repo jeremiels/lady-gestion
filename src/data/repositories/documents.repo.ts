@@ -1,7 +1,11 @@
 import { db } from "../db.ts";
 import { createRecord, crud, liveOnly, softDelete, touch } from "../record.ts";
-import { pending } from "../drive-mirror.ts";
-import type { NewRecord, StoredDocument } from "../types.ts";
+import { pending, syncedAsOf } from "../drive-mirror.ts";
+import type {
+  DocumentDriveChange,
+  NewRecord,
+  StoredDocument,
+} from "../types.ts";
 
 /**
  * Document metadata and file bytes are stored in two tables and joined here.
@@ -98,15 +102,48 @@ export const listPendingUpload = async (): Promise<StoredDocument[]> =>
     .filter((document) => document.driveFileId === null)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-/** Records the Drive file an upload created, as in step with it. */
-export const markUploaded = async (
+/**
+ * Renames, moves or links a document, keeping which of the three changed for
+ * the sync to send (`driveChanges`). A row in step with the Drive starts a
+ * fresh list; one with changes not sent yet adds to its own.
+ */
+export const edit = async (
   id: string,
-  drive: { driveFileId: string; driveModifiedAt: string },
+  patch: Partial<Pick<StoredDocument, DocumentDriveChange>>,
 ): Promise<void> => {
   const existing = await get(id);
   if (!existing) return;
-  const uploaded = touch(existing, drive);
-  await db.documents.put({ ...uploaded, driveSyncedAt: uploaded.updatedAt });
+  const changed = (Object.keys(patch) as DocumentDriveChange[]).filter(
+    (field) => patch[field] !== existing[field],
+  );
+  const carried = pending(existing) ? existing.driveChanges : [];
+  await db.documents.put(
+    touch(existing, {
+      ...patch,
+      ...(carried && { driveChanges: [...new Set([...carried, ...changed])] }),
+    }),
+  );
+};
+
+/**
+ * Records the Drive file an upload created, as in step with the row as it
+ * stood at `asOf` — see `markSynced`. A rename, a move or a link made while
+ * the bytes were on their way stays pending for the next push, and so does a
+ * deletion: the file just created is then sent to the trash, as she asked.
+ */
+export const markUploaded = async (
+  id: string,
+  drive: { driveFileId: string; driveModifiedAt: string },
+  asOf: string,
+): Promise<void> => {
+  const existing = await db.documents.get(id);
+  if (!existing) return;
+  await db.documents.put({
+    ...existing,
+    ...drive,
+    driveSyncedAt: syncedAsOf(existing, asOf),
+    ...(existing.updatedAt === asOf && { driveChanges: [] }),
+  });
 };
 
 /**
@@ -123,8 +160,9 @@ export const listPendingChanges = async (): Promise<StoredDocument[]> =>
  * Records that the Drive now matches the row as it stood at `asOf` — the
  * `updatedAt` of the version that was sent. An edit made while it was on its
  * way is newer than that, so the row stays pending for the next push rather
- * than being taken as sent. `updatedAt` is not restamped, which would make
- * the row look changed again.
+ * than being taken as sent, its `driveChanges` kept. `updatedAt` is not
+ * restamped, which would make the row look changed again; nor is
+ * `driveSyncedAt` moved back (`syncedAsOf`).
  */
 export const markSynced = async (
   id: string,
@@ -133,7 +171,12 @@ export const markSynced = async (
 ): Promise<void> => {
   const existing = await db.documents.get(id);
   if (!existing) return;
-  await db.documents.put({ ...existing, driveModifiedAt, driveSyncedAt: asOf });
+  await db.documents.put({
+    ...existing,
+    driveModifiedAt,
+    driveSyncedAt: syncedAsOf(existing, asOf),
+    ...(existing.updatedAt === asOf && { driveChanges: [] }),
+  });
 };
 
 /** Caches bytes fetched from the Drive, so the file opens offline next time. */
