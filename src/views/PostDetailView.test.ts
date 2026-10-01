@@ -16,6 +16,7 @@ import {
   makePost,
   resetDb,
 } from "../data/__tests__/factories.ts";
+import { indexedDbStoresBlobs } from "../components/__tests__/blob-storage.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./PostDetailView.ts";
 import type { PostDetailView } from "./PostDetailView.ts";
@@ -206,6 +207,8 @@ describe("post-detail-view", () => {
   });
 });
 
+const BLOBS = await indexedDbStoresBlobs();
+
 describe("post-detail-view — Partager", () => {
   let shared: ShareData[];
 
@@ -248,31 +251,36 @@ describe("post-detail-view — Partager", () => {
     delete (navigator as { canShare?: unknown }).canShare;
   });
 
-  it("hands over a Drive file never opened here, as the PDF a Google Doc exports to", async () => {
-    await db.posts.add(makePost({ id: "care-1", categoryKey: "veto" }));
-    await db.documents.add(
-      makeDocument({
-        id: "bilan",
-        postId: "care-1",
-        name: "Bilan",
-        mimeType: "application/vnd.google-apps.document",
-        driveFileId: "d-bilan",
-      }),
-    );
+  // The download is kept in IndexedDB before it is handed over — see
+  // `indexedDbStoresBlobs`.
+  it.skipIf(!BLOBS)(
+    "hands over a Drive file never opened here, as the PDF a Google Doc exports to",
+    async () => {
+      await db.posts.add(makePost({ id: "care-1", categoryKey: "veto" }));
+      await db.documents.add(
+        makeDocument({
+          id: "bilan",
+          postId: "care-1",
+          name: "Bilan",
+          mimeType: "application/vnd.google-apps.document",
+          driveFileId: "d-bilan",
+        }),
+      );
 
-    const el = await mount("care-1");
-    await waitFor(el, () => el.querySelector(".post-detail__file") !== null);
-    actionLabeled(el, "Partager").click();
-    for (let i = 0; i < 20 && shared.length === 0; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+      const el = await mount("care-1");
+      await waitFor(el, () => el.querySelector(".post-detail__file") !== null);
+      actionLabeled(el, "Partager").click();
+      for (let i = 0; i < 20 && shared.length === 0; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
 
-    const [file] = shared[0]!.files!;
-    expect(file!.type).toBe("application/pdf");
-    expect(await file!.text()).toBe("%PDF-1.7");
-    // Fetched ahead and kept, so the next tap needs no network.
-    expect(await db.documentBlobs.get("bilan")).toBeDefined();
-  });
+      const [file] = shared[0]!.files!;
+      expect(file!.type).toBe("application/pdf");
+      expect(await file!.text()).toBe("%PDF-1.7");
+      // Fetched ahead and kept, so the next tap needs no network.
+      expect(await db.documentBlobs.get("bilan")).toBeDefined();
+    },
+  );
 });
 
 describe("post-detail-view — a failed read", () => {
