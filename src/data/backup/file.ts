@@ -1,8 +1,13 @@
 import type { IsoTimestamp } from "../dates.ts";
 import { UserFacingError } from "../errors.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
+import { isUntouchedSeed } from "../seed.ts";
 import { exportBackup } from "./export.ts";
-import { importBackup, type ImportResult } from "./snapshot.ts";
+import {
+  importBackup,
+  type BackupSnapshot,
+  type ImportResult,
+} from "./snapshot.ts";
 
 /**
  * How long the object URL is kept alive after the click. Revoking in the same
@@ -54,14 +59,56 @@ export const readBackupFile = async (file: File): Promise<ImportResult> => {
   return importBackup(parsed);
 };
 
+/** A snapshot as the text of a backup file, however the file is delivered. */
+const backupText = (snapshot: BackupSnapshot): string =>
+  JSON.stringify(snapshot, null, 2);
+
 /** The current snapshot as a named `.json` file. */
 const backupFile = async (): Promise<File> => {
   const snapshot = await exportBackup();
   return new File(
-    [JSON.stringify(snapshot, null, 2)],
+    [backupText(snapshot)],
     `lady-gestion-${fileTimestamp(snapshot.exportedAt)}.json`,
     { type: "application/json" },
   );
+};
+
+/** What a backup made without a gesture sends (`src/drive/backup.ts`). */
+export type AutomaticBackup = {
+  /** The text `downloadBackup` writes, so "Restaurer un fichier" reads it. */
+  json: string;
+  ownerId: string;
+  /**
+   * SHA-256 of the data alone, in hex: equal as long as nothing was written.
+   * `exportedAt` is left out — it moves on every read.
+   */
+  digest: string;
+};
+
+/**
+ * The current snapshot for an automatic backup, or `null` when the database
+ * holds only the untouched demo rows of a first run (`isUntouchedSeed`):
+ * there is nothing of hers in it to keep.
+ */
+export const automaticBackup = async (): Promise<AutomaticBackup | null> => {
+  const snapshot = await exportBackup();
+  const seedIds = await metaRepo.get<string[]>("seedRecordIds");
+  if (isUntouchedSeed(snapshot.tables, seedIds)) return null;
+
+  const { schemaVersion, ownerId, tables } = snapshot;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(
+      JSON.stringify({ schemaVersion, ownerId, tables }),
+    ),
+  );
+  return {
+    json: backupText(snapshot),
+    ownerId,
+    digest: [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join(""),
+  };
 };
 
 /**

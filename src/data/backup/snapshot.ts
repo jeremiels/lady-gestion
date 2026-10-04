@@ -20,8 +20,8 @@ import type {
 } from "../types.ts";
 
 /**
- * Whole-database snapshot, used today for manual file export/import and
- * later as the payload pushed to Google Drive's hidden appDataFolder.
+ * Whole-database snapshot: the file a manual export writes and a restore
+ * reads, and the one `src/drive/backup.ts` puts in her Drive once a day.
  *
  * The envelope carries `schemaVersion` so a restore can tell what shape it is
  * reading. Records keep their original UUIDs, so importing a snapshot into a

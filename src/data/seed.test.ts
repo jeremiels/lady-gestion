@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "./__tests__/factories.ts";
 import { db } from "./db.ts";
+import { automaticBackup } from "./backup/file.ts";
 import { seedIfEmpty } from "./seed.ts";
 
 /**
@@ -79,5 +80,25 @@ describe("seedIfEmpty — the demo", () => {
     expect(await db.horses.count()).toBe(0);
     expect(await db.posts.count()).toBe(0);
     expect(await db.meta.get("seedRecordIds")).toBeUndefined();
+  });
+});
+
+describe("automaticBackup — the demo", () => {
+  it("has nothing to send on a first launch", async () => {
+    await seedIfEmpty();
+
+    expect(await automaticBackup()).toBeNull();
+  });
+
+  it("sends the demo once one of its rows was edited: it is hers now", async () => {
+    await seedIfEmpty();
+    const [horse] = await db.horses.toArray();
+    await db.horses.put({
+      ...horse!,
+      coat: "Alezan",
+      updatedAt: "2099-01-01T00:00:00.000Z",
+    });
+
+    expect(await automaticBackup()).not.toBeNull();
   });
 });

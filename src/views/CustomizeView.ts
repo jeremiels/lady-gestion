@@ -2,7 +2,9 @@ import { html, nothing, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
+import { CoverUrl } from "../commons/controllers/cover-url.ts";
 import { Today } from "../commons/controllers/today.ts";
+import { toCoverBlob } from "../commons/cover-image.ts";
 import { goBackOutOf } from "../commons/navigation.ts";
 import {
   CUSTOMIZE_TABS,
@@ -17,6 +19,7 @@ import {
   errorMessage,
   horsesRepo,
   horsesService,
+  metaRepo,
   profileRepo,
   rationsRepo,
   rationsService,
@@ -25,10 +28,12 @@ import {
 } from "../data/index.ts";
 import { displayProfile } from "../data/account.ts";
 import type { RationItem } from "../data/types.ts";
+import { backupToDrive } from "../drive/backup.ts";
 import type { CategoryToggleDetail } from "../components/customize-categories/customize-categories.ts";
-import type {
-  HorseFieldErrors,
-  HorseSubmitDetail,
+import {
+  HORSE_COVER_FIELD,
+  type HorseFieldErrors,
+  type HorseSubmitDetail,
 } from "../components/customize-horse/customize-horse.ts";
 import type { SubnavItem } from "../components/app-subnav/app-subnav.ts";
 import type {
@@ -99,6 +104,7 @@ export class CustomizeView extends LightElement {
 
   #profile = new LiveQuery(this, () => profileRepo.get());
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
+  #cover = new CoverUrl(this);
   #rations = activeHorseQuery<RationItem[]>(
     this,
     (horseId) => rationsRepo.listByHorse(horseId),
@@ -169,14 +175,32 @@ export class CustomizeView extends LightElement {
     if (saved !== FAILED) this.profileStatus = "Modifications enregistrées.";
   };
 
+  /**
+   * Saves the card and, when a photo was picked, the cover with it. The photo
+   * is resized before anything is written, so one that cannot be read fails
+   * the save whole rather than after the fields went in.
+   */
   #onHorseSubmit = async (event: CustomEvent<HorseSubmitDetail>) => {
     const horse = this.#horse.value;
     if (!horse) return;
 
+    const { form } = event.detail;
+    const picked = new FormData(form).get(HORSE_COVER_FIELD);
+
     this.horseStatus = "";
-    const result = await this.#write("Enregistrement impossible.", () =>
-      horsesService.saveHorseProfile(horse, event.detail.form),
-    );
+    const result = await this.#write("Enregistrement impossible.", async () => {
+      const cover =
+        picked instanceof File && picked.size > 0
+          ? await toCoverBlob(picked)
+          : null;
+      const saved = await horsesService.saveHorseProfile(horse, form);
+      if (saved.ok && cover) {
+        await metaRepo.setHorseCover(horse.id, cover);
+        // Its copy in her Drive, now rather than at the next return to the app.
+        void backupToDrive();
+      }
+      return saved;
+    });
     if (result === FAILED) return;
     if (!result.ok) {
       this.horseErrors = result.errors;
@@ -318,6 +342,7 @@ export class CustomizeView extends LightElement {
       case "cheval":
         return html`<customize-horse
           .horse=${this.#horse.value ?? null}
+          .cover=${this.#cover.for(this.#horse.value?.id) ?? null}
           .errors=${this.horseErrors}
           status=${this.horseStatus}
           @horse-submit=${this.#onHorseSubmit}

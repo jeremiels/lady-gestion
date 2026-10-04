@@ -255,6 +255,27 @@ export const uploadFile = async (
 };
 
 /**
+ * Replaces a file's bytes, leaving its name, folder and `appProperties` as
+ * they are. The Drive keeps the bytes it replaces as an earlier version.
+ */
+export const updateFileContent = async (
+  id: string,
+  blob: Blob,
+): Promise<{ id: string; modifiedTime: string }> => {
+  const response = await request(
+    `/files/${id}?uploadType=media&fields=id,modifiedTime`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": blob.type || "application/octet-stream" },
+      body: blob,
+    },
+    DRIVE_UPLOAD_URL,
+    transferTimeout(blob.size),
+  );
+  return (await response.json()) as { id: string; modifiedTime: string };
+};
+
+/**
  * What the signed-in account sees of `id`: `gone` for a file or folder of
  * another Google account, or one deleted for good; `trashed` for one in the
  * trash, itself or through a folder above it — which hides everything in it

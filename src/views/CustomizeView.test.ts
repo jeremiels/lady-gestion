@@ -1,13 +1,14 @@
 import { html } from "lit";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
-import { DEFAULT_SEASON, rationsRepo } from "../data/index.ts";
+import { DEFAULT_SEASON, metaRepo, rationsRepo } from "../data/index.ts";
 import {
   HORSE_ID,
   makeHorse,
   makeRation,
   resetDb,
 } from "../data/__tests__/factories.ts";
+import { indexedDbStoresBlobs } from "../components/__tests__/blob-storage.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./CustomizeView.ts";
 import type { CustomizeView } from "./CustomizeView.ts";
@@ -222,6 +223,8 @@ describe("customize-view › ration", () => {
   });
 });
 
+const BLOBS = await indexedDbStoresBlobs();
+
 describe("customize-view › cheval", () => {
   const card = (el: CustomizeView) =>
     el.querySelector<CustomizeHorse>("customize-horse")!;
@@ -281,6 +284,80 @@ describe("customize-view › cheval", () => {
       firstName: "Lady",
       lastName: "Coupe Chêne",
     });
+  });
+
+  const cover = (el: CustomizeView) =>
+    card(el).renderRoot.querySelector<HTMLLabelElement>(".cover")!;
+  const coverImage = (el: CustomizeView) =>
+    cover(el).querySelector<HTMLImageElement>(".cover__image");
+
+  /** A real image, twice as wide as the stored cover's shorter edge allows. */
+  const pickPhoto = async (el: CustomizeView) => {
+    const canvas = new OffscreenCanvas(4096, 3072);
+    canvas.getContext("2d")!.fillRect(0, 0, 4096, 3072);
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([await canvas.convertToBlob()], "photo.png", {
+        type: "image/png",
+      }),
+    );
+    const input = cover(el).querySelector("input")!;
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await settled(card(el));
+  };
+
+  it("offers Ajouter un fichier while there is no photo, and shows the pick before it is saved", async () => {
+    const el = await mount("cheval");
+    await waitFor(el, () => card(el)?.horse != null);
+
+    expect(cover(el).textContent).toContain("Ajouter un fichier");
+    expect(coverImage(el)).toBeNull();
+
+    await pickPhoto(el);
+
+    expect(coverImage(el)?.src).toMatch(/^blob:/);
+    expect(await metaRepo.getHorseCover()).toBeUndefined();
+  });
+
+  // Saving writes the photo's bytes to IndexedDB — see `indexedDbStoresBlobs`.
+  it.skipIf(!BLOBS)(
+    "saves the picked photo with the card, resized, and shows the saved one",
+    async () => {
+      const el = await mount("cheval");
+      await waitFor(el, () => card(el)?.horse != null);
+      await pickPhoto(el);
+      const preview = coverImage(el)!.src;
+
+      card(el).renderRoot.querySelector("form")!.requestSubmit();
+      // On the clock rather than `waitFor`'s few ticks: resizing a
+      // twelve-megapixel photo outlasts them.
+      await vi.waitFor(
+        () => expect(card(el).status).toBe("Modifications enregistrées."),
+        { timeout: 5000 },
+      );
+
+      const saved = await metaRepo.getHorseCover();
+      expect(saved?.horseId).toBe(HORSE_ID);
+      expect(saved?.blob.type).toBe("image/jpeg");
+      const stored = await createImageBitmap(saved!.blob);
+      expect([stored.width, stored.height]).toEqual([2048, 1536]);
+
+      await waitFor(el, () => coverImage(el)?.src !== preview);
+      expect(coverImage(el)?.src).toMatch(/^blob:/);
+      expect(cover(el).querySelector("input")!.files).toHaveLength(0);
+    },
+  );
+
+  it("writes no photo when the card is saved without a pick", async () => {
+    const el = await mount("cheval");
+    await waitFor(el, () => card(el)?.horse != null);
+
+    control<HTMLInputElement>(el, "horse-coat").value = "Bai cerise";
+    card(el).renderRoot.querySelector("form")!.requestSubmit();
+    await waitFor(el, () => card(el).status === "Modifications enregistrées.");
+
+    expect(await metaRepo.getHorseCover()).toBeUndefined();
   });
 });
 

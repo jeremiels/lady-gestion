@@ -20,6 +20,7 @@ import { BackupActions } from "./commons/backup-actions.ts";
 import { initDoubleTapGuard } from "./commons/double-tap-guard.ts";
 import { initPwa } from "./pwa/index.ts";
 import { initDriveAuth } from "./drive/auth.ts";
+import { initDriveBackup } from "./drive/backup.ts";
 import { initDriveSync } from "./drive/sync.ts";
 import { appHref } from "./commons/base-path.ts";
 import {
@@ -351,6 +352,7 @@ export class AppRoot extends LightElement {
         // Reads and writes `meta`, so only once the database is open.
         initDriveAuth();
         initDriveSync();
+        initDriveBackup();
       })
       .catch((error: unknown) => {
         console.error(

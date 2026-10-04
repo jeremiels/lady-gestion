@@ -53,9 +53,10 @@ there when the task touches it. The rules below apply to every task.
   `localStorage`. Two network paths, both outside `src/data/`: push reminders
   (`src/pwa/push.ts` sends the reminder list to the Worker in `server/`) and
   Google Drive (`src/drive/`: sign-in brokered by the same Worker, which holds
-  only the refresh token; files go phone ↔ Drive directly). The app must keep
-  working with the Worker or Drive down — no reminders, no sync, everything
-  else normal. Any other `fetch` or backend needs asking first.
+  only the refresh token; files, and a daily backup of the database, go
+  phone ↔ Drive directly). The app must keep working with the Worker or Drive
+  down — no reminders, no sync, no backup, everything else normal. Any other
+  `fetch` or backend needs asking first.
 - **No state management library and no store.** Reactivity comes from
   `LiveQuery` (`src/data/live.ts`), a Lit `ReactiveController` wrapping Dexie's
   `liveQuery`.

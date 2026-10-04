@@ -360,12 +360,15 @@ export class PostSheet extends BaseElement {
     .post-form__attach {
       display: block;
       padding: var(--spacing-16);
-      border: 1.5px dashed var(--color-brown-light);
+      // border: 1px dashed var(--color-brown-light);
       border-radius: var(--radius-16);
       color: var(--color-brown-light);
       font-weight: 600;
+      font-size: 0.813rem;
       text-align: center;
       cursor: pointer;
+      background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23333' stroke-width='1' stroke-dasharray='4%2c 8' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+
     }
 
     .post-form__attach:focus-within {

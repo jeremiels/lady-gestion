@@ -133,7 +133,7 @@ export class DocumentFolderView extends LightElement {
               this.folderSheet = "edit";
             }}
           >
-            <app-icon icon="edit"></app-icon>
+            <app-icon icon="pen"></app-icon>
           </button>
         </header>
 

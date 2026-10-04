@@ -40,6 +40,13 @@ export class HorseCard extends BaseElement {
    */
   @property({ attribute: false }) horse: Horse | null = null;
 
+  /**
+   * The cover photo she picked, as a URL (`CoverUrl`); `null` draws the
+   * bundled one. `undefined` — the owning view does not know yet — draws
+   * none, so the bundled photo never shows for the tick before hers.
+   */
+  @property({ attribute: false }) cover: string | null | undefined = null;
+
   static componentStyles = css`
     .horse-card {
       display: block;
@@ -123,25 +130,29 @@ export class HorseCard extends BaseElement {
     if (!horse) return nothing;
 
     const detailed = this.contextType === "horse-view";
-    // Falls back to the bundled photo until a cover image has been uploaded.
-    const imageUrl = horseImageUrl;
+    const cover = this.cover;
 
     // The dashboard's LCP element. It renders inside a shadow root, and only
-    // once the database has answered, so index.html preloads the same URL;
-    // fetchpriority="high" still ranks the request for any photo that is not
-    // preloaded. The intrinsic 1536x2304 is the file's own size — it changes no
-    // layout here (the card's aspect-ratio and object-fit already decide that)
-    // but it keeps the box reserved if this ever renders somewhere that does
-    // not size it.
+    // once the database has answered, so index.html preloads the bundled
+    // photo's URL; fetchpriority="high" still ranks the request for any photo
+    // that is not preloaded. The intrinsic 1536x2304 is the bundled file's own
+    // size — it changes no layout here (the card's aspect-ratio and object-fit
+    // already decide that) but it keeps the box reserved if this ever renders
+    // somewhere that does not size it. Her own photo's size is not known, and
+    // gets none.
     const content = html`
-      <img
-        class="horse-card__image"
-        src="${imageUrl}"
-        alt=""
-        width="1536"
-        height="2304"
-        fetchpriority="high"
-      />
+      ${
+        cover === undefined
+          ? nothing
+          : html`<img
+              class="horse-card__image"
+              src=${cover ?? horseImageUrl}
+              alt=""
+              width=${cover === null ? 1536 : nothing}
+              height=${cover === null ? 2304 : nothing}
+              fetchpriority="high"
+            />`
+      }
       <div class="horse-card__info">
         <div class="horse-card__info-left">
           <h2 class="horse-card__info-title">${horseFullName(horse)}</h2>

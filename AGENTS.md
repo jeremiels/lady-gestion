@@ -569,9 +569,9 @@ What's already in place:
   edited (`createdAt === updatedAt`), which the file's copy replaces whatever
   the stamps say, since a fresh install's seed would otherwise outvote every
   choice in the backup; `reconcileCategories` then reapplies this build's
-  definitions. A comment there says it's meant to become
-  the payload pushed to Google Drive's hidden appDataFolder. Documents do not
-  wait on it: `StoredDocument`'s `driveFileId`/`driveModifiedAt`/
+  definitions. The same file is what `src/drive/backup.ts` puts in her Drive
+  once a day, in a folder of its own (`docs/drive-spec.md` §12). Documents do
+  not ride in it: `StoredDocument`'s `driveFileId`/`driveModifiedAt`/
   `driveSyncedAt` and `meta`'s `googleAccount`/`driveFolder` belong to the
   mirror of her own Drive folder (`src/drive/`, `docs/drive-spec.md`).
 - **Reads and writes already flow through a narrow set of seams**: reads via

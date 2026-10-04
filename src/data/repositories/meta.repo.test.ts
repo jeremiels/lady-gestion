@@ -55,3 +55,24 @@ describe("getNotificationsEnabled", () => {
     expect(await metaRepo.getNotificationsEnabled()).toBe(false);
   });
 });
+
+describe("getHorseCover / setHorseCover", () => {
+  it("has none until one is picked", async () => {
+    expect(await metaRepo.getHorseCover()).toBeUndefined();
+  });
+
+  it("keeps the photo's bytes with the horse it was picked for", async () => {
+    const saved = await metaRepo.setHorseCover(
+      "horse-1",
+      new Blob(["photo"], { type: "image/jpeg" }),
+    );
+
+    const cover = await metaRepo.getHorseCover();
+    expect(cover).toMatchObject({
+      horseId: "horse-1",
+      pickedAt: saved.pickedAt,
+    });
+    expect(cover?.blob.type).toBe("image/jpeg");
+    expect(await cover?.blob.text()).toBe("photo");
+  });
+});

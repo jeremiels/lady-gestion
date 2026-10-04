@@ -2,6 +2,7 @@ import { html, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
+import { CoverUrl } from "../commons/controllers/cover-url.ts";
 import { Today } from "../commons/controllers/today.ts";
 import { goBackOutOf } from "../commons/navigation.ts";
 import {
@@ -58,6 +59,7 @@ export class HorseView extends LightElement {
   // Both re-run automatically whenever a table they read is written to, so an
   // edit made on the customize page shows here without any manual refresh.
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
+  #cover = new CoverUrl(this);
   #rations = activeHorseQuery<RationItem[]>(
     this,
     (horseId) => rationsRepo.listByHorse(horseId),
@@ -102,6 +104,7 @@ export class HorseView extends LightElement {
             context-type="horse-view"
             class="horse-view__card"
             .horse=${horse ?? null}
+            .cover=${this.#cover.for(horse?.id)}
           ></horse-card>
           <button
             class="horse-view__back pressable pressable--small"

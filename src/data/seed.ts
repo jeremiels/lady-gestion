@@ -1,4 +1,9 @@
-import { RECORD_TABLES, RECORD_TABLE_NAMES, db } from "./db.ts";
+import {
+  RECORD_TABLES,
+  RECORD_TABLE_NAMES,
+  db,
+  type BackupTables,
+} from "./db.ts";
 import { todayISO, toIsoDate, nowISO } from "./dates.ts";
 import { seedCategories } from "./categories.ts";
 import { followUpValue } from "./posts.ts";
@@ -8,7 +13,7 @@ import * as rationsRepo from "./repositories/rations.repo.ts";
 import * as postsRepo from "./repositories/posts.repo.ts";
 import * as metaRepo from "./repositories/meta.repo.ts";
 import { DEFAULT_SEASON, type RationSeason } from "./seasons.ts";
-import type { RationUnit } from "./types.ts";
+import type { BaseRecord, RationUnit } from "./types.ts";
 
 /**
  * Brings the built-in event types on this device up to what the app ships.
@@ -210,6 +215,24 @@ const seedDemo = async (): Promise<void> => {
 const USER_TABLES = RECORD_TABLE_NAMES.filter(
   (name) => name !== "categories" && name !== "profiles",
 );
+
+/**
+ * Whether `tables` hold nothing of the user's: every row is a first-run demo
+ * row (`seedIds`, `meta.seedRecordIds`) nobody has touched. What an install
+ * looks like before a restore — and so what an automatic backup must not send,
+ * or a new phone's demo horse would land among her real backups.
+ */
+export const isUntouchedSeed = (
+  tables: BackupTables,
+  seedIds: readonly string[] | undefined,
+): boolean => {
+  const seeded = new Set(seedIds);
+  return USER_TABLES.every((name) =>
+    (tables[name] as BaseRecord[]).every(
+      (row) => seeded.has(row.id) && row.createdAt === row.updatedAt,
+    ),
+  );
+};
 
 /**
  * Drops first-run demo rows the user never touched — **only on a database that

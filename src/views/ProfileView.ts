@@ -30,9 +30,10 @@ const HOME = "/";
 const PASSWORD_MASK = "*".repeat(9);
 
 /**
- * Until Google Drive backup lands, this screen is the only thing standing
- * between the user and losing everything to a cleared browser storage — so
- * it states plainly how stale the last backup is rather than hiding it.
+ * States plainly how stale the last backup is rather than hiding it: without
+ * Drive connected (`src/drive/backup.ts`), the export on this screen is the
+ * only thing standing between the user and losing everything to a cleared
+ * browser storage.
  */
 @customElement("profile-view")
 export class ProfileView extends LightElement {

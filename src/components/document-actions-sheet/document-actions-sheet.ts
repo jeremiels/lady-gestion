@@ -71,7 +71,9 @@ export class DocumentActionsSheet extends BaseElement {
       display: grid;
       gap: var(--spacing-8);
       margin: 0;
-      padding: 0;
+      /* The sheet's bottom padding comes with its footer; with the buttons in
+         the body, the body brings its own. */
+      padding: 0 0 var(--spacing-16);
       list-style: none;
     }
 
@@ -97,6 +99,7 @@ export class DocumentActionsSheet extends BaseElement {
     .step {
       display: grid;
       gap: var(--spacing-12);
+      padding-bottom: var(--spacing-16);
     }
 
     .step p {

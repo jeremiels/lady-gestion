@@ -1,6 +1,6 @@
 import { db } from "../db.ts";
 import { nowISO, type IsoTimestamp } from "../dates.ts";
-import type { MetaKey } from "../types.ts";
+import type { HorseCover, MetaKey } from "../types.ts";
 
 /**
  * Local app state: which horse is on screen, when the last backup ran, the
@@ -34,3 +34,20 @@ export const getNotificationsEnabled = async (): Promise<boolean> =>
 
 export const setNotificationsEnabled = (enabled: boolean): Promise<void> =>
   set("notificationsEnabled", enabled);
+
+/** The cover photo she picked, `undefined` while the bundled one stands in. */
+export const getHorseCover = (): Promise<HorseCover | undefined> =>
+  get<HorseCover>("horseCover");
+
+/**
+ * Replaces the cover photo. `pickedAt` is stamped here, so two writes never
+ * share one: it is what the views and the Drive copy tell photos apart by.
+ */
+export const setHorseCover = async (
+  horseId: string,
+  blob: Blob,
+): Promise<HorseCover> => {
+  const cover: HorseCover = { horseId, blob, pickedAt: nowISO() };
+  await set("horseCover", cover);
+  return cover;
+};

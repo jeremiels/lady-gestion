@@ -2,6 +2,7 @@ import { html, nothing } from "lit";
 import { customElement } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { LightElement } from "../commons/base-element.ts";
+import { CoverUrl } from "../commons/controllers/cover-url.ts";
 import { Today } from "../commons/controllers/today.ts";
 import { appHref } from "../commons/base-path.ts";
 import {
@@ -42,6 +43,7 @@ export class HomeView extends LightElement {
   });
 
   #horse = new LiveQuery(this, () => horsesRepo.getActive());
+  #cover = new CoverUrl(this);
   /** The folders at the top of the general Drive folder, as the Documents page shows them. */
   #documentFolders = new LiveQuery(
     this,
@@ -189,7 +191,10 @@ export class HomeView extends LightElement {
             : nothing
         }
         <div class="home-view__cards">
-          <horse-card .horse=${this.#horse.value ?? null}></horse-card>
+          <horse-card
+            .horse=${this.#horse.value ?? null}
+            .cover=${this.#cover.for(this.#horse.value?.id)}
+          ></horse-card>
           <div class="home-view__section-col">
             <budget-card
               .totalCents=${this.#monthSpend.value ?? 0}

@@ -24,6 +24,7 @@ const decidedByFile = ({
 });
 import { migrateTables } from "./migrate.ts";
 import { exportBackup } from "./export.ts";
+import { automaticBackup } from "./file.ts";
 import { importBackup } from "./snapshot.ts";
 import { resetDatabase } from "./snapshot.fixtures.ts";
 
@@ -286,6 +287,25 @@ describe.skipIf(newest === undefined)(
       await importBackup(snapshot);
 
       expect(await db.horses.count()).toBe(snapshot.tables.horses!.length);
+    });
+
+    it("is what an automatic backup sends, whole", async () => {
+      const snapshot = real();
+      await importBackup(snapshot);
+
+      const backup = await automaticBackup();
+
+      // Never taken for an untouched demo, which is the one database an
+      // automatic backup sends nothing of.
+      expect(backup).not.toBeNull();
+      const sent = JSON.parse(backup!.json) as RealSnapshot;
+      expect(rowCount(sent)).toBeGreaterThanOrEqual(keptRowCount(snapshot));
+
+      // And the file it sends restores, every row of it.
+      await resetDatabase();
+      const result = await importBackup(sent);
+      expect(result.imported).toBe(rowCount(sent));
+      expect(result.skipped).toBe(0);
     });
   },
 );

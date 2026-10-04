@@ -52,7 +52,8 @@ Le couple moins puissant `drive.readonly` + `drive.file` a été essayé au lot 
 403 « not granted write access » dès qu'il s'agit d'un fichier existant.
 
 Le code n'écrit **que sous le dossier général** et ne fait jamais de
-suppression définitive (corbeille uniquement, §6.6).
+suppression définitive (corbeille uniquement, §6.6). Seule exception : le
+dossier de sauvegarde, à la racine de son Drive (§12).
 
 ### 3.2 Conséquences acceptées
 
@@ -283,7 +284,8 @@ l'ajout.
   30 jours), jamais de suppression définitive.
 - Supprimer un dossier : seulement vide.
 - Renommer / déplacer → `PATCH` du nom / des `parents`.
-- Aucune écriture hors du dossier général.
+- Aucune écriture hors du dossier général, sauf dans le dossier de sauvegarde
+  (§12).
 
 ### 6.7 États d'un document
 
@@ -488,3 +490,56 @@ praticien), à confirmer avec elle.
    l'original, c'est un document.
 3. **Cheval des fichiers découverts** : `horseId` = cheval actif. Tant qu'il
    n'y a qu'un cheval, ça ne se voit pas ; à revoir si un second arrive.
+
+## 12. Sauvegarde automatique et photo de couverture
+
+Ajouté le 4 oct. 2026 (`src/drive/backup.ts`).
+
+### 12.1 Sauvegarde
+
+- **Où** : un dossier à part, **`ladympala-backup`, à la racine de son Drive**,
+  créé par l'app et retrouvé par son étiquette (`appProperties`
+  `ladyBackupFolder`), où qu'elle le déplace ou le renomme. Hors du dossier
+  général exprès : la sauvegarde n'attend pas qu'un dossier général soit
+  choisi, ne bouge pas quand il change, et n'apparaît jamais dans la page
+  Documents. C'est la seule écriture hors du dossier général (§3.1, §6.6).
+- **Quoi** : le fichier d'un export manuel, tel quel
+  (`lady-gestion-AAAA-MM-JJ.json`) : « Restaurer un fichier » le lit. Les
+  octets des documents n'y sont pas, ils sont déjà dans son Drive.
+- **Combien** : **un fichier par jour**, réécrit sur place quand les données
+  changent dans la journée ; **les 30 jours les plus récents** sont gardés,
+  les fichiers plus anciens vont à la corbeille du Drive.
+- **Quand** : à l'ouverture de l'app, à la connexion, au passage en
+  arrière-plan, au retour au premier plan, au retour du réseau. Jamais app
+  fermée : Safari n'a ni Background Sync ni Periodic Background Sync. Une base
+  inchangée depuis le fichier du jour ne coûte aucune requête
+  (`meta.driveBackup` garde l'empreinte de ce qui a été envoyé).
+- **Preuve** : `lastBackupAt` (« Dernière sauvegarde ») est horodaté quand le
+  Drive confirme l'envoi, comme pour un export partagé.
+
+Deux garde-fous :
+
+- une base qui ne contient que les lignes de démonstration du premier
+  lancement, jamais touchées, **n'est pas envoyée** (`isUntouchedSeed`) ;
+- un fichier du jour n'est réécrit que par l'installation qui l'a écrit
+  (`ladyOwner` = `ownerId`). Un nouveau téléphone, avant sa restauration, écrit
+  à côté de sa dernière vraie sauvegarde, jamais dessus ; après la
+  restauration il a repris l'`ownerId` du fichier et continue la même série.
+
+Restaurer depuis le Drive reste manuel : récupérer le JSON dans
+`ladympala-backup`, puis « Restaurer un fichier ».
+
+### 12.2 Photo de couverture
+
+Elle choisit la photo de la carte du cheval (Accueil, fiche) dans
+Personnaliser mon interface › Cheval ; elle est écrite avec « Enregistrer ».
+
+- Stockée **redimensionnée** (petit côté ≤ 1536 px, JPEG) dans
+  `meta.horseCover`, pas dans `documents` : ce n'est pas un document de son
+  dossier général, le miroir n'y touche pas, et changer de dossier général ne
+  la fait pas disparaître. `Horse.photoDocumentId` reste inutilisé.
+- Sa copie dans le Drive est `couverture.jpg`, **dans le dossier de
+  sauvegarde**, étiquetée `ladyCover` = id du cheval, remplacée sur place à
+  chaque nouvelle photo.
+- Sur un téléphone qui n'en a pas (après une restauration), la sauvegarde la
+  **retélécharge** pour le cheval qu'elle concerne.

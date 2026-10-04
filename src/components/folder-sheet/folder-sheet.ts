@@ -44,9 +44,12 @@ export class FolderSheet extends BaseElement {
       display: contents;
     }
 
+    /* The sheet's bottom padding comes with its footer; with the buttons in
+       the body, the body brings its own. */
     .step {
       display: grid;
       gap: var(--spacing-12);
+      padding-bottom: var(--spacing-16);
     }
 
     .step p {

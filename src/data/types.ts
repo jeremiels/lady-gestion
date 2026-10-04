@@ -62,9 +62,9 @@ export type Horse = BaseRecord & {
   /**
    * `Document.id` of the cover photo, or `null` to use the bundled fallback.
    *
-   * **Not wired yet:** nothing writes it and nothing reads it — `horse-card`
-   * always draws the bundled image. Kept because the column is what a photo
-   * picker would fill in, not because anything fills it today.
+   * **Not wired:** nothing writes it and nothing reads it. The photo she
+   * picks is not a document of her Drive folder — it is kept in `meta`
+   * (`HorseCover` below), out of the mirror's reach.
    */
   photoDocumentId: string | null;
   /**
@@ -484,6 +484,35 @@ export type DriveMeta = {
    * mirror is then simply as of the last sync.
    */
   driveSyncProblem: "trashed" | "failed";
+  /**
+   * The last automatic backup her Drive confirmed (`src/drive/backup.ts`):
+   * for which account, where, and of what — so a database unchanged since,
+   * on the same day, costs no request.
+   */
+  driveBackup: {
+    email: string;
+    folderId: string;
+    fileId: string;
+    /** The calendar day the file is for, `YYYY-MM-DD`. */
+    day: string;
+    /** `AutomaticBackup.digest` of what the file holds. */
+    digest: string;
+    /** `HorseCover.pickedAt` of the photo in that folder; absent when none is. */
+    coverPickedAt?: string;
+  };
+};
+
+/**
+ * The horse's cover photo, as picked on Personnaliser mon interface › Cheval
+ * and drawn by `horse-card`. Bytes and all in `meta`: device-local, in no
+ * backup file. The copy that survives the phone is the one
+ * `src/drive/backup.ts` keeps beside the backups in her Drive.
+ */
+export type HorseCover = {
+  horseId: string;
+  blob: Blob;
+  /** ISO timestamp of the pick: what tells one photo from the next. */
+  pickedAt: string;
 };
 
 export type MetaKey =
@@ -495,6 +524,9 @@ export type MetaKey =
   | "driveClaim"
   | "driveFolder"
   | "driveSyncProblem"
+  | "driveBackup"
+  /** See `HorseCover`. */
+  | "horseCover"
   /** The folder her last attachment went to (`null`: the general folder). */
   | "attachmentFolderId"
   /** Written by the profile switch; off, `listReminders` sends no reminder. */

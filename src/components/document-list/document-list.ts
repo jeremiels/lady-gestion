@@ -186,7 +186,7 @@ export class DocumentList extends BaseElement {
                   aria-label=${`Modifier ${doc.name}`}
                   @click=${() => this.#emit("document-more", doc)}
                 >
-                  <app-icon icon="edit"></app-icon>
+                  <app-icon icon="pen"></app-icon>
                 </button>
               </li>
             `;
