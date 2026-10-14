@@ -5,6 +5,7 @@ import { BUILT_IN_CATEGORIES, seedCategories } from "../categories.ts";
 import { followUpValue } from "../posts.ts";
 import { getOwnerId } from "../owner.ts";
 import { seedIfEmpty } from "../seed.ts";
+import * as horsesRepo from "../repositories/horses.repo.ts";
 import * as profileRepo from "../repositories/profile.repo.ts";
 import type { Category, Post, UserProfile } from "../types.ts";
 import { migrateTables, type MigratingTables } from "./migrate.ts";
@@ -223,6 +224,36 @@ describe("importBackup — owner adoption", () => {
 
     expect(getOwnerId()).toBe(REMOTE_OWNER);
     expect(await db.meta.get("ownerId")).toMatchObject({ value: REMOTE_OWNER });
+  });
+});
+
+describe("importBackup — the horse shown", () => {
+  it("shows the file's horse on a phone used before the restore", async () => {
+    // An event of her own on the demo horse — as the Drive mirror files its
+    // documents under it once connected — so the demo horse is kept.
+    await seedIfEmpty();
+    const demo = await horsesRepo.getActive();
+    await db.posts.put(
+      post({ id: "event-local", horseId: demo!.id, ownerId: LOCAL_OWNER }),
+    );
+
+    await importBackup(snapshot({ tables: { horses: [horse()] } }));
+
+    expect(await horsesRepo.get(demo!.id)).toBeDefined();
+    expect((await horsesRepo.getActive())?.id).toBe("horse-1");
+  });
+
+  it("does not show a horse archived here since the file was made", async () => {
+    await db.horses.put(
+      horse({
+        archivedAt: "2026-03-01T00:00:00.000Z",
+        updatedAt: "2026-03-01T00:00:00.000Z",
+      }),
+    );
+
+    await importBackup(snapshot({ tables: { horses: [horse()] } }));
+
+    expect(await db.meta.get("activeHorseId")).toBeUndefined();
   });
 });
 

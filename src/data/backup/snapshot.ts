@@ -9,6 +9,7 @@ import {
 import type { IsoTimestamp } from "../dates.ts";
 import { newerOf } from "../record.ts";
 import { setOwnerId } from "../owner.ts";
+import * as horsesRepo from "../repositories/horses.repo.ts";
 import { clearUntouchedSeedData, reconcileCategories } from "../seed.ts";
 import { migrateTables, type MigratingTables } from "./migrate.ts";
 import { assertRows, assertSnapshot } from "./validate.ts";
@@ -196,6 +197,19 @@ export const importBackup = async (
           AS_RESTORED[name],
         );
       }
+
+      // The app shows the file's horse from here on. Otherwise it stays on
+      // the one this device was showing — the demo horse, whenever
+      // `clearUntouchedSeedData` had to keep it because the device was used
+      // first (a Drive connected, an event added) — and every restored row
+      // sits under a horse nothing in the app switches to. Read back after the
+      // merge, so a local copy that is newer and archived or deleted is not
+      // the one shown.
+      const fromFile = new Set(backup.tables.horses.map((row) => row.id));
+      const shown = (await horsesRepo.list()).find((horse) =>
+        fromFile.has(horse.id),
+      );
+      if (shown) await horsesRepo.setActive(shown.id);
 
       // The restored rows carry the exporting device's `ownerId`. Adopt it,
       // or the database ends up split between two owners — old rows under
