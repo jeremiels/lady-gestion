@@ -10,7 +10,7 @@ import type { IsoTimestamp } from "../dates.ts";
 import { newerOf } from "../record.ts";
 import { setOwnerId } from "../owner.ts";
 import * as horsesRepo from "../repositories/horses.repo.ts";
-import { clearUntouchedSeedData, reconcileCategories } from "../seed.ts";
+import { clearUntouchedSeedData } from "../seed.ts";
 import { migrateTables, type MigratingTables } from "./migrate.ts";
 import { assertRows, assertSnapshot } from "./validate.ts";
 import type {
@@ -55,7 +55,7 @@ export type ImportResult = {
  * this device *seeded* and the user has never touched, when the file holds a
  * different version of it.
  *
- * The built-in categories (`reconcileCategories` in `seed.ts`) are seeded
+ * The built-in categories (`seedCategoriesOnFirstInstall` in `seed.ts`) are seeded
  * independently on every install. On a new phone those stamps are newer than
  * every edit in the backup, so plain last-write-wins kept the fresh seed: a
  * category switched off came back on, and every seeded row stayed under the
@@ -225,16 +225,6 @@ export const importBackup = async (
       if (backup.ownerId) {
         await db.meta.put({ key: "ownerId", value: backup.ownerId });
       }
-
-      // A built-in the file won carries its label, icon and fields as the
-      // build that exported it shipped them. Reconciling writes this build's
-      // back over them now — keeping what the file decided: owner, stamps,
-      // `enabled` — rather than leaving an older form in place until the next
-      // launch. Handed the file's owner explicitly, because the cache above
-      // has deliberately not adopted it yet and a built-in this device lacks
-      // entirely has to be stamped with the owner the rest of the restore
-      // just used.
-      await reconcileCategories(backup.ownerId || undefined);
 
       return { imported, skipped };
     },

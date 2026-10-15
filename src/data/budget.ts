@@ -1,5 +1,5 @@
 import { todayISO, type IsoDate } from "./dates.ts";
-import { childrenOf, rootsOf } from "./categories.ts";
+import { amountOf, childrenOf, findCategory, rootsOf } from "./categories.ts";
 import { formatMonthLong, formatMonthShort, monthOf } from "./seasons.ts";
 import type { Category, Post } from "./types.ts";
 
@@ -74,10 +74,9 @@ export const inPeriod = (events: Post[], period: BudgetPeriod): Post[] =>
  * one month to the next. Sorting by amount would reshuffle the whole donut
  * every time a single budget was added.
  *
- * Reads `customFields.amountCents` rather than a fixed `amountCents` column —
- * schema v6 moved it there, present only for a type whose `fields` carry an
- * amount at all. A missing or non-numeric entry (the field simply not offered,
- * or left blank) contributes nothing, the same as a `null` column used to.
+ * The amount is whatever the post's category links to the budget (`amountOf`,
+ * its `budget` field). A post whose category has none, or left it blank,
+ * contributes nothing.
  */
 export const sumByCategory = (
   events: Post[],
@@ -85,8 +84,8 @@ export const sumByCategory = (
 ): BudgetSlice[] => {
   const totals = new Map<string, number>();
   for (const event of events) {
-    const amount = event.customFields.amountCents;
-    if (typeof amount !== "number") continue;
+    const amount = amountOf(event, findCategory(types, event.categoryKey));
+    if (amount === null) continue;
     totals.set(
       event.categoryKey,
       (totals.get(event.categoryKey) ?? 0) + amount,

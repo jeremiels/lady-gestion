@@ -2,7 +2,7 @@
    a layer already created by an import cannot be reordered afterwards.
    `views.main` first: it styles the shell (nav bar, main padding), which every
    other view renders inside and may need to adjust. */
-@layer views.main, views.home, views.horse, views.events, views.post-detail, views.budget, views.documents, views.profile, views.customize;
+@layer views.main, views.home, views.horse, views.events, views.post-detail, views.budget, views.documents, views.profile, views.customize, views.category-editor;
 
 @import "../views/main.css";
 @import "../views/home.css";
@@ -13,3 +13,4 @@
 @import "../views/documents.css";
 @import "../views/profile.css";
 @import "../views/customize.css";
+@import "../views/category-editor.css";

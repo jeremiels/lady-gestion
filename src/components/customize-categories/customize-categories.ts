@@ -3,24 +3,25 @@ import { customElement, property } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { live } from "lit/directives/live.js";
 import { BaseElement } from "../../commons/base-element.ts";
+import { appHref } from "../../commons/base-path.ts";
 import { customizeFormStyles } from "../../commons/customize-form.styles.ts";
+import { categoryEditorPath } from "../../commons/sections.ts";
 import { byOrder, type ResolvedCategory } from "../../data/categories.ts";
 
+import "../app-icon/app-icon.ts";
 import "../app-switch/app-switch.ts";
 
 export type CategoryToggleDetail = { id: string; enabled: boolean };
 
 /**
  * The Catégories tab of Personnaliser mon interface: every category, one row
- * each — its label and a switch.
+ * each — its label, a switch, and a pencil opening it in the form builder —
+ * under "Nouvelle catégorie".
  *
  * Flat on purpose, children listed at the same level as their parent: a
  * parent's switch does not reach its children, so a tree would suggest a
  * cascade that does not exist. Switching one off hides it, and every post
  * filed under it, from the whole UI; nothing is deleted.
- *
- * No way to add a category yet — a new one would need a form, and there is no
- * form builder to make one with.
  *
  * Presentational — the owning view holds the catalogue and writes the flag.
  *
@@ -35,7 +36,39 @@ export class CustomizeCategories extends BaseElement {
     customizeFormStyles,
     css`
       .item {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .new {
         display: block;
+        padding: var(--spacing-12) var(--spacing-16);
+        border-radius: var(--radius-8);
+        background: var(--color-brown-dark);
+        color: var(--color-white);
+        font-weight: 600;
+        text-align: center;
+        text-decoration: none;
+      }
+
+      .edit {
+        display: grid;
+        place-items: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: var(--radius-8);
+        color: var(--color-brown-dark);
+      }
+
+      .new:focus-visible,
+      .edit:focus-visible {
+        outline: var(--focus-ring);
+        outline-offset: var(--focus-ring-offset);
+      }
+
+      .edit app-icon {
+        --icon-size: 1rem;
+
+        padding: 0;
       }
     `,
   ];
@@ -54,6 +87,9 @@ export class CustomizeCategories extends BaseElement {
   render() {
     return html`
       <section class="section">
+        <a class="new pressable" href=${appHref(categoryEditorPath(null))}>
+          Nouvelle catégorie
+        </a>
         <ul class="list">
           ${repeat(
             byOrder(this.categories),
@@ -65,6 +101,13 @@ export class CustomizeCategories extends BaseElement {
                   .checked=${live(category.enabled)}
                   @switch-change=${this.#onToggle(category.id)}
                 ></app-switch>
+                <a
+                  class="edit pressable pressable--small"
+                  href=${appHref(categoryEditorPath(category.id))}
+                  aria-label=${`Modifier « ${category.label} »`}
+                >
+                  <app-icon icon="pen"></app-icon>
+                </a>
               </li>
             `,
           )}

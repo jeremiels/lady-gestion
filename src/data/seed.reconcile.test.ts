@@ -5,77 +5,65 @@ import { resetDb } from "./__tests__/factories.ts";
 import { seedIfEmpty } from "./seed.ts";
 
 /**
- * A device seeded by an older build, launched on a newer one.
- *
- * This is the case that broke the entry form in the browser while every test
- * passed: the suite always started from an empty table, so it only ever
- * exercised the insert. A row seeded before `fields` changed shape rendered an
- * empty form, because nothing ever wrote the new shape over it.
+ * The built-in categories are a model for a first install, and hers from
+ * then on: a later launch never writes this build's catalogue over the rows a
+ * device already holds.
  */
 beforeEach(resetDb);
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** The catalogue as a build two shapes ago left it. */
-const staleRows = () =>
+/** The catalogue as she might have left it — or as an older build shipped it. */
+const editedRows = () =>
   seedCategories("owner-1", "2026-01-01T00:00:00.000Z").map((type) => ({
     ...type,
-    label: `${type.label} (ancien)`,
-    fields: [
-      { id: "counterparty", kind: "text", label: "Vieux", required: false },
-    ],
-  })) as unknown as Parameters<typeof db.categories.bulkAdd>[0];
+    label: `${type.label} (à moi)`,
+    fields: type.fields.filter((field) => field.id !== "notes"),
+  }));
 
-describe("seed — reconciling the built-in types", () => {
-  it("rewrites a stale built-in's fields to the shape this build ships", async () => {
+describe("seed — the built-in categories", () => {
+  it("seeds every built-in on a device that has none", async () => {
     await db.categories.clear();
-    await db.categories.bulkAdd(staleRows());
 
     await seedIfEmpty();
 
-    const achat = await db.categories.get({ key: "achat" });
-    const shipped = BUILT_IN_CATEGORIES.find((type) => type.key === "achat")!;
-    expect(achat?.label).toBe(shipped.label);
-    expect(achat?.fields.map((field) => field.id)).toEqual(
-      shipped.fields.map((field) => field.id),
-    );
-    expect(achat?.fields.every((field) => field.control !== undefined)).toBe(
-      true,
+    const keys = (await db.categories.toArray()).map((type) => type.key);
+    expect(keys.sort()).toEqual(
+      BUILT_IN_CATEGORIES.map((type) => type.key).sort(),
     );
   });
 
-  it("keeps the row's identity, so events still resolve and a restore still arbitrates", async () => {
+  it("never writes over a category the device already has", async () => {
     await db.categories.clear();
-    await db.categories.bulkAdd(staleRows());
-    const before = await db.categories.get({ key: "achat" });
+    await db.categories.bulkAdd(editedRows());
+    const before = await db.categories.toArray();
 
     await seedIfEmpty();
 
-    const after = await db.categories.get({ key: "achat" });
-    expect(after?.id).toBe(before?.id);
-    expect(after?.createdAt).toBe(before?.createdAt);
-    expect(after?.updatedAt).toBe(before?.updatedAt);
+    expect(await db.categories.toArray()).toStrictEqual(before);
   });
 
-  it("keeps a category the user switched off switched off", async () => {
-    await seedIfEmpty();
-    const veto = (await db.categories.get({ key: "veto" }))!;
-    await db.categories.put({ ...veto, enabled: false });
+  it("does not add a built-in the device does not have", async () => {
+    await db.categories.clear();
+    await db.categories.bulkAdd(
+      editedRows().filter((type) => type.key !== "massage"),
+    );
 
     await seedIfEmpty();
 
-    expect((await db.categories.get({ key: "veto" }))?.enabled).toBe(false);
+    expect(await db.categories.get({ key: "massage" })).toBeUndefined();
   });
 
-  it("does not resurrect a built-in the user deleted", async () => {
+  it("does not resurrect a built-in she deleted", async () => {
     await db.categories.clear();
-    await db.categories.bulkAdd(staleRows());
-    const achat = await db.categories.get({ key: "achat" });
-    await db.categories.put({
-      ...achat!,
-      deletedAt: "2026-02-01T00:00:00.000Z",
-    });
+    await db.categories.bulkAdd(
+      editedRows().map((type) =>
+        type.key === "achat"
+          ? { ...type, deletedAt: "2026-02-01T00:00:00.000Z" }
+          : type,
+      ),
+    );
 
     await seedIfEmpty();
 
@@ -84,79 +72,14 @@ describe("seed — reconciling the built-in types", () => {
     ).not.toBeNull();
   });
 
-  it("leaves a type the user made themselves alone", async () => {
-    await db.categories.clear();
-    await db.categories.bulkAdd(staleRows());
-    const mine = {
-      ...(await db.categories.get({ key: "achat" }))!,
-      isBuiltIn: false,
-    };
-    await db.categories.put(mine);
-
+  it("writes nothing at all on a later launch", async () => {
     await seedIfEmpty();
-
-    expect((await db.categories.get({ key: "achat" }))?.label).toBe(mine.label);
-  });
-
-  it("writes nothing when every built-in already matches what this build ships", async () => {
-    await seedIfEmpty();
+    const bulkAdd = vi.spyOn(db.categories, "bulkAdd");
     const bulkPut = vi.spyOn(db.categories, "bulkPut");
 
     await seedIfEmpty();
 
+    expect(bulkAdd).not.toHaveBeenCalled();
     expect(bulkPut).not.toHaveBeenCalled();
-  });
-
-  it("does not count a row stored with its keys in another order as changed", async () => {
-    await seedIfEmpty();
-    const veto = (await db.categories.get({ key: "veto" }))!;
-    await db.categories.put(
-      Object.fromEntries(Object.entries(veto).reverse()) as typeof veto,
-    );
-    const bulkPut = vi.spyOn(db.categories, "bulkPut");
-
-    await seedIfEmpty();
-
-    expect(bulkPut).not.toHaveBeenCalled();
-  });
-
-  it("rewrites only the built-in that drifted", async () => {
-    await seedIfEmpty();
-    const veto = (await db.categories.get({ key: "veto" }))!;
-    await db.categories.put({ ...veto, label: "Vieux libellé" });
-    const bulkPut = vi.spyOn(db.categories, "bulkPut");
-
-    await seedIfEmpty();
-
-    expect(bulkPut).toHaveBeenCalledTimes(1);
-    expect(bulkPut.mock.calls[0]![0].map((row) => row.key)).toEqual(["veto"]);
-    const shipped = BUILT_IN_CATEGORIES.find((type) => type.key === "veto")!;
-    expect((await db.categories.get({ key: "veto" }))?.label).toBe(
-      shipped.label,
-    );
-  });
-
-  it("still rewrites a built-in carrying a key this build no longer ships", async () => {
-    await seedIfEmpty();
-    const veto = (await db.categories.get({ key: "veto" }))!;
-    await db.categories.put({ ...veto, legacy: "gone" } as typeof veto);
-
-    await seedIfEmpty();
-
-    expect("legacy" in (await db.categories.get({ key: "veto" }))!).toBe(false);
-  });
-
-  it("inserts a built-in the device has never had, with its parent resolved", async () => {
-    await db.categories.clear();
-    await db.categories.bulkAdd(
-      staleRows().filter((type) => type.key !== "massage"),
-    );
-
-    await seedIfEmpty();
-
-    const massage = await db.categories.get({ key: "massage" });
-    const soins = await db.categories.get({ key: "soins" });
-    expect(massage).toBeDefined();
-    expect(massage?.parentId).toBe(soins?.id);
   });
 });

@@ -348,11 +348,18 @@ const postFields = (
     return typeof value === "string" && value !== "" ? value : null;
   };
 
-  // Driven by the type's own field list: a value for a field this type does
-  // not declare can never reach the record, and a field it does declare is
-  // always written — as `null` when left blank — so a row never carries a key
-  // its type has no answer for.
-  const customFields: Post["customFields"] = {};
+  // Driven by the type's own field list: a value the form sends for a field
+  // this type does not declare never reaches the record, and a field it does
+  // declare is always written — as `null` when left blank. An edit that keeps
+  // the category carries over what the record holds under a key the category
+  // no longer declares — a field since removed in the form builder: taking a
+  // field out of a form never erases what was entered in it. Moving the post
+  // to another category is the user's own choice of form, and drops them.
+  const declared = new Set(type.fields.map((field) => field.id));
+  const kept = existing?.categoryKey === type.key ? existing.customFields : {};
+  const customFields: Post["customFields"] = Object.fromEntries(
+    Object.entries(kept).filter(([key]) => !declared.has(key)),
+  );
   for (const field of type.fields) {
     if (BASE_FIELD_IDS.has(field.id)) continue;
     customFields[field.id] = input.values[field.id] ?? null;
@@ -378,7 +385,8 @@ const postFields = (
           ),
     currency: existing?.currency ?? DEFAULT_CURRENCY,
     location: existing?.location ?? null,
-    notes: text("notes"),
+    // Kept, like the time above, when the form has no Note row any more.
+    notes: fieldById(type, "notes") ? text("notes") : (existing?.notes ?? null),
     recurrenceId: existing?.recurrenceId ?? null,
     customFields,
   };

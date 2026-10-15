@@ -54,6 +54,7 @@ export * as horsesService from "./services/horses.service.ts";
 export * as rationsService from "./services/rations.service.ts";
 export * as driveMirrorService from "./services/driveMirror.service.ts";
 export * as documentsService from "./services/documents.service.ts";
+export * as categoriesService from "./services/categories.service.ts";
 export {
   folderOptions,
   postCategoriesOf,
@@ -87,6 +88,7 @@ export * from "./categories.ts";
 export * from "./files.ts";
 export * from "./budget.ts";
 export * from "./post-form.ts";
+export * from "./category-editor.ts";
 export * from "./forms.ts";
 export * from "./text.ts";
 export * from "./errors.ts";

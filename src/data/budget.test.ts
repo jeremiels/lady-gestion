@@ -144,8 +144,7 @@ describe("sumByCategory", () => {
 
   /**
    * The hierarchy cases, on a re-parented copy: `marechal` and `dentiste`
-   * become children of `soins`, which is what an event-type editor would write
-   * through `setParent`.
+   * become children of `soins`, the way the form builder saves a child.
    *
    * `TYPES` already nests `cures` and `traitement` since schema v9, and
    * `osteo`/`massage` under `soins` since v10, but none of the four spend

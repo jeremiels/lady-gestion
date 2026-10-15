@@ -16,112 +16,23 @@ import { DEFAULT_SEASON, type RationSeason } from "./seasons.ts";
 import type { BaseRecord, RationUnit } from "./types.ts";
 
 /**
- * Brings the built-in event types on this device up to what the app ships.
+ * Seeds the built-in categories on a device that has none — the first launch.
  *
- * A device seeded once must still receive every later edit to
- * `BUILT_IN_CATEGORIES` — a type added, relabelled, recoloured or given other
- * form fields — so this reconciles rather than inserting only into an empty
- * table: a shipped built-in whose row differs is written back over the row
- * carrying its `key`, and one with no row yet is inserted. Adding or editing a
- * built-in is an edit to that array and nothing else.
+ * Only then. From that moment the categories are hers: she edits them in the
+ * form builder, and nothing this build ships is written over them at a later
+ * launch — not a changed label or field list, not a built-in added since.
+ * `BUILT_IN_CATEGORIES` is the model a new install starts from, never an
+ * update to an installed one; a change that must reach rows already on a
+ * device is a `ROW_STEPS` entry (`migrations.ts`).
  *
- * A row that already matches is not written at all. This runs at every launch,
- * ahead of every view's first query, and rewriting fourteen identical rows
- * there cost a readwrite transaction on every cold start for nothing.
- *
- * Four things are deliberately left alone:
- *
- * - **A row the user made themselves** (`isBuiltIn: false`) — it is not ours.
- * - **A deleted one.** `remove` is a soft delete, so the row is still here
- *   with `deletedAt` set; matching on it is what stops a built-in the user
- *   threw away coming back on the next launch.
- * - **`id`, `ownerId`, `createdAt` and `updatedAt`.** The first three are the
- *   row's identity; `updatedAt` is what a backup restore arbitrates
- *   last-write-wins by, and shipping a new build is not an edit that should
- *   win that argument. Left alone, a built-in never edited keeps
- *   `createdAt === updatedAt` — which is how a restore knows the file's copy
- *   replaces it (`yieldsToFile` in `backup/snapshot.ts`).
- * - **`enabled`.** It is the user's switch in Personnaliser › Catégories, not
- *   something the app ships; writing the seed's `true` back would turn a
- *   hidden category on again at every launch.
- *
- * Runs at every launch from `seedIfEmpty`, and again at the end of
- * `importBackup`, so the rows a restore brings in carry this build's
- * definitions straight away.
- *
- * Once the type editor exists, this is the one place that has to learn the
- * difference between a built-in the user has customised and one they have not.
- *
- * `ownerId` defaults to the cached one and is only ever passed explicitly by
- * `importBackup`, which runs this *inside* its transaction and so cannot have
- * adopted the file's owner into the module cache yet — that happens only once
- * the transaction commits. It is read for one purpose: stamping a built-in the
- * device does not have at all. An existing row keeps its own `ownerId`.
+ * A restore needs nothing from here: a new phone seeds its own built-ins
+ * moments before the import, and the file's copy replaces each one the device
+ * never edited (`YIELDS_TO_FILE` in `backup/snapshot.ts`).
  */
-export const reconcileCategories = async (
-  ownerId: string = getOwnerId(),
-): Promise<void> => {
-  const shipped = seedCategories(ownerId, nowISO());
-  const existing = await db.categories.toArray();
-
-  if (existing.length === 0) {
-    await db.categories.bulkAdd(shipped);
-    return;
-  }
-
-  const byKey = new Map(existing.map((type) => [type.key, type]));
-  const idFor = (key: string | null) =>
-    key === null ? null : (byKey.get(key)?.id ?? null);
-
-  const writes = shipped.flatMap((type) => {
-    const current = byKey.get(type.key);
-
-    // `seedCategories` stamps `parentId` with the literal key the array is
-    // written with, which only resolves because a freshly seeded row's `id`
-    // *is* its key. Against rows already on the device that does not hold, so
-    // the parent is looked up.
-    const parentId = idFor(type.parentId);
-
-    if (!current) return [{ ...type, parentId }];
-    if (!current.isBuiltIn || current.deletedAt !== null) return [];
-
-    const reconciled = {
-      ...type,
-      parentId,
-      id: current.id,
-      ownerId: current.ownerId,
-      createdAt: current.createdAt,
-      updatedAt: current.updatedAt,
-      enabled: current.enabled,
-    };
-    return sameRow(reconciled, current) ? [] : [reconciled];
-  });
-
-  if (writes.length > 0) await db.categories.bulkPut(writes);
+export const seedCategoriesOnFirstInstall = async (): Promise<void> => {
+  if ((await db.categories.count()) > 0) return;
+  await db.categories.bulkAdd(seedCategories(getOwnerId(), nowISO()));
 };
-
-/** `value` with every object's keys sorted, all the way down. */
-const canonical = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value === null || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, canonical((value as Record<string, unknown>)[key])]),
-  );
-};
-
-/**
- * Whether two rows hold the same data, whatever order their keys are in.
- *
- * Order-blind because IndexedDB hands a row back with its keys in the order it
- * was stored, which is not necessarily the order this build assembles them in.
- * Anything else counts as a difference — a key the stored row carries and this
- * build no longer ships included — so such a row is rewritten. The one blind
- * spot is a key holding `undefined`, which reads back the same either way.
- */
-const sameRow = (a: object, b: object): boolean =>
-  JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 
 /**
  * First-run bootstrap: the values that were hardcoded in the views, turned
@@ -130,15 +41,15 @@ const sameRow = (a: object, b: object): boolean =>
  *
  * The demo horse/rations/events are gated on the database holding no
  * horse at all, so they can never overwrite real data or reappear after the
- * user deletes it. The event-type catalogue has its own gate — see
- * `reconcileCategories`.
+ * user deletes it. The category catalogue has its own gate — see
+ * `seedCategoriesOnFirstInstall`.
  *
  * The demo is written in one transaction: a first launch cut short would
  * otherwise leave a horse with half its rows and no `seedRecordIds`, so no
  * restore could ever tell them apart from real data.
  */
 export const seedIfEmpty = async (): Promise<void> => {
-  await reconcileCategories();
+  await seedCategoriesOnFirstInstall();
 
   await db.transaction(
     "rw",

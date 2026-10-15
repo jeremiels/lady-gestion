@@ -7,6 +7,39 @@
 > mon interface). The design below predates the rename and keeps its original
 > wording.
 
+## Status — 2026-10-15: the builder exists (step 4)
+
+What shipped, and where it differs from the design below:
+
+- **The categories are hers after the first install.** `reconcileCategories`
+  used to write `BUILT_IN_CATEGORIES` over every device's built-ins at each
+  launch; it is now `seedCategoriesOnFirstInstall`, which seeds an empty table
+  and nothing else. The array is the model a new install starts from — so the
+  practitioners' names in it can go once this is live on her phone: her rows
+  keep them, and a restore brings them back.
+- **Links to the app.** A field's _value_ feeding a feature is a field `role`
+  (`budget`, `counterparty`, beside `workActivity`/`followUp`/`reminder`); the
+  _nature_ of a post is a category flag (`isAppointment`, `acceptsAttachments`).
+  Schema v16 named the roles on the fields the app used to find by id
+  (`amountCents`, `counterparty`); the budget, the search, the share and the
+  card now read `amountOf`/`counterpartyOf`.
+- **The editor** is a page, `/profile/interface/categories/<id>` (or `…/new`),
+  reached from each row of Personnaliser › Catégories: Apparence (nom, catégorie
+  parente, icône, couleur), Dans l’application (two switches), Champs du
+  formulaire — one row per field with a drag handle, each opened in
+  `field-sheet` (nom, obligatoire, choix, valeur par défaut, lien), added from
+  `field-kind-sheet`. A draft until Enregistrer; leaving with changes asks.
+  The parent picker edits that draft too (`reparent`, its options from
+  `canBeParentOf`), and `saveCategory` writes it — not a write of its own.
+- **Nothing she entered is lost**: removing a field keeps its values on the
+  posts (an edit carries them over), and the detail card now shows every filled
+  field, in form order (`postInfoRows`).
+- A category can be deleted only while no post is filed under it; otherwise the
+  switch hides it.
+
+Not done: a preview of the form from the builder, editing the follow-up and
+notification blocks' own choices, free units, reordering categories.
+
 ## Context
 
 Event types (`veto`, `marechal`, `dentiste`, `osteo`, `cours`, `alimentation`, `achat`, `pension`, `travail`) and the fields their form shows used to be a closed, compile-time TypeScript configuration (`src/types/event.types.ts`: `EVENT_TYPE_META`, `EVENT_FORM_SPEC`, `EVENT_FORM_VARIANT`). Adding or changing a type required a code change and a release.
@@ -123,7 +156,7 @@ No existing settings/CRUD screen to copy — build new, reusing existing primiti
 
 `icon` and `theme` are nullable with `null` meaning "take my parent's". Nothing reads them directly: `resolveCatalogue` (`data/categories.ts`) fills them in one pass, treats a `parentId` that resolves to nothing as a root, and falls back to `info`/`taupe` for a value this build cannot draw — which also closes a pre-existing crash, since `THEME_META[key]` is a mapped type and an unknown theme from a restored backup used to be a `TypeError` at render.
 
-The helpers, all pure and tested in `src/data/categories.test.ts`: `resolveCatalogue`, `rootsOf`, `childrenOf`, `rootOf`, `subtreeKeys`, `canBeParentOf`. The write paths, tested in `src/data/repositories/categories.repo.test.ts`: `setParent` (enforces the cap; clears `theme` on attach, materialises it on detach) and `remove` (promotes children).
+The helpers, all pure and tested in `src/data/categories.test.ts`: `resolveCatalogue`, `rootsOf`, `childrenOf`, `rootOf`, `subtreeKeys`, `canBeParentOf`. The write paths: `saveCategory` (`categories.service.ts` — the cap checked by `validateCategory`, `theme` cleared on attach and materialised on detach by `reparent` in `category-editor.ts`) and `remove` (`categories.repo.ts`, promotes children).
 
 What consumes it today:
 

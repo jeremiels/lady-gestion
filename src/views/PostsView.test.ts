@@ -58,13 +58,13 @@ const chipLabels = (el: PostsView, selector = ".posts-view__filters") =>
   chipsIn(el, selector).map((chip) => chip.label);
 
 /**
- * Files one built-in type under another, the way `setParent` writes it —
+ * Files one built-in type under another, the way the form builder saves it —
  * theme cleared, so the child takes its parent's colour.
  *
  * Pick a leaf. The shipped catalogue nests `cures` and `traitement` since
  * schema v9, and `osteo`/`massage` under `soins` since v10, so re-parenting
  * `alimentation`, `veto` or `osteo` here would build a three-deep chain
- * `setParent` refuses and `resolveCatalogue`, a single hop, cannot read.
+ * `canBeParentOf` refuses and `resolveCatalogue`, a single hop, cannot read.
  */
 const nest = async (childKey: string, parentKey: string) => {
   const child = BUILT_IN_CATEGORY_ROWS.find((t) => t.key === childKey)!;

@@ -183,7 +183,15 @@ Three consequences worth stating out loud:
   calendar, dashboard, budget totals — because views read
   `categoriesRepo.listEnabled()` and `posts.repo.ts` filters posts inside its
   queries. Nothing is deleted, and a parent's switch does not reach its
-  children. No way to add a category yet: there is no form builder.
+  children. Each row's pencil, and "Nouvelle catégorie" above the list, open
+  the **form builder** (`CategoryEditorView`, `/profile/interface/categories/<id>`
+  or `…/new`): look, links to the app (Rendez-vous à venir, pièces jointes) and
+  the form's fields — each edited in `field-sheet`, reordered by dragging its
+  handle (`commons/controllers/drag-reorder.ts`, ↑/↓ on the keyboard). The
+  draft is held until Enregistrer (`categoriesService.saveCategory`); the
+  rules a draft must meet are `data/category-editor.ts`, read by the screen and
+  the service alike. Built-ins are a first-install model only: once seeded,
+  the categories are hers and no launch writes the shipped ones over them.
 - Posts are **created** from `post-sheet`, opened by the `+` in the nav bar
   (which is a button, not a link — it opens a sheet, it does not navigate), and
   **edited** through the same sheet: setting its `post` property prefills the
@@ -316,7 +324,7 @@ vite.config.ts            # plugins: the icon sprite, then the service worker em
 ```
 src/data/
   index.ts             # public surface: initData(), repos, LiveQuery, backup
-  db.ts                # Dexie subclass + SCHEMA_VERSION (14), current stores only
+  db.ts                # Dexie subclass + SCHEMA_VERSION (16), current stores only
   types.ts             # BaseRecord, Horse, Post, StoredDocument, RationItem
   record.ts owner.ts   # createRecord/touch/softDelete; ownerId resolution
   ids.ts dates.ts money.ts
@@ -432,8 +440,10 @@ src/data/
   Calendar vocabulary (`CalendarEvent`, `VEVENT` in `icalendar.ts`) and DOM
   events are a different "event" and were not renamed. French UI copy
   ("Activités", "Rendez-vous") is unchanged.
-- `posts` is one unified table: an appointment is a future `date`, an
-  budget is a non-null `amountCents`. Don't add a separate budget table.
+- `posts` is one unified table: an appointment is a future `date`, a spend
+  is an amount in the field its category links to the budget (`role:
+"budget"`, read through `amountOf` in `categories.ts`). Don't add a separate
+  budget table.
   `Post.categoryKey` is the category's `key` slug.
 - **`budget.ts` holds the budget view's arithmetic as pure functions over
   records the caller already fetched** — it is money maths, which is what the
@@ -487,11 +497,14 @@ src/data/
   `activity` is a `WorkActivity` key (`posts.ts`) — what was done in a
   `travail` session, from a closed list with French labels, `null` on every
   other type.
-- **`db.ts` declares only the current version (14)**, with the one
-  `upgrade()` that brings a v13 device up to it (`Horse.name` split into
-  `firstName` + `lastName` by `horseRowToV14`). It runs `ROW_STEPS[13]`
-  (`data/migrations.ts`), and a v13 backup file is walked through the same
-  entry by `backup/migrate.ts`.
+- **`db.ts` declares only the current version (16)**, with the one
+  `upgrade()` that brings a v13, v14 or v15 device up to it, running
+  `ROW_STEPS[13]` onwards (`data/migrations.ts`): v14 split `Horse.name` into
+  `firstName` + `lastName`, v15 dropped the category-filed demo document, v16
+  gave the `amountCents` and `counterparty` fields their `budget` and
+  `counterparty` roles (`categoryRowToV16`) — what the budget, the search and
+  the share now find them by. A backup file is walked through the same entries
+  by `backup/migrate.ts`.
   Nothing below v13 is supported: such a database cannot be upgraded, and
   `importBackup` refuses such a file with "version trop ancienne", and a newer
   one with "version plus récente".
@@ -513,7 +526,7 @@ src/data/
   `resolveCatalogue` (`data/categories.ts`) — the one place that resolves the
   inheritance, and the only guard against a theme string a backup file carries
   that this build cannot draw. `canBeParentOf` is the depth cap, enforced by
-  `setParent`; `remove` promotes a deleted parent's children rather than
+  the form builder (`validateCategory`); `remove` promotes a deleted parent's children rather than
   leaving them dangling. The shipped catalogue is entirely flat, so a hierarchy
   is opt-in and everything above behaves as it did before v8.
 - Age is derived from `Horse.birthDate` via `ageInYears()` — never stored.
@@ -568,8 +581,7 @@ What's already in place:
   last-write-wins by `updatedAt` — except a built-in category this device never
   edited (`createdAt === updatedAt`), which the file's copy replaces whatever
   the stamps say, since a fresh install's seed would otherwise outvote every
-  choice in the backup; `reconcileCategories` then reapplies this build's
-  definitions. The same file is what `src/drive/backup.ts` puts in her Drive
+  choice in the backup. The same file is what `src/drive/backup.ts` puts in her Drive
   once a day, in a folder of its own (`docs/drive-spec.md` §12). Documents do
   not ride in it: `StoredDocument`'s `driveFileId`/`driveModifiedAt`/
   `driveSyncedAt` and `meta`'s `googleAccount`/`driveFolder` belong to the

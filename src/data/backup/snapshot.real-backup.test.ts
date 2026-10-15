@@ -1,27 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../db.ts";
 import { seedIfEmpty } from "../seed.ts";
-import { seedCategories } from "../categories.ts";
+import { sumByCategory } from "../budget.ts";
+import * as categoriesRepo from "../repositories/categories.repo.ts";
+import * as postsRepo from "../repositories/posts.repo.ts";
 import type { Category, Post } from "../types.ts";
-
-/** What a restore takes from the file for a category — as `snapshot.test.ts`. */
-const decidedByFile = ({
-  id,
-  key,
-  ownerId,
-  createdAt,
-  updatedAt,
-  deletedAt,
-  enabled,
-}: Category) => ({
-  id,
-  key,
-  ownerId,
-  createdAt,
-  updatedAt,
-  deletedAt,
-  enabled,
-});
 import { migrateTables } from "./migrate.ts";
 import { exportBackup } from "./export.ts";
 import { automaticBackup } from "./file.ts";
@@ -132,18 +115,10 @@ describe.skipIf(newest === undefined)(
       ) as unknown as Record<string, { id: string }[]>;
       const exported = await exportBackup();
       for (const table of Object.keys(snapshot.tables)) {
-        // A category's definition — label, fields, flags — is this build's,
-        // reapplied after the merge; the file decides only which rows exist
-        // and whether each is switched on.
-        const view =
-          table === "categories"
-            ? (rows: { id: string }[]) =>
-                rows.map((row) => decidedByFile(row as unknown as Category))
-            : (rows: { id: string }[]) => rows;
         expect(
-          byId(view(exported.tables[table as keyof typeof exported.tables])),
+          byId(exported.tables[table as keyof typeof exported.tables]),
           `table ${table} did not survive the round trip`,
-        ).toStrictEqual(byId(view(expected[table]!)));
+        ).toStrictEqual(byId(expected[table]!));
       }
     });
 
@@ -234,9 +209,8 @@ describe.skipIf(newest === undefined)(
     });
 
     it("writes no category on the launch after a restore", async () => {
-      // The restore reconciles inside its own transaction, so the next launch
-      // finds every built-in already current. A write there would cost a
-      // readwrite transaction ahead of every view's first query.
+      // Her categories are hers: the next launch must not write this build's
+      // catalogue over the ones the file brought back.
       await seedIfEmpty();
       await importBackup(real());
       const before = await db.categories.toArray();
@@ -249,26 +223,74 @@ describe.skipIf(newest === undefined)(
       bulkPut.mockRestore();
     });
 
-    it("ships the same category fields the device already has stored", async () => {
-      // `reconcileCategories` writes `BUILT_IN_CATEGORIES`'s `fields` back over
-      // any built-in whose row differs, at launch, so a change to that array is
-      // a change to rows that already exist on her device. This is the warning: when it fails,
-      // the next launch will rewrite her categories, which may be exactly what
-      // was intended — but it should never be a surprise.
-      const shipped = seedCategories("irrelevant", "2026-01-01T00:00:00.000Z");
-      const stored = real().tables.categories as unknown as {
-        key: string;
-        fields: unknown;
-      }[];
+    it("restores her categories exactly as the file holds them", async () => {
+      // A new phone seeds this build's built-ins moments before the import.
+      // Every one of them must give way to the file's copy — label, fields,
+      // default values and all — or a restore would quietly swap her forms
+      // for the shipped models.
+      await seedIfEmpty();
+      const snapshot = real();
+      const expected = migrateTables(
+        structuredClone(snapshot.tables),
+        snapshot.schemaVersion,
+      ) as unknown as Record<string, { id: string }[]>;
 
-      for (const type of shipped) {
-        const row = stored.find((one) => one.key === type.key);
-        expect(row, `category ${type.key} is not on the device`).toBeDefined();
-        expect(
-          row?.fields,
-          `shipping different fields for ${type.key} than the device has stored`,
-        ).toStrictEqual(type.fields);
+      await importBackup(snapshot);
+
+      expect(byId(await db.categories.toArray())).toStrictEqual(
+        byId(expected.categories!),
+      );
+    });
+
+    it("adds up to the same budget the file did, now read through the budget role", async () => {
+      // What the ledger was before schema v16: every live, uncancelled post of
+      // a category switched on, with a number under `customFields.amountCents`.
+      const snapshot = real();
+      const posts = snapshot.tables.posts as unknown as Post[];
+      const enabled = new Set(
+        (snapshot.tables.categories as unknown as Category[])
+          .filter((type) => type.enabled && type.deletedAt === null)
+          .map((type) => type.key),
+      );
+      const before = new Map<string, number>();
+      for (const post of posts) {
+        const amount = post.customFields.amountCents;
+        if (
+          post.deletedAt !== null ||
+          post.status === "cancelled" ||
+          !enabled.has(post.categoryKey) ||
+          typeof amount !== "number"
+        ) {
+          continue;
+        }
+        before.set(
+          post.categoryKey,
+          (before.get(post.categoryKey) ?? 0) + amount,
+        );
       }
+      expect(before.size, "this backup records no spending").toBeGreaterThan(0);
+
+      await importBackup(snapshot);
+
+      const types = await categoriesRepo.listAll();
+      const after = new Map<string, number>();
+      for (const horse of snapshot.tables.horses!) {
+        const ledger = await postsRepo.listBudget(horse.id);
+        for (const slice of sumByCategory(ledger, types)) {
+          after.set(slice.type, (after.get(slice.type) ?? 0) + slice.cents);
+        }
+      }
+      // `sumByCategory` rolls children into their root; do the same to `before`.
+      const rootKey = (key: string) => {
+        const type = types.find((one) => one.key === key);
+        const parent = types.find((one) => one.id === type?.parentId);
+        return parent?.key ?? key;
+      };
+      const rolled = new Map<string, number>();
+      for (const [key, cents] of before) {
+        rolled.set(rootKey(key), (rolled.get(rootKey(key)) ?? 0) + cents);
+      }
+      expect(after).toEqual(rolled);
     });
 
     it("adopts the file's owner once the transaction has committed", async () => {

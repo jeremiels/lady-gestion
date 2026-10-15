@@ -368,7 +368,6 @@ export class PostSheet extends BaseElement {
       text-align: center;
       cursor: pointer;
       background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='16' ry='16' stroke='%23333' stroke-width='1' stroke-dasharray='4%2c 8' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
-
     }
 
     .post-form__attach:focus-within {
@@ -878,8 +877,9 @@ export class PostSheet extends BaseElement {
    * The four base rows read their `Post` column rather than the bag —
    * they are fields in the type's array like any other, but they are not
    * `customFields` entries. A new event's date opens on today: every other
-   * control opens blank unless its field carries a `defaultValue`, but a date
-   * picker with nothing in it is a field the user has to fill in to say "now".
+   * control — Nom and Note included — opens blank unless its field carries a
+   * `defaultValue`, but a date picker with nothing in it is a field the user
+   * has to fill in to say "now".
    *
    * `defaultValue` only ever applies to a *new* event (`event` undefined) —
    * editing an existing one always shows what's actually stored, including a
@@ -887,8 +887,9 @@ export class PostSheet extends BaseElement {
    */
   #stored(field: CustomFieldDef): string {
     const event = this.post;
-    if (field.id === "title") return event?.title ?? "";
-    if (field.id === "notes") return event?.notes ?? "";
+    const fallback = event ? "" : (field.defaultValue?.toString() ?? "");
+    if (field.id === "title") return event?.title ?? fallback;
+    if (field.id === "notes") return event?.notes ?? fallback;
     if (field.id === "date") return event?.date ?? todayISO();
     if (field.id === "time") return event?.time ?? "";
 

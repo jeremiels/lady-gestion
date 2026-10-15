@@ -2,7 +2,13 @@ import { isIconName, type IconName } from "../components/app-icon/icons.ts";
 import { isThemeKey } from "../theme/theme.ts";
 import type { ThemeKey } from "../theme/theme.types.ts";
 import type { IsoTimestamp } from "./dates.ts";
-import type { CustomFieldDef, FieldOption, Category, Post } from "./types.ts";
+import type {
+  CustomFieldDef,
+  FieldOption,
+  FieldRole,
+  Category,
+  Post,
+} from "./types.ts";
 
 /**
  * Pure functions over the category catalogue, and its built-in seed data.
@@ -50,7 +56,7 @@ export const REMINDER_OPTIONS: FieldOption[] = [
   { value: "48h", label: "2 jours avant" },
 ];
 
-const QUANTITY_UNIT_NAMES = ["mL", "kg", "L"] as const;
+export const QUANTITY_UNIT_NAMES = ["mL", "kg", "L"] as const;
 
 /**
  * The fields that land on a `Post` column rather than in
@@ -138,39 +144,34 @@ const courseFields = () => [
  * checkbox and the select it reveals are thirteen lines that every care type
  * needs identically, and Nom, Date, Note and Budget are carried by almost all
  * fourteen.
- *
- * These matter more than the line count, because `reconcileCategories`
- * (`seed.ts`) writes this array's `fields` back over every device's built-ins at
- * every launch. A stray difference between two copies of the same row is not a
- * tidiness problem — it is two categories storing the user's answer under
- * different shapes, applied to rows that already exist.
  */
 
 /** Nom — the record's title. A `workActivity` type has no Nom of its own. */
-const titleField = () =>
+export const titleField = () =>
   inputTextField({ id: "title", label: "Nom", required: true });
 
 /** Date — the one field every single type carries. */
-const dateField = () =>
+export const dateField = () =>
   inputDateField({ id: "date", label: "Date", required: true });
 
 /**
  * Heure de début — the record's `time` column. What a reminder counts back
  * from, so a type that carries `reminderField` carries this too.
  */
-const timeField = () => inputTimeField({ id: "time", label: "Heure de début" });
+export const timeField = () =>
+  inputTimeField({ id: "time", label: "Heure de début" });
 
 /** Note — the free-text row every type ends on. */
-const notesField = () => inputTextField({ id: "notes", label: "Note" });
+export const notesField = () => inputTextField({ id: "notes", label: "Note" });
 
 /** What it cost. `concours` calls it an entry fee rather than a budget. */
 const budgetField = (label = "Budget") =>
-  inputMoneyField({ id: "amountCents", label, suffix: "€" });
+  inputMoneyField({ id: "amountCents", label, suffix: "€", role: "budget" });
 
 /**
  * Who it was with — a practitioner for a care type, a merchant for a purchase.
  *
- * One `id` for both, so the detail view and the search box find it whatever a
+ * One role for both, so the detail view and the search box find it whatever a
  * type calls it. The label is the type's own wording, and `defaultValue` is
  * only written when there is one: under `exactOptionalPropertyTypes` an
  * explicit `undefined` is a key that is *present*, which would change the
@@ -180,6 +181,7 @@ const counterpartyField = (label: string, defaultValue?: string) =>
   inputTextField({
     id: "counterparty",
     label,
+    role: "counterparty",
     ...(defaultValue === undefined ? {} : { defaultValue }),
   });
 
@@ -189,7 +191,7 @@ const counterpartyField = (label: string, defaultValue?: string) =>
  * The most-repeated compound field in the catalogue: eight types carry it,
  * and `cures` words it as a renewal rather than an appointment.
  */
-const followUpField = (label = "Planifier un rendez-vous") =>
+export const followUpField = (label = "Planifier un rendez-vous") =>
   inputCheckboxField({
     id: "followUp",
     label,
@@ -208,7 +210,7 @@ const followUpField = (label = "Planifier un rendez-vous") =>
  * "Créer une notification", and the delay it reveals while ticked — a push
  * reminder sent that long before the record's date and `timeField`.
  */
-const reminderField = () =>
+export const reminderField = () =>
   inputCheckboxField({
     id: "reminder",
     label: "Créer une notification",
@@ -251,10 +253,10 @@ const reminderField = () =>
  * never shipped as a root at all — inserted fresh rather than moved. Ten of
  * the fourteen rows are roots today.
  *
- * Stamped into rows by `seedCategories` below, which `reconcileCategories`
- * (`seed.ts`) writes over every device's built-ins at launch — so an edit to
- * this array reaches a fresh install and an installed device alike. One
- * array, the same rule `db.ts`'s `RECORD_TABLES` gives for existing.
+ * Stamped into rows by `seedCategories` below on a first install only
+ * (`seedCategoriesOnFirstInstall`, `seed.ts`): the model a new device starts from.
+ * An installed device's categories are hers, so an edit here never reaches
+ * them — that takes a `ROW_STEPS` entry (`migrations.ts`).
  */
 export const BUILT_IN_CATEGORIES: Omit<
   Category,
@@ -593,11 +595,8 @@ export const BUILT_IN_CATEGORIES: Omit<
 ];
 
 /**
- * Stamps `BUILT_IN_CATEGORIES` into real rows.
- *
- * Called by `reconcileCategories` (`seed.ts`) at every launch, with the
- * device's owner id: it inserts the rows on a brand-new install and writes
- * them back over an installed device's built-ins otherwise.
+ * Stamps `BUILT_IN_CATEGORIES` into real rows, for a first install
+ * (`seedCategoriesOnFirstInstall`, `seed.ts`).
  *
  * `id` is the type's own `key`, not a fresh `newId()`: every device seeds the
  * *same* built-in catalogue on its own — a phone, then the new phone its
@@ -767,20 +766,23 @@ export const subtreeKeys = (types: Category[], key: string): Set<string> => {
  * proposed parent must itself be a root, and a type that already has children
  * cannot be given one. The last two are the same rule seen from each end, and
  * dropping either would let a three-deep chain in.
+ *
+ * `childId` is `null` for a category not made yet: it has no row and no
+ * children, so only the parent's end is checked.
  */
 export const canBeParentOf = (
   types: Category[],
-  childId: string,
+  childId: string | null,
   parentId: string,
 ): boolean => {
   if (childId === parentId) return false;
 
-  const child = types.find((type) => type.id === childId);
   const parent = types.find((type) => type.id === parentId);
-  if (!child || !parent) return false;
+  if (!parent || parentOf(types, parent) !== undefined) return false;
+  if (childId === null) return true;
 
-  if (parentOf(types, parent) !== undefined) return false;
-  return childrenOf(types, childId).length === 0;
+  const child = types.find((type) => type.id === childId);
+  return child !== undefined && childrenOf(types, childId).length === 0;
 };
 
 /**
@@ -810,29 +812,41 @@ export const byOrder = <T extends Category>(types: T[]): T[] =>
   [...types].sort((a, b) => a.order - b.order);
 
 /**
- * The one field of a given *kind* on a type, if it has one.
- *
- * Only safe for `followUp`, `workActivity` and `reminder`: those are not
- * general-purpose (see `CustomFieldDef["role"]`'s doc comment) — a type gets
- * one or none, by construction, and nothing a field-builder UI adds can create a
- * second. `text`/`cents`/`bool` **are** general-purpose, so a type could one
- * day carry more than one of a kind; for the fixed slots built from those
- * kinds (counterparty, budget), use `fieldById` below instead — looking those
- * up by kind would silently resolve to whichever field happens to be first.
+ * The field that plays `role` in this type, if one does. A category carries at
+ * most one field per role — the form builder refuses a second
+ * (`category-editor.ts`).
  */
 export const fieldWithRole = (
   type: Category,
-  role: NonNullable<CustomFieldDef["role"]>,
+  role: FieldRole,
 ): CustomFieldDef | undefined =>
   type.fields.find((field) => field.role === role);
 
 /**
- * The field with this stable `id`, if the type has one.
- *
- * The right lookup for a fixed slot built from a general-purpose kind —
- * `"counterparty"`, `"amountCents"` — where `fieldWithRole` would risk matching
- * a *different* field of the same kind once a type can carry more than one.
+ * The amount the budget counts for this post — its type's `budget` field —
+ * or `null` when the type has none, the post left it blank, or the type is
+ * not in the caller's list.
  */
+export const amountOf = (
+  post: Post,
+  type: Category | undefined,
+): number | null => {
+  const field = type && fieldWithRole(type, "budget");
+  const value = field ? post.customFields[field.id] : undefined;
+  return typeof value === "number" ? value : null;
+};
+
+/** Who the post was with — its type's `counterparty` field — or `null`. */
+export const counterpartyOf = (
+  post: Post,
+  type: Category | undefined,
+): string | null => {
+  const field = type && fieldWithRole(type, "counterparty");
+  const value = field ? post.customFields[field.id] : undefined;
+  return typeof value === "string" && value !== "" ? value : null;
+};
+
+/** The field with this stable `id`, if the type has one. */
 export const fieldById = (
   type: Category,
   id: string,

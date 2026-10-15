@@ -24,6 +24,7 @@ import { initDriveBackup } from "./drive/backup.ts";
 import { initDriveSync } from "./drive/sync.ts";
 import { appHref } from "./commons/base-path.ts";
 import {
+  categoryEditorRouteOf,
   customizeRouteOf,
   customizeTransitionType,
   horsePath,
@@ -190,6 +191,21 @@ const ROUTES: Route[] = [
       html`<customize-view
         .tab=${customizeRouteOf(path)!.tab}
       ></customize-view>`,
+  },
+  {
+    // `/profile/interface/categories/<id>`, or `…/new`. Keyed, like the post
+    // detail: one category straight to another builds a fresh draft.
+    match: (path) => categoryEditorRouteOf(path) !== null,
+    title: "Catégorie",
+    load: () => import("./views/CategoryEditorView.ts"),
+    render: (path) => html`
+      ${keyed(
+        path,
+        html`<category-editor-view
+          .categoryId=${categoryEditorRouteOf(path)!.categoryId}
+        ></category-editor-view>`,
+      )}
+    `,
   },
   {
     // `/horse`, `/horse/<id>` and `/horse/<id>/<tab>`; an unknown tab falls
@@ -616,7 +632,7 @@ export class AppRoot extends LightElement {
    * failed: `exportBackup` reads IndexedDB directly, not through Dexie. A
    * restore writes through Dexie, so it is
    * offered only when the database did open — `initData()` failing later, in
-   * `reconcileCategories` say — and otherwise disabled, with the reason.
+   * `seedCategoriesOnFirstInstall` say — and otherwise disabled, with the reason.
    */
   private renderDataError() {
     const canRestore = isDatabaseOpen();

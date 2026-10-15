@@ -46,6 +46,7 @@ describe("the generic field constructors reproduce the old fixed shapes", () => 
         control: "text",
         label: "Practicien",
         required: false,
+        role: "counterparty",
         defaultValue: "Dr. Orange",
       },
       {
@@ -54,6 +55,7 @@ describe("the generic field constructors reproduce the old fixed shapes", () => 
         label: "Budget",
         suffix: "€",
         required: false,
+        role: "budget",
       },
       {
         id: "followUp",
@@ -237,7 +239,7 @@ describe("the type hierarchy", () => {
     order: 0,
   });
 
-  /** A child the way `setParent` writes one: theme cleared, own icon kept. */
+  /** A child the way the form builder saves one: theme cleared, own icon kept. */
   const child = makeCategory({
     id: "c",
     key: "veto",
@@ -387,6 +389,12 @@ describe("the type hierarchy", () => {
 
     it("refuses a child the catalogue does not have", () => {
       expect(canBeParentOf(catalogue, "gone", "p")).toBe(false);
+    });
+
+    it("files a category not made yet under a root, and only a root", () => {
+      expect(canBeParentOf(catalogue, null, "p")).toBe(true);
+      expect(canBeParentOf(catalogue, null, "c")).toBe(false);
+      expect(canBeParentOf(catalogue, null, "gone")).toBe(false);
     });
   });
 });

@@ -27,7 +27,7 @@ import type {
  * a restore can tell what it is reading; see `backup/snapshot.ts`.
  *
  * Only the current version is declared, with the one `upgrade()` that brings
- * a v13 or v14 device up to it — v14 was published, so both are on phones. A
+ * a v13, v14 or v15 device up to it — all three were published. A
  * database below v13 cannot be upgraded — Dexie deletes a store the declared
  * schema does not list, so it would open with `posts` and `categories` empty.
  * No install below v13 is in use.
@@ -36,7 +36,7 @@ import type {
  * `NEW_TABLES`) in `migrations.ts`, which both the upgrade below and a backup
  * file's walk run.
  */
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 /**
  * Only indexed fields are listed here — Dexie stores the whole object
@@ -95,9 +95,9 @@ export class LadyGestionDb extends Dexie {
   constructor() {
     super("lady-gestion");
 
-    // Every step from v13 runs, in order, whichever of v13 and v14 the device
-    // is on: steps are replay-safe, so a v14 device's rows pass through the
-    // v13 step unchanged. `documentFolders` needs nothing here: Dexie creates
+    // Every step from v13 runs, in order, whichever version the device is
+    // on: steps are replay-safe, so a newer device's rows pass through an
+    // older step unchanged. `documentFolders` needs nothing here: Dexie creates
     // a new store itself.
     this.version(SCHEMA_VERSION)
       .stores(STORES)

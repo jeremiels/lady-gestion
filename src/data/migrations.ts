@@ -60,6 +60,45 @@ export const documentRowToV15 = (
 ): Record<string, unknown> | null => ("category" in row ? null : row);
 
 /**
+ * The roles v16 gives the two fields the app used to find by their `id`: the
+ * amount the budget adds up, and the practitioner or merchant the search, the
+ * share and the detail card read. A `Map` rather than an object literal, so a
+ * field id that happens to name an `Object.prototype` key finds nothing.
+ */
+const V16_ROLES = new Map([
+  ["amountCents", "budget"],
+  ["counterparty", "counterparty"],
+]);
+
+/**
+ * A v15 category row at v16: its `amountCents` and `counterparty` fields carry
+ * the role that says what the app does with them (`CustomFieldDef.role`), so
+ * the form builder can link any field to the budget or make it the
+ * intervenant, whatever its id.
+ *
+ * Only top-level fields, and only one without a role yet — a field that has
+ * one keeps it, so a second run changes nothing. A row whose fields are not an
+ * array is returned as it is, for `assertRows` to judge.
+ */
+export const categoryRowToV16 = (
+  row: Record<string, unknown>,
+): Record<string, unknown> => {
+  const { fields } = row;
+  if (!Array.isArray(fields)) return row;
+
+  let changed = false;
+  const next = fields.map((field: unknown) => {
+    if (typeof field !== "object" || field === null) return field;
+    const { id, role } = field as { id?: unknown; role?: unknown };
+    const named = typeof id === "string" ? V16_ROLES.get(id) : undefined;
+    if (named === undefined || role !== undefined) return field;
+    changed = true;
+    return { ...field, role: named };
+  });
+  return changed ? { ...row, fields: next } : row;
+};
+
+/**
  * Keyed by the version each step migrates *from*, then by table. A table a
  * version leaves alone is not listed.
  *
@@ -74,6 +113,7 @@ export const ROW_STEPS: Partial<
 > = {
   13: { horses: horseRowToV14 },
   14: { documents: documentRowToV15 },
+  15: { categories: categoryRowToV16 },
 };
 
 /**

@@ -2,7 +2,7 @@ import { db } from "../db.ts";
 import { nowTime, todayISO, type IsoDate } from "../dates.ts";
 import { sumByCategory } from "../budget.ts";
 import { sumCents } from "../money.ts";
-import { hiddenKeys } from "../categories.ts";
+import { amountOf, findCategory, hiddenKeys } from "../categories.ts";
 import { createRecord, crud, liveOnly } from "../record.ts";
 import * as categoriesRepo from "./categories.repo.ts";
 import type { Category, Post, NewRecord } from "../types.ts";
@@ -11,8 +11,8 @@ import type { Category, Post, NewRecord } from "../types.ts";
  * Queries over the unified posts table.
  *
  * "Rendez-vous à venir" and "Dépenses" are two views of the same rows, not
- * two tables: an appointment is a future `date`, an budget is a non-null
- * `amountCents`. Both lean on the `[horseId+date]` compound index.
+ * two tables: an appointment is a future `date`, a spend is an amount in the
+ * category's budget field. Both lean on the `[horseId+date]` compound index.
  */
 
 // IndexedDB range bounds. '' sorts before every date string, '￿' after.
@@ -113,24 +113,27 @@ export const listUpcoming = async (horseId: string): Promise<Post[]> => {
 };
 
 /**
- * Posts that cost something — i.e. the budget ledger.
+ * Posts that cost something — i.e. the budget ledger: an amount in the field
+ * their category links to the budget (`amountOf`). A zero-cost row still
+ * counts: it was recorded deliberately, and it is the *absence* of an amount
+ * that means "nothing to budget".
  *
- * Reads `customFields.amountCents`, schema v6's replacement for the fixed
- * `amountCents` column — present, and a number, only for a type whose fields
- * carry an amount at all. A zero-cost row still counts: it was recorded
- * deliberately, and it is the *absence* of the field that means "this type
- * has no budget".
+ * Reads the catalogue itself, as `visible` does, so the ledger follows a
+ * category whose budget link is switched on or off.
  */
 export const listBudget = async (
   horseId: string,
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
 ): Promise<Post[]> => {
-  const posts = await listInRange(horseId, from, to);
+  const [posts, types] = await Promise.all([
+    listInRange(horseId, from, to),
+    categoriesRepo.listAll(),
+  ]);
   return posts.filter(
     (post) =>
-      typeof post.customFields.amountCents === "number" &&
-      post.status !== "cancelled",
+      post.status !== "cancelled" &&
+      amountOf(post, findCategory(types, post.categoryKey)) !== null,
   );
 };
 
@@ -140,12 +143,12 @@ export const totalSpent = async (
   from: IsoDate = MIN_DATE,
   to: IsoDate = MAX_DATE,
 ): Promise<number> => {
-  const budget = await listBudget(horseId, from, to);
+  const [budget, types] = await Promise.all([
+    listBudget(horseId, from, to),
+    categoriesRepo.listAll(),
+  ]);
   return sumCents(
-    budget.map((post) => {
-      const amount = post.customFields.amountCents;
-      return typeof amount === "number" ? amount : null;
-    }),
+    budget.map((post) => amountOf(post, findCategory(types, post.categoryKey))),
   );
 };
 
@@ -167,6 +170,30 @@ export const totalSpentByCategory = async (
   const slices = sumByCategory(await listBudget(horseId, from, to), types);
   return Object.fromEntries(slices.map((slice) => [slice.type, slice.cents]));
 };
+
+/** Live posts filed under the category `key`, whichever horse they belong to. */
+const ofCategory = async (key: string): Promise<Post[]> =>
+  liveOnly(await db.posts.where("categoryKey").equals(key).toArray());
+
+/**
+ * How many posts a category holds — what decides whether the form builder may
+ * delete it, since a post keeps its category's slug after the row is gone.
+ */
+export const countByCategory = async (key: string): Promise<number> =>
+  (await ofCategory(key)).length;
+
+/**
+ * How many of a category's posts hold an answer in field `fieldId` — what the
+ * form builder warns about before taking that field out of the form.
+ */
+export const countWithValue = async (
+  key: string,
+  fieldId: string,
+): Promise<number> =>
+  (await ofCategory(key)).filter((post) => {
+    const value = post.customFields[fieldId];
+    return value !== null && value !== undefined && value !== "";
+  }).length;
 
 export const create = async (fields: NewRecord<Post>): Promise<Post> => {
   const post = createRecord<Post>(fields);

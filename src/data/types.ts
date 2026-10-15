@@ -157,6 +157,14 @@ export type FieldControl =
   | "date"
   | "time";
 
+/** See `CustomFieldDef.role`. */
+export type FieldRole =
+  | "workActivity"
+  | "followUp"
+  | "reminder"
+  | "budget"
+  | "counterparty";
+
 /** One option in a `select` or `combobox`. */
 export type FieldOption = { value: string; label: string };
 
@@ -203,13 +211,17 @@ export type CustomFieldDef = {
    */
   reveals?: CustomFieldDef[];
   /**
-   * The behaviours the app keys off a field rather than a type: the session
-   * name that doubles as the record's title, the follow-up the detail view
-   * offers to schedule, and the push reminder sent ahead of the record's time.
-   * Presentation stays in `control` above — this is only how non-form code
-   * finds the field it means.
+   * What the app does with this field's value beyond the form — how non-form
+   * code finds the field it means, whatever its `id`: the session name that
+   * doubles as the record's title, the follow-up the detail view offers to
+   * schedule, the push reminder sent ahead of the record's time, the amount
+   * the budget adds up, and the practitioner or merchant the search, the share
+   * and the detail card name. Presentation stays in `control` above.
+   *
+   * At most one field per role in a category — the form builder holds that,
+   * and `fieldWithRole` (`categories.ts`) relies on it.
    */
-  role?: "workActivity" | "followUp" | "reminder";
+  role?: FieldRole;
 };
 
 /**
@@ -273,7 +285,7 @@ export type Category = BaseRecord & {
    * and hides the swatches. Keeping it out of the schema is what makes an
    * overridable theme a UI change later rather than a migration. It is also why
    * a child's stored value is never noise: it is the theme it takes back the
-   * day `setParent(id, null)` detaches it.
+   * day the editor makes it a root again (`reparent`).
    */
   theme: ThemeKey | null;
   /** True for the seeded rows. Informative only — it does not block editing. */

@@ -1,6 +1,5 @@
 import { db } from "../db.ts";
 import {
-  canBeParentOf,
   childrenOf,
   enabledOf,
   resolveCatalogue,
@@ -48,7 +47,7 @@ export const listEnabled = async (): Promise<ResolvedCategory[]> =>
  *
  * A no-op when the flag already reads `enabled`: `updatedAt` is what a restore
  * arbitrates last-write-wins by, and a write that changes nothing must not win
- * that argument — the same rule `setParent` follows.
+ * that argument — the same rule `saveCategory` follows.
  */
 export const setEnabled = async (
   id: string,
@@ -123,53 +122,3 @@ export const remove = async (id: string): Promise<void> => {
     await db.categories.put(softDelete(target));
   });
 };
-
-/**
- * Attaches a type under `parentId`, or detaches it when that is `null`.
- *
- * **Not wired yet:** no UI calls this. The Catégories tab offers an on/off
- * switch and nothing else (`customize-categories.ts`), so the only parent
- * links that exist are the four the seed ships. The *read* half of nesting —
- * `rootsOf`, `childrenOf`, `resolveCatalogue` — is live and does draw those.
- * Kept rather than deleted because the depth-2 invariant it enforces is the
- * thing a future editor would have to get right, and it is already tested.
- *
- * The one write path that can create a parent link, so it is where the depth
- * cap is enforced — `canBeParentOf` refuses anything that would make a
- * three-deep chain or a cycle, and this answers `undefined` rather than
- * writing a catalogue no reader could resolve.
- *
- * Attaching clears `theme`, because a child always takes its parent's: that is
- * what makes a group read as one colour in the budget ring, and it is the
- * invariant the whole feature rests on rather than a preference the editor
- * happens to apply. `icon` is left alone — it is what still tells `Dentiste`
- * from `Vétérinaire` inside the group, so it inherits only when a row has none
- * of its own, which is how the editor creates a new child.
- */
-export const setParent = async (
-  childId: string,
-  parentId: string | null,
-): Promise<Category | undefined> =>
-  db.transaction("rw", db.categories, async () => {
-    const types = liveOnly(await db.categories.toArray());
-    const child = types.find((type) => type.id === childId);
-    if (!child) return undefined;
-
-    // Detaching something that is already a root would only re-stamp
-    // `updatedAt`, and `updatedAt` is what last-write-wins resolves a restore
-    // by — a write that changes nothing must not win an argument.
-    if (parentId === null && child.parentId === null) return child;
-
-    if (parentId !== null && !canBeParentOf(types, childId, parentId)) {
-      return undefined;
-    }
-
-    const patch: RecordPatch<Category> =
-      parentId === null
-        ? detachment(resolveCatalogue(types), childId)
-        : { parentId, theme: null };
-
-    const updated = touch(child, patch);
-    await db.categories.put(updated);
-    return updated;
-  });

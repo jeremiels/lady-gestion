@@ -5,23 +5,33 @@ description: Add, edit, nest, or re-theme a post category (formerly "event type"
 
 Categories (called event types until schema v13) stopped being a compile-time
 union in schema v6: they are rows in the `categories` table (`eventTypes` up to
-v12), seeded from one array. A `Post` points at one through `categoryKey`. Adding or editing one is
-therefore a **data** change, not a code change — but only if you touch the four
-places that have to agree, and avoid the three traps below.
+v12), seeded from one array **on a first install only**. A `Post` points at one
+through `categoryKey`. From then on the rows are the user's: she creates and
+edits them in the form builder (Personnaliser › Catégories, `CategoryEditorView`),
+and no launch writes `BUILT_IN_CATEGORIES` over them again.
+
+So there are two different changes this skill covers:
+
+- **The model a new install starts from** — an edit to `BUILT_IN_CATEGORIES`.
+  It reaches no installed device.
+- **A change to categories already on devices** — only through a schema
+  version and a `ROW_STEPS` entry (see "When a schema version is needed"), and
+  only when it cannot be left to her and the builder.
 
 All paths are relative to the repo root. Read `docs/form-builder.md` for the
 design this implements, and `AGENTS.md` for the repo's conventions.
 
 ## Where the catalogue lives
 
-| What               | Where                                                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| The row type       | `Category`, `src/data/types.ts`                                                                                      |
-| The seed catalogue | `BUILT_IN_CATEGORIES`, `src/data/categories.ts`                                                                      |
-| Seeding            | `seedCategories`, same file                                                                                          |
-| Pure helpers       | `resolveCatalogue`, `rootsOf`, `childrenOf`, `subtreeKeys`, `canBeParentOf`, `fieldById`, `fieldWithRole`, same file |
-| Write paths        | `src/data/repositories/categories.repo.ts` (`setParent`, `remove`)                                                   |
-| Test fixtures      | `BUILT_IN_CATEGORY_ROWS`, `src/data/__tests__/factories.ts`                                                          |
+| What               | Where                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| The row type       | `Category`, `src/data/types.ts`                                                                                                       |
+| The seed catalogue | `BUILT_IN_CATEGORIES`, `src/data/categories.ts`                                                                                       |
+| Seeding            | `seedCategories`, same file                                                                                                           |
+| Pure helpers       | `resolveCatalogue`, `rootsOf`, `childrenOf`, `subtreeKeys`, `canBeParentOf`, `fieldWithRole`, `amountOf`, `counterpartyOf`, same file |
+| Builder rules      | `src/data/category-editor.ts` (`validateCategory`, `addField`, `linkField`, `isProtectedField`, …)                                    |
+| Write paths        | `src/data/services/categories.service.ts` (`saveCategory`, `deleteCategory`); `categories.repo.ts` (`remove`)                         |
+| Test fixtures      | `BUILT_IN_CATEGORY_ROWS`, `src/data/__tests__/factories.ts`                                                                           |
 
 `seedCategories` stamps each row with **`id = def.key`**, deliberately: every
 install seeds the same catalogue on its own — a phone, then the new phone its
@@ -29,29 +39,28 @@ backup is restored onto — and `importBackup` merges per `id`. A random id woul
 make each install produce different rows for the same type and double them on
 restore.
 
-One call site seeds: `reconcileCategories` in `src/data/seed.ts`, at every
-launch. It inserts the built-ins on a fresh install and writes the shipped
-definition back over an installed device's built-in rows — keeping `id`,
-`ownerId`, `createdAt`, `updatedAt` and the user's `enabled` — so an edit to the
-array reaches every device on its next launch.
+One call site seeds: `seedCategoriesOnFirstInstall` in `src/data/seed.ts`,
+at every launch — and it writes only into an empty table. A restore onto a new
+phone needs nothing more: the file's copy replaces each freshly seeded,
+never-edited built-in (`YIELDS_TO_FILE` in `backup/snapshot.ts`).
 
 ## Adding a type
 
 One entry in `BUILT_IN_CATEGORIES`. Every field:
 
-| Field           | Notes                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| `key`           | The slug `Post.categoryKey` stores. **Immutable once shipped** — an event keeps it after the row is gone        |
-| `label`         | French, shown as-is. There is no i18n layer                                                                     |
-| `parentId`      | The parent row's `id`, or `null`. See below                                                                     |
-| `icon`          | An `IconName`, or `null` to inherit                                                                             |
-| `theme`         | A `ThemeKey`, or `null` to inherit                                                                              |
-| `isBuiltIn`     | `true` for anything in this array                                                                               |
-| `isAppointment` | Puts it in the home view's "Rendez-vous à venir"                                                                |
-| `tracksWork`    | Makes it the week strip's work session                                                                          |
-| `enabled`       | `true` in the seed. The user's switch in Personnaliser › Catégories — `reconcileCategories` never overwrites it |
-| `order`         | Budget donut and legend order                                                                                   |
-| `fields`        | Beyond the fixed date/status/location/notes                                                                     |
+| Field           | Notes                                                                                                    |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| `key`           | The slug `Post.categoryKey` stores. **Immutable once shipped** — an event keeps it after the row is gone |
+| `label`         | French, shown as-is. There is no i18n layer                                                              |
+| `parentId`      | The parent row's `id`, or `null`. See below                                                              |
+| `icon`          | An `IconName`, or `null` to inherit                                                                      |
+| `theme`         | A `ThemeKey`, or `null` to inherit                                                                       |
+| `isBuiltIn`     | `true` for anything in this array                                                                        |
+| `isAppointment` | Puts it in the home view's "Rendez-vous à venir"                                                         |
+| `tracksWork`    | Makes it the week strip's work session                                                                   |
+| `enabled`       | `true` in the seed. The user's switch in Personnaliser › Catégories                                      |
+| `order`         | Budget donut and legend order                                                                            |
+| `fields`        | Beyond the fixed date/status/location/notes                                                              |
 
 Reuse the field builders at the top of `categories.ts` rather than writing
 literals: `counterpartyField(label)`, `amountField()`, `followUpField()`,
@@ -76,12 +85,13 @@ Rules, all enforced by `canBeParentOf`:
   recursion — cannot read, and `BudgetSlice.children` cannot represent.
 - **A child always inherits `theme`.** That is what makes a group one wedge in
   the budget ring; it is the invariant the feature rests on, not a preference.
-  `setParent` writes `theme: null` on attach for this reason.
+  `reparent` (`category-editor.ts`) drops the theme on attach, and
+  `saveCategory` stores a child's as `null`, for this reason.
 - **`icon` is optional.** `null` inherits; a real value overrides and is what
   tells siblings apart inside a group. Overriding later is a data edit, not a
   migration.
 
-At runtime, `categoriesRepo.setParent` is the only path that may create a link,
+At runtime, `saveCategory` is the only path that may create a link,
 and `remove` promotes children back to roots (materialising the presentation
 they were inheriting) so deleting a parent never repaints its children.
 
@@ -89,17 +99,15 @@ Currently nested: `cures` under `alimentation`, `traitement` under `veto`
 (schema v9); `osteo` and `massage` under `soins` (schema v10). The other 10
 are roots.
 
-## When a schema version is still needed
+## When a schema version is needed
 
-Editing the array needs **no migration**: `reconcileCategories` writes each
-built-in's shipped definition over the row every device already has, at
-launch. That covers a new type, a relabel, a new icon or theme, a new parent
-and a changed field list. Schema v7, v9 and v10 were migrations only because
-reconciling did not exist yet.
-
-A version bump is for what reconciling cannot reach: **data already stored in
-posts** — a `categoryKey` or a `customFields` value whose meaning changes, the
-way v11 rewrote `balade` to `baladeApied` — or a table's shape. `db.ts` has
+Editing the array changes new installs only. Anything that must reach
+categories or posts **already on a device** is a version bump: a `categoryKey`
+or a `customFields` value whose meaning changes (v11 rewrote `balade` to
+`baladeApied`), a field shape the code starts to depend on (v16 gave
+`amountCents` and `counterparty` their roles), or a table's shape. Before
+writing one, ask whether it is really the app's to change: a label, a field
+list or a default value is hers now, through the builder. `db.ts` has
 declared only the current version since 2026-09-17, so read "Bumping
 `SCHEMA_VERSION`" in `AGENTS.md` first: a `this.version(n).upgrade()` in
 `src/data/db.ts` for devices, and a decision for backup files written at the
@@ -145,15 +153,18 @@ explicit that `followUp`, `workActivity` and `quantity` exist "because a built-i
 type already needs them, not because a generic field could reproduce what they
 do" — `text`, `cents` and `bool` are the general-purpose three.
 
-If you must, six sites:
+If you must, seven sites:
 
 1. `FieldControl`, `src/data/types.ts`
 2. `EVENT_SCHEMA` (the flat parser table) in `src/components/post-sheet/post-sheet.ts`
 3. a render branch and a `#render*` method in the same file
 4. `postFields`, `src/data/services/posts.service.ts` — which `customFields`
    key the value lands in
-5. `#infoRows`, `src/views/PostDetailView.ts` — reading it back for display
-6. a parser in `src/data/forms.ts`; cross-field rules go in `src/data/posts.ts`
+5. `formatFieldValue`, `src/data/post-views.ts` — reading it back for the
+   detail card
+6. `FIELD_KINDS`/`newField`/`kindOf` in `src/data/category-editor.ts`, and its
+   default-value control in `field-sheet.ts` — so the builder can offer it
+7. a parser in `src/data/forms.ts`; cross-field rules go in `src/data/posts.ts`
    as pure functions, on the model of `quantityPairErrors`
 
 ## Gotchas
@@ -166,14 +177,17 @@ If you must, six sites:
   the app does not ship.
 - **A test that nests a type must pick a leaf.** `alimentation`, `veto` and
   `soins` have children now; re-parenting one of the three as someone else's
-  child builds the three-deep chain `setParent` would have refused.
+  child builds the three-deep chain `canBeParentOf` refuses.
   `marechal`, `dentiste`, `osteo` and `massage` are still leaves — none has
   children of its own — so all four remain safe to re-parent in a test, `osteo`
   and `massage` included even though they already have `soins` as a parent.
-- **`fieldById`, not `fieldWithRole`, for a fixed slot.** `fieldWithRole` is
-  only safe for `followUp` and `workActivity`, which are singletons by
-  construction; for `counterparty`, `amountCents` and `quantity` it resolves to
-  whichever field of that kind comes first.
+- **Find a field by its `role`, not its `id`, whenever the app acts on it.**
+  The budget, the search, the share, the week strip, follow-ups and reminders
+  all read `fieldWithRole`; the builder keeps one field per role
+  (`validateCategory`) and lets her move a link from one field to another, so
+  an id is not where a value lives once she has edited the form. `endDate` and
+  `dosage` on `cures`/`traitement` are still read by id — the builder protects
+  them (`isProtectedField`).
 - **`categories.ts` and `posts.ts` must not import each other.** Either
   direction is circular the moment the other reaches back. Join them at the call
   site.
@@ -196,8 +210,9 @@ A migration needs more than a green suite. Mutate it and watch a test fail —
 break the parent lookup, then drop the replay guard — or it is only asserting
 that the seed is the seed. `src/data/db.test.ts` opens a database written at the
 last version (`V13_STORES`) under the current one — the upgrade's test goes
-there; `src/data/backup/snapshot.test.ts` covers files. A change to the array
-alone is covered by `src/data/seed.reconcile.test.ts`.
+there; `src/data/backup/snapshot.test.ts` covers files, and
+`snapshot.real-backup.test.ts` runs the walk over her real export. That a launch
+leaves installed categories alone is `src/data/seed.reconcile.test.ts`.
 
 Then look at it, via the `run-lady-gestion` skill — nesting and colour are not
 things a unit test sees:

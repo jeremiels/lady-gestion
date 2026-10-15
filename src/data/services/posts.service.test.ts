@@ -465,6 +465,26 @@ describe("amount", () => {
   });
 });
 
+describe("a field removed from the category's form", () => {
+  it("keeps what the post held in it through a later edit", async () => {
+    const visit = await create({ type: "veto", counterparty: "Dr Martin" });
+    const veto = typeFor("veto");
+    const withoutCounterparty = {
+      ...veto,
+      fields: veto.fields.filter((field) => field.id !== "counterparty"),
+    };
+
+    const edited = await savePost({
+      horseId: HORSE_ID,
+      existing: visit,
+      type: withoutCounterparty,
+      input: input({ type: "veto" }),
+    });
+
+    expect(edited?.customFields.counterparty).toBe("Dr Martin");
+  });
+});
+
 describe("status", () => {
   it("is planned for a future date and done for today", async () => {
     const future = await create({ date: addDays(todayISO(), 1) });

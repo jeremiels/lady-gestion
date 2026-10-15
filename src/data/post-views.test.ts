@@ -4,6 +4,7 @@ import { followUpValue } from "./posts.ts";
 import {
   dashboardAgenda,
   filterPosts,
+  formatFieldValue,
   postInfoRows,
   shareSummary,
   splitCourses,
@@ -54,10 +55,81 @@ describe("postInfoRows", () => {
     });
   });
 
+  it("follows with every other filled field, in the form's order", () => {
+    const show = makePost({
+      categoryKey: "concours",
+      customFields: {
+        competition: "CSO 1m",
+        amountCents: 4500,
+        result: "4pts",
+      },
+    });
+
+    expect(postInfoRows(show, typeOf("concours"))).toEqual([
+      expect.objectContaining({ label: "Nom" }),
+      expect.objectContaining({ label: "Date" }),
+      { label: "Budget", value: expect.stringMatching(/45,00\s€/) },
+      { label: "Épreuve", value: "CSO 1m" },
+      { label: "Résultat", value: "4 pts" },
+    ]);
+  });
+
+  it("shows a field the form builder made, once it holds something", () => {
+    const type = {
+      ...typeOf("pension"),
+      fields: [
+        ...typeOf("pension").fields,
+        { id: "box", label: "Box", required: false, control: "text" as const },
+        {
+          id: "paddock",
+          label: "Paddock",
+          required: false,
+          control: "checkbox" as const,
+        },
+      ],
+    };
+    const month = makePost({
+      categoryKey: "pension",
+      customFields: { box: "B12", paddock: false },
+    });
+
+    const labels = postInfoRows(month, type).map((row) => row.label);
+    expect(labels).toContain("Box");
+    // An unticked box has nothing to say.
+    expect(labels).not.toContain("Paddock");
+  });
+
   it("keeps only Nom and Date while the type is unknown", () => {
     const rows = postInfoRows({ ...vetVisit, notes: null }, undefined);
 
     expect(rows.map((row) => row.label)).toEqual(["Nom", "Date"]);
+  });
+});
+
+describe("formatFieldValue", () => {
+  const field = (control: "date" | "checkbox" | "number" | "select") => ({
+    id: "f",
+    label: "F",
+    required: false,
+    control,
+    options: [{ value: "a", label: "Option A" }],
+  });
+
+  it("words each control the way the app does elsewhere", () => {
+    expect(formatFieldValue(field("checkbox"), true, "EUR")).toBe("Oui");
+    expect(formatFieldValue(field("number"), 1.5, "EUR")).toBe("1,5");
+    expect(formatFieldValue(field("select"), "a", "EUR")).toBe("Option A");
+    expect(formatFieldValue(field("date"), "2026-06-15", "EUR")).toMatch(/15/);
+  });
+
+  it("shows a choice the field no longer offers as it was stored", () => {
+    expect(formatFieldValue(field("select"), "gone", "EUR")).toBe("gone");
+  });
+
+  it("has nothing to say about a blank", () => {
+    expect(formatFieldValue(field("select"), null, "EUR")).toBeNull();
+    expect(formatFieldValue(field("select"), "", "EUR")).toBeNull();
+    expect(formatFieldValue(field("checkbox"), false, "EUR")).toBeNull();
   });
 });
 

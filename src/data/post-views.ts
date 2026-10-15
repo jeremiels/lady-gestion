@@ -1,11 +1,19 @@
 import {
-  fieldById,
+  BASE_FIELD_IDS,
+  amountOf,
+  counterpartyOf,
   fieldWithRole,
   findCategory,
   subtreeKeys,
   upcomingAppointments,
 } from "./categories.ts";
-import { formatDateMedium, formatTime, type IsoDate } from "./dates.ts";
+import {
+  formatDateMedium,
+  formatTime,
+  isIsoDate,
+  type IsoDate,
+} from "./dates.ts";
+import { editableDecimal } from "./forms.ts";
 import { formatCents } from "./money.ts";
 import {
   coursePhase,
@@ -16,7 +24,7 @@ import {
   parseFollowUpValue,
 } from "./posts.ts";
 import { foldText } from "./text.ts";
-import type { Category, Post } from "./types.ts";
+import type { Category, CustomFieldDef, Post } from "./types.ts";
 
 /**
  * What the post views decide — which rows a post's card shows, what a share
@@ -29,15 +37,69 @@ import type { Category, Post } from "./types.ts";
 export type InfoRow = { label: string; value: string };
 
 /**
+ * One stored answer as the detail card reads it, by the control that took it
+ * — or `null` when there is nothing to say: a blank, or a box left unticked.
+ *
+ * A choice the field no longer offers still shows what was stored, rather
+ * than nothing: the record is hers whatever became of the option.
+ */
+export const formatFieldValue = (
+  field: CustomFieldDef,
+  value: Post["customFields"][string] | undefined,
+  currency: string,
+): string | null => {
+  if (value === null || value === undefined || value === "") return null;
+
+  if (field.reveals?.length) {
+    // A ticked box stores what it revealed — see `valueOf` (`post-form.ts`).
+    const [revealed] = field.reveals;
+    return revealed ? formatFieldValue(revealed, value, currency) : null;
+  }
+
+  switch (field.control) {
+    case "money":
+      return typeof value === "number" ? formatCents(value, currency) : null;
+    case "date":
+      return isIsoDate(value) ? formatDateMedium(value) : String(value);
+    case "time":
+      return typeof value === "string" ? formatTime(value) : null;
+    case "checkbox":
+      return value === true ? "Oui" : null;
+    case "number":
+      // A `units` field is stored already worded, "1,5 L".
+      return typeof value === "number" ? editableDecimal(value) : String(value);
+    case "select":
+    case "combobox":
+    case "text":
+      return (
+        field.options?.find((option) => option.value === value)?.label ??
+        String(value)
+      );
+  }
+};
+
+/** The roles whose rows `postInfoRows` words itself rather than generically. */
+const WORDED_ROLES = new Set<CustomFieldDef["role"]>([
+  "workActivity",
+  "counterparty",
+  "budget",
+  "followUp",
+  "reminder",
+]);
+
+/**
  * The rows of a post's Informations card after its type, in the order the
  * design draws them; a row with nothing to say is left out, since a card of
  * blanks reads as broken.
  *
- * Every per-type row reads its label and its `customFields` key off the
- * post's own type — the definition the entry form writes from — so what is
- * shown and what was captured cannot drift. `type` is `undefined` for the tick
- * before the catalogue settles, or for a type since deleted: the card then
- * keeps Nom, Date, Lieu and Note rather than throwing.
+ * The fields the app has a role for come first and are worded by it; every
+ * other field the type declares follows in its form's order — so a field made
+ * in the form builder shows up here the moment it holds something. Labels and
+ * `customFields` keys come off the post's own type, the definition the entry
+ * form writes from, so what is shown and what was captured cannot drift.
+ * `type` is `undefined` for the tick before the catalogue settles, or for a
+ * type since deleted: the card then keeps Nom, Date, Lieu and Note rather than
+ * throwing.
  */
 export const postInfoRows = (
   post: Post,
@@ -60,22 +122,21 @@ export const postInfoRows = (
     rows.push({ label: "Activité", value: formatWorkActivity(activity) });
   }
 
-  const counterpartyField = type && fieldById(type, "counterparty");
-  const counterparty = value(counterpartyField?.id);
-  if (counterpartyField && typeof counterparty === "string" && counterparty) {
+  const counterpartyField = type && fieldWithRole(type, "counterparty");
+  const counterparty = counterpartyOf(post, type);
+  if (counterpartyField && counterparty !== null) {
     rows.push({ label: counterpartyField.label, value: counterparty });
   }
 
-  const amount = value(type && fieldById(type, "amountCents")?.id);
-  if (typeof amount === "number") {
+  const amount = amountOf(post, type);
+  if (amount !== null) {
     rows.push({ label: "Budget", value: formatCents(amount, post.currency) });
   }
 
-  // Already display-ready: `valueOf` (`post-form.ts`) wrote it as "1,5 L".
-  const quantityField = type && fieldById(type, "quantity");
-  const quantity = value(quantityField?.id);
-  if (quantityField && typeof quantity === "string" && quantity) {
-    rows.push({ label: quantityField.label, value: quantity });
+  for (const field of type?.fields ?? []) {
+    if (BASE_FIELD_IDS.has(field.id) || WORDED_ROLES.has(field.role)) continue;
+    const shown = formatFieldValue(field, value(field.id), post.currency);
+    if (shown !== null) rows.push({ label: field.label, value: shown });
   }
 
   const followUp = value(type && fieldWithRole(type, "followUp")?.id);
@@ -111,15 +172,12 @@ export const shareSummary = (
   post: Post,
   type: Category | undefined,
 ): string => {
-  const counterparty =
-    type && post.customFields[fieldById(type, "counterparty")?.id ?? ""];
-  const amount =
-    type && post.customFields[fieldById(type, "amountCents")?.id ?? ""];
+  const amount = amountOf(post, type);
   return [
     type?.label ?? "",
     formatDateMedium(post.date),
-    typeof counterparty === "string" ? counterparty : "",
-    typeof amount === "number" ? formatCents(amount, post.currency) : "",
+    counterpartyOf(post, type) ?? "",
+    amount === null ? "" : formatCents(amount, post.currency),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -146,12 +204,10 @@ export const filterPosts = (
     if (!needle) return true;
 
     const type = findCategory(types, post.categoryKey);
-    const counterparty =
-      type && post.customFields[fieldById(type, "counterparty")?.id ?? ""];
     const haystack = [
       post.title,
       post.notes ?? "",
-      typeof counterparty === "string" ? counterparty : "",
+      counterpartyOf(post, type) ?? "",
       post.location ?? "",
       type?.label ?? "",
     ].join(" ");

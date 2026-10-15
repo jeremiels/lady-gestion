@@ -572,11 +572,11 @@ describe("a field's defaultValue", () => {
 
 describe("the type picker", () => {
   /**
-   * Files one built-in type under another, the way `setParent` writes it.
+   * Files one built-in type under another, the way the form builder saves it.
    *
    * Pick a leaf that the shipped catalogue leaves alone. Nesting `veto` or
    * `alimentation`, which have children of their own since schema v9, builds a
-   * three-deep chain `setParent` would have refused and `#typeOptions`, which
+   * three-deep chain `canBeParentOf` refuses and `#typeOptions`, which
    * looks one hop down, cannot draw.
    */
   const nest = async (childKey: string, parentKey: string) => {

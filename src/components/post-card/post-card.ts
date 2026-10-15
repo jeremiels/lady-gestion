@@ -5,7 +5,7 @@ import { BaseElement } from "../../commons/base-element.ts";
 import { appHref } from "../../commons/base-path.ts";
 import { formatDate, formatTime } from "../../data/dates.ts";
 import { formatCents } from "../../data/money.ts";
-import type { ResolvedCategory } from "../../data/categories.ts";
+import { amountOf, type ResolvedCategory } from "../../data/categories.ts";
 import type { Post } from "../../data/types.ts";
 import { THEME_META } from "../../theme/theme.ts";
 
@@ -227,11 +227,8 @@ export class PostCard extends BaseElement {
     // the wording and the colours.
     const type = this.category;
     const theme = type ? THEME_META[type.theme] : null;
-    // `amountCents` moved into `customFields` in schema v6 — present only for
-    // a type whose fields carry an amount at all.
-    const amount = event.customFields.amountCents;
-    const price =
-      typeof amount === "number" ? formatCents(amount, event.currency) : null;
+    const amount = amountOf(event, type ?? undefined);
+    const price = amount === null ? null : formatCents(amount, event.currency);
     const trailingAmount = this.layout === "budget";
     const showNotes = this.layout === "default" && event.notes;
 

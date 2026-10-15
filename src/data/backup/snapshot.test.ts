@@ -336,7 +336,7 @@ describe("importBackup — built-in categories over a fresh install", () => {
     });
   });
 
-  it("brings the file's definitions up to what this build ships", async () => {
+  it("keeps the file's definitions rather than this build's", async () => {
     await seedIfEmpty();
 
     await importBackup(
@@ -362,9 +362,7 @@ describe("importBackup — built-in categories over a fresh install", () => {
 
     const cures = await db.categories.get("cures");
     expect(cures?.enabled).toBe(false);
-    expect(cures?.fields).toEqual(
-      BUILT_IN_CATEGORIES.find((type) => type.key === "cures")?.fields,
-    );
+    expect(cures?.fields.map((field) => field.id)).toEqual(["duration"]);
   });
 });
 

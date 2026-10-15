@@ -218,6 +218,52 @@ describe("opening a database a v14 device already holds", () => {
   });
 });
 
+/**
+ * The stores v15 declared, as published: v14's, documents filed in folders.
+ * Frozen like `V13_STORES`.
+ */
+const V15_STORES = {
+  ...V14_STORES,
+  documents: "id, horseId, postId, folderId, driveFileId, updatedAt",
+  documentFolders: "id, driveFolderId, parentId, updatedAt",
+};
+
+describe("opening a database a v15 device already holds", () => {
+  const veto = makeCategory({
+    id: "veto",
+    key: "veto",
+    fields: [
+      {
+        id: "counterparty",
+        control: "text",
+        label: "Practicien",
+        required: false,
+      },
+      { id: "amountCents", control: "money", label: "Budget", required: false },
+    ],
+  });
+
+  it("names the budget and intervenant fields without restamping the row", async () => {
+    await writeDatabase(15, V15_STORES, {
+      ...rows,
+      horses: [makeHorse()],
+      documents: [],
+      categories: [veto],
+    });
+
+    await db.open();
+
+    expect(db.verno).toBe(SCHEMA_VERSION);
+    const [stored] = await db.categories.toArray();
+    expect(stored?.fields.map((field) => field.role)).toEqual([
+      "counterparty",
+      "budget",
+    ]);
+    expect(stored?.updatedAt).toBe(veto.updatedAt);
+    expect(await db.posts.toArray()).toEqual(rows.posts);
+  });
+});
+
 describe("a fresh install", () => {
   it("opens at the version the backup envelope advertises", async () => {
     await db.open();

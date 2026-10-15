@@ -162,6 +162,29 @@ export const customizeTransitionType = (
 export const customizeTabPath = (tab: CustomizeTab): string =>
   `${CUSTOMIZE_ROOT}/${tab}`;
 
+/** Under the Catégories tab: the form builder's pages, one per category. */
+const CATEGORY_EDITOR_ROOT = `${CUSTOMIZE_ROOT}/categories/`;
+
+/** The segment that opens the form builder on a category not yet made. */
+const NEW_CATEGORY = "new";
+
+/**
+ * `…/categories/new` or `…/categories/<id>`, as the category it edits —
+ * `null` for a new one — or `null` for any other path.
+ */
+export const categoryEditorRouteOf = (
+  path: string,
+): { categoryId: string | null } | null => {
+  if (!path.startsWith(CATEGORY_EDITOR_ROOT)) return null;
+  const id = path.slice(CATEGORY_EDITOR_ROOT.length);
+  if (id === "" || id.includes("/")) return null;
+  return { categoryId: id === NEW_CATEGORY ? null : id };
+};
+
+/** App-relative, like every path here — `appHref()` it where it is rendered. */
+export const categoryEditorPath = (categoryId: string | null): string =>
+  `${CATEGORY_EDITOR_ROOT}${categoryId ?? NEW_CATEGORY}`;
+
 /** One of the four destinations the bottom nav offers. */
 export type Section = {
   id: string;

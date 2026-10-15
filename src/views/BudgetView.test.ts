@@ -53,7 +53,7 @@ const toggleLegend = async (el: BudgetView, type: string) => {
 };
 
 /**
- * Files one built-in type under another, the way `setParent` writes it. The
+ * Files one built-in type under another, the way the form builder saves it. The
  * seeded catalogue is flat; a nested one comes from the type editor or a
  * restore.
  */
