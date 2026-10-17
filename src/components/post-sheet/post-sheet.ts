@@ -60,10 +60,9 @@ import "../app-unit-select/app-unit-select.ts";
  * care appointment (vet, farrier, dentist, osteopath) has a practitioner and
  * can record a repeat interval; a purchase has a merchant; a `workActivity`
  * type has the kind of work that was done; a type with none of those needs
- * none of it. Schema v6 moved this from a compile-time table in
- * `event.types.ts` to the `Category` rows `#categories` reads live, so a
- * type's shape and its label/icon/theme stay one row rather than two tables
- * that could drift.
+ * none of it. The fields are on the `Category` rows `#categories` reads live,
+ * so a type's shape and its label/icon/theme stay one row rather than two
+ * tables that could drift.
  *
  * Setting `event` switches it to edit: same fields, same reader, prefilled
  * from the record and saved with `update` instead of `create`. A second form

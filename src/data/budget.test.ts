@@ -146,8 +146,8 @@ describe("sumByCategory", () => {
    * The hierarchy cases, on a re-parented copy: `marechal` and `dentiste`
    * become children of `soins`, the way the form builder saves a child.
    *
-   * `TYPES` already nests `cures` and `traitement` since schema v9, and
-   * `osteo`/`massage` under `soins` since v10, but none of the four spend
+   * `TYPES` already nests `cures` and `traitement`, and `osteo`/`massage`
+   * under `soins`, but none of the four spend
    * anything here, so a group of leaves the shipped catalogue leaves alone is
    * what isolates these assertions. It also keeps them legal: nesting `veto`
    * or `soins` itself, which now have children of their own, would build the

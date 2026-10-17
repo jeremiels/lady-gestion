@@ -388,15 +388,11 @@ export const BUILT_IN_CATEGORIES: Omit<
   {
     key: "osteo",
     label: "Ostéopathe",
-    // A child of `soins` since schema v10, alongside `massage` below — both
-    // are care appointments a client books through the same "Soins" entry
-    // point. `parentId` holds the parent's `id`, not its `key` — see the note
-    // on `cures` further down for why a literal slug is valid here.
+    // A child of `soins`, alongside `massage` below — both are care
+    // appointments a client books through the same "Soins" entry point.
+    // `parentId` holds the parent's `id`, not its `key` — see the note on
+    // `cures` further down for why a literal slug is valid here.
     parentId: "soins",
-    // Kept as an override rather than nulled: unlike `cures`/`traitement`'s
-    // placeholder icons at v9, `pawPrint` was already this row's real,
-    // shipped icon, and it is what tells it apart from its new sibling
-    // `massage` inside the "Soins" group.
     icon: null,
     theme: null,
     isBuiltIn: true,
@@ -494,9 +490,8 @@ export const BUILT_IN_CATEGORIES: Omit<
     parentId: "alimentation",
     // Both null: inherited from the parent. `theme` always is — a group reads
     // as one colour in the budget ring, and that is the invariant the whole
-    // feature rests on. `icon` is inherited here because `pawPrint` was only
-    // ever a placeholder (it is also Ostéopathe's); writing a real `IconName`
-    // back on this row takes it over again, no migration needed.
+    // feature rests on. `icon` is inherited too, for want of one of its own; a
+    // real `IconName` written on this row takes over from the parent's.
     icon: null,
     theme: null,
     isBuiltIn: true,
@@ -547,13 +542,9 @@ export const BUILT_IN_CATEGORIES: Omit<
   {
     key: "massage",
     label: "Massage",
-    // A new child of `soins`, introduced alongside `osteo`'s reparenting —
-    // schema v10. Unlike `cures`/`traitement`, this type never shipped as a
-    // root: it is inserted fresh by v10's migration rather than moved.
     parentId: "soins",
-    // Both null: inherited from `soins`, the same as `cures`/`traitement` —
-    // there is no dedicated icon for this type, and `pawPrint` is already
-    // spoken for by its sibling `osteo`.
+    // Both null: inherited from `soins`, like its sibling `osteo` — there is
+    // no dedicated icon for this type.
     icon: null,
     theme: null,
     isBuiltIn: true,

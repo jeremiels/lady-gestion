@@ -204,8 +204,8 @@ const compareSessions = (a: Post, b: Post): number => {
 /**
  * A `travail`-like row that actually says what was done — what the strip
  * draws. `activity` is a real property here, populated by `workSessionByDate`
- * from whichever `customFields` key the row's own type uses for it — not a
- * passthrough of a fixed column, since schema v6 stopped events having one.
+ * from whichever `customFields` key the row's own type uses for it: events
+ * have no fixed column for it.
  */
 export type WorkSession = Post & { activity: WorkActivity };
 

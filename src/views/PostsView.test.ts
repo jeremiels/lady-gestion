@@ -61,8 +61,8 @@ const chipLabels = (el: PostsView, selector = ".posts-view__filters") =>
  * Files one built-in type under another, the way the form builder saves it —
  * theme cleared, so the child takes its parent's colour.
  *
- * Pick a leaf. The shipped catalogue nests `cures` and `traitement` since
- * schema v9, and `osteo`/`massage` under `soins` since v10, so re-parenting
+ * Pick a leaf. The shipped catalogue nests `cures` and `traitement`, and
+ * `osteo`/`massage` under `soins`, so re-parenting
  * `alimentation`, `veto` or `osteo` here would build a three-deep chain
  * `canBeParentOf` refuses and `resolveCatalogue`, a single hop, cannot read.
  */
@@ -346,8 +346,8 @@ describe("posts-view", () => {
       chipLabeled(el, labelOf("soins")).click();
       await settled(el);
 
-      // `massage` is a third child here too — shipped under `soins` since
-      // v10, alongside `osteo`, without this test having to nest it itself.
+      // `massage` is a third child here too — shipped under `soins`,
+      // alongside `osteo`, without this test having to nest it itself.
       expect(chipLabels(el, ".posts-view__filters--nested")).toEqual([
         "Tous",
         labelOf("dentiste"),

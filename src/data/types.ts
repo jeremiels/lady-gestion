@@ -90,13 +90,12 @@ export type PostStatus = "planned" | "done" | "cancelled";
  * every summary.
  *
  * Named `Post` rather than `Event` on purpose: `Event` is a DOM global, and
- * shadowing it inside view files that also handle `SubmitEvent` is a trap. It
- * was `HorseEvent`, stored in an `events` table, until schema v13 aligned the
- * code with the domain language: a post belongs to a category.
+ * shadowing it inside view files that also handle `SubmitEvent` is a trap. A
+ * post belongs to a category.
  */
 export type Post = BaseRecord & {
   horseId: string;
-  /** Slug into `Category.key` below — see `categories.ts`. Was `type` before schema v13. */
+  /** Slug into `Category.key` below — see `categories.ts`. */
   categoryKey: string;
   /** Short user-facing label, e.g. "Ferrure". */
   title: string;
@@ -121,12 +120,9 @@ export type Post = BaseRecord & {
    * merchant, a follow-up interval, what was done in a schooling session, a
    * budget. Keyed by `CustomFieldDef.id` (`categories.ts`).
    *
-   * Replaces what used to be fixed columns — `providerName`, `vendor`,
-   * `followUpInterval`, `activity`, `amountCents` — added in schema v6 when
-   * event types stopped being a closed, compile-time union (see
-   * `Category` below). Which of these a given event carries is now a
-   * property of its type's `fields`, not of the record's own shape, so a field
-   * one type needs no longer widens every event of every other type.
+   * Which of these a given event carries is a property of its type's
+   * `fields` (`Category` below), not of the record's own shape, so a field one
+   * type needs never widens every event of every other type.
    *
    * Scalar values only: a structured one (the follow-up interval) is encoded
    * the same way the entry form already hands it over to the record
@@ -228,22 +224,15 @@ export type CustomFieldDef = {
 /**
  * What an event type is: its presentation, and the fields its entry form shows.
  *
- * Was a closed TypeScript union (`EventTypeKey`, `types/event.types.ts`) with a
- * compile-time label/icon/theme table and a four-layout form-spec table beside
- * it — the one taxonomy in this app users could not extend without a release.
- * This is what it became in schema v6: a row, so a type can be added,
- * relabelled, or given a different field list, from data.
+ * A row rather than a TypeScript union, so a type can be added, relabelled,
+ * or given a different field list, from data.
  *
- * The nine types the app shipped with, plus four more finished in the same
- * migration, are seeded with `isBuiltIn: true` — informative only, it does not
- * block editing. `ActivityItem` below is code for its built-ins for the
- * opposite reason: that is a closed vocabulary nothing there ever edits: this
- * one is the opposite from day one.
+ * The types a first install seeds are `isBuiltIn: true` — informative only, it
+ * does not block editing. `ActivityItem` below is code for its built-ins for
+ * the opposite reason: that is a closed vocabulary nothing there ever edits.
  *
- * Schema v8 gave it an optional parent (`parentId`), so a type can be a
- * variation of another one — `Vétérinaire` under `Santé` — and inherit its
- * presentation. Optional in the strong sense: every seeded row is a root, so a
- * catalogue that never uses it behaves exactly as it did before v8.
+ * A type may have a parent (`parentId`), so it can be a variation of another
+ * one — `Vétérinaire` under `Santé` — and inherit its presentation.
  */
 export type Category = BaseRecord & {
   /** Stable slug — what `Post.categoryKey` stores. Immutable once created. */
@@ -306,8 +295,7 @@ export type Category = BaseRecord & {
    * `false` hides the category and every post filed under it from the whole
    * UI — pickers, lists, calendar, dashboard, budget totals. Nothing is
    * deleted: switching it back on brings everything back. A parent's flag does
-   * not reach its children; each category is switched on its own. Was
-   * `archived` (inverted, and filtered on by nothing) before schema v13.
+   * not reach its children; each category is switched on its own.
    */
   enabled: boolean;
   /**
@@ -333,10 +321,9 @@ export type Category = BaseRecord & {
  * and leaves every session that used it saying exactly what it always said.
  * That is what lets the list be edited freely without a cascade.
  *
- * The app's first user-editable taxonomy — `Category` above is the second,
- * added a schema version later. The other closed list here, ration units, is
- * a TypeScript union with a hardcoded label table, because the wording is a
- * design decision. What the horse worked on is not. Added in schema v5.
+ * A user-editable taxonomy, like `Category` above. The other closed list
+ * here, ration units, is a TypeScript union with a hardcoded label table,
+ * because the wording is a design decision. What the horse worked on is not.
  */
 export type ActivityItem = BaseRecord & {
   horseId: string;
@@ -355,7 +342,7 @@ export type ActivityItem = BaseRecord & {
  * Named by her, in her Drive — which is why folders are rows rather than a
  * closed union: the Drive is the reference for them, and this table mirrors it
  * for offline use (`docs/drive-spec.md` §6). No `horseId`: a folder belongs to
- * her Drive, not to a horse. Added in schema v15.
+ * her Drive, not to a horse.
  */
 export type DocumentFolder = BaseRecord & {
   /** As named in the Drive. */
@@ -448,19 +435,18 @@ export type RationItem = BaseRecord & {
   /**
    * The annual window this line is fed in, or `null` when it is fed all year.
    *
-   * Replaced a `seasonal: boolean` in schema v2. A flag could say *that* a feed
-   * was seasonal but not *when*, so the plan could never work out which lines
-   * are suspended today — which is the whole point of showing seasonality.
+   * A window rather than a flag: a flag could say *that* a feed is seasonal
+   * but not *when*, so the plan could never work out which lines are
+   * suspended today — which is the whole point of showing seasonality.
    * See `seasons.ts`; both ends are inclusive and the window may wrap the year.
    */
   season: RationSeason | null;
   sortOrder: number;
 };
 
-/** Local app state. Not an entity: never exported, never synced. */
 /**
  * The user's own identity, as typed on the Personnaliser mon interface page.
- * Added in schema v12. There is no password: nothing here signs anyone in, so
+ * There is no password: nothing here signs anyone in, so
  * the profile page keeps showing a mask. Read through `displayProfile()`
  * (`account.ts`), which falls back to a blank identity until a row exists.
  */
@@ -470,6 +456,7 @@ export type UserProfile = BaseRecord & {
   email: string;
 };
 
+/** Local app state. Not an entity: never exported, never synced. */
 export type MetaEntry = {
   key: MetaKey;
   value: unknown;
