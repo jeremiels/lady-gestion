@@ -8,8 +8,15 @@ import { UserFacingError } from "../errors.ts";
 import { setOwnerId } from "../owner.ts";
 import { isLive } from "../record.ts";
 import * as metaRepo from "../repositories/meta.repo.ts";
-import type { BaseRecord, DocumentFolder, StoredDocument } from "../types.ts";
-import { deliverBackup, exportHers, type ExportOutcome } from "./file.ts";
+import { isFirstRun } from "../seed.ts";
+import type {
+  BaseRecord,
+  DocumentFolder,
+  MetaKey,
+  StoredDocument,
+} from "../types.ts";
+import { exportBackup } from "./export.ts";
+import { deliverBackup, type ExportOutcome } from "./file.ts";
 import type { BackupSnapshot } from "./snapshot.ts";
 import { checkBackup, type CheckedBackup } from "./validate.ts";
 
@@ -22,8 +29,8 @@ export type RestorePlan = {
   backup: CheckedBackup;
   /**
    * The copy handed over before the replace: everything on the device, or
-   * `null` when it holds nothing of hers (`exportHers`) — a fresh install,
-   * where asking for a copy first would only be in the way.
+   * `null` when it holds only what a first run writes (`isFirstRun`) — a
+   * fresh install, where asking for a copy first would only be in the way.
    */
   copy: BackupSnapshot | null;
   /**
@@ -39,23 +46,24 @@ export type RestorePlan = {
  * it would take away, writing nothing.
  *
  * The copy is read now, so it is ready before the tap that confirms the
- * restore (`runRestore`). An untouched seed holds no document, so no file of
- * hers either.
+ * restore (`runRestore`).
  */
 export const planRestore = async (file: File): Promise<RestorePlan> => {
   const backup = await readBackupFile(file);
-  const copy = await exportHers();
-  if (!copy) return { backup, copy, unsentFiles: 0 };
+  const [current, seedIds] = await Promise.all([
+    exportBackup(),
+    metaRepo.get<string[]>("seedRecordIds"),
+  ]);
 
   const back = liveDocumentIds(backup.tables.documents);
-  const unsent = copy.tables.documents.filter(
+  const unsent = current.tables.documents.filter(
     (doc) => isLive(doc) && doc.driveFileId === null && !back.has(doc.id),
   );
   const bytes = await db.documentBlobs.bulkGet(unsent.map((doc) => doc.id));
 
   return {
     backup,
-    copy,
+    copy: isFirstRun(current.tables, seedIds) ? null : current,
     unsentFiles: bytes.filter((blob) => blob !== undefined).length,
   };
 };
@@ -73,9 +81,10 @@ export type RestoreOutcome =
 /**
  * Carries out `plan`: hands over its copy, when there is one, and replaces
  * the data with the file (`importBackup`) only once the copy went somewhere.
- * A dismissed share sheet stops the restore with nothing written, so nothing
- * of hers is thrown away unless a file of it was handed over — save the
- * `unsentFiles` the confirmation warned about.
+ * A share sheet dismissed, or one that refuses the file, stops the restore
+ * with nothing written — only a device with no share sheet gets a download
+ * instead — so nothing of hers is thrown away unless a file of it was handed
+ * over, save the `unsentFiles` the confirmation warned about.
  *
  * Call it straight from the tap that confirms. Nothing is awaited before the
  * share sheet opens, which needs that tap's activation, and reading the
@@ -89,6 +98,11 @@ export const runRestore = async (
 ): Promise<RestoreOutcome> => {
   const copy = plan.copy && (await deliverBackup(plan.copy));
   if (copy === "cancelled") return "cancelled";
+  if (copy === "failed") {
+    throw new UserFacingError(
+      "La copie des données actuelles n’a pas pu être exportée : rien n’a été remplacé.",
+    );
+  }
 
   await importBackup(plan.backup);
   return {
@@ -98,29 +112,24 @@ export const runRestore = async (
 };
 
 /**
- * Replaces this device's data with a snapshot: afterwards every record table
- * holds the file's rows, tombstones included, and nothing it held before.
+ * Replaces this device's data with a snapshot, so the app is exactly the file
+ * and nothing else: every record table holds the file's rows, tombstones
+ * included, and nothing it held before.
  *
- * A replace, so the app ends up exactly as the file holds it: nothing on the
- * device — a test database, an edit made since the file — survives beside it.
+ * `meta` keeps only this device's connection (`KEPT_THROUGH_RESTORE`) and
+ * takes what the file says: its owner, and its date as the last backup — the
+ * data here is now that file's. The bytes kept are those of the documents the
+ * file brings back, so the Drive need not send them again.
+ *
  * What this throws away is the caller's to keep first: `runRestore` hands
  * over a copy before it calls this.
- *
- * What stays is the device's own, in `meta`: the Drive sign-in and folder,
- * the notification switch, the cover photo. So do the bytes of every document
- * the file brings back, so the Drive need not send them again.
  */
 export const importBackup = async (backup: CheckedBackup): Promise<void> => {
   // Everything here is **one transaction**: a failure part-way would leave
   // tables emptied and others not yet written, and for an app whose only copy
   // of the user's data is this database a restore has to be all-or-nothing.
   // `documentBlobs` and `meta` are in scope beside the record tables for the
-  // sweep and the writes below; Dexie makes a nested `db.transaction` over a
-  // subset reuse this one.
-  //
-  // `lastBackupAt` is deliberately not stamped. Restoring reads a file rather
-  // than writing one, and says nothing of where that file is kept: only
-  // `downloadBackup` stamps it.
+  // sweep and the writes below.
   const scope = [
     ...RECORD_TABLE_NAMES.map((name) => RECORD_TABLES[name]),
     db.documentBlobs,
@@ -140,11 +149,10 @@ export const importBackup = async (backup: CheckedBackup): Promise<void> => {
       .filter((blob) => !kept.has(blob.documentId))
       .delete();
 
-    // Device meta that names rows gone with everything else: the demo rows,
-    // and the horse this device was showing. With no `activeHorseId`,
-    // `getActive()` shows the file's first live, unarchived horse.
-    await metaRepo.remove("seedRecordIds");
-    await metaRepo.remove("activeHorseId");
+    // With no `activeHorseId`, `getActive()` shows the file's first live,
+    // unarchived horse. With no `horseCover` and no `driveBackup`, the next
+    // Drive backup pass fetches that horse's cover from her backup folder.
+    await db.meta.filter((entry) => !KEPT_THROUGH_RESTORE[entry.key]).delete();
 
     // The restored rows carry the exporting device's `ownerId`. Adopt it, or
     // anything created afterwards lands under this install's owner while the
@@ -156,7 +164,10 @@ export const importBackup = async (backup: CheckedBackup): Promise<void> => {
     // until after the commit: it is the one piece of state a rollback could
     // not undo, and a failed restore must not leave the session stamping new
     // records with an owner the database never adopted.
-    await db.meta.put({ key: "ownerId", value: backup.ownerId });
+    await db.meta.bulkPut([
+      { key: "ownerId", value: backup.ownerId },
+      { key: "lastBackupAt", value: backup.exportedAt },
+    ]);
   });
 
   // Only now, with the transaction committed, does the in-memory owner catch
@@ -205,6 +216,28 @@ const AS_RESTORED: Partial<
 > = {
   documents: inStepWithDrive,
   documentFolders: inStepWithDrive,
+};
+
+/**
+ * What `meta` keeps through a restore: this device's connection to her Drive
+ * and its notification switch, never anything the file should say. Every key
+ * is decided here, so a new one does not compile until it is.
+ */
+const KEPT_THROUGH_RESTORE: Record<MetaKey, boolean> = {
+  googleAccount: true,
+  driveClaim: true,
+  driveFolder: true,
+  driveSyncProblem: true,
+  notificationsEnabled: true,
+  // Written from the file by `importBackup`.
+  ownerId: false,
+  lastBackupAt: false,
+  activeHorseId: false,
+  driveBackup: false,
+  horseCover: false,
+  attachmentFolderId: false,
+  seededAt: false,
+  seedRecordIds: false,
 };
 
 /**

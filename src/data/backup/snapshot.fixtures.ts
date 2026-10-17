@@ -125,7 +125,8 @@ export const pickedFile = (content: unknown): File =>
 /**
  * Stands in for the share sheet until the test ends, and returns the files it
  * was handed. `answer` is how the sheet answers: taken by default,
- * `dismissed` for the user closing it.
+ * `dismissed` for the user closing it, `refused` for a sheet that will not
+ * take it.
  *
  * Defined on `navigator` rather than replacing it, so the browser suites keep
  * every other property of the real one.
@@ -154,6 +155,11 @@ export const stubShare = (
 /** The share sheet closed without taking the file. */
 export const dismissed = async (): Promise<void> => {
   throw new DOMException("dismissed", "AbortError");
+};
+
+/** The share sheet refused the file — the tap's activation ran out, say. */
+export const refused = async (): Promise<void> => {
+  throw new DOMException("refused", "NotAllowedError");
 };
 
 /** Every test starts from an empty database owned by `LOCAL_OWNER`. */

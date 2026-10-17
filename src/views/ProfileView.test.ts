@@ -9,6 +9,7 @@ import {
   horse,
   pickedFile,
   post,
+  refused,
   snapshot,
   stubShare,
 } from "../data/backup/snapshot.fixtures.ts";
@@ -94,6 +95,22 @@ describe("profile-view", () => {
     expect(enabled).toBe(true);
   });
 
+  it("still downloads the export when the share sheet refuses it", async () => {
+    stubShare(refused);
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    const el = await mount();
+
+    [...el.querySelectorAll("button")]
+      .find((button) => button.textContent!.includes("Exporter"))!
+      .click();
+
+    await waitFor(el, () => click.mock.calls.length > 0);
+    expect(click).toHaveBeenCalledOnce();
+    click.mockRestore();
+  });
+
   describe("restore", () => {
     const backup = snapshot({
       exportedAt: "2026-10-16T06:27:52.924Z",
@@ -176,6 +193,24 @@ describe("profile-view", () => {
         "Restauration annulée : la copie des données actuelles n’a pas été enregistrée.",
       );
       expect(await db.horses.count()).toBe(1);
+    });
+
+    it("replaces nothing, and downloads nothing, when the share sheet refuses the copy", async () => {
+      stubShare(refused);
+      const click = vi.spyOn(HTMLAnchorElement.prototype, "click");
+      const el = await mount();
+      const alert = el.querySelector('.profile-view__backup [role="alert"]')!;
+
+      await pick(el);
+      press(el, "Remplacer");
+
+      await waitFor(el, () => alert.textContent!.includes("rien n’a été"));
+      expect(alert.textContent).toContain(
+        "La copie des données actuelles n’a pas pu être exportée : rien n’a été remplacé.",
+      );
+      expect(click).not.toHaveBeenCalled();
+      expect(await db.horses.count()).toBe(1);
+      click.mockRestore();
     });
 
     it("replaces nothing when the confirmation is cancelled", async () => {

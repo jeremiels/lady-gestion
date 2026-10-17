@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, RECORD_TABLE_NAMES, SCHEMA_VERSION } from "../db.ts";
 import { getOwnerId } from "../owner.ts";
 import { seedIfEmpty } from "../seed.ts";
+import * as categoriesRepo from "../repositories/categories.repo.ts";
 import * as horsesRepo from "../repositories/horses.repo.ts";
+import * as profileRepo from "../repositories/profile.repo.ts";
 import type { BaseRecord } from "../types.ts";
 import { exportBackup } from "./export.ts";
 import { downloadBackup } from "./file.ts";
@@ -20,6 +22,7 @@ import {
   pickedFile,
   post,
   ration,
+  refused,
   REMOTE_OWNER,
   resetDatabase,
   snapshot,
@@ -172,26 +175,57 @@ describe("importBackup — replace semantics", () => {
     ]);
   });
 
-  it("keeps what belongs to the device: the Drive sign-in and folder", async () => {
+  it("leaves meta as the file says, beside this device's connection, and nothing else", async () => {
     const account = {
       email: "elle@example.com",
       sessionToken: "t",
       scope: "s",
     };
+    const folder = { id: "drive-root", name: "Ladympala" };
     await db.meta.bulkPut([
       { key: "googleAccount", value: account },
-      { key: "driveFolder", value: { id: "drive-root", name: "Ladympala" } },
+      { key: "driveFolder", value: folder },
       { key: "notificationsEnabled", value: false },
+      // What the device said of its own data, none of which the file holds.
+      { key: "activeHorseId", value: "demo" },
+      { key: "seedRecordIds", value: ["demo"] },
+      { key: "seededAt", value: "2026-10-01" },
+      { key: "lastBackupAt", value: "2026-10-15T08:00:00.000Z" },
+      {
+        key: "horseCover",
+        value: {
+          horseId: "demo",
+          blob: new Blob(["jpg"]),
+          pickedAt: "2026-10-02T00:00:00.000Z",
+        },
+      },
+      { key: "attachmentFolderId", value: "folder-1" },
+      {
+        key: "driveBackup",
+        value: {
+          email: account.email,
+          folderId: "backups",
+          fileId: "file-1",
+          day: "2026-10-15",
+          digest: "digest",
+        },
+      },
     ]);
+    const backup = checked({ tables: { horses: [horse()] } });
 
-    await importBackup(checked({ tables: { horses: [horse()] } }));
+    await importBackup(backup);
 
-    expect((await db.meta.get("googleAccount"))?.value).toEqual(account);
-    expect((await db.meta.get("driveFolder"))?.value).toEqual({
-      id: "drive-root",
-      name: "Ladympala",
+    const meta = Object.fromEntries(
+      (await db.meta.toArray()).map(({ key, value }) => [key, value]),
+    );
+    expect(meta).toStrictEqual({
+      googleAccount: account,
+      driveFolder: folder,
+      notificationsEnabled: false,
+      ownerId: REMOTE_OWNER,
+      // The data here is the file's, saved when the file was written.
+      lastBackupAt: backup.exportedAt,
     });
-    expect((await db.meta.get("notificationsEnabled"))?.value).toBe(false);
   });
 
   it("gives the same database however many times the same file is restored", async () => {
@@ -204,12 +238,6 @@ describe("importBackup — replace semantics", () => {
     await importBackup(structuredClone(file));
 
     expect((await exportBackup()).tables).toStrictEqual(after.tables);
-  });
-
-  it("does not count as a backup — reading a file is not keeping one", async () => {
-    await importBackup(checked({ tables: { horses: [horse()] } }));
-
-    expect(await db.meta.get("lastBackupAt")).toBeUndefined();
   });
 });
 
@@ -238,6 +266,25 @@ describe("planRestore", () => {
 
     // Everything on the device, demo rows included.
     expect(copy?.tables).toStrictEqual((await exportBackup()).tables);
+  });
+
+  it("copies a device where only a category was switched off", async () => {
+    await seedIfEmpty();
+    const [first] = await db.categories.toArray();
+    await categoriesRepo.setEnabled(first!.id, !first!.enabled);
+
+    expect((await planRestore(file())).copy).not.toBeNull();
+  });
+
+  it("copies a device where only the profile was filled in", async () => {
+    await seedIfEmpty();
+    await profileRepo.save({
+      firstName: "Elle",
+      lastName: null,
+      email: "elle@example.com",
+    });
+
+    expect((await planRestore(file())).copy).not.toBeNull();
   });
 
   it("counts a file joined here whose bytes are not in the Drive yet", async () => {
@@ -293,6 +340,18 @@ describe("runRestore", () => {
     stubShare(dismissed);
 
     expect(await runRestore(await plan())).toBe("cancelled");
+    expect(await horseIds()).toEqual(["here"]);
+  });
+
+  it("replaces nothing when the share sheet refuses the copy, and downloads none", async () => {
+    await db.horses.put(horse({ id: "here" }));
+    stubShare(refused);
+
+    // A download would throw here, with no `document` to click an anchor in:
+    // this message is only reached when none was attempted.
+    await expect(runRestore(await plan())).rejects.toThrow(
+      "La copie des données actuelles n’a pas pu être exportée : rien n’a été remplacé.",
+    );
     expect(await horseIds()).toEqual(["here"]);
   });
 

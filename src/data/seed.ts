@@ -145,6 +145,22 @@ export const isUntouchedSeed = (
   });
 };
 
+/**
+ * Whether `tables` hold only what a first run writes, untouched: the demo
+ * (`isUntouchedSeed`), the built-in categories as seeded, and no profile.
+ * What a restore may replace without handing over a copy first — a category
+ * switched off or a name typed in is hers, and a replace throws it away.
+ */
+export const isFirstRun = (
+  tables: BackupTables,
+  seedIds: readonly string[] | undefined,
+): boolean =>
+  isUntouchedSeed(tables, seedIds) &&
+  tables.profiles.length === 0 &&
+  tables.categories.every(
+    (row) => row.isBuiltIn && row.createdAt === row.updatedAt,
+  );
+
 /** A handful of events either side of today, so every view has something to show. */
 const samplePosts = (horseId: string) => {
   const inDays = (days: number) => {

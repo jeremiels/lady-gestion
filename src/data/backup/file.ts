@@ -32,7 +32,15 @@ export type ExportOutcome = "shared" | "downloaded" | "cancelled";
  * is dismissed, so it is the one signal worth a timestamp.
  */
 export const downloadBackup = async (): Promise<ExportOutcome> => {
-  const outcome = await deliverBackup(await exportBackup());
+  const snapshot = await exportBackup();
+  let outcome = await deliverBackup(snapshot);
+  // Reading the database first can outlast the tap's activation, and the
+  // share sheet then refuses: a download still hands the file over, and
+  // nothing is thrown away after an export.
+  if (outcome === "failed") {
+    downloadFile(backupFile(snapshot));
+    outcome = "downloaded";
+  }
   // The file is safe whether or not the stamp lands: from the data-error
   // screen the database may not take a write at all.
   if (outcome === "shared") {
@@ -43,16 +51,17 @@ export const downloadBackup = async (): Promise<ExportOutcome> => {
 
 /**
  * Hands `snapshot` to the user as a file: the share sheet where it takes
- * files, a download otherwise. Stamps nothing — a snapshot read earlier, such
- * as the copy `runRestore` (`restore.ts`) hands over, need not be what the
- * database holds now.
+ * files, a download where there is none. `failed` when the share sheet
+ * refused it — whether a download will do then is the caller's call. Stamps
+ * nothing — a snapshot read earlier, such as the copy `runRestore`
+ * (`restore.ts`) hands over, need not be what the database holds now.
  *
  * Nothing is awaited before the share sheet opens, so a call made straight
  * from a tap still has the tap's activation.
  */
 export const deliverBackup = async (
   snapshot: BackupSnapshot,
-): Promise<ExportOutcome> => {
+): Promise<ExportOutcome | "failed"> => {
   const file = backupFile(snapshot);
   const shared = await shareFile(file);
   if (shared !== "unavailable") return shared;
@@ -73,20 +82,6 @@ const backupFile = (snapshot: BackupSnapshot): File =>
     { type: "application/json" },
   );
 
-/**
- * The current snapshot, or `null` when the database holds only the untouched
- * demo rows of a first run (`isUntouchedSeed`): there is nothing of hers in
- * it to keep. What an automatic backup sends, and what a restore copies first
- * (`planRestore`, `restore.ts`).
- */
-export const exportHers = async (): Promise<BackupSnapshot | null> => {
-  const [snapshot, seedIds] = await Promise.all([
-    exportBackup(),
-    metaRepo.get<string[]>("seedRecordIds"),
-  ]);
-  return isUntouchedSeed(snapshot.tables, seedIds) ? null : snapshot;
-};
-
 /** What a backup made without a gesture sends (`src/drive/backup.ts`). */
 export type AutomaticBackup = {
   /** The text `downloadBackup` writes, so "Restaurer un fichier" reads it. */
@@ -100,12 +95,16 @@ export type AutomaticBackup = {
 };
 
 /**
- * The current snapshot for an automatic backup, or `null` when there is
- * nothing of hers to keep (`exportHers`).
+ * The current snapshot for an automatic backup, or `null` when the database
+ * holds only the untouched demo rows of a first run (`isUntouchedSeed`):
+ * there is nothing of hers in it to keep.
  */
 export const automaticBackup = async (): Promise<AutomaticBackup | null> => {
-  const snapshot = await exportHers();
-  if (!snapshot) return null;
+  const [snapshot, seedIds] = await Promise.all([
+    exportBackup(),
+    metaRepo.get<string[]>("seedRecordIds"),
+  ]);
+  if (isUntouchedSeed(snapshot.tables, seedIds)) return null;
 
   const { schemaVersion, ownerId, tables } = snapshot;
   const digest = await crypto.subtle.digest(
@@ -125,9 +124,9 @@ export const automaticBackup = async (): Promise<AutomaticBackup | null> => {
 
 /**
  * Offers `file` to the share sheet. `unavailable` when there is none that
- * takes files, and when it refused for any reason but a dismissal — typically
- * `NotAllowedError` once reading the database outlasted the tap's activation —
- * so the caller still hands the file over another way.
+ * takes files; `failed` when it refused for any reason but a dismissal —
+ * typically `NotAllowedError` once reading the database outlasted the tap's
+ * activation.
  *
  * Web Share with files is not in every floor browser — Firefox has no
  * `navigator.share` on desktop and Chrome only on some platforms — hence the
@@ -135,7 +134,7 @@ export const automaticBackup = async (): Promise<AutomaticBackup | null> => {
  */
 const shareFile = async (
   file: File,
-): Promise<"shared" | "cancelled" | "unavailable"> => {
+): Promise<"shared" | "cancelled" | "failed" | "unavailable"> => {
   if (!navigator.canShare?.({ files: [file] })) return "unavailable";
   try {
     await navigator.share({ files: [file] });
@@ -143,7 +142,7 @@ const shareFile = async (
   } catch (error: unknown) {
     return error instanceof DOMException && error.name === "AbortError"
       ? "cancelled"
-      : "unavailable";
+      : "failed";
   }
 };
 

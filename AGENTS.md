@@ -569,11 +569,14 @@ What's already in place:
   (`backup/snapshot.ts`) is versioned JSON whose rows keep their UUIDs and
   `updatedAt`. A restore _replaces_ the database with it (`importBackup`,
   `backup/restore.ts`), in one transaction, so the app ends up exactly as the
-  file holds it.
+  file holds it and nothing else: the file's rows, and in `meta` only its
+  owner, its date as `lastBackupAt`, and this device's connection
+  (`KEPT_THROUGH_RESTORE`). It never writes to her Drive.
   "Restaurer un fichier" reads the file and what it would take away
   (`planRestore`), asks, then runs it (`runRestore`): a copy of the device
-  first when it holds anything of hers (`isUntouchedSeed`), and no replace if
-  that copy is dismissed. Go through those two, never `importBackup` alone.
+  first unless it holds only what a first run writes (`isFirstRun`), and no
+  replace if that copy is dismissed or the share sheet refuses it. Go through
+  those two, never `importBackup` alone.
   The same file is what `src/drive/backup.ts` puts in her Drive once a day, in a folder of its own (`docs/drive-spec.md` §12). Documents do
   not ride in it: `StoredDocument`'s `driveFileId`/`driveModifiedAt`/
   `driveSyncedAt` and `meta`'s `googleAccount`/`driveFolder` belong to the
