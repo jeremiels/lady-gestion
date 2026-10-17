@@ -14,9 +14,9 @@ import {
  *
  * The rule worth the most coverage is the one with an invisible consequence: an
  * unchanged line must not be re-saved, because `updatedAt` moving is what makes
- * `clearUntouchedSeedData` stop recognising a demo row. Getting that wrong
- * costs the user a duplicate feed plan on their next restore, several steps
- * removed from anything they did here.
+ * `isUntouchedSeed` stop recognising a demo row. Getting that wrong sends the
+ * demo to her Drive as a backup, several steps removed from anything she did
+ * here.
  */
 
 beforeEach(resetDb);

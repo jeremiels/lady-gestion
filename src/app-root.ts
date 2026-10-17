@@ -692,7 +692,7 @@ export class AppRoot extends LightElement {
                 pour l’instant : exportez vos données, puis rechargez.
               </p>`
         }
-        ${this.#recovery.renderMessage({
+        ${this.#recovery.render({
           region: "data-error__message-region",
           status: "data-error__status",
           error: "data-error__detail",

@@ -1,6 +1,7 @@
 /* Declared before the imports — see the note in views.css. */
-@layer components.section, components.container, components.meta-list;
+@layer components.section, components.container, components.meta-list, components.confirm-dialog;
 
 @import "../components/section.css";
 @import "../components/container.css";
 @import "../components/meta-list.css";
+@import "../components/confirm-dialog.css";

@@ -63,7 +63,7 @@ const actionLabeled = (el: PostDetailView, label: string) =>
   )!;
 
 const dialogButtonLabeled = (el: PostDetailView, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>(".post-detail__button")].find(
+  [...el.querySelectorAll<HTMLButtonElement>(".confirm-dialog__button")].find(
     (button) => button.textContent?.includes(label),
   )!;
 

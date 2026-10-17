@@ -1,0 +1,34 @@
+/* What confirmDialog() (commons/confirm-dialog.ts) puts in the app-modal
+   that asks before an action: its lines of text and the two buttons in its
+   footer, the second the action itself. Slotted light DOM, so this layer
+   reaches it. */
+@layer components.confirm-dialog {
+  .confirm-dialog__text {
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+    color: var(--color-brown-middle);
+  }
+
+  .confirm-dialog__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-12);
+  }
+
+  .confirm-dialog__button {
+    appearance: none;
+    border: none;
+    border-radius: var(--radius-8);
+    padding: var(--spacing-12);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: var(--color-brown-light-bg);
+    color: var(--color-brown-dark);
+  }
+
+  .confirm-dialog__button--danger {
+    background-color: var(--color-danger);
+    color: var(--color-white);
+  }
+}

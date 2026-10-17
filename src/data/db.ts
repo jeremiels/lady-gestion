@@ -1,5 +1,4 @@
 import Dexie, { liveQuery, type Table } from "dexie";
-import { ROW_STEPS } from "./migrations.ts";
 import type {
   ActivityItem,
   DocumentBlob,
@@ -23,18 +22,13 @@ import type {
  */
 
 /**
- * Bumped whenever the shape of a table changes. Written into backup files so
- * a restore can tell what it is reading; see `backup/snapshot.ts`.
+ * Bumped whenever the shape of a table changes. Written into backup files,
+ * and a restore reads a file at this version only (`checkBackup`).
  *
- * Only the current version is declared, with the one `upgrade()` that brings
- * a v13, v14 or v15 device up to it — all three were published. A
- * database below v13 cannot be upgraded — Dexie deletes a store the declared
- * schema does not list, so it would open with `posts` and `categories` empty.
- * No install below v13 is in use.
- *
- * Bumping this means adding the previous version's steps to `ROW_STEPS` (and
- * `NEW_TABLES`) in `migrations.ts`, which both the upgrade below and a backup
- * file's walk run.
+ * Only this version is declared, with no `upgrade()`: every install in use is
+ * on it. Bumping it means writing the upgrade for devices on the version
+ * before, and a way to read that version's backup files — without one, the
+ * backups already in her Drive stop restoring.
  */
 export const SCHEMA_VERSION = 16;
 
@@ -94,40 +88,7 @@ export class LadyGestionDb extends Dexie {
 
   constructor() {
     super("lady-gestion");
-
-    // Every step from v13 runs, in order, whichever version the device is
-    // on: steps are replay-safe, so a newer device's rows pass through an
-    // older step unchanged. `documentFolders` needs nothing here: Dexie creates
-    // a new store itself.
-    this.version(SCHEMA_VERSION)
-      .stores(STORES)
-      .upgrade(async (tx) => {
-        for (let version = 13; version < SCHEMA_VERSION; version++) {
-          await Promise.all(
-            Object.entries(ROW_STEPS[version] ?? {}).map(([table, step]) =>
-              tx
-                .table(table)
-                .toCollection()
-                .modify((row: Record<string, unknown>, ref) => {
-                  const next = step(row);
-                  // Dexie's way of deleting the row being modified.
-                  if (next === null) delete (ref as { value?: unknown }).value;
-                  else ref.value = next;
-                }),
-            ),
-          );
-        }
-        // Bytes whose document a step just dropped: nothing points at them
-        // any more, and a backup never carries them, so they could never be
-        // reached again.
-        const kept = new Set(
-          await tx.table("documents").toCollection().primaryKeys(),
-        );
-        await tx
-          .table("documentBlobs")
-          .filter((blob: DocumentBlob) => !kept.has(blob.documentId))
-          .delete();
-      });
+    this.version(SCHEMA_VERSION).stores(STORES);
   }
 }
 
@@ -136,18 +97,14 @@ export const db = new LadyGestionDb();
 /**
  * The record tables, as one value.
  *
- * Every whole-database operation used to enumerate these by hand, and each did
- * it separately: `exportBackup` read four tables, `importBackup` merged four,
- * `assertSnapshot` validated a fifth list of four names, `BackupSnapshot`
- * declared the shape a sixth time, and `clearUntouchedSeedData` purged its own
- * four. Adding a table meant finding all of them, and the one you miss fails
- * silently — a table absent from the export is data that quietly does not
+ * Every whole-database operation reads this one object — the export, the
+ * restore, the snapshot validator, `isUntouchedSeed` — and `BackupTables`
+ * below makes the snapshot's type follow. Add a table here and all of them
+ * pick it up; a table one of them missed would be data that quietly does not
  * survive a restore.
  *
  * This is the rule `forms.ts` already states for form fields ("build the schema
- * and the field names from the same array"), applied to the schema itself. Add
- * a table here and the export, the merge, the validator and the seed purge all
- * pick it up; `BackupTables` below makes the snapshot's type follow too.
+ * and the field names from the same array"), applied to the schema itself.
  *
  * `documentBlobs` and `meta` are deliberately absent. Blobs are not in any
  * backup yet — see `backup/snapshot.ts` — and `meta` is device-local state
@@ -185,7 +142,6 @@ export type BackupTables = {
 // Re-exported so `live.ts` gets reactivity without importing dexie itself.
 export { liveQuery };
 
-// There is deliberately no `clearAllTables()`. One existed, documented as used
-// by backup restore — but `importBackup` *merges* (last-write-wins) rather than
-// replacing, and nothing else called it. A wipe helper that no code path uses
-// is a loaded gun; add it back with its caller, not before.
+// There is deliberately no `clearAllTables()`. The one whole-database wipe is
+// `importBackup`'s, inside the transaction that writes the file back, so
+// nothing can empty the database without refilling it.

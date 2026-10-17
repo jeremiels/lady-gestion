@@ -1,32 +1,36 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import realV13ExportRaw from "../__tests__/fixtures/real-v13-export.json?raw";
-import { db, SCHEMA_VERSION, type RecordTableName } from "../db.ts";
-import { BUILT_IN_CATEGORIES, seedCategories } from "../categories.ts";
-import { followUpValue } from "../posts.ts";
+import { db, RECORD_TABLE_NAMES, SCHEMA_VERSION } from "../db.ts";
 import { getOwnerId } from "../owner.ts";
 import { seedIfEmpty } from "../seed.ts";
 import * as horsesRepo from "../repositories/horses.repo.ts";
-import * as profileRepo from "../repositories/profile.repo.ts";
-import type { Category, Post, UserProfile } from "../types.ts";
-import { migrateTables, type MigratingTables } from "./migrate.ts";
+import type { BaseRecord } from "../types.ts";
 import { exportBackup } from "./export.ts";
 import { downloadBackup } from "./file.ts";
-import { importBackup, type BackupSnapshot } from "./snapshot.ts";
+import { importBackup, planRestore, runRestore } from "./restore.ts";
+import type { BackupSnapshot } from "./snapshot.ts";
+import { checkBackup } from "./validate.ts";
 import { makeDocument, makeDocumentFolder } from "../__tests__/factories.ts";
 import { pending } from "../drive-mirror.ts";
 import {
   categoryRows,
+  checked,
+  dismissed,
   horse,
   LOCAL_OWNER,
+  pickedFile,
   post,
   ration,
   REMOTE_OWNER,
   resetDatabase,
   snapshot,
   STAMP,
+  stubShare,
 } from "./snapshot.fixtures.ts";
 
 beforeEach(resetDatabase);
+
+const byId = (rows: readonly BaseRecord[]) =>
+  Object.fromEntries(rows.map((row) => [row.id, row]));
 
 describe("exportBackup", () => {
   it("writes an envelope carrying the schema version and owner", async () => {
@@ -61,49 +65,50 @@ describe("exportBackup", () => {
   });
 });
 
-describe("importBackup — merge semantics", () => {
-  it("writes rows that do not exist locally", async () => {
-    const result = await importBackup(
-      snapshot({
+describe("importBackup — replace semantics", () => {
+  it("writes the file's rows into an empty database", async () => {
+    await importBackup(
+      checked({
         tables: { horses: [horse()], rationItems: [ration()] },
       }),
     );
 
-    expect(result).toEqual({ imported: 2, skipped: 0 });
     expect(await db.horses.get("horse-1")).toMatchObject({
       firstName: "Ladympala",
     });
+    expect(await db.rationItems.get("ration-1")).toBeDefined();
   });
 
-  it("overwrites a local row when the snapshot is newer", async () => {
-    await db.horses.put(
-      horse({ firstName: "Ancien nom", updatedAt: "2026-01-01T00:00:00.000Z" }),
-    );
-
-    const result = await importBackup(
-      snapshot({
-        tables: {
-          horses: [
-            horse({
-              firstName: "Nouveau nom",
-              updatedAt: "2026-06-01T00:00:00.000Z",
-            }),
-          ],
-        },
-      }),
-    );
-
-    expect(result).toEqual({ imported: 1, skipped: 0 });
-    expect(await db.horses.get("horse-1")).toMatchObject({
-      firstName: "Nouveau nom",
+  it("leaves every table as the file holds it, and nothing the device held", async () => {
+    // A phone in use: the demo seeded, and a post of hers on its horse.
+    await seedIfEmpty();
+    const demo = await horsesRepo.getActive();
+    await db.posts.put(post({ id: "mine", horseId: demo!.id }));
+    const backup = checked({
+      tables: {
+        horses: [horse()],
+        posts: [post()],
+        categories: categoryRows,
+      },
     });
+
+    await importBackup(backup);
+
+    const { tables } = await exportBackup();
+    for (const name of RECORD_TABLE_NAMES) {
+      expect(byId(tables[name]), `table ${name}`).toStrictEqual(
+        byId(backup.tables[name]),
+      );
+    }
+    // The demo rows it listed went with everything else.
+    expect(await db.meta.get("seedRecordIds")).toBeUndefined();
   });
 
   it("restores Drive rows in step with the Drive: a change not sent yet is not replayed", async () => {
     const sent = "2026-06-01T00:00:00.000Z";
     const renamed = "2026-06-02T00:00:00.000Z";
     await importBackup(
-      snapshot({
+      checked({
         tables: {
           documents: [
             makeDocument({
@@ -138,81 +143,169 @@ describe("importBackup — merge semantics", () => {
     });
   });
 
-  it("keeps a newer local edit when restoring an older backup", async () => {
-    await db.horses.put(
-      horse({
-        firstName: "Édité depuis",
-        updatedAt: "2026-06-01T00:00:00.000Z",
-      }),
+  it("keeps the bytes of a document the file brings back, and only those", async () => {
+    await db.documents.bulkPut([
+      makeDocument({ id: "kept" }),
+      makeDocument({ id: "gone" }),
+      makeDocument({ id: "deleted-in-file" }),
+    ]);
+    await db.documentBlobs.bulkPut(
+      ["kept", "gone", "deleted-in-file"].map((documentId) => ({
+        documentId,
+        blob: new Blob(["%PDF"]),
+      })),
     );
 
-    const result = await importBackup(
-      snapshot({
+    await importBackup(
+      checked({
         tables: {
-          horses: [
-            horse({
-              firstName: "Vieille sauvegarde",
-              updatedAt: "2026-01-01T00:00:00.000Z",
-            }),
+          documents: [
+            makeDocument({ id: "kept" }),
+            makeDocument({ id: "deleted-in-file", deletedAt: STAMP }),
           ],
         },
       }),
     );
 
-    expect(result).toEqual({ imported: 0, skipped: 1 });
-    expect(await db.horses.get("horse-1")).toMatchObject({
-      firstName: "Édité depuis",
-    });
+    expect(await db.documentBlobs.toCollection().primaryKeys()).toEqual([
+      "kept",
+    ]);
   });
 
-  it("is idempotent — importing the same file twice changes nothing", async () => {
-    const file = snapshot({
+  it("keeps what belongs to the device: the Drive sign-in and folder", async () => {
+    const account = {
+      email: "elle@example.com",
+      sessionToken: "t",
+      scope: "s",
+    };
+    await db.meta.bulkPut([
+      { key: "googleAccount", value: account },
+      { key: "driveFolder", value: { id: "drive-root", name: "Ladympala" } },
+      { key: "notificationsEnabled", value: false },
+    ]);
+
+    await importBackup(checked({ tables: { horses: [horse()] } }));
+
+    expect((await db.meta.get("googleAccount"))?.value).toEqual(account);
+    expect((await db.meta.get("driveFolder"))?.value).toEqual({
+      id: "drive-root",
+      name: "Ladympala",
+    });
+    expect((await db.meta.get("notificationsEnabled"))?.value).toBe(false);
+  });
+
+  it("gives the same database however many times the same file is restored", async () => {
+    const file = checked({
       tables: { horses: [horse()], rationItems: [ration()] },
     });
 
-    const first = await importBackup(structuredClone(file));
-    const second = await importBackup(structuredClone(file));
+    await importBackup(structuredClone(file));
+    const after = await exportBackup();
+    await importBackup(structuredClone(file));
 
-    expect(first).toEqual({ imported: 2, skipped: 0 });
-    expect(second).toEqual({ imported: 0, skipped: 2 });
-    expect(await db.horses.count()).toBe(1);
-    expect(await db.rationItems.count()).toBe(1);
+    expect((await exportBackup()).tables).toStrictEqual(after.tables);
   });
 
-  it("skips a built-in category the file holds at the same version", async () => {
-    await db.categories.bulkPut(deviceCategories());
-
-    const result = await importBackup(
-      snapshot({ tables: { categories: deviceCategories() } }),
-    );
-
-    expect(result).toEqual({
-      imported: 0,
-      skipped: BUILT_IN_CATEGORIES.length,
-    });
-  });
-
-  it("counts every table, not just the first", async () => {
-    const result = await importBackup(
-      snapshot({
-        tables: {
-          horses: [horse({ id: "h1" }), horse({ id: "h2" })],
-          rationItems: [
-            ration({ id: "r1" }),
-            ration({ id: "r2" }),
-            ration({ id: "r3" }),
-          ],
-        },
-      }),
-    );
-
-    expect(result).toEqual({ imported: 5, skipped: 0 });
-  });
-
-  it("does not count as a backup — local edits newer than the file are in no file", async () => {
-    await importBackup(snapshot({ tables: { horses: [horse()] } }));
+  it("does not count as a backup — reading a file is not keeping one", async () => {
+    await importBackup(checked({ tables: { horses: [horse()] } }));
 
     expect(await db.meta.get("lastBackupAt")).toBeUndefined();
+  });
+});
+
+describe("planRestore", () => {
+  const file = () =>
+    pickedFile(snapshot({ tables: { horses: [horse()], posts: [post()] } }));
+
+  it("asks for no copy on a fresh install, where every row is the seed", async () => {
+    await seedIfEmpty();
+
+    const plan = await planRestore(file());
+
+    expect(plan.backup.tables.horses.map((row) => row.id)).toEqual(["horse-1"]);
+    expect(plan.copy).toBeNull();
+    expect(plan.unsentFiles).toBe(0);
+  });
+
+  it("copies her data as soon as one row is hers, whatever the file holds", async () => {
+    // The file holds these very rows: a copy is taken all the same, by the
+    // test that keeps the demo out of her Drive backups (`isUntouchedSeed`).
+    await seedIfEmpty();
+    await db.horses.put(horse());
+    await db.posts.put(post());
+
+    const { copy } = await planRestore(file());
+
+    // Everything on the device, demo rows included.
+    expect(copy?.tables).toStrictEqual((await exportBackup()).tables);
+  });
+
+  it("counts a file joined here whose bytes are not in the Drive yet", async () => {
+    await db.documents.bulkPut([
+      makeDocument({ id: "only-here" }),
+      makeDocument({ id: "in-the-drive", driveFileId: "drive-1" }),
+      // A row a backup brought back without its file: no bytes to lose.
+      makeDocument({ id: "no-bytes" }),
+    ]);
+    await db.documentBlobs.bulkPut(
+      ["only-here", "in-the-drive"].map((documentId) => ({
+        documentId,
+        blob: new Blob(["%PDF"]),
+      })),
+    );
+
+    expect((await planRestore(file())).unsentFiles).toBe(1);
+  });
+});
+
+describe("runRestore", () => {
+  const plan = () =>
+    planRestore(pickedFile(snapshot({ tables: { horses: [horse()] } })));
+
+  const horseIds = async () => (await db.horses.toArray()).map((row) => row.id);
+
+  it("hands over a copy of what is here, then replaces it", async () => {
+    await db.horses.put(horse({ id: "here" }));
+    const shared = stubShare();
+
+    expect(await runRestore(await plan())).toEqual({
+      copy: "shared",
+      restored: 1,
+    });
+    const copy = JSON.parse(await shared[0]!.text()) as BackupSnapshot;
+    expect(copy.tables.horses.map((row) => row.id)).toEqual(["here"]);
+    expect(await horseIds()).toEqual(["horse-1"]);
+  });
+
+  it("opens the share sheet before it awaits anything, inside the tap's activation", async () => {
+    await db.horses.put(horse({ id: "here" }));
+    const ready = await plan();
+    const shared = stubShare();
+
+    const running = runRestore(ready);
+
+    expect(shared).toHaveLength(1);
+    await running;
+  });
+
+  it("replaces nothing when the copy is dismissed", async () => {
+    await db.horses.put(horse({ id: "here" }));
+    stubShare(dismissed);
+
+    expect(await runRestore(await plan())).toBe("cancelled");
+    expect(await horseIds()).toEqual(["here"]);
+  });
+
+  it("asks for no copy on a fresh install", async () => {
+    await seedIfEmpty();
+    const shared = stubShare();
+
+    expect(await runRestore(await plan())).toEqual({
+      copy: null,
+      restored: 1,
+    });
+    expect(shared).toHaveLength(0);
+    expect(await horseIds()).toEqual(["horse-1"]);
   });
 });
 
@@ -220,7 +313,7 @@ describe("importBackup — owner adoption", () => {
   it("adopts the snapshot's owner id so the database does not end up split", async () => {
     expect(getOwnerId()).toBe(LOCAL_OWNER);
 
-    await importBackup(snapshot({ tables: { horses: [horse()] } }));
+    await importBackup(checked({ tables: { horses: [horse()] } }));
 
     expect(getOwnerId()).toBe(REMOTE_OWNER);
     expect(await db.meta.get("ownerId")).toMatchObject({ value: REMOTE_OWNER });
@@ -230,434 +323,31 @@ describe("importBackup — owner adoption", () => {
 describe("importBackup — the horse shown", () => {
   it("shows the file's horse on a phone used before the restore", async () => {
     // An event of her own on the demo horse — as the Drive mirror files its
-    // documents under it once connected — so the demo horse is kept.
+    // documents under it once connected.
     await seedIfEmpty();
     const demo = await horsesRepo.getActive();
     await db.posts.put(
       post({ id: "event-local", horseId: demo!.id, ownerId: LOCAL_OWNER }),
     );
 
-    await importBackup(snapshot({ tables: { horses: [horse()] } }));
+    await importBackup(checked({ tables: { horses: [horse()] } }));
 
-    expect(await horsesRepo.get(demo!.id)).toBeDefined();
+    expect(await horsesRepo.get(demo!.id)).toBeUndefined();
     expect((await horsesRepo.getActive())?.id).toBe("horse-1");
   });
 
-  it("does not show a horse archived here since the file was made", async () => {
-    await db.horses.put(
-      horse({
-        archivedAt: "2026-03-01T00:00:00.000Z",
-        updatedAt: "2026-03-01T00:00:00.000Z",
-      }),
-    );
-
-    await importBackup(snapshot({ tables: { horses: [horse()] } }));
-
-    expect(await db.meta.get("activeHorseId")).toBeUndefined();
-  });
-});
-
-/**
- * The built-ins as another device holds them: ids equal to keys, the way
- * `seedCategories` stamps them on every real install — unlike `categoryRows`,
- * whose `type-<key>` ids would never meet a seeded row.
- */
-const deviceCategories = (
-  over: Partial<Record<string, Partial<Category>>> = {},
-): Category[] =>
-  seedCategories(REMOTE_OWNER, STAMP).map((row) => ({
-    ...row,
-    ...over[row.key],
-  }));
-
-/** When the other device's user switched a category — after it was seeded. */
-const EDITED = "2026-02-01T00:00:00.000Z";
-
-/**
- * A new phone, then the backup restored onto it. `seedIfEmpty` runs first, the
- * way `initData()` does, so every built-in is already on the device — stamped
- * with this install's owner and time, which is newer than anything in the file.
- */
-describe("importBackup — built-in categories over a fresh install", () => {
-  it("keeps a category the file switched off switched off", async () => {
+  it("does not show a horse the file holds archived", async () => {
     await seedIfEmpty();
 
     await importBackup(
-      snapshot({
+      checked({
         tables: {
-          categories: deviceCategories({
-            concours: { enabled: false, updatedAt: EDITED },
-          }),
+          horses: [horse({ archivedAt: "2026-03-01T00:00:00.000Z" })],
         },
       }),
     );
 
-    expect((await db.categories.get("concours"))?.enabled).toBe(false);
-  });
-
-  it("takes the file's rows whole, so the database keeps one owner", async () => {
-    await seedIfEmpty();
-
-    await importBackup(
-      snapshot({ tables: { categories: deviceCategories() } }),
-    );
-
-    const rows = await db.categories.toArray();
-    expect(rows).toHaveLength(BUILT_IN_CATEGORIES.length);
-    for (const row of rows) {
-      expect(row).toMatchObject({
-        ownerId: REMOTE_OWNER,
-        createdAt: STAMP,
-        updatedAt: STAMP,
-      });
-    }
-    expect(getOwnerId()).toBe(REMOTE_OWNER);
-  });
-
-  it("still lets a category switched off on this device outvote an older file", async () => {
-    await seedIfEmpty();
-    // Backdated rather than written through `setEnabled`: a toggle landing in
-    // the same millisecond as the seed would read as never touched.
-    const seeded = (await db.categories.get("concours"))!;
-    await db.categories.put({
-      ...seeded,
-      enabled: false,
-      updatedAt: new Date(Date.parse(seeded.createdAt) + 1_000).toISOString(),
-    });
-
-    const result = await importBackup(
-      snapshot({ tables: { categories: deviceCategories() } }),
-    );
-
-    expect((await db.categories.get("concours"))?.enabled).toBe(false);
-    expect(result).toEqual({
-      imported: BUILT_IN_CATEGORIES.length - 1,
-      skipped: 1,
-    });
-  });
-
-  it("keeps the file's definitions rather than this build's", async () => {
-    await seedIfEmpty();
-
-    await importBackup(
-      snapshot({
-        tables: {
-          categories: deviceCategories({
-            cures: {
-              enabled: false,
-              updatedAt: EDITED,
-              fields: [
-                {
-                  id: "duration",
-                  label: "Durée",
-                  required: false,
-                  control: "text",
-                },
-              ],
-            },
-          }),
-        },
-      }),
-    );
-
-    const cures = await db.categories.get("cures");
-    expect(cures?.enabled).toBe(false);
-    expect(cures?.fields.map((field) => field.id)).toEqual(["duration"]);
-  });
-});
-
-describe("importBackup — rejects bad input", () => {
-  it("rejects a file that is not a Ladympala.cc backup", async () => {
-    await expect(importBackup({ app: "autre-chose" })).rejects.toThrow(
-      "Ce fichier n'est pas une sauvegarde Ladympala.cc.",
-    );
-    await expect(importBackup(null)).rejects.toThrow(/sauvegarde Ladympala.cc/);
-  });
-
-  it("rejects a file with no header", async () => {
-    await expect(importBackup({ app: "lady-gestion" })).rejects.toThrow(
-      "Sauvegarde illisible : en-tête manquant.",
-    );
-  });
-
-  it("rejects a backup written by a newer build", async () => {
-    await expect(
-      importBackup(snapshot({ schemaVersion: SCHEMA_VERSION + 1 })),
-    ).rejects.toThrow(/version plus récente/);
-  });
-
-  it("rejects a backup written by an older build, writing nothing", async () => {
-    // No file below v13 is known to exist, so `migrate.ts` registers no step
-    // to read one with. Refusing is right: merging rows this build misreads is
-    // the outcome that loses data.
-    const old = snapshot({
-      schemaVersion: 12,
-      tables: { horses: [horse()] },
-    });
-
-    await expect(importBackup(old)).rejects.toThrow(/version trop ancienne/);
-    expect(await db.horses.count()).toBe(0);
-  });
-
-  it("rejects an empty tables object with a readable message, not a TypeError", async () => {
-    // Regression: `assertSnapshot` used to check only that `tables` existed, so
-    // this reached the merge and threw "undefined is not iterable".
-    const broken = { ...snapshot(), tables: {} };
-
-    await expect(importBackup(broken)).rejects.toThrow(
-      /la table « horses » est absente/,
-    );
-  });
-
-  it("rejects a table that is not an array", async () => {
-    const broken = {
-      ...snapshot(),
-      tables: { ...snapshot().tables, posts: "nope" },
-    };
-
-    await expect(importBackup(broken)).rejects.toThrow(
-      /la table « posts » est absente/,
-    );
-  });
-
-  it("rejects rows missing the fields the merge relies on", async () => {
-    const broken = {
-      ...snapshot(),
-      tables: { ...snapshot().tables, horses: [{ name: "Sans id" }] },
-    };
-
-    await expect(importBackup(broken)).rejects.toThrow(
-      /« horses » contient des enregistrements invalides/,
-    );
-  });
-
-  it("keeps the customFields values a current-version snapshot carries", async () => {
-    const current = post({
-      customFields: {
-        counterparty: "google",
-        followUp: followUpValue({ amount: 6, unit: "week" }),
-        activity: "longe",
-      },
-    });
-
-    await importBackup({
-      ...snapshot(),
-      tables: { ...snapshot().tables, posts: [current] },
-    });
-
-    const stored = await db.posts.get("event-1");
-    expect(stored?.customFields.counterparty).toBe("google");
-    expect(stored?.customFields.followUp).toBe("6w");
-    expect(stored?.customFields.activity).toBe("longe");
-  });
-
-  it("leaves a current-version snapshot untouched", async () => {
-    const seasonal = ration({ season: { from: 11, to: 3 } });
-
-    await importBackup({
-      ...snapshot(),
-      tables: { ...snapshot().tables, rationItems: [seasonal] },
-    });
-
-    expect((await db.rationItems.get("ration-1"))?.season).toEqual({
-      from: 11,
-      to: 3,
-    });
-  });
-
-  it("still rejects a table missing from a current-version file", async () => {
-    // Every table is required once the file is migrated, and no step
-    // supplies one to a file already at the current version.
-    const { activities: _activities, ...incomplete } = snapshot().tables;
-
-    await expect(
-      importBackup({ ...snapshot(), tables: incomplete }),
-    ).rejects.toThrow(/la table « activities » est absente/);
-  });
-
-  it("rejects an older file missing a table its own version had, writing nothing", async () => {
-    // v13 already had `posts`, so no step supplies it: the file is
-    // incomplete, not old.
-    const { posts: _posts, ...incomplete } = snapshot().tables;
-
-    await expect(
-      importBackup({ ...snapshot(), schemaVersion: 13, tables: incomplete }),
-    ).rejects.toThrow(/la table « posts » est absente/);
-    expect(await db.horses.count()).toBe(0);
-  });
-
-  it("carries a current-version file's own categories rows through untouched", async () => {
-    const result = await importBackup({
-      ...snapshot(),
-      tables: { ...snapshot().tables, categories: categoryRows },
-    });
-
-    expect(result).toEqual({ imported: 14, skipped: 0 });
-    expect(await db.categories.count()).toBe(14);
-  });
-
-  it("writes nothing at all when validation fails", async () => {
-    const broken = {
-      ...snapshot(),
-      tables: {
-        ...snapshot().tables,
-        rationItems: [{ label: "sans id" }],
-        horses: [horse()],
-      },
-    };
-
-    await expect(importBackup(broken)).rejects.toThrow(/rationItems/);
-    // The valid horse must not have landed: validation runs before the
-    // transaction opens, so a bad file is rejected whole.
-    expect(await db.horses.count()).toBe(0);
-  });
-});
-
-/**
- * The real user's database, exported at schema v13 — the day her install was
- * confirmed past every migration — and scrubbed: names (owner, horse identity,
- * practitioners, merchants, the coach, every note) are replaced, every date
- * and timestamp is moved by one constant offset, and each amount is scaled by
- * its own factor. Ids, titles, the order of every timestamp and which rows
- * were never edited (`createdAt === updatedAt`) are exactly what the phone
- * wrote.
- *
- * Every other test on this file builds the row it wants, which means every one
- * of them tests what its author was already thinking about. This one is the
- * shape that actually exists on a phone: 124 posts across twelve categories,
- * 12 tombstones, courses with an end date and a dose, and the user's own
- * activities.
- *
- * Pulled in with Vite's `?raw` suffix and parsed here, rather than imported
- * as a module: `resolveJsonModule` is off, and turning it on to type one
- * fixture would let any JSON become an importable module. `types` in
- * `tsconfig.json` is `["vite/client"]` on purpose — browser only — so reading
- * it through `node:fs` was not an option either; that would have meant
- * admitting Node's globals into the app's ambient types to serve a test.
- *
- * The totals below were computed from the scrubbed file. If a change makes
- * one of them move, that is money leaving the ledger a restore is meant to
- * carry over — not a fixture needing an update.
- */
-const REAL_V13_EXPORT = JSON.parse(realV13ExportRaw) as BackupSnapshot;
-
-const REAL_V13_POST_COUNT = 124;
-const REAL_V13_TOMBSTONES = 12;
-/** Cents across every post in the fixture, tombstones included. */
-const REAL_V13_TOTAL_CENTS = 1_614_646;
-
-const realV13Export = (): BackupSnapshot => structuredClone(REAL_V13_EXPORT);
-
-const REAL_V13_TABLES = Object.keys(
-  REAL_V13_EXPORT.tables,
-) as RecordTableName[];
-
-const totalCents = (posts: Post[]) =>
-  posts.reduce(
-    (sum, entry) => sum + (Number(entry.customFields?.amountCents) || 0),
-    0,
-  );
-
-const byId = (rows: readonly { id: string }[]) =>
-  [...rows].sort((a, b) => a.id.localeCompare(b.id));
-
-/**
- * What a restore takes from the file for a category. Its definition — label,
- * icon, fields — is whatever this build ships, reapplied after the merge.
- */
-const decidedByFile = ({
-  id,
-  key,
-  ownerId,
-  createdAt,
-  updatedAt,
-  deletedAt,
-  enabled,
-}: Category) => ({
-  id,
-  key,
-  ownerId,
-  createdAt,
-  updatedAt,
-  deletedAt,
-  enabled,
-});
-
-describe("importBackup — a real v13 export", () => {
-  it("restores into an empty database with every row written", async () => {
-    const result = await importBackup(realV13Export());
-
-    // Every row but its documents, which v15 drops (`documentRowToV15`).
-    const rowCount = REAL_V13_TABLES.reduce(
-      (sum, name) =>
-        name === "documents" ? sum : sum + REAL_V13_EXPORT.tables[name].length,
-      0,
-    );
-    expect(result).toEqual({ imported: rowCount, skipped: 0 });
-    expect(await db.posts.count()).toBe(REAL_V13_POST_COUNT);
-  });
-
-  it("does not lose a cent", async () => {
-    expect(totalCents(REAL_V13_EXPORT.tables.posts)).toBe(REAL_V13_TOTAL_CENTS);
-
-    await importBackup(realV13Export());
-
-    expect(totalCents(await db.posts.toArray())).toBe(REAL_V13_TOTAL_CENTS);
-  });
-
-  it("keeps the 12 tombstones, so the deletions survive the restore", async () => {
-    await importBackup(realV13Export());
-
-    const posts = await db.posts.toArray();
-    expect(posts.filter((row) => row.deletedAt !== null)).toHaveLength(
-      REAL_V13_TOMBSTONES,
-    );
-  });
-
-  it("leaves every post on a category and every document on a post", async () => {
-    await importBackup(realV13Export());
-
-    const keys = new Set((await db.categories.toArray()).map((row) => row.key));
-    const posts = await db.posts.toArray();
-    for (const row of posts) expect(keys.has(row.categoryKey)).toBe(true);
-
-    const postIds = new Set(posts.map((row) => row.id));
-    for (const row of await db.documents.toArray()) {
-      if (row.postId !== null) expect(postIds.has(row.postId)).toBe(true);
-    }
-  });
-
-  it("exports back exactly what it restored", async () => {
-    await importBackup(realV13Export());
-
-    const exported = await exportBackup();
-
-    // The file brought to the current schema: its horse split into prénom and
-    // nom, every other row as it was.
-    const expected = migrateTables(
-      structuredClone(REAL_V13_EXPORT.tables) as unknown as MigratingTables,
-      REAL_V13_EXPORT.schemaVersion,
-    ) as unknown as BackupSnapshot["tables"];
-    expect(exported.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(exported.ownerId).toBe(REAL_V13_EXPORT.ownerId);
-    for (const name of REAL_V13_TABLES) {
-      if (name === "categories") continue;
-      expect(byId(exported.tables[name])).toStrictEqual(byId(expected[name]));
-    }
-    expect(byId(exported.tables.categories.map(decidedByFile))).toStrictEqual(
-      byId(REAL_V13_EXPORT.tables.categories.map(decidedByFile)),
-    );
-  });
-
-  it("restores its categories over a freshly seeded install", async () => {
-    await seedIfEmpty();
-
-    await importBackup(realV13Export());
-
-    const restored = await db.categories.toArray();
-    expect(byId(restored.map(decidedByFile))).toStrictEqual(
-      byId(REAL_V13_EXPORT.tables.categories.map(decidedByFile)),
-    );
+    expect(await horsesRepo.getActive()).toBeUndefined();
   });
 });
 
@@ -667,23 +357,21 @@ describe("importBackup — atomicity", () => {
   });
 
   it("rolls the whole restore back when a write fails partway", async () => {
-    // The restore used to run as five separate transactions, so a failure here
-    // — after the seed purge and after two tables had merged — left the demo
-    // horse deleted and half the file written, with nothing able to report or
-    // repair it. `categories` is merged sixth of seven, so by the time this
-    // throws, `horses` and `posts` have already been put.
+    // `categories` is written seventh of eight, so by the time this throws,
+    // `horses` and `posts` have already been cleared and written: everything
+    // that was there must come back.
     await seedIfEmpty();
     const seededHorses = await db.horses.count();
     const seededPosts = await db.posts.count();
     expect(seededHorses).toBeGreaterThan(0);
 
-    vi.spyOn(db.categories, "put").mockRejectedValueOnce(
+    vi.spyOn(db.categories, "bulkPut").mockRejectedValueOnce(
       new Error("disque plein"),
     );
 
     await expect(
       importBackup(
-        snapshot({
+        checked({
           tables: {
             horses: [horse({ id: "horse-from-file" })],
             posts: [post({ id: "post-from-file" })],
@@ -708,12 +396,12 @@ describe("importBackup — atomicity", () => {
     // database never adopted.
     await seedIfEmpty();
 
-    vi.spyOn(db.categories, "put").mockRejectedValueOnce(
+    vi.spyOn(db.categories, "bulkPut").mockRejectedValueOnce(
       new Error("disque plein"),
     );
 
     await expect(
-      importBackup(snapshot({ tables: { categories: categoryRows } })),
+      importBackup(checked({ tables: { categories: categoryRows } })),
     ).rejects.toThrow();
 
     expect(getOwnerId()).toBe(LOCAL_OWNER);
@@ -721,144 +409,16 @@ describe("importBackup — atomicity", () => {
   });
 });
 
-describe("importBackup — the profile", () => {
-  const fileProfile = (over: Partial<UserProfile> = {}): UserProfile => ({
-    // The id the one real device's row carries.
-    id: "profile",
-    ownerId: REMOTE_OWNER,
-    createdAt: "2026-01-01T00:00:00.000Z",
-    // Edited by the user at some point, so `createdAt !== updatedAt`.
-    updatedAt: "2026-02-01T00:00:00.000Z",
-    deletedAt: null,
-    firstName: "Camille",
-    lastName: "Martin",
-    email: "real@example.com",
-    ...over,
-  });
-
-  it("restores the file's profile onto a fresh install", async () => {
-    await seedIfEmpty();
-
-    await importBackup(snapshot({ tables: { profiles: [fileProfile()] } }));
-
-    expect(await db.profiles.count()).toBe(1);
-    expect((await profileRepo.get())?.email).toBe("real@example.com");
-  });
-
-  it("does not overwrite a profile the user edited on this device since", async () => {
-    await seedIfEmpty();
-    await profileRepo.save({
-      firstName: "Édité",
-      lastName: "Ici",
-      email: "edited-here@example.com",
-    });
-
-    await importBackup(
-      snapshot({
-        tables: {
-          profiles: [fileProfile({ updatedAt: "2020-01-01T00:00:00.000Z" })],
-        },
-      }),
-    );
-
-    expect((await profileRepo.get())?.email).toBe("edited-here@example.com");
-  });
-
-  it("keeps the device's profile when the file carries none", async () => {
-    // The real device's row was written at launch and never edited, so
-    // `createdAt === updatedAt` — it is still her identity, not demo data, and
-    // `clearUntouchedSeedData` must leave it alone.
-    await seedIfEmpty();
-    const own = fileProfile({ updatedAt: "2026-01-01T00:00:00.000Z" });
-    await db.profiles.put(own);
-
-    await importBackup(snapshot({ tables: { profiles: [] } }));
-
-    expect(await profileRepo.get()).toStrictEqual(own);
-  });
-});
-
-describe.each([13, 14])("importBackup — a v%i file", (schemaVersion) => {
-  it("drops its documents, filed by category, and supplies the folders table", async () => {
-    const v13Document = {
-      id: "doc-1",
-      ownerId: REMOTE_OWNER,
-      createdAt: STAMP,
-      updatedAt: STAMP,
-      deletedAt: null,
-      horseId: "horse-1",
-      postId: null,
-      category: "compte-rendu",
-      name: "Controle_oeil.pdf",
-      mimeType: "application/pdf",
-      size: 697,
-      issuedAt: null,
-      driveFileId: null,
-      driveSyncedAt: null,
-    };
-
-    const file = snapshot({
-      schemaVersion,
-      tables: { documents: [v13Document as never] },
-    });
-    // The file predates the table; the fixture supplies every current one.
-    delete (file.tables as Partial<BackupSnapshot["tables"]>).documentFolders;
-
-    await importBackup(file);
-
-    expect(await db.documents.count()).toBe(0);
-    expect(await db.documentFolders.count()).toBe(0);
-  });
-});
-
-describe("importBackup — a v13 file", () => {
-  it("splits the horse's name, leaving its stamps as they were", async () => {
-    const { firstName: _firstName, lastName: _lastName, ...v13 } = horse();
-    await importBackup(
-      snapshot({
-        schemaVersion: 13,
-        tables: {
-          horses: [{ ...v13, name: "Ladympala Coupe Chêne" } as never],
-        },
-      }),
-    );
-
-    const [restored] = await db.horses.toArray();
-    expect(restored).not.toHaveProperty("name");
-    expect(restored).toMatchObject({
-      firstName: "Ladympala",
-      lastName: "Coupe Chêne",
-      updatedAt: v13.updatedAt,
-    });
-  });
-});
-
 describe("downloadBackup — the share sheet", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  const stubShare = (share: () => Promise<void>) => {
-    const shared: File[] = [];
-    vi.stubGlobal("navigator", {
-      canShare: () => true,
-      share: async ({ files }: { files: File[] }) => {
-        shared.push(...files);
-        await share();
-      },
-    });
-    return shared;
-  };
-
   it("stamps the backup only once the sheet confirms the file went somewhere", async () => {
-    stubShare(async () => {});
+    stubShare();
 
     expect(await downloadBackup()).toBe("shared");
     expect(await db.meta.get("lastBackupAt")).toBeDefined();
   });
 
   it("leaves the last backup as it was when the sheet is dismissed", async () => {
-    stubShare(async () => {
-      throw new DOMException("dismissed", "AbortError");
-    });
+    stubShare(dismissed);
 
     expect(await downloadBackup()).toBe("cancelled");
     expect(await db.meta.get("lastBackupAt")).toBeUndefined();
@@ -866,7 +426,7 @@ describe("downloadBackup — the share sheet", () => {
 
   it("still hands over a file when Dexie cannot open the database", async () => {
     await db.horses.put(horse());
-    const shared = stubShare(async () => {});
+    const shared = stubShare();
     db.close();
 
     expect(await downloadBackup()).toBe("shared");
@@ -888,66 +448,8 @@ describe("exportBackup — Dexie closed", () => {
     expect(raw.tables.posts.map((row) => row.id)).toEqual(["event-1"]);
 
     await resetDatabase();
-    await importBackup(raw);
+    await importBackup(checkBackup(raw));
     expect(await db.horses.count()).toBe(1);
     expect(await db.posts.count()).toBe(1);
-  });
-});
-
-describe("importBackup — the demo seed", () => {
-  const foreignFile = () =>
-    snapshot({ tables: { horses: [horse({ id: "other-horse" })] } });
-
-  it("clears an untouched demo on a fresh install, so there is one horse", async () => {
-    await seedIfEmpty();
-
-    await importBackup(foreignFile());
-
-    expect((await db.horses.toArray()).map((row) => row.id)).toEqual([
-      "other-horse",
-    ]);
-  });
-
-  it("keeps a demo horse the user has filled, and forgets the seed markers", async () => {
-    await seedIfEmpty();
-    const [demo] = await db.horses.toArray();
-    // The card never edited, so still `createdAt === updatedAt` — but a post
-    // of the user's own hangs off it.
-    await db.posts.put(post({ id: "mine", horseId: demo!.id }));
-
-    await importBackup(foreignFile());
-
-    expect(await db.horses.get(demo!.id)).toBeDefined();
-    expect(await db.meta.get("seedRecordIds")).toBeUndefined();
-  });
-});
-
-describe("importBackup — rows a read path would break on", () => {
-  it.each<[string, Partial<Post>]>([
-    ["a date that is not YYYY-MM-DD", { date: "15/10/2026" }],
-    ["a currency Intl cannot format", { currency: "EURO" }],
-  ])("refuses %s, writing nothing", async (_, over) => {
-    const file = snapshot({ tables: { posts: [post(over)] } });
-
-    await expect(importBackup(file)).rejects.toThrow(/Sauvegarde illisible/);
-    expect(await db.posts.count()).toBe(0);
-  });
-
-  it("refuses a row without deletedAt, which no view would ever show", async () => {
-    const { deletedAt: _, ...row } = post();
-    // Deliberately outside the type: this is the hand-edited file.
-    const file = snapshot({ tables: { posts: [row as Post] } });
-
-    await expect(importBackup(file)).rejects.toThrow(/champ « deletedAt »/);
-  });
-
-  it("refuses a ration season outside the twelve months", async () => {
-    const file = snapshot({
-      tables: {
-        rationItems: [ration({ season: { from: 13, to: 2 } as never })],
-      },
-    });
-
-    await expect(importBackup(file)).rejects.toThrow(/champ « season »/);
   });
 });

@@ -132,7 +132,7 @@ describe("updateMany", () => {
     await rationsRepo.updateMany([{ id: "touched", patch: { quantity: 99 } }]);
 
     const items = await rationsRepo.listByHorse(HORSE_ID);
-    // `clearUntouchedSeedData` tells demo rows from real ones by this equality,
+    // `isUntouchedSeed` tells demo rows from real ones by this equality,
     // so a blanket save would make the whole seed look hand-entered.
     expect(items[0]?.createdAt === items[0]?.updatedAt).toBe(false);
     expect(items[1]?.createdAt === items[1]?.updatedAt).toBe(true);

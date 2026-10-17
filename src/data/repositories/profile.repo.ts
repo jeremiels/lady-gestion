@@ -4,9 +4,9 @@ import type { NewRecord, UserProfile } from "../types.ts";
 
 /**
  * The user's identity. One row in practice, but read as "the most recently
- * written live row" rather than by a fixed id: a restore merges by id, so a
- * backup from another device can land a second row next to the local one, and
- * the newer of the two is the one the user last typed.
+ * written live row" rather than by a fixed id: each install writes its row
+ * under an id of its own, so nothing promises a database holds only one, and
+ * the newest is the one the user last typed.
  */
 
 export type ProfileFields = NewRecord<UserProfile>;

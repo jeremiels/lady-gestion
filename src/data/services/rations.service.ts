@@ -126,10 +126,10 @@ export type RationUpdateResult =
  * change.
  *
  * **An unchanged submit writes nothing**, and that is not an optimisation.
- * `touch()` restamps `updatedAt`, and `clearUntouchedSeedData` (`seed.ts`)
- * tells a demo row from a real one by `createdAt === updatedAt` — re-saving an
- * untouched seeded line would make it look hand-entered and survive the next
- * backup restore, leaving the user with two feed plans.
+ * `touch()` restamps `updatedAt`, and `isUntouchedSeed` (`seed.ts`) tells a
+ * demo row from a real one by `createdAt === updatedAt` — re-saving an
+ * untouched seeded line would make the demo look hand-entered: sent to her
+ * Drive as a backup, and copied before a restore.
  */
 export const updateRation = async (
   ration: RationItem,

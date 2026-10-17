@@ -12,7 +12,8 @@ import type { RationSeason } from "./seasons.ts";
  *   unique identity before it ever reaches a server.
  * - `ownerId` is the future tenant key. It holds a locally generated UUID
  *   until Google sign-in provides a real account id.
- * - `updatedAt` is what makes last-write-wins restore/sync possible.
+ * - `updatedAt` says which of two copies of a row is the later one — what a
+ *   sync between devices would arbitrate by.
  * - `deletedAt` is a soft delete: a row that is simply gone cannot be
  *   propagated to another device or backup.
  */
@@ -256,8 +257,8 @@ export type Category = BaseRecord & {
    * kind of reference. An event keeps its type's *slug* so it survives that row
    * disappearing; that durability is the whole contract of that field. A
    * parent link is structural: a dangling pointer there is something to repair,
-   * not to preserve, and `id` is what `crud()` and `importBackup`'s merge
-   * already address a row by. `categories.repo.ts`'s `remove` does that
+   * not to preserve, and `id` is what `crud()` and a backup file already
+   * address a row by. `categories.repo.ts`'s `remove` does that
    * repair, promoting a deleted parent's children rather than leaving them
    * pointing at a ghost.
    *

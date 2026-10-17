@@ -309,8 +309,8 @@ describe("write path", () => {
 
     expect(updated.title).toBe("Renommé");
     expect(updated.createdAt).toBe("2026-01-01T00:00:00.000Z");
-    // Lexicographic, which is exactly what the backup merge's last-write-wins
-    // relies on — ISO timestamps sort as strings.
+    // Lexicographic — ISO timestamps sort as strings, which is what every
+    // comparison of `updatedAt` relies on.
     expect(updated.updatedAt > updated.createdAt).toBe(true);
   });
 

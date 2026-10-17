@@ -287,7 +287,7 @@ export class ProfileView extends LightElement {
             Les fichiers (ordonnances, factures scannées) ne sont pas encore
             inclus dans l’export — seules leurs fiches le sont.
           </p>
-          ${this.#backup.renderMessage({
+          ${this.#backup.render({
             region: "profile-view__message-region",
             status: "profile-view__status",
             error: "profile-view__error",

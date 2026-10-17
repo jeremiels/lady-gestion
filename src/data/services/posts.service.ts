@@ -41,8 +41,8 @@ import type { CustomFieldDef, Category, Post, NewRecord } from "../types.ts";
  *   inside a live query re-triggers the query that ran it.
  * - **It may span repositories, and owns the transaction when it does.** A
  *   repository stays on one table; deleting a horse, or expanding a follow-up
- *   into a real appointment, has no other home. `backup/snapshot.ts` is the
- *   same kind of thing and predates the folder.
+ *   into a real appointment, has no other home. `backup/restore.ts` is the
+ *   same kind of thing, kept with the rest of the backup.
  */
 
 /**

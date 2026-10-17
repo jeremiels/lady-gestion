@@ -51,7 +51,7 @@ const rowButton = (el: CustomizeView, label: string) =>
   )!;
 
 const dialogButton = (el: CustomizeView, label: string) =>
-  [...el.querySelectorAll<HTMLButtonElement>(".customize-view__button")].find(
+  [...el.querySelectorAll<HTMLButtonElement>(".confirm-dialog__button")].find(
     (button) => button.textContent?.includes(label),
   )!;
 

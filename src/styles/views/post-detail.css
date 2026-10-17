@@ -189,35 +189,6 @@
     color: var(--color-brown-light);
   }
 
-  .post-detail__confirm {
-    font-size: var(--font-size-sm);
-    line-height: 1.4;
-    color: var(--color-brown-middle);
-  }
-
-  .post-detail__confirm-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-12);
-  }
-
-  .post-detail__button {
-    appearance: none;
-    border: none;
-    border-radius: var(--radius-8);
-    padding: var(--spacing-12);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    background-color: var(--color-brown-light-bg);
-    color: var(--color-brown-dark);
-  }
-
-  .post-detail__button--danger {
-    background-color: var(--color-danger);
-    color: var(--color-white);
-  }
-
   .post-detail__back-link {
     appearance: none;
     justify-self: start;

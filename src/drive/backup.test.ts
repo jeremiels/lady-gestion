@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "../data/db.ts";
-import { importBackup, metaRepo } from "../data/index.ts";
+import { metaRepo } from "../data/index.ts";
+import { importBackup } from "../data/backup/restore.ts";
+import { checkBackup } from "../data/backup/validate.ts";
 import type { DriveMeta } from "../data/types.ts";
 import {
   HORSE_ID,
@@ -233,7 +235,7 @@ describe("backupToDrive", () => {
     const text = backups()[0]!.body;
     await db.horses.clear();
 
-    await importBackup(JSON.parse(text));
+    await importBackup(checkBackup(JSON.parse(text)));
 
     expect((await db.horses.get(HORSE_ID))?.firstName).toBe("Ladympala");
   });

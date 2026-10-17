@@ -1,11 +1,14 @@
+import { onTestFinished } from "vitest";
 import { db, SCHEMA_VERSION, type BackupTables } from "../db.ts";
-import { BUILT_IN_CATEGORIES } from "../categories.ts";
+import { seedCategories } from "../categories.ts";
 import { setOwnerId } from "../owner.ts";
 import type { Category, Horse, Post, RationItem } from "../types.ts";
 import type { BackupSnapshot } from "./snapshot.ts";
+import { checkBackup, type CheckedBackup } from "./validate.ts";
 
 /**
- * Rows and envelopes for the backup tests (`snapshot.test.ts`). Not a test
+ * Rows and envelopes for the backup tests (`snapshot.test.ts`,
+ * `validate.test.ts`, and the restore in `ProfileView.test.ts`). Not a test
  * file itself.
  */
 
@@ -69,23 +72,18 @@ export const post = (over: Partial<Post> = {}): Post => ({
 
 export const STAMP = "2026-01-01T00:00:00.000Z";
 
-/** The 14 built-in types, stamped — what a current-schema snapshot carries. */
-export const categoryRows: Category[] = BUILT_IN_CATEGORIES.map((def) => ({
-  ...def,
-  id: `type-${def.key}`,
-  ownerId: REMOTE_OWNER,
-  createdAt: STAMP,
-  updatedAt: STAMP,
-  deletedAt: null,
-}));
+/**
+ * The 14 built-in types as another device seeded them (`seedCategories`) —
+ * what a current-schema snapshot carries.
+ */
+export const categoryRows: Category[] = seedCategories(REMOTE_OWNER, STAMP);
 
 /**
  * A well-formed snapshot, overridden where a test cares.
  *
- * `tables` merges rather than replaces, so a case names only the table it is
- * about. Every case used to restate all four to satisfy `BackupTables`, which
- * meant adding a table to the schema broke seven literals that were never the
- * point of their own test.
+ * `tables` is laid over a full set of empty tables, so a case names only the
+ * table it is about, and adding a table to the schema breaks no literal that
+ * was never the point of its own test.
  */
 export const snapshot = (
   over: Partial<Omit<BackupSnapshot, "tables">> & {
@@ -109,6 +107,54 @@ export const snapshot = (
     ...over.tables,
   },
 });
+
+/**
+ * `snapshot(over)` read the way the app reads a picked file, through
+ * `checkBackup`: what `importBackup` takes.
+ */
+export const checked = (
+  over: Parameters<typeof snapshot>[0] = {},
+): CheckedBackup => checkBackup(snapshot(over));
+
+/** `content` as the file "Restaurer un fichier" picks: what `planRestore` reads. */
+export const pickedFile = (content: unknown): File =>
+  new File([JSON.stringify(content)], "backup.json", {
+    type: "application/json",
+  });
+
+/**
+ * Stands in for the share sheet until the test ends, and returns the files it
+ * was handed. `answer` is how the sheet answers: taken by default,
+ * `dismissed` for the user closing it.
+ *
+ * Defined on `navigator` rather than replacing it, so the browser suites keep
+ * every other property of the real one.
+ */
+export const stubShare = (
+  answer: () => Promise<void> = async () => {},
+): File[] => {
+  const shared: File[] = [];
+  Object.defineProperties(navigator, {
+    canShare: { configurable: true, value: () => true },
+    share: {
+      configurable: true,
+      value: async ({ files = [] }: ShareData) => {
+        shared.push(...files);
+        await answer();
+      },
+    },
+  });
+  onTestFinished(() => {
+    delete (navigator as { share?: unknown }).share;
+    delete (navigator as { canShare?: unknown }).canShare;
+  });
+  return shared;
+};
+
+/** The share sheet closed without taking the file. */
+export const dismissed = async (): Promise<void> => {
+  throw new DOMException("dismissed", "AbortError");
+};
 
 /** Every test starts from an empty database owned by `LOCAL_OWNER`. */
 export const resetDatabase = async (): Promise<void> => {

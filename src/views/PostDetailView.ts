@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { styleMap } from "lit/directives/style-map.js";
 import { LightElement } from "../commons/base-element.ts";
+import { confirmDialog } from "../commons/confirm-dialog.ts";
 import { goBack, navigateTo } from "../commons/navigation.ts";
 import {
   categoriesRepo,
@@ -25,7 +26,6 @@ import type { IconName } from "../components/app-icon/icons.ts";
 
 import "../components/app-icon/app-icon.ts";
 import { tagStyle } from "../components/app-tag/app-tag.ts";
-import "../components/app-modal/app-modal.ts";
 import "../components/document-viewer/document-viewer.ts";
 import "../components/post-sheet/post-sheet.ts";
 
@@ -356,36 +356,18 @@ export class PostDetailView extends LightElement {
         }}
       ></document-viewer>
 
-      <app-modal
-        heading="Supprimer l’évènement ?"
-        description=${`« ${event.title} » sera retiré du calendrier et des dépenses.`}
-        .open=${this.deleteOpen}
-        @modal-close=${() => {
+      ${confirmDialog({
+        heading: "Supprimer l’évènement ?",
+        description: `« ${event.title} » sera retiré du calendrier et des dépenses.`,
+        lines: ["Les fichiers qui y sont attachés restent dans vos documents."],
+        open: this.deleteOpen,
+        cancel: "Annuler",
+        confirm: "Supprimer",
+        onCancel: () => {
           this.deleteOpen = false;
-        }}
-      >
-        <p class="post-detail__confirm">
-          Les fichiers qui y sont attachés restent dans vos documents.
-        </p>
-        <div slot="footer" class="post-detail__confirm-actions">
-          <button
-            class="post-detail__button"
-            type="button"
-            @click=${() => {
-              this.deleteOpen = false;
-            }}
-          >
-            Annuler
-          </button>
-          <button
-            class="post-detail__button post-detail__button--danger"
-            type="button"
-            @click=${this.#confirmDelete}
-          >
-            Supprimer
-          </button>
-        </div>
-      </app-modal>
+        },
+        onConfirm: this.#confirmDelete,
+      })}
     `;
   }
 

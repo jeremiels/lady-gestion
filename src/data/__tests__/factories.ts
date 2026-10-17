@@ -110,7 +110,7 @@ export const BUILT_IN_CATEGORY_ROWS: Category[] = BUILT_IN_CATEGORIES.map(
 /**
  * Seeds the real 14 built-in types into `db.categories` — what any component
  * test whose `LiveQuery` reads the live catalogue needs, the same way a real
- * install always has them from the schema v6 migration.
+ * install has them from its first launch.
  */
 export const seedBuiltInCategories = (): Promise<unknown> =>
   db.categories.bulkAdd(BUILT_IN_CATEGORY_ROWS);
@@ -180,8 +180,8 @@ export const resetDb = async (): Promise<void> => {
     db.meta.clear(),
   ]);
   await setOwnerId(OWNER);
-  // The 14 built-ins, present the same way a real install always has them
-  // after the schema v6 migration — so a suite testing something else
+  // The 14 built-ins, present the same way a real install has them from its
+  // first launch — so a suite testing something else
   // entirely does not also have to seed the event-type catalogue just to keep
   // a `LiveQuery` over it from settling empty. A test with different types in
   // mind overrides by writing its own rows on top.

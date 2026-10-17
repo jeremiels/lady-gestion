@@ -23,13 +23,15 @@ export const nowISO = (): IsoTimestamp => new Date().toISOString();
 /** Today as a *local* calendar date — not `toISOString()`, which shifts to UTC. */
 export const todayISO = (): IsoDate => toIsoDate(new Date());
 
-/** The local time of day as `HH:MM`, the shape `Post.time` is stored in. */
-export const nowTime = (): string => {
-  const now = new Date();
-  const hours = `${now.getHours()}`.padStart(2, "0");
-  const minutes = `${now.getMinutes()}`.padStart(2, "0");
+/** `date`'s local time of day as `HH:MM`, the shape `Post.time` is stored in. */
+const toTime = (date: Date): string => {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
   return `${hours}:${minutes}`;
 };
+
+/** The local time of day as `HH:MM`. */
+export const nowTime = (): string => toTime(new Date());
 
 export const toIsoDate = (date: Date): IsoDate => {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -183,6 +185,15 @@ export const formatDateMedium = (value: IsoDate): string =>
  */
 export const formatTime = (time: string | null): string =>
   time === null ? "" : time.replace(":", "h");
+
+/**
+ * `2026-10-16T06:27:52.924Z` -> `16 oct. 2026 à 08h27`, in local time: when a
+ * row or a file was written, said the way the dates and times above are.
+ */
+export const formatTimestamp = (value: IsoTimestamp): string => {
+  const at = new Date(value);
+  return `${formatDateMedium(toIsoDate(at))} à ${formatTime(toTime(at))}`;
+};
 
 const MONTH_YEAR_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   month: "long",

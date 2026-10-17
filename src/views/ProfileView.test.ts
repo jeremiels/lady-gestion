@@ -1,9 +1,17 @@
 import { html } from "lit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSwitch } from "../components/app-switch/app-switch.ts";
-import { db, SCHEMA_VERSION } from "../data/db.ts";
-import { metaRepo, nowISO } from "../data/index.ts";
-import { OWNER, makeHorse, resetDb } from "../data/__tests__/factories.ts";
+import { db } from "../data/db.ts";
+import { metaRepo } from "../data/index.ts";
+import { HORSE_ID, makeHorse, resetDb } from "../data/__tests__/factories.ts";
+import {
+  dismissed,
+  horse,
+  pickedFile,
+  post,
+  snapshot,
+  stubShare,
+} from "../data/backup/snapshot.fixtures.ts";
 import { fixture, settled, waitFor } from "../components/__tests__/fixture.ts";
 import "./ProfileView.ts";
 import type { ProfileView } from "./ProfileView.ts";
@@ -86,46 +94,101 @@ describe("profile-view", () => {
     expect(enabled).toBe(true);
   });
 
-  it("restores the file picked from the restore button", async () => {
-    const el = await mount();
-    // Held from before there is anything to say: the result has to land in a
-    // region that was already mounted, or screen readers announce nothing.
-    const region = el.querySelector('[role="status"]')!;
-    expect(region).not.toBeNull();
-
-    const backup = {
-      app: "lady-gestion",
-      schemaVersion: SCHEMA_VERSION,
-      exportedAt: nowISO(),
-      ownerId: OWNER,
+  describe("restore", () => {
+    const backup = snapshot({
+      exportedAt: "2026-10-16T06:27:52.924Z",
       tables: {
-        horses: [],
-        posts: [],
-        documents: [],
-        documentFolders: [],
-        rationItems: [],
-        activities: [],
-        categories: [],
-        profiles: [],
+        horses: [horse({ id: "horse-from-file" })],
+        posts: [post({ horseId: "horse-from-file" })],
       },
-    };
-    const file = new File([JSON.stringify(backup)], "backup.json", {
-      type: "application/json",
     });
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
 
-    [...el.querySelectorAll("button")]
-      .find((button) => button.textContent!.includes("Restaurer"))!
-      .click();
-    const input = document.querySelector<HTMLInputElement>(
-      'body > input[type="file"]',
-    )!;
-    input.files = transfer.files;
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    /** Picks the backup through "Restaurer un fichier"; resolves with the confirmation open. */
+    const pick = async (el: ProfileView) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(pickedFile(backup));
 
-    await waitFor(el, () => region.textContent!.includes("restauré"));
-    expect(region.textContent).toContain("0 enregistrement(s) restauré(s)");
+      [...el.querySelectorAll("button")]
+        .find((button) => button.textContent!.includes("Restaurer"))!
+        .click();
+      const input = document.querySelector<HTMLInputElement>(
+        'body > input[type="file"]',
+      )!;
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+
+      const modal = () =>
+        el.querySelector<HTMLElement & { open: boolean; description: string }>(
+          "app-modal",
+        )!;
+      await waitFor(el, () => modal().open);
+      return modal();
+    };
+
+    const press = (el: ProfileView, label: string) =>
+      [...el.querySelectorAll("app-modal button")]
+        .find((button) => button.textContent!.trim() === label)!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    it("asks first, exports a copy of what is here, then replaces it", async () => {
+      const shared = stubShare();
+      const el = await mount();
+      // Held from before there is anything to say: the result has to land in
+      // a region that was already mounted, or screen readers announce nothing.
+      const region = el.querySelector('[role="status"]')!;
+      expect(region).not.toBeNull();
+
+      const modal = await pick(el);
+      expect(modal.description).toContain(
+        "Tout ce que contient cet appareil sera remplacé par la sauvegarde du 16 oct. 2026",
+      );
+      expect(modal.textContent).toContain(
+        "Une copie des données actuelles sera d’abord exportée.",
+      );
+      // Nothing written while it asks.
+      expect(await db.horses.count()).toBe(1);
+
+      press(el, "Remplacer");
+
+      await waitFor(el, () => region.textContent!.includes("restauré"));
+      expect(region.textContent).toContain(
+        "Copie des données précédentes enregistrée. 2 enregistrement(s) restauré(s).",
+      );
+      const copy = JSON.parse(await shared[0]!.text()) as {
+        tables: { horses: { id: string }[] };
+      };
+      expect(copy.tables.horses.map((row) => row.id)).toEqual([HORSE_ID]);
+      expect((await db.horses.toArray()).map((row) => row.id)).toEqual([
+        "horse-from-file",
+      ]);
+    });
+
+    it("replaces nothing when the copy is dismissed", async () => {
+      stubShare(dismissed);
+      const el = await mount();
+      const region = el.querySelector('[role="status"]')!;
+
+      await pick(el);
+      press(el, "Remplacer");
+
+      await waitFor(el, () => region.textContent!.includes("annulée"));
+      expect(region.textContent).toContain(
+        "Restauration annulée : la copie des données actuelles n’a pas été enregistrée.",
+      );
+      expect(await db.horses.count()).toBe(1);
+    });
+
+    it("replaces nothing when the confirmation is cancelled", async () => {
+      const shared = stubShare();
+      const el = await mount();
+
+      const modal = await pick(el);
+      press(el, "Annuler");
+
+      await waitFor(el, () => !modal.open);
+      expect(shared).toHaveLength(0);
+      expect(await db.horses.count()).toBe(1);
+    });
   });
 });
 

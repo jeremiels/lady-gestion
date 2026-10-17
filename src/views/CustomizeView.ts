@@ -2,6 +2,7 @@ import { html, nothing, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { appHref } from "../commons/base-path.ts";
 import { LightElement } from "../commons/base-element.ts";
+import { confirmDialog } from "../commons/confirm-dialog.ts";
 import { CoverUrl } from "../commons/controllers/cover-url.ts";
 import { Today } from "../commons/controllers/today.ts";
 import { toCoverBlob } from "../commons/cover-image.ts";
@@ -49,7 +50,6 @@ import {
 } from "../components/customize-profile/customize-profile.ts";
 
 import "../components/app-icon/app-icon.ts";
-import "../components/app-modal/app-modal.ts";
 import "../components/ration-sheet/ration-sheet.ts";
 import "../components/app-subnav/app-subnav.ts";
 import "../components/customize-profile/customize-profile.ts";
@@ -370,29 +370,17 @@ export class CustomizeView extends LightElement {
         @ration-submit=${this.#onRationSubmit}
         @sheet-close=${this.#closeRationSheet}
       ></ration-sheet>
-      <app-modal
-        heading="Supprimer le produit ?"
-        description=${toDelete ? `« ${toDelete.label} » sera retiré de la ration.` : ""}
-        .open=${toDelete !== null}
-        @modal-close=${this.#closeDeleteModal}
-      >
-        <div slot="footer" class="customize-view__confirm-actions">
-          <button
-            class="customize-view__button"
-            type="button"
-            @click=${this.#closeDeleteModal}
-          >
-            Annuler
-          </button>
-          <button
-            class="customize-view__button customize-view__button--danger"
-            type="button"
-            @click=${this.#confirmRationDelete}
-          >
-            Supprimer
-          </button>
-        </div>
-      </app-modal>
+      ${confirmDialog({
+        heading: "Supprimer le produit ?",
+        description: toDelete
+          ? `« ${toDelete.label} » sera retiré de la ration.`
+          : "",
+        open: toDelete !== null,
+        cancel: "Annuler",
+        confirm: "Supprimer",
+        onCancel: this.#closeDeleteModal,
+        onConfirm: this.#confirmRationDelete,
+      })}
     `;
   }
 }

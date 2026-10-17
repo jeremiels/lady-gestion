@@ -1,31 +1,21 @@
 import {
   RECORD_TABLE_NAMES,
   SCHEMA_VERSION,
-  type BackupTables,
   type RecordTableName,
 } from "../db.ts";
 import { isIsoDate } from "../dates.ts";
 import { UserFacingError } from "../errors.ts";
 import { isRationSeason } from "../seasons.ts";
-import type { MigratingTables } from "./migrate.ts";
 import type { BackupSnapshot } from "./snapshot.ts";
-import type { BaseRecord } from "../types.ts";
+
+declare const checked: unique symbol;
 
 /**
- * The two fields the merge actually reads. A row missing either would be
- * written to IndexedDB as an unaddressable or unresolvable record.
- *
- * Checked on the file as it arrives, before any migration, because these two
- * are the only fields whose name and meaning have never changed. Everything
- * else is checked after migration by `assertRows` — a pre-v13 file spells
- * `categoryKey` as `type`, so validating today's names against yesterday's
- * file would reject exactly the files the migration exists to rescue.
+ * A backup file `checkBackup` has read: what a `RestorePlan` holds and
+ * `importBackup` takes, so nothing reaches the database without passing
+ * through it. Only `checkBackup` makes one.
  */
-const isMergeableRow = (row: unknown): boolean =>
-  typeof row === "object" &&
-  row !== null &&
-  typeof (row as Partial<BaseRecord>).id === "string" &&
-  typeof (row as Partial<BaseRecord>).updatedAt === "string";
+export type CheckedBackup = BackupSnapshot & { readonly [checked]: true };
 
 const isString = (value: unknown): boolean => typeof value === "string";
 const isNumber = (value: unknown): boolean =>
@@ -75,19 +65,23 @@ const isCurrency = (value: unknown): boolean =>
   typeof value === "string" && /^[A-Za-z]{3}$/.test(value);
 
 /**
- * What every row carries whatever its table. `deletedAt` must be *present*:
- * `isLive` reads `=== null`, so a row without it is neither live nor
- * deleted — written, and never shown anywhere.
+ * What every row carries whatever its table. `id` is the key the restore
+ * writes it under. `updatedAt` is what the restore stamps a Drive row's
+ * `driveSyncedAt` from, and what `pending` and the profile's newest row
+ * compare afterwards. `deletedAt` must be *present*: `isLive` reads
+ * `=== null`, so a row without it is neither live nor deleted — written, and
+ * never shown anywhere.
  */
 const RECORD_RULES: Record<string, (value: unknown) => boolean> = {
+  id: isString,
   ownerId: isString,
   createdAt: isString,
+  updatedAt: isString,
   deletedAt: nullable(isString),
 };
 
 /**
- * What each table's rows must carry, beyond `id`, `updatedAt` and
- * `RECORD_RULES`.
+ * What each table's rows must carry, beyond `RECORD_RULES`.
  *
  * Only fields a read path would actually break on — this is a guard against a
  * corrupt or hand-edited file, not a schema re-declaration. Anything absent
@@ -160,53 +154,34 @@ const RULES = Object.fromEntries(
   ]),
 ) as typeof ROW_RULES;
 
+const isRow = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 /**
- * Per-table validation, on the migrated tables — i.e. on today's field names —
- * and the one place that requires every table to be there: presence is a
- * property of the finished shape, which a file only has once migrated.
+ * A backup file as this build reads it: the envelope, then every row of every
+ * table. Throws a `UserFacingError` saying what is wrong, and writes nothing,
+ * so the restore can ask before it replaces anything.
+ *
+ * Only a file at this build's `SCHEMA_VERSION` is read — what the automatic
+ * backup and the export write. `exportedAt` is part of the header: the
+ * restore's confirmation names the file by it, as a date, and `Intl` throws on
+ * one `Date` cannot read. So is a non-empty `ownerId`: the restore adopts it,
+ * and every row written afterwards carries it — an empty one makes
+ * `getOwnerId` throw on the next write, and any other value makes the next
+ * backup a file this check refuses.
  *
  * Everything here goes straight into IndexedDB, where a bad row is permanent
- * and a `TypeError` at render is the first anyone hears of it. Validating at
- * the boundary is what lets the defensive guards further in — `resolveCatalogue`
+ * and a `TypeError` at render is the first anyone hears of it. Checking at the
+ * boundary is what lets the defensive guards further in — `resolveCatalogue`
  * for an unknown icon or theme, `THEME_KEYS` for a theme string — stay
  * belt-and-braces rather than the only thing standing between a hand-edited
  * file and a view that throws.
  *
  * A row is named by table and `id` in the message, because "la table posts
- * contient des enregistrements invalides" over 124 rows is not something a
- * user, or the person helping them, can act on.
+ * contient un enregistrement invalide" over 124 rows is not something a user,
+ * or the person helping them, can act on.
  */
-export const assertRows = (tables: MigratingTables): BackupTables => {
-  for (const name of RECORD_TABLE_NAMES) {
-    const rows = tables[name];
-    if (!rows) {
-      throw new UserFacingError(
-        `Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`,
-      );
-    }
-
-    const rules = RULES[name];
-    for (const record of rows) {
-      for (const [field, check] of Object.entries(rules)) {
-        if (!check(record[field])) {
-          throw new UserFacingError(
-            `Sauvegarde illisible : la table « ${name} » contient un enregistrement invalide (${String(record.id)}, champ « ${field} »).`,
-          );
-        }
-      }
-    }
-  }
-  return tables as unknown as BackupTables;
-};
-
-/**
- * The envelope, and the one per-row check that predates every rename.
- *
- * Returns the file as it was written — **not** migrated. `importBackup` runs
- * `migrateTables` next and then `assertRows`; see `isMergeableRow` for why the
- * validation is split either side of that.
- */
-export const assertSnapshot = (value: unknown): BackupSnapshot => {
+export const checkBackup = (value: unknown): CheckedBackup => {
   const snapshot = value as Partial<BackupSnapshot> | null;
 
   if (!snapshot || snapshot.app !== "lady-gestion") {
@@ -215,7 +190,14 @@ export const assertSnapshot = (value: unknown): BackupSnapshot => {
     );
   }
 
-  if (typeof snapshot.schemaVersion !== "number" || !snapshot.tables) {
+  if (
+    typeof snapshot.schemaVersion !== "number" ||
+    typeof snapshot.exportedAt !== "string" ||
+    Number.isNaN(Date.parse(snapshot.exportedAt)) ||
+    typeof snapshot.ownerId !== "string" ||
+    snapshot.ownerId === "" ||
+    !snapshot.tables
+  ) {
     throw new UserFacingError("Sauvegarde illisible : en-tête manquant.");
   }
 
@@ -226,32 +208,43 @@ export const assertSnapshot = (value: unknown): BackupSnapshot => {
       `Sauvegarde créée par une version plus récente de l'application (schéma ${snapshot.schemaVersion} > ${SCHEMA_VERSION}).`,
     );
   }
+  if (snapshot.schemaVersion < SCHEMA_VERSION) {
+    throw new UserFacingError(
+      `Sauvegarde créée par une version trop ancienne de l'application (schéma ${snapshot.schemaVersion} < ${SCHEMA_VERSION}).`,
+    );
+  }
 
-  // How *old* a file may be is `migrate.ts`'s call, not this one's: it knows
-  // which versions it has a step for. This function's job is only to be sure
-  // there is something coherent to hand it.
   const tables = snapshot.tables as Record<string, unknown>;
-
   for (const name of RECORD_TABLE_NAMES) {
     const rows = tables[name];
-
-    // Whether a table may be missing is decided on the migrated tables, by
-    // `assertRows`: one a later schema introduces is absent from an older file
-    // until the step that introduces it supplies it.
-    if (rows === undefined) continue;
-
     if (!Array.isArray(rows)) {
       throw new UserFacingError(
         `Sauvegarde illisible : la table « ${name} » est absente ou corrompue.`,
       );
     }
 
-    if (!rows.every(isMergeableRow)) {
-      throw new UserFacingError(
-        `Sauvegarde illisible : la table « ${name} » contient des enregistrements invalides.`,
-      );
+    for (const row of rows) {
+      if (!isRow(row)) {
+        throw new UserFacingError(
+          `Sauvegarde illisible : la table « ${name} » contient des enregistrements invalides.`,
+        );
+      }
+      for (const [field, check] of Object.entries(RULES[name])) {
+        if (!check(row[field])) {
+          throw new UserFacingError(
+            `Sauvegarde illisible : la table « ${name} » contient un enregistrement invalide (${String(row.id)}, champ « ${field} »).`,
+          );
+        }
+      }
     }
   }
 
-  return snapshot as BackupSnapshot;
+  // The tables this build has and nothing else: what `BackupTables` promises,
+  // and what `importBackup` writes.
+  return {
+    ...snapshot,
+    tables: Object.fromEntries(
+      RECORD_TABLE_NAMES.map((name) => [name, tables[name]]),
+    ),
+  } as CheckedBackup;
 };

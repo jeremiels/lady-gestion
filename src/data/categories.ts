@@ -226,37 +226,15 @@ export const reminderField = () =>
   });
 
 /**
- * The type catalogue's seed data: the nine built-in types the app shipped
- * with, plus four more — `concours`, `soins`, `cures`, `traitement` — finished
- * in the same migration that introduced this table (schema v6).
- *
- * Those four already had a label, an icon and a theme in the old, compile-time
- * `EVENT_TYPE_META` table, uncommitted — but were never wired into a form
- * layout, and their theme (`blue`/`red`/`indigo`/`violet`) and icon
- * (`trophy`/`bandage`/`syringe`/`pills`) don't exist as real `ThemeKey`/
- * `IconName` values: no CSS token and no sprite entry was ever added for them.
- * Selecting one today renders a form with no fields at all beyond the fixed
- * base ones. Below, each is given a real icon and theme reused from an
- * existing type — a placeholder, changeable as a data edit rather than a
- * migration once real assets exist — and a field list drawn from whichever of
- * the four built-in layouts its meaning is closest to. `coucours`, that
- * table's misspelled key, is corrected to `concours` here.
- *
- * Two of those four stopped being roots in schema v9: `cures` files under
- * `alimentation` and `traitement` under `veto`, so both inherit their parent's
- * presentation and their spend rolls into its wedge. That is a product
- * decision rather than a data detail — it repaints two types and redraws the
- * budget ring for anyone already using them.
- *
- * Schema v10 does the same to one of the original nine: `osteo`, a root since
- * v1, files under `soins` too, alongside a brand-new sibling, `massage`, that
- * never shipped as a root at all — inserted fresh rather than moved. Ten of
- * the fourteen rows are roots today.
+ * The type catalogue's seed data: the fourteen types a new install starts
+ * with, ten of them roots. `cures` files under `alimentation`, `traitement`
+ * under `veto`, and `osteo` and `massage` under `soins`, so each inherits its
+ * parent's presentation and its spend rolls into the parent's wedge.
  *
  * Stamped into rows by `seedCategories` below on a first install only
- * (`seedCategoriesOnFirstInstall`, `seed.ts`): the model a new device starts from.
- * An installed device's categories are hers, so an edit here never reaches
- * them — that takes a `ROW_STEPS` entry (`migrations.ts`).
+ * (`seedCategoriesOnFirstInstall`, `seed.ts`): the model a new device starts
+ * from. An installed device's categories are hers, so an edit here never
+ * reaches them.
  */
 export const BUILT_IN_CATEGORIES: Omit<
   Category,
@@ -600,13 +578,12 @@ export const BUILT_IN_CATEGORIES: Omit<
  *
  * `id` is the type's own `key`, not a fresh `newId()`: every device seeds the
  * *same* built-in catalogue on its own — a phone, then the new phone its
- * backup is restored onto — and `importBackup`'s merge is per-`id`. A random
- * id each time would make every install produce a *different* 14 rows for the
- * same 14 types, so restoring a backup onto an already-seeded device would
- * double them rather than merge them, the same way importing a snapshot twice
- * must not double every other table either. Deriving `id` from `key` is what
- * makes two independent seeds agree on what the row *is* without either one
- * having to ask the other first.
+ * backup is restored onto — and a row is addressed by its `id`. A random id
+ * each time would make every install produce a *different* 14 rows for the
+ * same 14 types, and the built-ins' `parentId`s, which name their parent by
+ * `id`, would point at nothing. Deriving `id` from `key` is what makes two
+ * independent seeds agree on what the row *is* without either one having to
+ * ask the other first.
  */
 export const seedCategories = (
   ownerId: string,
@@ -658,7 +635,7 @@ const ownTheme = (type: Category): ThemeKey | undefined =>
  *
  * A `parentId` that resolves to nothing in the caller's own list counts as a
  * root, not as an error: the parent may have been soft-deleted on another
- * device, or a partial backup merge may have brought the child over without it.
+ * device, or a hand-edited backup may hold the child without it.
  * Rendering the child as a root is the one outcome that keeps it visible and
  * editable — dropping it, or throwing, loses it. `rootsOf` applies the same
  * rule from the other side, so the two can never disagree about what a root is.

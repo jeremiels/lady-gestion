@@ -110,8 +110,7 @@ describe("remove", () => {
 
     await categoriesRepo.remove("p");
 
-    // Not `resolveCatalogue` falling back — the values are on the row now, so
-    // a backup carrying both rows cannot merge them back into disagreement.
+    // Not `resolveCatalogue` falling back — the values are on the row now.
     expect(await db.categories.get("c")).toMatchObject({
       icon: "firstAidKit",
       theme: "pink",

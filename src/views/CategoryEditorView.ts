@@ -1,6 +1,7 @@
 import { html, nothing, type PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { LightElement } from "../commons/base-element.ts";
+import { confirmDialog } from "../commons/confirm-dialog.ts";
 import { goBack } from "../commons/navigation.ts";
 import { customizeTabPath } from "../commons/sections.ts";
 import {
@@ -19,7 +20,6 @@ import type { Category } from "../data/types.ts";
 import type { DraftChangeDetail } from "../components/category-editor/category-editor.ts";
 
 import "../components/app-icon/app-icon.ts";
-import "../components/app-modal/app-modal.ts";
 import "../components/category-editor/category-editor.ts";
 
 /** Where Retour, Enregistrer and a delete land. */
@@ -234,63 +234,33 @@ export class CategoryEditorView extends LightElement {
 
   #renderModals(category: Category | null) {
     return html`
-      <app-modal
-        heading="Abandonner les modifications ?"
-        description="Ce que vous avez changé ne sera pas enregistré."
-        .open=${this.discardOpen}
-        @modal-close=${() => {
+      ${confirmDialog({
+        heading: "Abandonner les modifications ?",
+        description: "Ce que vous avez changé ne sera pas enregistré.",
+        open: this.discardOpen,
+        cancel: "Continuer",
+        confirm: "Abandonner",
+        onCancel: () => {
           this.discardOpen = false;
-        }}
-      >
-        <div slot="footer" class="category-editor-view__confirm-actions">
-          <button
-            class="category-editor-view__button"
-            type="button"
-            @click=${() => {
-              this.discardOpen = false;
-            }}
-          >
-            Continuer
-          </button>
-          <button
-            class="category-editor-view__button category-editor-view__button--danger"
-            type="button"
-            @click=${() => {
-              this.discardOpen = false;
-              this.#leave();
-            }}
-          >
-            Abandonner
-          </button>
-        </div>
-      </app-modal>
-      <app-modal
-        heading="Supprimer la catégorie ?"
-        description=${category ? `« ${category.label} » et son formulaire seront supprimés.` : ""}
-        .open=${this.deleteOpen}
-        @modal-close=${() => {
+        },
+        onConfirm: () => {
+          this.discardOpen = false;
+          this.#leave();
+        },
+      })}
+      ${confirmDialog({
+        heading: "Supprimer la catégorie ?",
+        description: category
+          ? `« ${category.label} » et son formulaire seront supprimés.`
+          : "",
+        open: this.deleteOpen,
+        cancel: "Annuler",
+        confirm: "Supprimer",
+        onCancel: () => {
           this.deleteOpen = false;
-        }}
-      >
-        <div slot="footer" class="category-editor-view__confirm-actions">
-          <button
-            class="category-editor-view__button"
-            type="button"
-            @click=${() => {
-              this.deleteOpen = false;
-            }}
-          >
-            Annuler
-          </button>
-          <button
-            class="category-editor-view__button category-editor-view__button--danger"
-            type="button"
-            @click=${this.#delete}
-          >
-            Supprimer
-          </button>
-        </div>
-      </app-modal>
+        },
+        onConfirm: this.#delete,
+      })}
     `;
   }
 }

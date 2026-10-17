@@ -52,20 +52,10 @@ export const liveOnly = <T extends BaseRecord>(records: T[]): T[] =>
   records.filter(isLive);
 
 /**
- * Last-write-wins resolution, used when merging a backup into the local
- * database: an older snapshot must never overwrite a newer local edit.
- */
-export const newerOf = <T extends BaseRecord>(a: T | undefined, b: T): T => {
-  if (!a) return b;
-  return b.updatedAt > a.updatedAt ? b : a;
-};
-
-/**
  * The slice of a table the shared CRUD below needs.
  *
  * Structural rather than Dexie's `Table`, so this module keeps its promise of
- * having no `dexie` import — the same shape, and for the same reason, as the
- * `merge` helper in `backup/snapshot.ts`.
+ * having no `dexie` import.
  */
 export type RecordTable<T> = {
   get(id: string): Promise<T | undefined>;

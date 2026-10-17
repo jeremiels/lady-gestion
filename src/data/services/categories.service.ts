@@ -43,8 +43,9 @@ const storedShape = (draft: CategoryDraft): CategoryDraft => ({
  * `id`. It goes last among its siblings, so the budget ring keeps every other
  * wedge in place.
  *
- * Saving a draft that changes nothing writes nothing: `updatedAt` is what a
- * restore arbitrates by, and a write that changes nothing must not win.
+ * Saving a draft that changes nothing writes nothing: a write restamps
+ * `updatedAt`, and the next automatic backup would send a new file over a
+ * change that is not one.
  */
 export const saveCategory = ({
   existing,

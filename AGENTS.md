@@ -157,7 +157,7 @@ Three consequences worth stating out loud:
   localStorage. The only network call is push reminders (see "PWA / offline"),
   which the app works without. `HorseView`, `PostsView`,
   every view now reads real data. The user's name and email live in the
-  `profiles` table (schema v12), edited on `/profile/interface` (Profil tab)
+  `profiles` table, edited on `/profile/interface` (Profil tab)
   and read everywhere through `displayProfile()` (`data/account.ts`), which
   falls back to a blank identity until a row exists. Still a
   **deliberate** mock: the masked password (nothing signs anyone in) and the
@@ -225,16 +225,16 @@ Three consequences worth stating out loud:
   of it hardcoded five product names and read four different keys, and saving
   wrote one unlabeled row and dropped the rest.
 - **Skip unchanged rows rather than re-saving them.** `touch()` restamps
-  `updatedAt`, and `clearUntouchedSeedData` tells demo rows from real ones by
+  `updatedAt`, and `isUntouchedSeed` tells demo rows from real ones by
   `createdAt === updatedAt` — a blanket save makes the whole seed look
-  hand-entered and survive the next restore.
+  hand-entered: sent to her Drive as a backup, and copied before a restore.
 - **A new record table goes in `RECORD_TABLES` (`db.ts`) and nowhere else.**
-  The backup export, the restore merge, the snapshot validator, the
-  `BackupSnapshot['tables']` type and `clearUntouchedSeedData` all read that one
-  object, so adding a table reaches every whole-database operation at once. They
-  used to be five hand-written copies of the same four names, where the one you
-  missed failed silently — a table absent from the export is data that quietly
-  does not survive a restore. `documentBlobs` and `meta` stay out of the list on
+  The backup export, the restore, the snapshot validator, the
+  `BackupSnapshot['tables']` type and `isUntouchedSeed` all read that one
+  object, so adding a table reaches every whole-database operation at once. A
+  hand-written list anywhere else is one more place to miss, and a missed table
+  fails silently — a table absent from the export is data that quietly does not
+  survive a restore. `documentBlobs` and `meta` stay out of the list on
   purpose (blobs are in no backup yet, `meta` is device-local); `documents` still
   drops its matching `documentBlobs` row in the same transaction — the pairing
   `documentsRepo.remove` keeps — or the bytes are stranded with nothing
@@ -341,8 +341,9 @@ src/data/
   ready.ts             # gate opened when initData() settles — see below
   repositories/        # horses|posts|categories|documents|rations|meta.repo.ts
   services/            # write-side commands — posts|rations.service.ts
-  backup/              # snapshot.ts envelope + merge, export.ts reader,
-                       # file.ts share/download/parse, validate.ts, migrate.ts
+  backup/              # snapshot.ts envelope, export.ts reader, validate.ts
+                       # checkBackup, file.ts share/download + automatic
+                       # backup, restore.ts plan/run + the replace
   seed.ts              # first-run data, only when no horse exists
 ```
 
@@ -380,8 +381,8 @@ src/data/
   reactivity to see through. Two rules follow from the no-state one: never hold
   a cached copy of anything (Dexie is the store, per `live.ts`), and never call
   a service from inside a `LiveQuery` callback — a command that runs in a live
-  query re-triggers the query that ran it. `backup/snapshot.ts` is the same kind
-  of module and predates the folder.
+  query re-triggers the query that ran it. `backup/restore.ts` is the same kind
+  of module, kept with the rest of the backup.
 - Call `initData()` once (already done in `app-root.ts`) before anything
   writes — it opens the DB, resolves `ownerId` and seeds first-run data.
   `createRecord` throws if it hasn't run.
@@ -432,11 +433,9 @@ src/data/
   shifts to UTC.
 - **Money is integer cents** (`amountCents`), never a float. Format with
   `formatCents()` from `money.ts`.
-- **Domain language: a `Post` belongs to a `Category`.** Since schema v13 the
-  code, the tables and the URLs say so — `posts` / `categories` stores,
-  `postsRepo` / `categoriesRepo`, `post-card` / `post-sheet`, `/posts/:id`
-  (an old `/events…` link is not redirected). They were `HorseEvent` /
-  `EventTypeDef`, `events` / `eventTypes` and `/events` before.
+- **Domain language: a `Post` belongs to a `Category`.** The code, the tables
+  and the URLs say so — `posts` / `categories` stores, `postsRepo` /
+  `categoriesRepo`, `post-card` / `post-sheet`, `/posts/:id`.
   Calendar vocabulary (`CalendarEvent`, `VEVENT` in `icalendar.ts`) and DOM
   events are a different "event" and were not renamed. French UI copy
   ("Activités", "Rendez-vous") is unchanged.
@@ -497,27 +496,18 @@ src/data/
   `activity` is a `WorkActivity` key (`posts.ts`) — what was done in a
   `travail` session, from a closed list with French labels, `null` on every
   other type.
-- **`db.ts` declares only the current version (16)**, with the one
-  `upgrade()` that brings a v13, v14 or v15 device up to it, running
-  `ROW_STEPS[13]` onwards (`data/migrations.ts`): v14 split `Horse.name` into
-  `firstName` + `lastName`, v15 dropped the category-filed demo document, v16
-  gave the `amountCents` and `counterparty` fields their `budget` and
-  `counterparty` roles (`categoryRowToV16`) — what the budget, the search and
-  the share now find them by. A backup file is walked through the same entries
-  by `backup/migrate.ts`.
-  Nothing below v13 is supported: such a database cannot be upgraded, and
-  `importBackup` refuses such a file with "version trop ancienne", and a newer
-  one with "version plus récente".
+- **`db.ts` declares only the current version (16), with no `upgrade()`**:
+  every install in use is on it. A backup file is read at that version only
+  (`checkBackup`), which refuses an older one with "version trop ancienne" and
+  a newer one with "version plus récente".
 - **Bumping `SCHEMA_VERSION` means deciding for both a device and a file**: a
-  `this.version(n).upgrade()` in `db.ts` for databases already on a device, and
-  for backup files written at the previous version. A row transform goes in
-  `ROW_STEPS` (`data/migrations.ts`), which both the upgrade and `importBackup`
-  (before the merge) run; a file version with no entry is refused.
-  Merging an old file's rows unread is the one wrong answer: the current build
-  silently misreads them. `db.test.ts` opens a database really written at the
-  last version — keep its `V13_STORES` frozen, and add the new upgrade's test
-  against it.
-- **A category may have a parent (`Category.parentId`, schema v8), at
+  `this.version(n).upgrade()` in `db.ts` for the databases already on a device,
+  and a way for `checkBackup` to read the files written at the previous
+  version — the backups already in her Drive. Without the second, a new phone
+  cannot restore her until the next automatic backup. Writing an old file's
+  rows unread is the one wrong answer: the current build silently misreads
+  them.
+- **A category may have a parent (`Category.parentId`), at
   most one level deep, and a child inherits its presentation.** `parentId`
   references a row `id`, not a `key` — unlike `Post.categoryKey`, which stores
   the slug precisely so it outlives the row. `icon` and `theme` are nullable
@@ -536,9 +526,8 @@ src/data/
   (`src/types/taxonomy.ts`)**, not hand-written: `documentCategory` is one call
   over `DOCUMENT_CATEGORY_META` and exposes `.keys`, `.label(k)`, `.icon(k)`,
   `.theme(k)`, and `DOCUMENT_CATEGORIES` is `.keys`, so a category added to the
-  table cannot be missing from the list. Post categories left this pattern in
-  schema v6 — `taxonomy()` only works over a key set known at compile time, and
-  those are rows now. There is no `getThemeMeta` — read
+  table cannot be missing from the list. Post categories are rows instead —
+  `taxonomy()` only works over a key set known at compile time. There is no `getThemeMeta` — read
   `THEME_META[key]`, which is all it ever was.
 
 No component registry/barrel file. A component is used by importing its
@@ -577,12 +566,15 @@ What's already in place:
   soft-delete `deletedAt`** (`types.ts`) — put there so adopting a real
   account id later is a data update, not a schema migration.
 - **The backup format doubles as a future sync payload.** `BackupSnapshot`
-  (`backup/snapshot.ts`) is versioned JSON that merges idempotently,
-  last-write-wins by `updatedAt` — except a built-in category this device never
-  edited (`createdAt === updatedAt`), which the file's copy replaces whatever
-  the stamps say, since a fresh install's seed would otherwise outvote every
-  choice in the backup. The same file is what `src/drive/backup.ts` puts in her Drive
-  once a day, in a folder of its own (`docs/drive-spec.md` §12). Documents do
+  (`backup/snapshot.ts`) is versioned JSON whose rows keep their UUIDs and
+  `updatedAt`. A restore _replaces_ the database with it (`importBackup`,
+  `backup/restore.ts`), in one transaction, so the app ends up exactly as the
+  file holds it.
+  "Restaurer un fichier" reads the file and what it would take away
+  (`planRestore`), asks, then runs it (`runRestore`): a copy of the device
+  first when it holds anything of hers (`isUntouchedSeed`), and no replace if
+  that copy is dismissed. Go through those two, never `importBackup` alone.
+  The same file is what `src/drive/backup.ts` puts in her Drive once a day, in a folder of its own (`docs/drive-spec.md` §12). Documents do
   not ride in it: `StoredDocument`'s `driveFileId`/`driveModifiedAt`/
   `driveSyncedAt` and `meta`'s `googleAccount`/`driveFolder` belong to the
   mirror of her own Drive folder (`src/drive/`, `docs/drive-spec.md`).
@@ -907,6 +899,9 @@ message }` for `fieldMessages()` and `describedBy()`.
   whichever view's stylesheet happened to define it first — `.meta-list` /
   `.meta-item` (label-left, value-right rows inside a `.container`) started
   in `views/horse.css` and moved out when `ProfileView` needed the same rows.
+  `.confirm-dialog__*` is what `confirmDialog()` (`commons/confirm-dialog.ts`)
+  draws in every `app-modal` that asks before an action — call it rather than
+  writing the buttons out.
 - Sub-layer `@layer a, b, c;` statements must appear **before** the `@import`s
   that create those layers — a layer already created by an import cannot be
   reordered afterwards. See `layers/views.css`.
@@ -1003,9 +998,9 @@ message }` for `fieldMessages()` and `describedBy()`.
   itself, like `border-radius`.
 - `src/theme/theme.ts` (`ThemeKey` -> `{ color, backgroundColor }`, plus
   `THEME_KEYS` / `isThemeKey`) is the palette source of truth. An event type's
-  own `{ label, icon, theme }` is a **row** since schema v6, read through
+  own `{ label, icon, theme }` is a **row**, read through
   `listResolved` / `resolveCatalogue` rather than a compile-time table.
-  Document folders are rows too (schema v15), named by the user in her Drive,
+  Document folders are rows too, named by the user in her Drive,
   with no theme of their own. **`app-icon` and `app-tag` are domain-free and
   resolve nothing themselves** — they read two custom properties, and the call
   site composes them with `iconStyle(...)` / `tagStyle(...)` over a
@@ -1122,7 +1117,7 @@ allow-discrete` (see `app-bottom-sheet` for animating a native
   permanent — a bad row in IndexedDB outlives every reload — and it is pure
   TypeScript with no DOM. Dexie runs against `fake-indexeddb`, installed by
   `src/data/__tests__/setup.ts` before `db.ts` constructs its instance at module
-  scope. The backup merge, the schema upgrade, the season windows, the
+  scope. The backup restore, the season windows, the
   local-vs-UTC date handling and the cents arithmetic are the parts worth
   guarding.
 - **`components`** (`src/components/**/*.test.ts`, `src/views/**/*.test.ts`)
@@ -1167,11 +1162,10 @@ by resolving`updateComplete`with`false`. Awaiting once lands mid-cascade.
   needs a row in a state a repository would never produce (an old `updatedAt`, a
   tombstone, an archived-but-not-deleted horse), and that is exactly what the
   read paths must be exercised against.
-- `db.test.ts` deletes and rebuilds the database around every test, so it keeps
-  its own frozen copy of the schema a device already holds (`V13_STORES`) —
-  never update that to match `STORES`, or the open is tested against itself.
-  `resetDb()` only clears tables, which is right for everything except a
-  version change.
+- `db.test.ts` deletes and rebuilds the database around every test, and
+  spells out the stores a fresh install must have rather than reading `STORES`,
+  or the open is tested against itself. `resetDb()` only clears tables, which
+  is right for everything except a version change.
 - **`vi.useFakeTimers()` deadlocks every Dexie query** — it resolves promises on
   the real task queue. Backdate the stored timestamp instead; see
   `setLastBackup` in `ProfileView.test.ts`.

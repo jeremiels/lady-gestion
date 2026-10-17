@@ -53,9 +53,9 @@ export type HorseProfileResult =
  *
  * **An unchanged submit writes nothing**, for the same reason
  * `rationsService.updateRation` skips an untouched line: `touch()` restamps `updatedAt`, and
- * `clearUntouchedSeedData` recognises the demo horse by
- * `createdAt === updatedAt`. Pressing Enregistrer on an untouched card would
- * otherwise keep the demo horse alive through the next backup restore.
+ * `isUntouchedSeed` recognises the demo horse by `createdAt === updatedAt`.
+ * Pressing Enregistrer on an untouched card would otherwise make the demo look
+ * like hers: sent to her Drive as a backup, and copied before a restore.
  *
  * Blank text reads as `null` — "unknown", which the horse page shows as "—" —
  * never as an empty string.

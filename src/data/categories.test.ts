@@ -283,8 +283,8 @@ describe("the type hierarchy", () => {
     });
 
     it("treats a child whose parent is not in the list as a root", () => {
-      // The parent was soft-deleted on another device, or a partial merge
-      // brought the child over alone. Rendering it as a root is what keeps it
+      // The parent was soft-deleted on another device, or a hand-edited
+      // backup holds the child alone. Rendering it as a root is what keeps it
       // visible instead of dropping it.
       const [resolved] = resolveCatalogue([child]);
       expect(resolved?.parentId).toBeNull();

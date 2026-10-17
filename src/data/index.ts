@@ -72,9 +72,19 @@ export {
 
 export * from "./live.ts";
 export * from "./active-horse.ts";
-export * from "./backup/snapshot.ts";
 export * from "./backup/export.ts";
-export * from "./backup/file.ts";
+export {
+  automaticBackup,
+  downloadBackup,
+  type AutomaticBackup,
+  type ExportOutcome,
+} from "./backup/file.ts";
+export {
+  planRestore,
+  runRestore,
+  type RestoreOutcome,
+  type RestorePlan,
+} from "./backup/restore.ts";
 
 export * from "./types.ts";
 export * from "./money.ts";

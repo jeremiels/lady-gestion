@@ -45,9 +45,9 @@ export const listEnabled = async (): Promise<ResolvedCategory[]> =>
 /**
  * Switches a category on or off.
  *
- * A no-op when the flag already reads `enabled`: `updatedAt` is what a restore
- * arbitrates last-write-wins by, and a write that changes nothing must not win
- * that argument — the same rule `saveCategory` follows.
+ * A no-op when the flag already reads `enabled`: a write restamps `updatedAt`,
+ * and the next automatic backup would send a new file over a change that is
+ * not one — the same rule `saveCategory` follows.
  */
 export const setEnabled = async (
   id: string,
@@ -101,8 +101,7 @@ const detachment = (
  * doc gives for `documents.repo.ts`: the tombstone is not the whole deletion.
  * `parentId` is a structural reference — leaving children pointing at a
  * tombstoned row would make them resolve as roots anyway (`resolveCatalogue`
- * treats a dangling parent that way), but only by accident, and only until a
- * backup carrying both rows merged them back into disagreement. Repairing the
+ * treats a dangling parent that way), but only by accident. Repairing the
  * link is what makes that behaviour a safety net instead of the mechanism.
  *
  * The events of a deleted type are untouched: they store its `key`, which

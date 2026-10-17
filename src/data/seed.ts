@@ -22,12 +22,11 @@ import type { BaseRecord, RationUnit } from "./types.ts";
  * form builder, and nothing this build ships is written over them at a later
  * launch — not a changed label or field list, not a built-in added since.
  * `BUILT_IN_CATEGORIES` is the model a new install starts from, never an
- * update to an installed one; a change that must reach rows already on a
- * device is a `ROW_STEPS` entry (`migrations.ts`).
+ * update to an installed one.
  *
  * A restore needs nothing from here: a new phone seeds its own built-ins
- * moments before the import, and the file's copy replaces each one the device
- * never edited (`YIELDS_TO_FILE` in `backup/snapshot.ts`).
+ * moments before the import, and the import replaces them with the file's
+ * (`importBackup` in `backup/restore.ts`).
  */
 export const seedCategoriesOnFirstInstall = async (): Promise<void> => {
   if ((await db.categories.count()) > 0) return;
@@ -113,8 +112,8 @@ const seedDemo = async (): Promise<void> => {
   }
 
   await metaRepo.set("seededAt", todayISO());
-  // Remembered so a restore can tell demo rows apart from real ones —
-  // see `clearUntouchedSeedData`.
+  // Remembered so demo rows can be told apart from real ones — see
+  // `isUntouchedSeed`.
   await metaRepo.set("seedRecordIds", seedRecordIds);
 };
 
@@ -138,64 +137,12 @@ export const isUntouchedSeed = (
   seedIds: readonly string[] | undefined,
 ): boolean => {
   const seeded = new Set(seedIds);
-  return USER_TABLES.every((name) =>
-    (tables[name] as BaseRecord[]).every(
+  return USER_TABLES.every((name) => {
+    const rows: readonly BaseRecord[] = tables[name];
+    return rows.every(
       (row) => seeded.has(row.id) && row.createdAt === row.updatedAt,
-    ),
-  );
-};
-
-/**
- * Drops first-run demo rows the user never touched — **only on a database that
- * holds nothing else**.
- *
- * Restoring a backup usually happens on a fresh install — which is exactly
- * when the seed has just run. Without this, the restore lands next to the
- * demo data and the user ends up with two horses.
- *
- * On a database already in use it deletes nothing and forgets
- * `seedRecordIds`. A demo horse the user kept and filled with their own posts
- * is still `createdAt === updatedAt` if its card was never edited; purging it
- * on the restore of someone else's file would orphan every one of those posts
- * and switch the app to the file's horse. Once a single row is the user's, the
- * seed markers can only ever point at real data.
- *
- * Hard deletes on purpose. A tombstone here would propagate "this horse was
- * deleted" to every other device, and these rows never existed anywhere else.
- */
-export const clearUntouchedSeedData = async (): Promise<void> => {
-  const ids = await metaRepo.get<string[]>("seedRecordIds");
-  if (!ids?.length) return;
-
-  const seeded = new Set(ids);
-  const keys = await Promise.all(
-    USER_TABLES.map((name) => RECORD_TABLES[name].toCollection().primaryKeys()),
-  );
-  if (keys.flat().some((id) => !seeded.has(id))) {
-    await metaRepo.remove("seedRecordIds");
-    return;
-  }
-
-  await db.transaction(
-    "rw",
-    USER_TABLES.map((name) => RECORD_TABLES[name]),
-    async () => {
-      // `USER_TABLES`, derived rather than hand-written: an unlisted table's
-      // demo rows would survive the very restore this exists to make room for,
-      // and nothing would say so.
-      for (const name of USER_TABLES) {
-        const table = RECORD_TABLES[name];
-        for (const id of ids) {
-          const row = await table.get(id);
-          if (!row || row.createdAt !== row.updatedAt) continue;
-
-          await table.delete(id);
-        }
-      }
-    },
-  );
-
-  await metaRepo.remove("seedRecordIds");
+    );
+  });
 };
 
 /** A handful of events either side of today, so every view has something to show. */

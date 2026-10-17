@@ -7,13 +7,9 @@ import { seedIfEmpty } from "./seed.ts";
 /**
  * The event-type catalogue's first-run seeding.
  *
- * A brand-new install never runs `db.ts`'s v6 `.upgrade()` — Dexie only fires
- * an upgrade transaction for a database that already exists at an older
- * version, and a fresh `IndexedDB` is created directly at the current schema
- * with every table empty. `seedIfEmpty` is the only code path a first run
- * reaches, so it is what has to seed the 14 built-in types there — a real gap
- * caught by driving the app fresh rather than by the migration tests alone,
- * which only ever exercise an *upgrading* database.
+ * A fresh `IndexedDB` is created directly at the current schema with every
+ * table empty. `seedIfEmpty` is the only code path a first run reaches, so it
+ * is what has to seed the 14 built-in types there.
  */
 
 beforeEach(async () => {

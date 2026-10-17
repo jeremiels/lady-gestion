@@ -90,27 +90,4 @@
     font-weight: 500;
     color: var(--color-danger);
   }
-
-  .category-editor-view__confirm-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-12);
-  }
-
-  .category-editor-view__button {
-    appearance: none;
-    border: none;
-    border-radius: var(--radius-8);
-    padding: var(--spacing-12);
-    font: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    background-color: var(--color-brown-light-bg);
-    color: var(--color-brown-dark);
-  }
-
-  .category-editor-view__button--danger {
-    background-color: var(--color-danger);
-    color: var(--color-white);
-  }
 }

@@ -22,9 +22,7 @@ const UNREADABLE = "Aucune donnée locale n’a pu être lue.";
  * far.
  *
  * `schemaVersion` is the database's own — Dexie stores version *n* as
- * IndexedDB version `n * 10` — so a database a failed upgrade left behind says
- * so, and `importBackup` migrates it. A store that version does not have yet
- * is written as an empty table: it holds no rows to carry.
+ * IndexedDB version `n * 10` — so the file says what the database holds.
  */
 export const exportBackup = (): Promise<BackupSnapshot> =>
   new Promise((resolve, reject) => {
@@ -38,28 +36,20 @@ export const exportBackup = (): Promise<BackupSnapshot> =>
       // Never the reason another tab's upgrade has to wait.
       idb.onversionchange = () => idb.close();
 
-      const has = (name: string) => idb.objectStoreNames.contains(name);
       const tables: Record<string, unknown[]> = {};
       let ownerId = "";
       try {
-        const tx = idb.transaction(
-          [...RECORD_TABLE_NAMES, "meta"].filter(has),
-          "readonly",
-        );
+        const tx = idb.transaction([...RECORD_TABLE_NAMES, "meta"], "readonly");
         for (const name of RECORD_TABLE_NAMES) {
-          tables[name] = [];
-          if (!has(name)) continue;
           const all = tx.objectStore(name).getAll();
           all.onsuccess = () => (tables[name] = all.result);
         }
-        if (has("meta")) {
-          const owner = tx.objectStore("meta").get("ownerId");
-          owner.onsuccess = () => {
-            const value = (owner.result as { value?: unknown } | undefined)
-              ?.value;
-            if (typeof value === "string") ownerId = value;
-          };
-        }
+        const owner = tx.objectStore("meta").get("ownerId");
+        owner.onsuccess = () => {
+          const value = (owner.result as { value?: unknown } | undefined)
+            ?.value;
+          if (typeof value === "string") ownerId = value;
+        };
         tx.oncomplete = () => {
           idb.close();
           resolve({
@@ -67,7 +57,7 @@ export const exportBackup = (): Promise<BackupSnapshot> =>
             schemaVersion: Math.floor(idb.version / 10),
             exportedAt: nowISO(),
             ownerId,
-            // Rows as stored at `schemaVersion`; `importBackup` validates.
+            // Rows as stored; `checkBackup` is what reads a file back.
             tables: tables as BackupTables,
           });
         };
